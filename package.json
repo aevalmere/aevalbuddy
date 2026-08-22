@@ -7,14 +7,23 @@
   "author": "darkelights",
   "scripts": {
     "start": "electron .",
+    "dev": "electronmon .",
     "build": "electron-builder --win"
+  },
+  "electronmon": {
+    "patterns": [
+      "!dist/**",
+      "!*.md",
+      "!forge.zip"
+    ]
   },
   "dependencies": {
     "electron-store": "^8.2.0"
   },
   "devDependencies": {
     "electron": "^38.2.1",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "electronmon": "^2.0.4"
   },
   "allowScripts": {
     "electron@38.8.6": true,
