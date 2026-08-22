@@ -11,15 +11,17 @@ const {
 const path = require('path');
 
 const store = require('./lib/store');
-const claude = require('./lib/claude');
+const ai = require('./lib/openrouter');
 const cursorBuddy = require('./lib/cursor-buddy');
 
-const MARGIN = 16;
 const PILL = { width: 72, height: 44 };
 const PANEL_WIDTH = 420;
 const PANEL_MIN_HEIGHT = 150;
 const PANEL_MAX_HEIGHT = 600;
 const DEFAULT_PANEL_HEIGHT = 170;
+const HUD_SIZE = { width: PANEL_WIDTH, height: 230 };
+const SNAP_MARGIN = 16;
+const SNAP_DISTANCE = 110;
 const DEFAULT_PROMPT = "What's on my screen and what should I do?";
 
 const ACTION_LABELS = {
@@ -29,7 +31,7 @@ const ACTION_LABELS = {
 
 let overlayWin = null;
 let settingsWin = null;
-let overlayMode = 'pill';
+let overlayMode = 'pill'; // 'pill' | 'panel' | 'hud'
 let overlayHidden = false;
 let currentPanelHeight = DEFAULT_PANEL_HEIGHT;
 let pendingShot = null;
@@ -38,6 +40,8 @@ let currentAbort = null;
 let queryGen = 0;
 let captureModeActive = false;
 let escapeRegistered = false;
+let hudPendingPos = null;
+let hudSnapInProgress = false;
 const lastRegisterResults = { captureQuery: false, toggleVisibility: false };
 
 const WALKTHROUGH = [
@@ -52,7 +56,7 @@ const WALKTHROUGH = [
     win: 'settings',
     targetSelector: '#api-key-input',
     clickScope: 'section[aria-labelledby="key-heading"]',
-    message: 'Paste your Anthropic API key, then press Save key',
+    message: 'Paste your OpenRouter API key, then press Save key',
     advanceOn: 'key-saved',
   },
 ];
@@ -63,25 +67,70 @@ function workArea() {
   return screen.getPrimaryDisplay().workArea;
 }
 
-function pillBounds() {
+// Every overlay window size is placed from the same stored anchor, so the
+// pill, the panel, and the HUD ghost all hug the same corner or edge.
+function boundsForSize(size, pos) {
   const wa = workArea();
-  return {
-    x: wa.x + wa.width - PILL.width - MARGIN,
-    y: wa.y + MARGIN,
-    width: PILL.width,
-    height: PILL.height,
-  };
+  const p = pos || store.getOverlayPos();
+  let x;
+  if (p.h === 'left') x = wa.x + p.offX;
+  else if (p.h === 'right') x = wa.x + wa.width - p.offX - size.width;
+  else x = wa.x + Math.round((wa.width - size.width) / 2);
+  let y;
+  if (p.v === 'top') y = wa.y + p.offY;
+  else if (p.v === 'bottom') y = wa.y + wa.height - p.offY - size.height;
+  else y = wa.y + Math.round((wa.height - size.height) / 2);
+  x = Math.max(wa.x, Math.min(x, wa.x + wa.width - size.width));
+  y = Math.max(wa.y, Math.min(y, wa.y + wa.height - size.height));
+  return { x, y, width: size.width, height: size.height };
+}
+
+function pillBounds() {
+  return boundsForSize(PILL);
 }
 
 function panelBounds(height) {
-  const wa = workArea();
   const h = Math.max(PANEL_MIN_HEIGHT, Math.min(PANEL_MAX_HEIGHT, Math.round(height)));
+  return boundsForSize({ width: PANEL_WIDTH, height: h });
+}
+
+// Derives an anchor config from a free-dropped rect: each axis hugs the
+// nearer edge, keeping the drop position as the offset.
+function posFromRect(rect) {
+  const wa = workArea();
+  const h = rect.x + rect.width / 2 < wa.x + wa.width / 2 ? 'left' : 'right';
+  const v = rect.y + rect.height / 2 < wa.y + wa.height / 2 ? 'top' : 'bottom';
   return {
-    x: wa.x + wa.width - PANEL_WIDTH - MARGIN,
-    y: wa.y + MARGIN,
-    width: PANEL_WIDTH,
-    height: h,
+    h,
+    v,
+    offX: h === 'left' ? rect.x - wa.x : wa.x + wa.width - rect.x - rect.width,
+    offY: v === 'top' ? rect.y - wa.y : wa.y + wa.height - rect.y - rect.height,
   };
+}
+
+// The nine game-HUD anchors: corners, edge midpoints, and center.
+function snapAnchors() {
+  const anchors = [];
+  for (const h of ['left', 'center', 'right']) {
+    for (const v of ['top', 'center', 'bottom']) {
+      anchors.push({ h, v, offX: SNAP_MARGIN, offY: SNAP_MARGIN });
+    }
+  }
+  return anchors;
+}
+
+function findSnap(rect) {
+  let best = null;
+  for (const pos of snapAnchors()) {
+    const target = boundsForSize(HUD_SIZE, pos);
+    const dx = target.x + target.width / 2 - (rect.x + rect.width / 2);
+    const dy = target.y + target.height / 2 - (rect.y + rect.height / 2);
+    const dist = Math.hypot(dx, dy);
+    if (dist <= SNAP_DISTANCE && (!best || dist < best.dist)) {
+      best = { pos, rect: target, dist };
+    }
+  }
+  return best;
 }
 
 // -------------------------------------------------------------------- windows
@@ -123,6 +172,7 @@ function createOverlay() {
     overlayWin.showInactive();
   });
   overlayWin.webContents.on('did-finish-load', sendOverlayState);
+  overlayWin.on('moved', onOverlayMoved);
   overlayWin.on('closed', () => {
     overlayWin = null;
   });
@@ -137,7 +187,7 @@ function openSettings() {
   }
   settingsWin = new BrowserWindow({
     width: 470,
-    height: 640,
+    height: 700,
     frame: false,
     transparent: true,
     resizable: false,
@@ -169,7 +219,7 @@ function openSettings() {
 // ------------------------------------------------------------ expand/collapse
 
 function expandPanel() {
-  if (!overlayWin) return;
+  if (!overlayWin || overlayMode === 'hud') return;
   overlayMode = 'panel';
   overlayHidden = false;
   overlayWin.setIgnoreMouseEvents(false);
@@ -204,9 +254,59 @@ function sendOverlayState() {
     mode: overlayMode,
     hasKey: store.hasApiKey(),
     captureOk: lastCaptureOk,
-    shortcuts: store.getShortcuts(),
-    active: { ...lastRegisterResults },
   });
+}
+
+// ------------------------------------------------------------------ HUD edit
+
+function enterHudEditor() {
+  if (!overlayWin || overlayMode === 'hud') return;
+  if (cursorBuddy.isActive()) cursorBuddy.cancel();
+  abortCurrentQuery();
+  overlayMode = 'hud';
+  overlayHidden = false;
+  hudPendingPos = store.getOverlayPos();
+  overlayWin.setIgnoreMouseEvents(false);
+  overlayWin.setFocusable(true);
+  overlayWin.setMovable(true);
+  overlayWin.setBounds(boundsForSize(HUD_SIZE));
+  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  overlayWin.show();
+  overlayWin.focus();
+  applyRegistrations();
+  sendOverlayState();
+}
+
+function exitHudEditor() {
+  if (!overlayWin || overlayMode !== 'hud') return;
+  const pos = hudPendingPos || posFromRect(overlayWin.getBounds());
+  store.setOverlayPos(pos);
+  hudPendingPos = null;
+  overlayWin.setMovable(false);
+  collapsePanel();
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.focus();
+}
+
+// Fires when a drag of the HUD ghost ends (and after programmatic setBounds,
+// hence the reentry guard). Snaps to the nearest of the nine anchors when
+// close enough, otherwise keeps the free position.
+function onOverlayMoved() {
+  if (overlayMode !== 'hud' || hudSnapInProgress || !overlayWin) return;
+  const rect = overlayWin.getBounds();
+  const snap = findSnap(rect);
+  if (snap) {
+    hudSnapInProgress = true;
+    overlayWin.setBounds(snap.rect);
+    setImmediate(() => {
+      hudSnapInProgress = false;
+    });
+    hudPendingPos = snap.pos;
+    if (!overlayWin.isDestroyed()) {
+      overlayWin.webContents.send('hud:snapped', {});
+    }
+  } else {
+    hudPendingPos = posFromRect(rect);
+  }
 }
 
 // ------------------------------------------------------------- screen capture
@@ -244,7 +344,7 @@ async function captureScreen() {
 }
 
 async function triggerCapture() {
-  if (!overlayWin) return;
+  if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
   pendingShot = await captureScreen();
   lastCaptureOk = !!pendingShot;
@@ -258,7 +358,7 @@ function onCaptureHotkey() {
 }
 
 function onToggleHotkey() {
-  if (!overlayWin) return;
+  if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = !overlayHidden;
   if (overlayHidden) {
     if (cursorBuddy.isActive()) cursorBuddy.cancel();
@@ -277,6 +377,10 @@ function onEscapePressed() {
     cursorBuddy.cancel();
     return;
   }
+  if (overlayMode === 'hud') {
+    exitHudEditor();
+    return;
+  }
   if (settingsWin && !settingsWin.isDestroyed() && settingsWin.isFocused()) {
     settingsWin.close();
     return;
@@ -287,9 +391,9 @@ function onEscapePressed() {
 }
 
 // Re-derives every global shortcut from current state. Escape is registered
-// globally only while the panel or walkthrough is open, so the app never
-// swallows Escape system-wide while idle. Everything is suspended while the
-// settings panel is recording a new combo.
+// globally only while the panel, the HUD editor, or the walkthrough is open,
+// so the app never swallows Escape system-wide while idle. Everything is
+// suspended while the settings panel is recording a new combo.
 function applyRegistrations() {
   globalShortcut.unregisterAll();
   escapeRegistered = false;
@@ -303,7 +407,7 @@ function applyRegistrations() {
     shortcuts.toggleVisibility,
     onToggleHotkey
   );
-  if (overlayMode === 'panel' || cursorBuddy.isActive()) {
+  if (overlayMode !== 'pill' || cursorBuddy.isActive()) {
     escapeRegistered = globalShortcut.register('Escape', onEscapePressed);
   }
 }
@@ -339,6 +443,7 @@ async function handleQuerySubmit(question) {
   }
   abortCurrentQuery();
   const gen = ++queryGen;
+  const model = store.getModel();
   currentAbort = new AbortController();
   const signal = currentAbort.signal;
   const send = (channel, payload) => {
@@ -347,8 +452,9 @@ async function handleQuerySubmit(question) {
     }
   };
   try {
-    await claude.streamQuery({
+    await ai.streamQuery({
       apiKey: store.getApiKey(),
+      model,
       question: q || DEFAULT_PROMPT,
       imageBase64: pendingShot ? pendingShot.base64 : null,
       signal,
@@ -357,7 +463,7 @@ async function handleQuerySubmit(question) {
     send('query:done', {});
     return { status: 'done' };
   } catch (err) {
-    const message = claude.friendlyError(err);
+    const message = ai.friendlyError(err, model);
     if (message) {
       send('query:error', { message });
     } else {
@@ -372,6 +478,7 @@ async function handleQuerySubmit(question) {
 // ------------------------------------------------------------------ walkthrough
 
 function startWalkthrough() {
+  if (overlayMode === 'hud') return;
   cursorBuddy.start(WALKTHROUGH);
   applyRegistrations();
 }
@@ -389,7 +496,10 @@ cursorBuddy.init({
 
 function registerIpc() {
   ipcMain.handle('overlay:trigger', () => triggerCapture());
-  ipcMain.handle('overlay:collapse', () => collapsePanel());
+  ipcMain.handle('overlay:collapse', () => {
+    if (overlayMode === 'hud') exitHudEditor();
+    else collapsePanel();
+  });
   ipcMain.handle('overlay:resize', (_e, { height }) => {
     if (overlayMode !== 'panel' || !overlayWin) return;
     currentPanelHeight = height;
@@ -404,8 +514,13 @@ function registerIpc() {
   ipcMain.handle('query:submit', (_e, { question }) => handleQuerySubmit(question));
   ipcMain.handle('query:cancel', () => abortCurrentQuery());
 
+  ipcMain.handle('hud:enter', () => enterHudEditor());
+  ipcMain.handle('hud:exit', () => exitHudEditor());
+
   ipcMain.handle('settings:get', () => ({
     hasKey: store.hasApiKey(),
+    model: store.getModel(),
+    defaultModel: ai.DEFAULT_MODEL,
     shortcuts: store.getShortcuts(),
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
@@ -420,6 +535,11 @@ function registerIpc() {
     sendOverlayState();
     cursorBuddy.notify('key-saved');
     return { ok: true };
+  });
+
+  ipcMain.handle('settings:save-model', (_e, { model }) => {
+    const saved = store.setModel(model);
+    return { ok: true, model: saved };
   });
 
   ipcMain.handle('settings:close', () => {
@@ -463,7 +583,6 @@ function registerIpc() {
     }
     store.setShortcut(action, accelerator);
     applyRegistrations();
-    sendOverlayState();
     return {
       ok: true,
       shortcuts: store.getShortcuts(),
@@ -474,7 +593,6 @@ function registerIpc() {
   ipcMain.handle('shortcuts:reset', () => {
     const shortcuts = store.resetShortcuts();
     applyRegistrations();
-    sendOverlayState();
     return { ok: true, shortcuts, active: { ...lastRegisterResults } };
   });
 
@@ -482,6 +600,9 @@ function registerIpc() {
     cursorBuddy.handleResolveResult(payload);
   });
   ipcMain.handle('buddy:dismiss', () => cursorBuddy.notify('dismiss'));
+  ipcMain.handle('buddy:set-ignore', (_e, { ignore }) => {
+    cursorBuddy.setClickThrough(ignore);
+  });
 
   ipcMain.handle('app:quit', () => app.quit());
 }
@@ -506,8 +627,14 @@ if (!gotLock) {
         JSON.stringify(lastRegisterResults)
       );
     }
-    if (!store.hasApiKey() && !process.env.AEVAL_SMOKE) {
-      // First launch with no key: the cursor buddy walks the user to settings.
+    // The walkthrough auto-runs once, on the very first launch with no key.
+    // After that it only appears when asked for (typing "help me").
+    if (
+      !store.hasApiKey() &&
+      !store.getWalkthroughAutoShown() &&
+      !process.env.AEVAL_SMOKE
+    ) {
+      store.setWalkthroughAutoShown();
       setTimeout(startWalkthrough, 1000);
     }
     if (process.env.AEVAL_SMOKE) {
@@ -525,14 +652,15 @@ if (!gotLock) {
 }
 
 // Headless self-check used by automated verification: boots the real app,
-// exercises capture, shortcut registration, and the query-panel expansion,
-// prints machine-readable lines, then exits.
+// exercises capture, shortcut registration, panel expansion, and the HUD
+// editor round trip, prints machine-readable lines, then exits.
 async function runSmoke() {
   const log = (label, value) => console.log(`[SMOKE] ${label}=${value}`);
   try {
     log('windows', overlayWin && !overlayWin.isDestroyed() ? 'overlay-ok' : 'overlay-missing');
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
+    log('model', store.getModel());
     const shot = await captureScreen();
     log('capture', shot ? `ok:${shot.bytes}bytes` : 'failed');
     await triggerCapture();
@@ -540,6 +668,13 @@ async function runSmoke() {
     log('hasKey', store.hasApiKey());
     const submitResult = await handleQuerySubmit('smoke question');
     log('queryWithoutKey', submitResult.status);
+    enterHudEditor();
+    log('hudMode', overlayMode);
+    const snap = findSnap(boundsForSize(HUD_SIZE, { h: 'left', v: 'top', offX: 30, offY: 30 }));
+    log('hudSnapFound', snap ? `${snap.pos.h}-${snap.pos.v}` : 'none');
+    exitHudEditor();
+    log('hudExitMode', overlayMode);
+    log('storedPos', JSON.stringify(store.getOverlayPos()));
     startWalkthrough();
     log('walkthrough', cursorBuddy.isActive());
     setTimeout(() => {

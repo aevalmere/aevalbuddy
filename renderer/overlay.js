@@ -11,9 +11,10 @@ const noticeSettings = document.getElementById('notice-settings');
 const errorBox = document.getElementById('error');
 const errorText = document.getElementById('error-text');
 const response = document.getElementById('response');
-const hintCapture = document.getElementById('hint-capture');
+const hud = document.getElementById('hud');
+const hudDone = document.getElementById('hud-done');
 
-let state = { mode: 'pill', hasKey: false, captureOk: true, shortcuts: {} };
+let state = { mode: 'pill', hasKey: false, captureOk: true };
 let busy = false;
 let lastGen = 0;
 let watchSelector = null;
@@ -26,9 +27,7 @@ function render(prevMode) {
   document.body.dataset.mode = state.mode;
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';
-  if (state.shortcuts.captureQuery) {
-    hintCapture.textContent = state.shortcuts.captureQuery;
-  }
+  hud.hidden = state.mode !== 'hud';
   if (state.mode === 'panel') {
     renderNotice();
     if (prevMode !== 'panel') {
@@ -46,7 +45,7 @@ function renderNotice() {
     return;
   }
   if (!state.hasKey) {
-    noticeText.textContent = 'No API key saved yet.';
+    noticeText.textContent = 'No OpenRouter API key saved yet.';
     noticeSettings.hidden = false;
     notice.hidden = false;
   } else if (!state.captureOk) {
@@ -170,6 +169,17 @@ noticeSettings.addEventListener('click', () => {
 });
 closeBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:collapse');
+});
+
+hudDone.addEventListener('click', () => {
+  window.aeval.invoke('hud:exit');
+});
+
+let snapFlashTimer = null;
+window.aeval.on('hud:snapped', () => {
+  hud.classList.add('snapped');
+  clearTimeout(snapFlashTimer);
+  snapFlashTimer = setTimeout(() => hud.classList.remove('snapped'), 350);
 });
 
 input.addEventListener('keydown', (e) => {

@@ -15,17 +15,22 @@ const INVOKE_CHANNELS = new Set([
   'query:cancel',
   'settings:get',
   'settings:save-key',
+  'settings:save-model',
   'settings:close',
+  'hud:enter',
+  'hud:exit',
   'shortcuts:set',
   'shortcuts:reset',
   'shortcuts:capture-mode',
   'buddy:resolve-result',
   'buddy:dismiss',
+  'buddy:set-ignore',
   'app:quit',
 ]);
 
 const LISTEN_CHANNELS = new Set([
   'overlay:state',
+  'hud:snapped',
   'query:delta',
   'query:done',
   'query:error',

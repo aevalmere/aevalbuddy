@@ -10,7 +10,6 @@
     "build": "electron-builder --win"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
     "electron-store": "^8.2.0"
   },
   "devDependencies": {

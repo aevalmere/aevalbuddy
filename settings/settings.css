@@ -64,7 +64,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   opacity: 0.8;
   transition: background 150ms ease, opacity 150ms ease;
 }
@@ -131,6 +131,7 @@ input:focus {
 #toggle-key,
 .sc-change,
 #reset-shortcuts,
+#edit-position,
 #quit-app {
   padding: 7px 12px;
   border: 1px solid #303D6A;
@@ -141,6 +142,7 @@ input:focus {
 #toggle-key:hover,
 .sc-change:hover,
 #reset-shortcuts:hover,
+#edit-position:hover,
 #quit-app:hover {
   background: rgba(48, 61, 106, 0.35);
   border-color: rgba(201, 207, 221, 0.4);

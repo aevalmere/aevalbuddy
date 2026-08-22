@@ -12,7 +12,17 @@
     <span class="ring"></span>
     <span class="dot"></span>
   </div>
-  <div id="callout" role="status"></div>
+  <div id="callout" role="status">
+    <button id="callout-close" type="button" aria-label="Dismiss walkthrough">
+      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+    <p id="callout-message"></p>
+    <p class="callout-hint">Esc also dismisses this</p>
+  </div>
   <script src="buddy.js"></script>
 </body>
 </html>

@@ -24,15 +24,16 @@
       <section aria-labelledby="key-heading">
         <h2 id="key-heading">API key</h2>
         <p class="desc">
-          Queries go straight from this machine to the Anthropic API. The key is
-          stored locally, encrypted with Windows credential storage when available.
+          Queries go straight from this machine to OpenRouter. Create a key at
+          openrouter.ai/keys. It is stored locally, encrypted with Windows
+          credential storage when available.
         </p>
         <div class="row">
           <input
             id="api-key-input"
             type="password"
-            placeholder="sk-ant-..."
-            aria-label="Anthropic API key"
+            placeholder="sk-or-v1-..."
+            aria-label="OpenRouter API key"
             autocomplete="off"
             spellcheck="false"
           />
@@ -42,6 +43,38 @@
           <button id="save-key" type="button" class="primary">Save key</button>
           <span id="key-status" role="status"></span>
         </div>
+      </section>
+
+      <section aria-labelledby="model-heading">
+        <h2 id="model-heading">Model</h2>
+        <p class="desc">
+          Any OpenRouter model id. Ids ending in :free cost nothing. Pick a
+          vision-capable model so it can read the screenshot; leave the field
+          empty and save to restore the default.
+        </p>
+        <div class="row">
+          <input
+            id="model-input"
+            type="text"
+            aria-label="OpenRouter model id"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="save-model" type="button" class="primary">Save model</button>
+        </div>
+        <div class="row">
+          <span id="model-status" role="status"></span>
+        </div>
+      </section>
+
+      <section aria-labelledby="position-heading">
+        <h2 id="position-heading">Overlay position</h2>
+        <p class="desc">
+          Opens a layout editor over the overlay. Drag it anywhere on screen;
+          it snaps to edges, corners, and center. Press Done or Esc to keep
+          the spot.
+        </p>
+        <button id="edit-position" type="button">Edit overlay position</button>
       </section>
 
       <section aria-labelledby="shortcut-heading">

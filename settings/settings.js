@@ -4,6 +4,10 @@ const keyInput = document.getElementById('api-key-input');
 const toggleKeyBtn = document.getElementById('toggle-key');
 const saveKeyBtn = document.getElementById('save-key');
 const keyStatus = document.getElementById('key-status');
+const modelInput = document.getElementById('model-input');
+const saveModelBtn = document.getElementById('save-model');
+const modelStatus = document.getElementById('model-status');
+const editPositionBtn = document.getElementById('edit-position');
 const shortcutList = document.getElementById('shortcut-list');
 const shortcutError = document.getElementById('shortcut-error');
 const shortcutErrorText = document.getElementById('shortcut-error-text');
@@ -20,6 +24,8 @@ let statusTimer = null;
 
 window.aeval.invoke('settings:get').then((d) => {
   data = d;
+  modelInput.value = d.model || '';
+  modelInput.placeholder = d.defaultModel || '';
   renderShortcuts();
 });
 
@@ -71,6 +77,36 @@ keyInput.addEventListener('keydown', (e) => {
     e.preventDefault();
     saveKey();
   }
+});
+
+// ----------------------------------------------------------------- model
+
+let modelStatusTimer = null;
+
+function saveModel() {
+  window.aeval.invoke('settings:save-model', { model: modelInput.value }).then((r) => {
+    if (!r.ok) return;
+    modelInput.value = r.model;
+    clearTimeout(modelStatusTimer);
+    modelStatus.textContent = 'Saved.';
+    modelStatusTimer = setTimeout(() => {
+      modelStatus.textContent = '';
+    }, 2500);
+  });
+}
+
+saveModelBtn.addEventListener('click', saveModel);
+modelInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveModel();
+  }
+});
+
+// -------------------------------------------------------------- position
+
+editPositionBtn.addEventListener('click', () => {
+  window.aeval.invoke('hud:enter');
 });
 
 // -------------------------------------------------------------- shortcuts

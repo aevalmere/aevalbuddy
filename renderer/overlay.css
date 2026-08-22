@@ -42,6 +42,13 @@ button {
   border-radius: 4px;
 }
 
+/* The id selectors below set display values, which would beat the UA rule
+   for the hidden attribute; these keep hidden meaning hidden. */
+#pill[hidden],
+#panel[hidden] {
+  display: none;
+}
+
 /* ------------------------------------------------------------------- pill */
 
 #pill {
@@ -129,7 +136,7 @@ body[data-mode="panel"] #pill {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--slate);
   opacity: 0.8;
   transition: background 150ms ease, opacity 150ms ease;
@@ -178,7 +185,7 @@ body[data-mode="panel"] #pill {
   font-size: 13px;
   font-weight: 600;
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   transition: opacity 150ms ease;
 }
 
@@ -212,27 +219,52 @@ body[data-mode="panel"] #pill {
   border-radius: 4px;
 }
 
-/* ------------------------------------------------------------------- hint */
+/* -------------------------------------------------------------- HUD edit */
 
-.hint-row {
+#hud {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 44, 51, 0.94);
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
   display: flex;
-  gap: 14px;
-  padding-top: 2px;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: drag;
+  cursor: move;
+  transition: border-color 150ms ease;
 }
 
-.hint {
+#hud[hidden] {
+  display: none;
+}
+
+#hud.snapped {
+  border-style: solid;
+  border-color: var(--slate);
+}
+
+.hud-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.hud-title {
+  font-weight: 600;
+}
+
+.hud-sub {
   font-size: 13px;
   color: rgba(201, 207, 221, 0.75);
+  margin-bottom: 8px;
 }
 
-kbd {
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--slate);
-  background: rgba(130, 58, 128, 0.18);
-  border: 1px solid var(--accent);
-  border-radius: 5px;
-  padding: 1px 6px;
+#hud-done {
+  -webkit-app-region: no-drag;
+  min-width: 96px;
 }
 
 /* ---------------------------------------------------------------- motion */
