@@ -8,29 +8,23 @@
   <link rel="stylesheet" href="overlay.css" />
 </head>
 <body data-mode="idle">
-  <section id="opanel" hidden aria-label="AevalBuddy answer">
-    <div id="response-tools">
-      <span id="stream-state" role="status"></span>
-      <button id="copy-response" type="button" aria-label="Copy the answer">Copy</button>
+  <section id="opanel" hidden aria-label="AevalBuddy conversation">
+    <div id="chat-tools">
+      <span class="chat-title">AevalBuddy</span>
+      <button id="new-chat" type="button" aria-label="Start a new conversation">New chat</button>
     </div>
-    <div id="response" role="log" aria-live="polite"></div>
-    <div id="error" role="alert" hidden>
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="15" y1="9" x2="9" y2="15"></line>
-        <line x1="9" y1="9" x2="15" y2="15"></line>
-      </svg>
-      <span id="error-text"></span>
-    </div>
+    <div id="chat" role="log" aria-live="polite"></div>
   </section>
 
   <section id="hud" hidden aria-label="Answer position editor">
     <div class="hud-inner">
       <p class="hud-title">Answer window</p>
-      <p class="hud-sub">Drag anywhere, or drop it near the input bar to dock them together.</p>
+      <p class="hud-sub">Drag anywhere. Drop it near the input bar to dock them together.</p>
       <span id="dock-badge" class="dock-badge" hidden>Docked to input</span>
-      <button id="hud-done" type="button" class="accent-btn">Done</button>
+      <div class="hud-actions">
+        <button id="dock-toggle" type="button">Detach</button>
+        <button id="hud-done" type="button" class="accent-btn">Done</button>
+      </div>
     </div>
   </section>
 

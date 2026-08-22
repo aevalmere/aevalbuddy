@@ -1,6 +1,7 @@
 /* Palette: #000000 black, #10254F space indigo, #2B2C33 shadow grey,
    #823A80 grape soda (single accent), #C9CFDD pale slate, #303D6A twilight
-   indigo. Nothing outside this palette. */
+   indigo. Nothing outside this palette. Motion tokens and scales are
+   specified in DESIGN.md; this file builds to them. */
 
 :root {
   --black: #000000;
@@ -9,6 +10,12 @@
   --accent: #823A80;
   --slate: #C9CFDD;
   --twilight: #303D6A;
+
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --d-fast: 150ms;
+  --d-med: 240ms;
+  --d-slow: 380ms;
 }
 
 * {
@@ -45,7 +52,9 @@ button {
 /* The id selectors below set display values, which would beat the UA rule
    for the hidden attribute; these keep hidden meaning hidden. */
 #pill[hidden],
-#panel[hidden] {
+#panel[hidden],
+#opanel[hidden],
+#hud[hidden] {
   display: none;
 }
 
@@ -55,14 +64,26 @@ button {
   width: 64px;
   height: 36px;
   margin: 4px;
-  border-radius: 11px;
+  border-radius: 12px;
   background: rgba(43, 44, 51, 0.88);
   border: 1px solid rgba(48, 61, 106, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition: border-color var(--d-fast) ease, background var(--d-fast) ease,
+    transform var(--d-fast) var(--ease-out);
+}
+
+#pill.in {
+  animation: pill-in 200ms var(--ease-glide);
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
 }
 
 #pill:hover {
@@ -77,7 +98,7 @@ button {
   border-radius: 50%;
   background: var(--slate);
   opacity: 0.55;
-  transition: opacity 160ms ease;
+  transition: opacity var(--d-fast) ease;
 }
 
 #pill:hover .pill-dot {
@@ -92,24 +113,27 @@ body[data-mode="panel"] #pill {
 
 #panel {
   background: rgba(43, 44, 51, 0.97);
+  /* Border kept on purpose: the window floats over arbitrary desktop
+     content, and a shadow alone vanishes on dark backgrounds. */
   border: 1px solid var(--twilight);
   border-radius: 12px;
   padding: 14px 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-  animation: rise 170ms ease;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-@keyframes rise {
+/* Expansion out of the pill's corner; transform-origin is set from the
+   anchor by overlay.js. */
+#panel.in {
+  animation: panel-in var(--d-slow) var(--ease-glide);
+}
+
+@keyframes panel-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    transform: scale(0.9);
   }
 }
 
@@ -127,7 +151,7 @@ body[data-mode="panel"] #pill {
   color: var(--slate);
   background: rgba(16, 37, 79, 0.45);
   border: 1px solid var(--twilight);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 8px 10px;
   user-select: text;
 }
@@ -149,10 +173,10 @@ body[data-mode="panel"] #pill {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--slate);
   opacity: 0.8;
-  transition: background 150ms ease, opacity 150ms ease;
+  transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
 .panel-top button:hover {
@@ -160,11 +184,240 @@ body[data-mode="panel"] #pill {
   opacity: 1;
 }
 
-/* --------------------------------------------------------- notice / error */
+/* ----------------------------------------------------------------- notice */
 
-#notice,
-#error {
+#notice {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(16, 37, 79, 0.5);
+}
+
+#notice[hidden] {
+  display: none;
+}
+
+#notice svg {
+  flex: 0 0 auto;
+}
+
+#notice span {
+  flex: 1;
+}
+
+.accent-btn {
+  flex: 0 0 auto;
+  background: var(--accent);
+  color: var(--slate);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
+}
+
+.accent-btn:hover {
+  opacity: 0.88;
+}
+
+.accent-btn:active {
+  transform: scale(0.97);
+}
+
+/* ---------------------------------------------------------------- opanel */
+
+#opanel {
+  background: rgba(43, 44, 51, 0.97);
+  border: 1px solid var(--twilight);
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* A docked answer grows away from the input bar's edge; a free one grows
+   from its own anchor. output.js sets data-origin. */
+#opanel[data-origin="top"] {
+  --rise: -8px;
+  transform-origin: top center;
+}
+
+#opanel[data-origin="bottom"] {
+  --rise: 8px;
+  transform-origin: bottom center;
+}
+
+#opanel[data-origin="center"] {
+  --rise: 0px;
+  transform-origin: center;
+}
+
+#opanel.in {
+  animation: opanel-in var(--d-slow) var(--ease-glide);
+}
+
+@keyframes opanel-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise, -8px)) scale(0.95);
+  }
+}
+
+#chat-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.chat-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(201, 207, 221, 0.7);
+}
+
+#new-chat {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.85);
+  padding: 3px 9px;
+  border-radius: 6px;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#new-chat:hover {
+  background: rgba(48, 61, 106, 0.4);
+  color: var(--slate);
+}
+
+/* ------------------------------------------------------------- transcript */
+
+#chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 2px 4px 2px 2px;
+  user-select: text;
+}
+
+#chat::-webkit-scrollbar {
+  width: 8px;
+}
+
+#chat::-webkit-scrollbar-thumb {
+  background: var(--twilight);
+  border-radius: 4px;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  animation: msg-in var(--d-med) var(--ease-out);
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.msg.user {
+  align-items: flex-end;
+}
+
+.bubble {
+  max-width: 88%;
+  border-radius: 12px;
+  padding: 7px 11px;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.msg.user .bubble {
+  background: rgba(48, 61, 106, 0.6);
+  border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
+}
+
+.msg.assistant .bubble {
+  background: rgba(16, 37, 79, 0.55);
+  border-bottom-left-radius: 4px;
+  max-width: 100%;
+}
+
+.msg-meta {
+  padding: 2px 2px 0;
+  opacity: 0;
+  transition: opacity var(--d-fast) ease;
+}
+
+.msg.assistant:hover .msg-meta,
+.msg-meta:focus-within {
+  opacity: 1;
+}
+
+.copy-msg {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.85);
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: background var(--d-fast) ease;
+}
+
+.copy-msg:hover {
+  background: rgba(48, 61, 106, 0.4);
+}
+
+.think-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px 0 2px;
+}
+
+.think-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--slate);
+  opacity: 0.35;
+  animation: think 1.2s infinite var(--ease-out);
+}
+
+.think-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.think-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes think {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: none;
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.error-row {
+  flex-direction: row;
   align-items: center;
   gap: 8px;
   font-size: 14px;
@@ -175,134 +428,53 @@ body[data-mode="panel"] #pill {
   border: 1px solid var(--twilight);
 }
 
-#notice[hidden],
-#error[hidden] {
-  display: none;
-}
-
-#notice svg,
-#error svg {
+.error-row svg {
   flex: 0 0 auto;
 }
 
-#notice span,
-#error span {
-  flex: 1;
-}
+/* --------------------------------------------------------------- markdown */
 
-.accent-btn {
-  flex: 0 0 auto;
-  background: var(--accent);
-  color: var(--slate);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 8px;
-  transition: opacity 150ms ease;
-}
-
-.accent-btn:hover {
-  opacity: 0.88;
-}
-
-/* --------------------------------------------------------------- response */
-
-#opanel {
-  background: rgba(43, 44, 51, 0.97);
-  border: 1px solid var(--twilight);
-  border-radius: 12px;
-  padding: 10px 16px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-  animation: rise 170ms ease;
-}
-
-#opanel[hidden] {
-  display: none;
-}
-
-#response-tools {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-#stream-state {
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.7);
-  margin-right: auto;
-}
-
-#copy-response {
-  font-size: 12px;
-  color: var(--slate);
-  border: 1px solid var(--twilight);
-  border-radius: 8px;
-  padding: 3px 9px;
-  opacity: 0.85;
-  transition: background 150ms ease, opacity 150ms ease;
-}
-
-#copy-response:hover {
-  background: rgba(48, 61, 106, 0.35);
-  opacity: 1;
-}
-
-#response {
+.md-body {
   font-size: 14px;
   line-height: 1.55;
-  word-break: break-word;
-  max-height: 420px;
-  overflow-y: auto;
-  padding-right: 4px;
-  user-select: text;
 }
 
-#response::-webkit-scrollbar,
-#response pre::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-#response::-webkit-scrollbar-thumb,
-#response pre::-webkit-scrollbar-thumb {
-  background: var(--twilight);
-  border-radius: 4px;
-}
-
-/* Markdown output. Sizes stay restrained: body size everywhere, headings
-   differ by weight, not scale jumps. */
-#response .md-p {
+.md-body .md-p {
   margin: 3px 0;
 }
 
-#response .md-gap {
+.md-body .md-gap {
   height: 8px;
 }
 
-#response .md-h {
+.md-body .md-h {
   font-weight: 600;
   margin: 10px 0 4px;
 }
 
-#response .md-h1 {
+.md-body .md-h:first-child {
+  margin-top: 2px;
+}
+
+.md-body .md-h1 {
+  font-size: 16px;
+}
+
+.md-body .md-h2 {
   font-size: 15px;
 }
 
-#response ul,
-#response ol {
+.md-body ul,
+.md-body ol {
   margin: 4px 0 6px;
   padding-left: 20px;
 }
 
-#response li {
+.md-body li {
   margin: 2px 0;
 }
 
-#response code {
+.md-body code {
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 13px;
   background: rgba(16, 37, 79, 0.6);
@@ -311,11 +483,11 @@ body[data-mode="panel"] #pill {
   padding: 0 5px;
 }
 
-#response pre {
+.md-body pre {
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 13px;
   line-height: 1.5;
-  background: rgba(16, 37, 79, 0.55);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--twilight);
   border-radius: 8px;
   padding: 9px 11px;
@@ -324,30 +496,39 @@ body[data-mode="panel"] #pill {
   white-space: pre;
 }
 
-#response blockquote {
+.md-body pre::-webkit-scrollbar {
+  height: 8px;
+}
+
+.md-body pre::-webkit-scrollbar-thumb {
+  background: var(--twilight);
+  border-radius: 4px;
+}
+
+.md-body blockquote {
   border-left: 2px solid var(--twilight);
   padding-left: 10px;
   margin: 4px 0;
   color: rgba(201, 207, 221, 0.8);
 }
 
-#response hr {
+.md-body hr {
   border: none;
   border-top: 1px solid var(--twilight);
   margin: 8px 0;
 }
 
-#response a {
+.md-body a {
   color: var(--slate);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-#response a:hover {
+.md-body a:hover {
   text-decoration-color: var(--accent);
 }
 
-#response strong {
+.md-body strong {
   font-weight: 600;
 }
 
@@ -364,11 +545,7 @@ body[data-mode="panel"] #pill {
   justify-content: center;
   -webkit-app-region: drag;
   cursor: move;
-  transition: border-color 150ms ease;
-}
-
-#hud[hidden] {
-  display: none;
+  transition: border-color var(--d-fast) ease;
 }
 
 #hud.snapped {
@@ -382,6 +559,7 @@ body[data-mode="panel"] #pill {
   align-items: center;
   gap: 6px;
   text-align: center;
+  padding: 0 16px;
 }
 
 .hud-title {
@@ -391,7 +569,14 @@ body[data-mode="panel"] #pill {
 .hud-sub {
   font-size: 13px;
   color: rgba(201, 207, 221, 0.75);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
 }
 
 #hud-done {
@@ -399,12 +584,24 @@ body[data-mode="panel"] #pill {
   min-width: 96px;
 }
 
+#dock-toggle {
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  background: rgba(48, 61, 106, 0.4);
+  transition: background var(--d-fast) ease;
+}
+
+#dock-toggle:hover {
+  background: rgba(48, 61, 106, 0.65);
+}
+
 .dock-badge {
   font-size: 12px;
   color: var(--slate);
   background: rgba(130, 58, 128, 0.18);
   border: 1px solid var(--accent);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 2px 8px;
   margin-bottom: 6px;
 }

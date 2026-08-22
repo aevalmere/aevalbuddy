@@ -10,6 +10,9 @@ const ring = buddy.querySelector('.ring');
 const callout = document.getElementById('callout');
 const calloutMessage = document.getElementById('callout-message');
 const calloutClose = document.getElementById('callout-close');
+const calloutActions = document.getElementById('callout-actions');
+const calloutCount = document.getElementById('callout-count');
+const calloutNext = document.getElementById('callout-next');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EASE = reduceMotion ? 1 : 0.16;
@@ -56,12 +59,21 @@ function positionCallout() {
   callout.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
 }
 
-window.aeval.on('buddy:show', ({ x, y, targetW, targetH, message: msg }) => {
+window.aeval.on('buddy:show', ({ x, y, targetW, targetH, message: msg, kind, stepIndex, stepCount }) => {
   const ringSize = clamp(Math.max(targetW, targetH) + 16, 30, 96);
   ring.style.width = `${ringSize}px`;
   ring.style.height = `${ringSize}px`;
 
-  if (msg !== message) {
+  // Model-directed points advance with a button; walkthrough steps advance
+  // on the app actions they describe, so they get no button.
+  const isPoint = kind === 'point';
+  calloutActions.hidden = !isPoint;
+  if (isPoint) {
+    calloutNext.textContent = stepIndex + 1 < stepCount ? 'Next' : 'Got it';
+    calloutCount.textContent = stepCount > 1 ? `${stepIndex + 1} of ${stepCount}` : '';
+  }
+
+  if (msg !== message || isPoint) {
     message = msg;
     calloutMessage.textContent = msg;
     calloutSize = { w: callout.offsetWidth, h: callout.offsetHeight };
@@ -111,4 +123,8 @@ document.addEventListener('mouseleave', () => setIgnore(true));
 
 calloutClose.addEventListener('click', () => {
   window.aeval.invoke('buddy:dismiss');
+});
+
+calloutNext.addEventListener('click', () => {
+  window.aeval.invoke('buddy:advance');
 });

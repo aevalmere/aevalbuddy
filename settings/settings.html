@@ -10,7 +10,7 @@
 <body>
   <div id="app">
     <header id="titlebar">
-      <span class="title">AevalBuddy</span>
+      <span class="title">Settings</span>
       <button id="close-settings" type="button" aria-label="Close settings">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -21,12 +21,18 @@
     </header>
 
     <main>
-      <section aria-labelledby="key-heading">
-        <h2 id="key-heading">API key</h2>
+      <section class="card" aria-labelledby="key-heading">
+        <div class="card-head">
+          <h2 id="key-heading">OpenRouter API key</h2>
+          <span id="key-state" class="chip">
+            <span class="chip-dot" aria-hidden="true"></span>
+            <span id="key-state-text">No key yet</span>
+          </span>
+        </div>
         <p class="desc">
-          Queries go straight from this machine to OpenRouter. Create a key at
-          openrouter.ai/keys. It is stored locally, encrypted with Windows
-          credential storage when available.
+          Queries go straight from this machine to OpenRouter. Create a free
+          key at openrouter.ai/keys; it is stored on this machine, encrypted
+          with Windows credential storage when available.
         </p>
         <div class="row">
           <input
@@ -41,18 +47,16 @@
         </div>
         <div class="row">
           <button id="save-key" type="button" class="primary">Save key</button>
+          <button id="remove-key" type="button" hidden>Remove key</button>
           <span id="key-status" role="status"></span>
         </div>
       </section>
 
-      <section aria-labelledby="model-heading">
+      <section class="card" aria-labelledby="model-heading">
         <h2 id="model-heading">Model</h2>
         <p class="desc">
-          Pick a free vision model from the live OpenRouter list, or paste any
-          model id below. Ids ending in :free cost nothing; leave the field
-          empty and save to restore the default. If a free model errors with a
-          data policy message, enable "Free model publication" in your
-          OpenRouter privacy settings.
+          Free vision models from OpenRouter's live list. Pick one, or paste
+          any model id below; leave it empty and save to restore the default.
         </p>
         <div class="row">
           <div class="combo" id="model-combo">
@@ -82,22 +86,22 @@
           />
           <button id="save-model" type="button" class="primary">Save model</button>
         </div>
-        <div class="row">
+        <div class="row status-row">
           <span id="model-status" role="status"></span>
         </div>
       </section>
 
-      <section aria-labelledby="position-heading">
-        <h2 id="position-heading">Overlay position</h2>
+      <section class="card" aria-labelledby="layout-heading">
+        <h2 id="layout-heading">Layout</h2>
         <p class="desc">
-          Opens a layout editor over the overlay. Drag it anywhere on screen;
-          it snaps to edges, corners, and center. Press Done or Esc to keep
-          the spot.
+          Rearrange the input bar and the answer window like a game HUD. Drag
+          either one; it snaps to edges and corners. Drop the answer near the
+          input to dock them, or press Detach to split them apart.
         </p>
-        <button id="edit-position" type="button">Edit overlay position</button>
+        <button id="edit-position" type="button">Edit layout</button>
       </section>
 
-      <section aria-labelledby="shortcut-heading">
+      <section class="card" aria-labelledby="shortcut-heading">
         <h2 id="shortcut-heading">Shortcuts</h2>
         <ul id="shortcut-list">
           <li class="shortcut-row" data-action="captureQuery">
@@ -132,6 +136,7 @@
     </main>
 
     <footer>
+      <span id="about">AevalBuddy <span id="app-version"></span></span>
       <button id="quit-app" type="button">Quit AevalBuddy</button>
     </footer>
   </div>

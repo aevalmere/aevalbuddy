@@ -1,71 +1,168 @@
 'use strict';
 
+// The answer window renders the conversation as a transcript: user bubbles,
+// assistant bubbles with streamed markdown, inline error rows. The window
+// only ever grows during a conversation (in 24px steps); the transcript
+// scrolls inside it, so streaming never jitters the window edge.
+
 const opanel = document.getElementById('opanel');
-const response = document.getElementById('response');
-const streamState = document.getElementById('stream-state');
-const copyBtn = document.getElementById('copy-response');
-const errorBox = document.getElementById('error');
-const errorText = document.getElementById('error-text');
+const chatEl = document.getElementById('chat');
+const newChatBtn = document.getElementById('new-chat');
 const hud = document.getElementById('hud');
 const hudDone = document.getElementById('hud-done');
+const dockToggle = document.getElementById('dock-toggle');
 const dockBadge = document.getElementById('dock-badge');
 
 let mode = 'idle';
+let prevMode = 'idle';
 let lastGen = 0;
-let rawText = '';
+let docked = true;
 let renderQueued = false;
 let resizeQueued = false;
-let lastResizeAt = 0;
 let lastSentHeight = 0;
+// The assistant message currently streaming: { el, body, raw }.
+let liveMsg = null;
 
-// ----------------------------------------------------------------- render
+// ------------------------------------------------------------------ bubbles
 
-function renderResponse() {
-  if (renderQueued) return;
+function scrollToBottom(force) {
+  const nearBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 48;
+  if (force || nearBottom) chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function addUserMsg(text) {
+  const msg = document.createElement('div');
+  msg.className = 'msg user';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  msg.appendChild(bubble);
+  chatEl.appendChild(msg);
+  scrollToBottom(true);
+}
+
+function addAssistantMsg() {
+  const msg = document.createElement('div');
+  msg.className = 'msg assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  const body = document.createElement('div');
+  body.className = 'md-body';
+  bubble.appendChild(body);
+  msg.appendChild(bubble);
+
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'copy-msg';
+  copy.textContent = 'Copy';
+  copy.setAttribute('aria-label', 'Copy this answer');
+  meta.appendChild(copy);
+  msg.appendChild(meta);
+
+  chatEl.appendChild(msg);
+  const entry = { el: msg, body, raw: '' };
+  copy.addEventListener('click', () => {
+    if (!entry.raw) return;
+    window.aeval.invoke('clipboard:write', { text: entry.raw }).then(() => {
+      copy.textContent = 'Copied';
+      setTimeout(() => {
+        copy.textContent = 'Copy';
+      }, 1500);
+    });
+  });
+  return entry;
+}
+
+function setThinking(entry, on) {
+  if (on) {
+    entry.body.innerHTML =
+      '<span class="think-dots" aria-label="Thinking"><i></i><i></i><i></i></span>';
+  }
+  entry.el.classList.toggle('thinking', on);
+}
+
+function addErrorRow(message) {
+  const row = document.createElement('div');
+  row.className = 'msg error-row';
+  row.setAttribute('role', 'alert');
+  row.innerHTML =
+    '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"' +
+    ' stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
+    '<circle cx="12" cy="12" r="10"></circle>' +
+    '<line x1="15" y1="9" x2="9" y2="15"></line>' +
+    '<line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+  const span = document.createElement('span');
+  span.textContent = message;
+  row.appendChild(span);
+  chatEl.appendChild(row);
+  scrollToBottom(true);
+}
+
+// ------------------------------------------------------------------- render
+
+function renderLive() {
+  if (!liveMsg || renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(() => {
     renderQueued = false;
-    const nearBottom =
-      response.scrollHeight - response.scrollTop - response.clientHeight < 40;
-    window.renderMarkdownInto(response, rawText);
-    if (nearBottom) response.scrollTop = response.scrollHeight;
+    if (!liveMsg) return;
+    window.renderMarkdownInto(liveMsg.body, liveMsg.raw);
+    scrollToBottom(false);
     requestResize();
   });
 }
 
-// Height updates are throttled and rounded so the window does not jitter on
-// every streamed token.
+// Grow-only, coarse steps: the window widens its viewport as the transcript
+// needs it and stays put otherwise. Shrinking happens only on New chat.
 function requestResize() {
   if (mode === 'hud' || opanel.hidden || resizeQueued) return;
-  const now = Date.now();
-  const wait = Math.max(0, 80 - (now - lastResizeAt));
   resizeQueued = true;
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     resizeQueued = false;
-    lastResizeAt = Date.now();
     const raw = Math.ceil(opanel.getBoundingClientRect().height) + 2;
-    const stepped = Math.ceil(raw / 6) * 6;
-    if (stepped !== lastSentHeight) {
+    const stepped = Math.ceil(raw / 24) * 24;
+    if (stepped > lastSentHeight) {
       lastSentHeight = stepped;
       window.aeval.invoke('output:resize', { height: stepped });
     }
-  }, wait);
+  });
 }
 
 new ResizeObserver(requestResize).observe(opanel);
 
-// ------------------------------------------------------------------ state
+function playEntrance() {
+  opanel.classList.remove('in');
+  void opanel.offsetWidth; // restart the animation
+  opanel.classList.add('in');
+}
+
+// ------------------------------------------------------------------- state
 
 window.aeval.on('overlay:state', (next) => {
+  prevMode = mode;
   mode = next.mode;
   hud.hidden = mode !== 'hud';
   if (mode === 'hud') {
     opanel.hidden = true;
   }
+  // Entrance origin: a docked answer grows away from the input bar's edge;
+  // a free one grows from its own anchor.
+  if (next.outputPos) {
+    docked = next.outputPos.docked;
+    const v = docked ? (next.inputAnchor && next.inputAnchor.v) || 'top' : next.outputPos.v;
+    opanel.dataset.origin = v === 'bottom' ? 'bottom' : v === 'center' ? 'center' : 'top';
+  }
+  // Reopening the panel with an existing transcript replays the entrance.
+  if (mode === 'panel' && prevMode === 'pill' && !opanel.hidden) {
+    playEntrance();
+  }
 });
 
-window.aeval.on('hud:docked', ({ docked }) => {
-  dockBadge.hidden = !docked;
+window.aeval.on('hud:docked', ({ docked: d }) => {
+  dockBadge.hidden = !d;
+  dockToggle.textContent = d ? 'Detach' : 'Dock to input';
 });
 
 let snapFlashTimer = null;
@@ -79,62 +176,105 @@ hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');
 });
 
-// ------------------------------------------------------------------ query
+dockToggle.addEventListener('click', () => {
+  window.aeval.invoke('hud:set-dock', { docked: dockToggle.textContent !== 'Detach' });
+});
+
+// -------------------------------------------------------------------- chat
+
+window.aeval.on('chat:user', ({ gen, text }) => {
+  lastGen = gen;
+  if (opanel.hidden) {
+    opanel.hidden = false;
+    playEntrance();
+  }
+  addUserMsg(text);
+  requestResize();
+});
 
 window.aeval.on('query:start', ({ gen }) => {
   lastGen = gen;
-  rawText = '';
-  lastSentHeight = 0;
-  opanel.hidden = false;
-  errorBox.hidden = true;
-  response.textContent = '';
-  streamState.textContent = 'Thinking...';
+  if (opanel.hidden) {
+    opanel.hidden = false;
+    playEntrance();
+  }
+  liveMsg = addAssistantMsg();
+  setThinking(liveMsg, true);
+  scrollToBottom(true);
   requestResize();
 });
 
 window.aeval.on('query:delta', ({ gen, text }) => {
-  if (gen < lastGen) return;
+  if (gen < lastGen || !liveMsg) return;
   lastGen = gen;
   if (text) {
-    if (!rawText) streamState.textContent = 'Streaming...';
-    rawText += text;
-    renderResponse();
+    if (!liveMsg.raw) setThinking(liveMsg, false);
+    liveMsg.raw += text;
+    renderLive();
   }
 });
 
 window.aeval.on('query:done', ({ gen }) => {
   if (gen < lastGen) return;
-  streamState.textContent = '';
-  if (!rawText) opanel.hidden = true;
+  if (liveMsg) {
+    if (!liveMsg.raw) {
+      // Nothing streamed (for example an abort before the first token);
+      // an empty bubble is noise.
+      liveMsg.el.remove();
+    } else {
+      setThinking(liveMsg, false);
+      window.renderMarkdownInto(liveMsg.body, liveMsg.raw);
+    }
+    liveMsg = null;
+  }
   requestResize();
 });
 
 window.aeval.on('query:error', ({ gen, message }) => {
   if (gen < lastGen) return;
-  streamState.textContent = '';
-  errorText.textContent = message;
-  errorBox.hidden = false;
-  opanel.hidden = false;
+  if (liveMsg) {
+    if (!liveMsg.raw) liveMsg.el.remove();
+    else setThinking(liveMsg, false);
+    liveMsg = null;
+  }
+  addErrorRow(message);
   requestResize();
 });
 
-// ------------------------------------------------------------------- copy
+window.aeval.on('chat:reset', () => {
+  chatEl.innerHTML = '';
+  liveMsg = null;
+  lastSentHeight = 0;
+  opanel.hidden = true;
+});
 
-let copyFlashTimer = null;
-copyBtn.addEventListener('click', () => {
-  if (!rawText) return;
-  window.aeval.invoke('clipboard:write', { text: rawText }).then(() => {
-    copyBtn.textContent = 'Copied.';
-    clearTimeout(copyFlashTimer);
-    copyFlashTimer = setTimeout(() => {
-      copyBtn.textContent = 'Copy';
-    }, 1600);
-  });
+// Rebuilds the transcript after a renderer reload (dev watcher).
+window.aeval.on('chat:sync', ({ messages }) => {
+  chatEl.innerHTML = '';
+  liveMsg = null;
+  for (const m of messages || []) {
+    if (m.role === 'user') {
+      addUserMsg(m.text);
+    } else {
+      const entry = addAssistantMsg();
+      entry.raw = m.text;
+      window.renderMarkdownInto(entry.body, entry.raw);
+    }
+  }
+  if (messages && messages.length) {
+    opanel.hidden = false;
+    scrollToBottom(true);
+    requestResize();
+  }
+});
+
+newChatBtn.addEventListener('click', () => {
+  window.aeval.invoke('chat:new');
 });
 
 // Links from model answers open in the default browser, main-process
 // validated to http/https.
-response.addEventListener('click', (e) => {
+chatEl.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-href]');
   if (!a) return;
   e.preventDefault();

@@ -3,6 +3,10 @@
 const keyInput = document.getElementById('api-key-input');
 const toggleKeyBtn = document.getElementById('toggle-key');
 const saveKeyBtn = document.getElementById('save-key');
+const removeKeyBtn = document.getElementById('remove-key');
+const keyState = document.getElementById('key-state');
+const keyStateText = document.getElementById('key-state-text');
+const appVersion = document.getElementById('app-version');
 const keyStatus = document.getElementById('key-status');
 const modelInput = document.getElementById('model-input');
 const saveModelBtn = document.getElementById('save-model');
@@ -31,9 +35,17 @@ window.aeval.invoke('settings:get').then((d) => {
   data = d;
   modelInput.value = d.model || '';
   modelInput.placeholder = d.defaultModel || '';
+  appVersion.textContent = d.version || '';
+  renderKeyState(!!d.hasKey);
   renderShortcuts();
   loadModels();
 });
+
+function renderKeyState(saved) {
+  keyState.classList.toggle('on', saved);
+  keyStateText.textContent = saved ? 'Key saved' : 'No key yet';
+  removeKeyBtn.hidden = !saved;
+}
 
 // --------------------------------------------------------------- API key
 
@@ -54,6 +66,7 @@ function saveKey() {
       keyInput.type = 'password';
       toggleKeyBtn.textContent = 'Show';
       toggleKeyBtn.setAttribute('aria-pressed', 'false');
+      renderKeyState(true);
       statusTimer = setTimeout(() => {
         keyStatus.textContent = '';
       }, 2500);
@@ -64,6 +77,17 @@ function saveKey() {
 }
 
 saveKeyBtn.addEventListener('click', saveKey);
+
+removeKeyBtn.addEventListener('click', () => {
+  window.aeval.invoke('settings:clear-key').then(() => {
+    clearTimeout(statusTimer);
+    renderKeyState(false);
+    keyStatus.textContent = 'Key removed.';
+    statusTimer = setTimeout(() => {
+      keyStatus.textContent = '';
+    }, 2500);
+  });
+});
 keyInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();

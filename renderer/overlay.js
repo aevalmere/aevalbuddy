@@ -18,18 +18,39 @@ let resizeQueued = false;
 
 // ----------------------------------------------------------------- render
 
+// The panel expands out of the pill: both share the same screen anchor, so
+// scaling from that corner reads as the pill growing into the panel.
+function anchorOrigin() {
+  const a = state.inputAnchor || { h: 'right', v: 'top' };
+  const h = a.h === 'center' ? 'center' : a.h;
+  const v = a.v === 'center' ? 'center' : a.v;
+  return `${h} ${v}`;
+}
+
+function replayAnim(el, cls) {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
+
 function render(prevMode) {
   document.body.dataset.mode = state.mode;
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';
   hud.hidden = state.mode !== 'hud';
   if (state.mode === 'panel') {
+    panel.style.transformOrigin = anchorOrigin();
+    if (prevMode !== 'panel') replayAnim(panel, 'in');
     renderNotice();
     if (prevMode !== 'panel') {
       input.focus();
       input.select();
     }
     requestResize();
+  }
+  if (state.mode === 'pill' && prevMode !== 'pill') {
+    pill.style.transformOrigin = anchorOrigin();
+    replayAnim(pill, 'in');
   }
 }
 
@@ -63,7 +84,11 @@ new ResizeObserver(requestResize).observe(panel);
 // ------------------------------------------------------------------ query
 
 function submit() {
-  window.aeval.invoke('query:submit', { question: input.value }).then((result) => {
+  const question = input.value;
+  // Clear immediately, like a messaging app; the transcript echoes the
+  // message. Without a key the text stays put so nothing typed is lost.
+  if (state.hasKey) input.value = '';
+  window.aeval.invoke('query:submit', { question }).then((result) => {
     if (result && result.status === 'walkthrough') {
       input.value = '';
     }

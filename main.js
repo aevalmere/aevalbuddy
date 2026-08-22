@@ -46,6 +46,11 @@ const ACTION_LABELS = {
   toggleVisibility: 'Show or hide overlay',
 };
 
+// A drag emits 'move' continuously on Windows; snapping runs only after the
+// window has been still this long, so the ghost never teleports mid-drag.
+const DROP_SETTLE_MS = 160;
+const CHAT_HISTORY_LIMIT = 12;
+
 let overlayWin = null; // the input window: pill and query bar
 let outputWin = null; // the answer window
 let settingsWin = null;
@@ -63,6 +68,11 @@ let escapeRegistered = false;
 let hudInputPending = null;
 let hudOutputPending = null;
 let hudSnapInProgress = false;
+let inputDropTimer = null;
+let outputDropTimer = null;
+// The conversation, newest last: { role: 'user'|'assistant', text }. Held in
+// memory only; New chat or quitting clears it.
+let chat = [];
 const lastRegisterResults = { captureQuery: false, toggleVisibility: false };
 
 const WALKTHROUGH = [
@@ -254,7 +264,7 @@ function createOverlay() {
   });
   overlayWin.webContents.on('did-finish-load', sendOverlayState);
   attachContextMenu(overlayWin);
-  overlayWin.on('moved', onInputMoved);
+  overlayWin.on('move', onInputMove);
   overlayWin.on('closed', () => {
     overlayWin = null;
   });
@@ -269,9 +279,15 @@ function createOutput() {
   outputWin.setAlwaysOnTop(true, 'screen-saver');
   outputWin.setContentProtection(true);
   outputWin.loadFile(path.join(__dirname, 'renderer', 'output.html'));
-  outputWin.webContents.on('did-finish-load', sendOverlayState);
+  outputWin.webContents.on('did-finish-load', () => {
+    sendOverlayState();
+    // A reloaded answer window (dev watcher) rebuilds its transcript.
+    if (chat.length && outputWin && !outputWin.isDestroyed()) {
+      outputWin.webContents.send('chat:sync', { messages: chat });
+    }
+  });
   attachContextMenu(outputWin);
-  outputWin.on('moved', onOutputMoved);
+  outputWin.on('move', onOutputMove);
   outputWin.on('closed', () => {
     outputWin = null;
   });
@@ -285,8 +301,8 @@ function openSettings() {
     return;
   }
   settingsWin = new BrowserWindow({
-    width: 470,
-    height: 760,
+    width: 480,
+    height: 800,
     frame: false,
     transparent: true,
     resizable: false,
@@ -357,9 +373,10 @@ function showOutput() {
   outputWin.showInactive();
 }
 
+// The grown height survives hide so a conversation reopens at its size;
+// only New chat resets it.
 function hideOutput() {
   outputActive = false;
-  currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
   if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
 }
 
@@ -370,10 +387,14 @@ function repositionOutputIfDocked() {
 }
 
 function sendOverlayState() {
+  // Anchors ride along so each renderer can grow its surface out of the
+  // correct corner (transform-origin follows the anchored edge).
   const payload = {
     mode: overlayMode,
     hasKey: store.hasApiKey(),
     captureOk: lastCaptureOk,
+    inputAnchor: store.getOverlayPos(),
+    outputPos: store.getOutputPos(),
   };
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
@@ -442,10 +463,24 @@ function withSnapGuard(fn) {
   });
 }
 
-// Fires when a drag of the input ghost ends. Snaps to the nearest anchor
-// when close enough; a docked answer ghost follows along.
-function onInputMoved() {
+// Windows emits 'move' continuously while a window is being dragged, so
+// running snap logic per event yanks the ghost out of the user's hand (that
+// bug made a docked answer ghost impossible to pull free: every event
+// re-docked it). Instead each event just resets a settle timer, and the
+// snap decision runs once, after the drag stops.
+
+function onInputMove() {
   if (overlayMode !== 'hud' || hudSnapInProgress || !overlayWin) return;
+  // A docked answer ghost follows the drag live.
+  if (hudOutputPending && hudOutputPending.docked && outputWin && !outputWin.isDestroyed()) {
+    withSnapGuard(() => outputWin.setBounds(hudOutputGhostBounds()));
+  }
+  clearTimeout(inputDropTimer);
+  inputDropTimer = setTimeout(settleInputDrag, DROP_SETTLE_MS);
+}
+
+function settleInputDrag() {
+  if (overlayMode !== 'hud' || !overlayWin || overlayWin.isDestroyed()) return;
   const rect = overlayWin.getBounds();
   const snap = findSnap(rect, HUD_INPUT_SIZE);
   if (snap) {
@@ -460,10 +495,16 @@ function onInputMoved() {
   }
 }
 
-// Fires when a drag of the answer ghost ends. Docking to the input bar wins
-// over anchor snapping; otherwise the same nine anchors apply.
-function onOutputMoved() {
-  if (overlayMode !== 'hud' || hudSnapInProgress || !outputWin || !overlayWin) return;
+function onOutputMove() {
+  if (overlayMode !== 'hud' || hudSnapInProgress || !outputWin) return;
+  clearTimeout(outputDropTimer);
+  outputDropTimer = setTimeout(settleOutputDrag, DROP_SETTLE_MS);
+}
+
+// Docking to the input bar wins over anchor snapping; otherwise the same
+// nine anchors apply. Dragging clear of the dock zone detaches.
+function settleOutputDrag() {
+  if (overlayMode !== 'hud' || !outputWin || outputWin.isDestroyed() || !overlayWin) return;
   const rect = outputWin.getBounds();
   const dockSlot = dockedBounds(overlayWin.getBounds(), HUD_OUTPUT_SIZE, hudInputPending.v);
   if (centerDistance(dockSlot, rect) <= DOCK_DISTANCE) {
@@ -482,6 +523,26 @@ function onOutputMoved() {
     hudOutputPending = { ...posFromRect(rect), docked: false };
   }
   outputWin.webContents.send('hud:docked', { docked: false });
+}
+
+// The dock state is also a button, so separating the windows never depends
+// on drag precision.
+function setHudDock(docked) {
+  if (overlayMode !== 'hud' || !outputWin || outputWin.isDestroyed() || !overlayWin) return;
+  if (docked) {
+    hudOutputPending = { ...hudOutputPending, docked: true };
+    withSnapGuard(() => outputWin.setBounds(hudOutputGhostBounds()));
+  } else {
+    // Nudge the ghost clearly out of the dock zone in the direction it
+    // already grows, so the split is visible immediately.
+    const rect = outputWin.getBounds();
+    const dir = hudInputPending && hudInputPending.v === 'bottom' ? -1 : 1;
+    const freed = posFromRect({ ...rect, y: rect.y + dir * (DOCK_DISTANCE + 20) });
+    hudOutputPending = { ...freed, docked: false };
+    withSnapGuard(() => outputWin.setBounds(boundsForSize(HUD_OUTPUT_SIZE, hudOutputPending)));
+  }
+  outputWin.webContents.send('hud:docked', { docked: hudOutputPending.docked });
+  outputWin.webContents.send('hud:snapped', {});
 }
 
 // ------------------------------------------------------------- screen capture
@@ -510,7 +571,16 @@ async function captureScreen() {
       quality -= 15;
       buf = source.thumbnail.toJPEG(quality);
     }
-    return { base64: buf.toString('base64'), bytes: buf.length };
+    // The image size and display bounds let point directives map back from
+    // image pixels to screen coordinates.
+    const size = source.thumbnail.getSize();
+    return {
+      base64: buf.toString('base64'),
+      bytes: buf.length,
+      width: size.width,
+      height: size.height,
+      display: { ...primary.bounds },
+    };
   } catch (err) {
     // Capture can fail on locked desktops or exotic display drivers; the
     // query flow degrades to text-only instead of crashing.
@@ -521,11 +591,11 @@ async function captureScreen() {
 async function triggerCapture() {
   if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
-  abortCurrentQuery();
-  hideOutput();
   pendingShot = await captureScreen();
   lastCaptureOk = !!pendingShot;
   expandPanel();
+  // An existing conversation comes back with the panel.
+  if (chat.length) showOutput();
 }
 
 // ------------------------------------------------------------------- hotkeys
@@ -626,28 +696,51 @@ async function handleQuerySubmit(question) {
   }
   abortCurrentQuery();
   const gen = ++queryGen;
+  const text = q || DEFAULT_PROMPT;
+  const history = chat.slice(-CHAT_HISTORY_LIMIT);
+  chat.push({ role: 'user', text });
   const model = store.getModel();
-  currentAbort = new AbortController();
-  const signal = currentAbort.signal;
   const send = (channel, payload) => {
     if (outputWin && !outputWin.isDestroyed()) {
       outputWin.webContents.send(channel, { gen, ...payload });
     }
   };
+  // Echo the message and the thinking state before the capture so sending
+  // feels instant; the capture happens under the thinking dots.
+  send('chat:user', { text });
   send('query:start', {});
   showOutput();
+  // Every message captures the screen fresh, so follow-ups talk about what
+  // is on screen now, not what was there at the first hotkey press.
+  pendingShot = await captureScreen();
+  lastCaptureOk = !!pendingShot;
+  sendOverlayState();
+  const shot = pendingShot;
+  currentAbort = new AbortController();
+  const signal = currentAbort.signal;
+  // Point directives are stripped out of the stream before display and
+  // collected; the pointer appears once the answer finishes.
+  const extractor = ai.createPointExtractor((t) => send('query:delta', { text: t }));
   try {
     await ai.streamQuery({
       apiKey: store.getApiKey(),
       model,
-      question: q || DEFAULT_PROMPT,
-      imageBase64: pendingShot ? pendingShot.base64 : null,
+      question: text,
+      imageBase64: shot ? shot.base64 : null,
+      imageWidth: shot ? shot.width : 0,
+      imageHeight: shot ? shot.height : 0,
+      history,
       signal,
-      onDelta: (text) => send('query:delta', { text }),
+      onDelta: (t) => extractor.push(t),
     });
+    extractor.flush();
+    chat.push({ role: 'assistant', text: extractor.text });
     send('query:done', {});
+    showModelPoints(extractor.points, shot);
     return { status: 'done' };
   } catch (err) {
+    extractor.flush();
+    if (extractor.text) chat.push({ role: 'assistant', text: extractor.text });
     const message = ai.friendlyError(err, model);
     if (message) {
       send('query:error', { message });
@@ -657,6 +750,37 @@ async function handleQuerySubmit(question) {
     return { status: 'error' };
   } finally {
     if (currentAbort && currentAbort.signal === signal) currentAbort = null;
+  }
+}
+
+// Maps directive coordinates from image pixels to screen coordinates and
+// hands them to the pointer. Ratio mapping sidesteps DPI scale factors.
+function showModelPoints(points, shot) {
+  if (!points || !points.length || !shot || !shot.width || !shot.height) return;
+  if (overlayMode === 'hud') return;
+  const b = shot.display;
+  const mapped = points
+    .filter((p) => p.x >= 0 && p.y >= 0 && p.x <= shot.width && p.y <= shot.height)
+    .map((p) => ({
+      x: Math.round(b.x + (p.x / shot.width) * b.width),
+      y: Math.round(b.y + (p.y / shot.height) * b.height),
+      label: p.label || 'Here',
+    }));
+  if (!mapped.length) return;
+  cursorBuddy.showPoints(mapped);
+  applyRegistrations();
+}
+
+function resetChat() {
+  abortCurrentQuery();
+  chat = [];
+  currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
+  if (outputWin && !outputWin.isDestroyed()) {
+    outputWin.webContents.send('chat:reset', {});
+  }
+  hideOutput();
+  if (overlayMode === 'panel' && overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.focus();
   }
 }
 
@@ -704,9 +828,11 @@ function registerIpc() {
 
   ipcMain.handle('query:submit', (_e, { question }) => handleQuerySubmit(question));
   ipcMain.handle('query:cancel', () => abortCurrentQuery());
+  ipcMain.handle('chat:new', () => resetChat());
 
   ipcMain.handle('hud:enter', () => enterHudEditor());
   ipcMain.handle('hud:exit', () => exitHudEditor());
+  ipcMain.handle('hud:set-dock', (_e, { docked }) => setHudDock(!!docked));
 
   ipcMain.handle('open-external', (_e, { url }) => {
     if (/^https?:\/\//i.test(String(url || ''))) {
@@ -721,6 +847,7 @@ function registerIpc() {
     shortcuts: store.getShortcuts(),
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
+    version: app.getVersion(),
   }));
 
   ipcMain.handle('settings:save-key', (_e, { key }) => {
@@ -731,6 +858,12 @@ function registerIpc() {
     store.setApiKey(value);
     sendOverlayState();
     cursorBuddy.notify('key-saved');
+    return { ok: true };
+  });
+
+  ipcMain.handle('settings:clear-key', () => {
+    store.clearApiKey();
+    sendOverlayState();
     return { ok: true };
   });
 
@@ -807,6 +940,7 @@ function registerIpc() {
     cursorBuddy.handleResolveResult(payload);
   });
   ipcMain.handle('buddy:dismiss', () => cursorBuddy.notify('dismiss'));
+  ipcMain.handle('buddy:advance', () => cursorBuddy.advance());
   ipcMain.handle('buddy:set-ignore', (_e, { ignore }) => {
     cursorBuddy.setClickThrough(ignore);
   });
@@ -866,21 +1000,48 @@ async function runSmoke() {
   const log = (label, value) => console.log(`[SMOKE] ${label}=${value}`);
   try {
     log('windows', overlayWin && outputWin ? 'overlay+output-ok' : 'missing');
+    log('version', app.getVersion());
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
     const modelList = await ai.listFreeVisionModels();
     log('modelList', `${modelList.models.length}:${modelList.live ? 'live' : 'fallback'}`);
     const shot = await captureScreen();
-    log('capture', shot ? `ok:${shot.bytes}bytes` : 'failed');
+    log('capture', shot ? `ok:${shot.bytes}bytes:${shot.width}x${shot.height}` : 'failed');
+    // Markdown renders inside the real answer window, not a simulation.
+    const mdHtml = await outputWin.webContents.executeJavaScript(
+      `(() => { const d = document.createElement('div');` +
+        ` window.renderMarkdownInto(d, '# T\\n- a\\n- b\\n**s** and \\u0060c\\u0060');` +
+        ` return d.innerHTML; })()`
+    );
+    log(
+      'markdown',
+      mdHtml.includes('<li>') && mdHtml.includes('<strong>') && mdHtml.includes('md-h')
+        ? 'ok'
+        : `unexpected:${mdHtml.slice(0, 80)}`
+    );
+    // Point directives split across deltas are stripped and collected.
+    const ex = ai.createPointExtractor(() => {});
+    ex.push('Press Save [[point x=1');
+    ex.push('20 y=340 | Save button]] to finish.');
+    ex.flush();
+    log(
+      'pointExtract',
+      `${ex.points.length}:${ex.text.includes('[[') ? 'leaked' : 'clean'}`
+    );
     await triggerCapture();
     log('mode', overlayMode);
     log('hasKey', store.hasApiKey());
     const submitResult = await handleQuerySubmit('smoke question');
-    log('queryWithoutKey', submitResult.status);
+    log('queryWithoutKey', `${submitResult.status}:chat${chat.length}`);
     enterHudEditor();
     log('hudMode', overlayMode);
     log('hudDockedDefault', hudOutputPending ? hudOutputPending.docked : 'none');
+    setHudDock(false);
+    const detached = hudOutputPending && hudOutputPending.docked === false;
+    setHudDock(true);
+    const redocked = hudOutputPending && hudOutputPending.docked === true;
+    log('hudDockToggle', `${detached}:${redocked}`);
     const snap = findSnap(
       boundsForSize(HUD_INPUT_SIZE, { h: 'left', v: 'top', offX: 30, offY: 30 }),
       HUD_INPUT_SIZE
@@ -890,6 +1051,10 @@ async function runSmoke() {
     log('hudExitMode', overlayMode);
     log('storedPos', JSON.stringify(store.getOverlayPos()));
     log('storedOutputPos', JSON.stringify(store.getOutputPos()));
+    cursorBuddy.showPoints([{ x: 80, y: 80, label: 'smoke point' }]);
+    log('buddyPoints', cursorBuddy.isActive());
+    cursorBuddy.advance();
+    log('buddyPointsDone', !cursorBuddy.isActive());
     startWalkthrough();
     log('walkthrough', cursorBuddy.isActive());
     setTimeout(() => {
