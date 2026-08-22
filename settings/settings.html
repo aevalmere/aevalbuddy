@@ -21,132 +21,156 @@
     </header>
 
     <main>
-      <!-- Label and control. The explanation that used to sit under every
-           heading is gone: the model rows carry the only description anyone
-           actually needs, and the rest was telling people what a text field
-           is. -->
-      <section aria-labelledby="key-heading">
+      <!-- Every group is one line: what it is, what it is set to, and Edit.
+           The controls only exist while something is being changed, which is
+           a small fraction of the time this panel is open. A group with
+           nothing set yet starts open, so a new install still has the key
+           field in front of it. -->
+      <section id="sec-key" aria-labelledby="key-heading">
         <div class="row-head">
           <h2 id="key-heading">API key</h2>
-          <span id="key-state" class="chip">
-            <span class="chip-dot" aria-hidden="true"></span>
-            <span id="key-state-text">Not set</span>
-          </span>
+          <span id="key-summary" class="summary">Not set</span>
+          <button class="edit" type="button" data-edit="sec-key">Edit</button>
         </div>
-        <div class="row">
-          <input
-            id="api-key-input"
-            type="password"
-            placeholder="sk-or-v1-..."
-            aria-label="OpenRouter API key"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button id="toggle-key" type="button" aria-pressed="false">Show</button>
-          <button id="save-key" type="button" class="primary">Save</button>
+        <div class="body">
+          <div class="row">
+            <input
+              id="api-key-input"
+              type="password"
+              placeholder="sk-or-v1-..."
+              aria-label="OpenRouter API key"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="toggle-key" type="button" aria-pressed="false">Show</button>
+            <button id="save-key" type="button" class="primary">Save</button>
+          </div>
+          <div class="row subtle">
+            <button id="test-key" type="button" class="link">Test</button>
+            <button id="remove-key" type="button" class="link" hidden>Remove</button>
+            <a class="link" href="#" data-external="https://openrouter.ai/keys">Get a key</a>
+          </div>
+          <p id="key-status" class="status" role="status" hidden></p>
         </div>
-        <div class="row subtle">
-          <button id="test-key" type="button" class="link">Test</button>
-          <button id="remove-key" type="button" class="link" hidden>Remove</button>
-          <a class="link" href="#" data-external="https://openrouter.ai/keys">Get a key</a>
-        </div>
-        <p id="key-status" class="status" role="status" hidden></p>
       </section>
 
-      <section aria-labelledby="model-heading">
+      <section id="sec-model" aria-labelledby="model-heading">
         <div class="row-head">
           <h2 id="model-heading">Model</h2>
+          <span id="model-summary" class="summary">Loading...</span>
+          <button class="edit" type="button" data-edit="sec-model">Edit</button>
+        </div>
+        <div class="body">
           <label class="switch">
             <input id="show-paid" type="checkbox" />
-            <span>Show paid</span>
+            <span>Show paid models</span>
           </label>
+          <div class="combo" id="model-combo">
+            <button
+              id="model-combo-btn"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Model"
+            >
+              <span class="combo-lines">
+                <span id="model-combo-label">Loading...</span>
+                <span id="model-combo-detail" class="combo-detail"></span>
+              </span>
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <ul id="model-combo-list" role="listbox" aria-label="Models" hidden></ul>
+          </div>
+          <p id="model-note" class="note"></p>
         </div>
-        <div class="combo" id="model-combo">
-          <button
-            id="model-combo-btn"
-            type="button"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            aria-label="Model"
-          >
-            <span class="combo-lines">
-              <span id="model-combo-label">Loading...</span>
-              <span id="model-combo-detail" class="combo-detail"></span>
-            </span>
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <ul id="model-combo-list" role="listbox" aria-label="Models" hidden></ul>
-        </div>
-        <p id="model-note" class="note"></p>
       </section>
 
-      <section aria-labelledby="brain-heading">
+      <section id="sec-brain" aria-labelledby="brain-heading">
         <div class="row-head">
           <h2 id="brain-heading">Separate brain</h2>
+          <span id="brain-summary" class="summary">Off</span>
+          <button class="edit" type="button" data-edit="sec-brain">Edit</button>
+        </div>
+        <div class="body">
           <label class="switch">
             <input id="brain-enabled" type="checkbox" />
-            <span>On</span>
+            <span>The model above reads the screen, this one answers</span>
           </label>
+          <div class="combo" id="brain-combo" hidden>
+            <button
+              id="brain-combo-btn"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Brain model"
+            >
+              <span class="combo-lines">
+                <span id="brain-combo-label">Loading...</span>
+                <span id="brain-combo-detail" class="combo-detail"></span>
+              </span>
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <ul id="brain-combo-list" role="listbox" aria-label="Brain models" hidden></ul>
+          </div>
+          <p id="brain-note" class="note"></p>
         </div>
-        <p class="note">
-          The model above reads your screen, this one answers from that
-          reading. Slower, and lets a text-only model do the thinking.
-        </p>
-        <div class="combo" id="brain-combo" hidden>
-          <button
-            id="brain-combo-btn"
-            type="button"
-            aria-haspopup="listbox"
-            aria-expanded="false"
-            aria-label="Brain model"
-          >
-            <span class="combo-lines">
-              <span id="brain-combo-label">Loading...</span>
-              <span id="brain-combo-detail" class="combo-detail"></span>
-            </span>
-            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <ul id="brain-combo-list" role="listbox" aria-label="Brain models" hidden></ul>
-        </div>
-        <p id="brain-note" class="note"></p>
       </section>
 
-      <section aria-labelledby="skill-heading">
-        <h2 id="skill-heading">Answer style</h2>
-        <div id="skill-list" role="radiogroup" aria-labelledby="skill-heading"></div>
+      <section id="sec-skill" aria-labelledby="skill-heading">
+        <div class="row-head">
+          <h2 id="skill-heading">Answer style</h2>
+          <span id="skill-summary" class="summary">Automatic</span>
+          <button class="edit" type="button" data-edit="sec-skill">Edit</button>
+        </div>
+        <div class="body">
+          <div id="skill-list" role="radiogroup" aria-labelledby="skill-heading"></div>
+        </div>
       </section>
 
-      <section aria-labelledby="shortcut-heading">
-        <h2 id="shortcut-heading">Shortcuts</h2>
-        <ul id="shortcut-list">
-          <li class="sc-row" data-action="captureQuery">
-            <span class="sc-label">Ask</span>
-            <kbd class="sc-current"></kbd>
-            <button class="sc-change" type="button">Change</button>
-            <span class="sc-warn" hidden>Taken by another app</span>
-          </li>
-          <li class="sc-row" data-action="toggleVisibility">
-            <span class="sc-label">Hide</span>
-            <kbd class="sc-current"></kbd>
-            <button class="sc-change" type="button">Change</button>
-            <span class="sc-warn" hidden>Taken by another app</span>
-          </li>
-          <li class="sc-row">
-            <span class="sc-label">Close</span>
-            <kbd>Esc</kbd>
-            <span class="sc-fixed">Fixed</span>
-          </li>
-        </ul>
-        <p id="shortcut-error" class="status error" role="alert" hidden></p>
-        <div class="row subtle">
-          <button id="reset-shortcuts" type="button" class="link">Reset shortcuts</button>
-          <button id="edit-position" type="button" class="link">Move the windows</button>
+      <section id="sec-shortcuts" aria-labelledby="shortcut-heading">
+        <div class="row-head">
+          <h2 id="shortcut-heading">Shortcuts</h2>
+          <span id="shortcut-summary" class="summary"></span>
+          <button class="edit" type="button" data-edit="sec-shortcuts">Edit</button>
+        </div>
+        <div class="body">
+          <ul id="shortcut-list">
+            <li class="sc-row" data-action="captureQuery">
+              <span class="sc-label">Ask</span>
+              <kbd class="sc-current"></kbd>
+              <button class="sc-change" type="button">Change</button>
+              <span class="sc-warn" hidden>Taken by another app</span>
+            </li>
+            <li class="sc-row" data-action="toggleVisibility">
+              <span class="sc-label">Hide</span>
+              <kbd class="sc-current"></kbd>
+              <button class="sc-change" type="button">Change</button>
+              <span class="sc-warn" hidden>Taken by another app</span>
+            </li>
+            <li class="sc-row">
+              <span class="sc-label">Close</span>
+              <kbd>Esc</kbd>
+              <span class="sc-fixed">Fixed</span>
+            </li>
+          </ul>
+          <p id="shortcut-error" class="status error" role="alert" hidden></p>
+          <div class="row subtle">
+            <button id="reset-shortcuts" type="button" class="link">Reset shortcuts</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-layout">
+        <div class="row-head">
+          <h2>Window layout</h2>
+          <span class="summary">Drag corners to resize</span>
+          <button id="edit-position" type="button" class="edit">Move</button>
         </div>
       </section>
     </main>

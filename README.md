@@ -71,11 +71,25 @@ also only knows what the reader wrote down: a detail the reader skipped is a
 detail the brain cannot use. Off by default; the default brain is
 `z-ai/glm-5.2:free`.
 
-### How it answers
+### Answer style
 
-Settings calls this Answer style: a procedure the assistant follows before it replies. Each one is a markdown file in `skills/` that travels with every request, so the shape of the answer is enforced outside the model. That is what keeps a small fast model on the point instead of rambling, and it is the difference between an answer that names the next action and one that describes the screen back to you.
+Automatic by default, and that is the setting to leave alone. Each request is routed to a procedure the
+assistant follows before it replies: Debug an error, Explain this, Improve this writing, or the general
+Screen assistant. The routing takes the reader's own word for what is on screen first, because it has
+actually looked at it, and falls back to scoring the question. Anything unrecognised gets the general
+one, which is the right answer for most questions.
 
-Four ship with the app: Screen assistant (the default), Debug an error, Explain this, Improve this writing. Adding your own is dropping a file into `skills/` with a `name` and `summary` in its front matter; it appears in the picker at next launch.
+The procedures are markdown files in `skills/`, sent with every request, which is what keeps a small
+free model on the point instead of rambling. Pin one by hand in settings if you want the same treatment
+every time. Adding your own is dropping a file into `skills/` with a `name` and `summary` in its front
+matter; it appears at next launch.
+
+### Resizing and layout
+
+Drag any window edge. The input bar and the answer window resize from 320 to 900 wide and remember it;
+the input bar's height stays pinned to its content, because a one-line field has nothing to gain from
+being taller. Drag the answer window's height and it stops sizing itself to the transcript and holds
+what you set, until New chat hands that back. Settings resizes freely and reopens where you left it.
 
 ### Layout
 
@@ -113,7 +127,7 @@ It works by calling `webContents.capturePage()`, which renders the page itself r
 npm run build
 ```
 
-This produces `dist/AevalBuddy Setup 0.4.0.exe` (NSIS, per-user install, no admin prompt).
+This produces `dist/AevalBuddy Setup 0.5.0.exe` (NSIS, per-user install, no admin prompt).
 
 The installer is unsigned, so Windows SmartScreen shows "Windows protected your PC" on first run. That is expected for an unsigned app, not a defect. Click "More info", then "Run anyway". Code signing needs a paid certificate and is out of scope for this MVP.
 
@@ -126,7 +140,9 @@ A side effect worth knowing: the screenshots AevalBuddy sends to the model also 
 ## Design notes and assumptions
 
 - Visual constraints (palette usage, motion curves, spacing and radius scales, surface tokens, per-surface states) live in `DESIGN.md`; the stylesheets build to it. The signature motion is one decelerating curve, `cubic-bezier(0.32, 0.72, 0, 1)`.
-- The surfaces use Windows 11 acrylic, not CSS translucency. `backdrop-filter` cannot see past a window boundary, so a transparent overlay has nothing to blur and whatever sits behind it shows through sharp; that is what made these panels read as stickers. Acrylic needs `transparent: false`, and in exchange DWM supplies the rounded corner and the drop shadow, so the stylesheets stop drawing their own. Windows 10 ignores `backgroundMaterial` and would get an opaque square, so it keeps the transparent recipe; `supportsAcrylic()` in `main.js` picks between them on the build number.
+- Acrylic was tried and reverted. Windows 11 does give a real blurred backdrop, and it looked better in an isolated test, but an opaque window stops behaving like a reliable topmost overlay and needs the layered style added back the moment `setOpacity` touches it. Depth comes from the material instead: a top-lit gradient, one crisp edge, a contact shadow and a deep soft one. The surface is opaque because at 97% a bright terminal behind it was still legible through the text on top.
+- Window bounds animate; opacity does not. On Windows `setOpacity` toggles the layered window style, and driving it at frame rate put repaint artifacts on the desktop. Fades happen in CSS inside the window, and the animation runs at 60Hz rather than 120.
+- Resizability is expressed through minimum and maximum sizes, never `setResizable`: on a frameless window, clearing that flag strips the thick-frame style and setting it back does not restore it. Equal limits pin a window just as firmly and are reversible. Every programmatic move unlocks the limits first, re-applies them after, and stamps itself so a drag can be told apart from the app moving its own window.
 - One surface per window: the query bar has no field inside it, because a bordered input inside a bordered panel is the loudest tell that a UI was assembled rather than designed. Focus is the caret plus the panel border lifting, never a ring.
 - An answer is a document, so it renders as prose directly on the surface. Only the question keeps a container, a quiet chip, which is what preserves the sense of a conversation without the app looking like a toy chat client.
 - Opening animates the OS window, not just its contents. CSS can only move pixels inside a window, so a CSS scale played after Electron paints the window at full size reads as a snap followed by a wobble; that was the flash. `lib/motion.js` glides the window bounds themselves on the same curve, and the stylesheets pin each panel to the edge the window grows away from, so the growth uncovers a finished layout instead of reflowing one. Under `prefers-reduced-motion`, read once from the renderer at boot, every window transition collapses to a single setBounds.

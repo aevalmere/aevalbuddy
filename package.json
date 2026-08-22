@@ -1,6 +1,6 @@
 {
   "name": "aevalbuddy",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Screen-aware AI overlay for Windows. Hidden from screen share, answers questions about whatever is on screen.",
   "main": "main.js",
   "private": true,

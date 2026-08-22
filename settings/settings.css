@@ -44,18 +44,12 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: rgba(20, 20, 24, 0.97);
-  border: 1px solid rgba(201, 207, 221, 0.14);
+  width: 100vw;
+  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
+  border: 1px solid rgba(201, 207, 221, 0.17);
   border-radius: 12px;
   box-shadow: var(--bevel);
   overflow: hidden;
-}
-
-/* Where Windows supplies acrylic it also supplies the corner and the edge. */
-body[data-acrylic="1"] #app {
-  background: rgba(20, 20, 24, 0.55);
-  border: none;
-  border-radius: 0;
 }
 
 button {
@@ -129,28 +123,86 @@ main::-webkit-scrollbar-thumb {
 /* One column, one gap, a hairline between groups. No fills, no cards. */
 section {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   justify-items: start;
-  padding: var(--gutter) 0;
+  padding: 13px 0;
 }
 
 section + section {
   border-top: 1px solid var(--hairline);
 }
 
+/* The permanent line: name, current value, Edit. Everything else in the
+   group lives in .body and only exists while it is being changed. */
 .row-head {
   width: 100%;
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 22px;
+}
+
+.summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.edit {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.55);
+  padding: 2px 0;
+  min-width: 30px;
+  text-align: right;
+  transition: color var(--d-fast) ease;
+}
+
+.edit:hover {
+  color: var(--slate);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section .body {
+  display: none;
+  width: 100%;
   gap: 8px;
-  min-height: 20px;
+  grid-column: 1 / -1;
+}
+
+section[data-open="1"] .body {
+  display: grid;
+  animation: body-in 180ms var(--ease-out);
+}
+
+section[data-open="1"] .summary {
+  color: rgba(201, 207, 221, 0.35);
+}
+
+section[data-open="1"] h2 {
+  color: var(--slate);
+}
+
+@keyframes body-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
 }
 
 h2 {
+  flex: 0 0 auto;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(201, 207, 221, 0.75);
+  color: rgba(201, 207, 221, 0.78);
+  transition: color var(--d-fast) ease;
 }
 
 .row-head .chip,

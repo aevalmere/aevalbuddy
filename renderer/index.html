@@ -8,7 +8,15 @@
   <link rel="stylesheet" href="overlay.css" />
 </head>
 <body data-mode="pill">
-  <div id="pill" role="button" tabindex="0" aria-label="Open AevalBuddy. Captures the screen and opens the query panel.">
+  <!-- The collapsed state says what it is and what it is doing. A bare dot
+       told you neither, so there was nothing to learn from looking at it. -->
+  <div id="pill" role="button" tabindex="0" aria-label="Ask AevalBuddy about your screen">
+    <svg class="pill-mark" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"
+         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+         stroke-linejoin="round">
+      <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.6A8.4 8.4 0 0 1 3.6 11 8.4 8.4 0 0 1 12 2.6a8.4 8.4 0 0 1 9 8.9z"></path>
+    </svg>
+    <span class="pill-label">Ask</span>
     <span class="pill-dot" aria-hidden="true"></span>
   </div>
 

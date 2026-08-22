@@ -142,3 +142,44 @@ Windows 11 acrylic is available.
 One defect only the live capture could have caught: the blanket `:focus-visible` rule was drawing a 1px
 halo around the query field, which redrew exactly the nested box the rebuild removes. A page render shows
 it as intended styling; over a real desktop it reads as the old design.
+
+## v0.5: acrylic reverted, and what that cost
+
+Acrylic shipped in v0.4 on the strength of a two-window comparison over the desktop. It looked better in
+that test and it broke the app in use: the overlay started falling behind other windows, the collapse
+left nothing visible to click, and the desktop picked up repaint artifacts. The test was the problem. It
+proved one frame of appearance and exercised none of show, hide, opacity, click-through toggling, or
+topmost over time, which is where an opaque window differs from a layered one.
+
+Three things came out of it, and all three stay:
+
+- Depth is a material, not a compositor feature. A top-lit gradient, one crisp edge, a contact shadow and
+  a deep soft one read as dimensional without any OS help. The surface is opaque, because at 97% a bright
+  terminal behind it was still legible through the text on top.
+- Window opacity is not an animation channel on Windows. `setOpacity` toggles the layered window style,
+  and driving it at frame rate is what put artifacts on the desktop. Bounds animate; fades happen in CSS
+  inside the window. The frame rate came down from 120Hz to 60.
+- Topmost is re-asserted on a slow timer as well as whenever a window settles. An overlay quietly falling
+  behind is the one failure it cannot have.
+
+### Resizing
+
+Every window is draggable at the edges, and the sizes persist. Two rules keep it honest:
+
+| Surface | Width | Height |
+| --- | --- | --- |
+| Input bar | 320 to 900, user's | pinned to content |
+| Answer | 320 to 900, user's | follows the transcript until dragged, then held until New chat |
+| Settings | 380 to 900, user's | user's |
+| Pill, layout ghosts | pinned | pinned |
+
+Resizability is expressed through minimum and maximum sizes, never `setResizable`. On a frameless window
+clearing that flag strips the thick-frame style and setting it back does not restore it, so a window
+switched off once would stay unresizable for the session. Equal limits pin a window just as firmly and
+are reversible.
+
+The other trap: `setBounds` is clamped by the same limits a drag is. Every programmatic move unlocks the
+limits first and re-applies them after, and each one is stamped so the resize handler can tell it from a
+drag. Without the stamp, the collapse animation ran the window down to pill width and stored that as a
+chosen width; without mode-aware limits, the panel minimum was applied to the pill and Windows widened
+it to satisfy them.

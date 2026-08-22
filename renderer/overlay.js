@@ -34,9 +34,12 @@ function replayAnim(el, cls) {
 
 function render(prevMode) {
   document.body.dataset.mode = state.mode;
-  // Where the OS supplies acrylic it also supplies the corner and the edge,
-  // so the stylesheet stops drawing its own.
-  document.body.dataset.acrylic = state.acrylic ? '1' : '0';
+  // idle, chat (a conversation is waiting behind it) or busy (an answer is
+  // on its way): the collapsed pill reflects all three.
+  document.body.dataset.pill = state.pillState || 'idle';
+  if (state.inputWidth) {
+    document.documentElement.style.setProperty('--panel-w', state.inputWidth + 'px');
+  }
   applyAnchor();
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';

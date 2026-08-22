@@ -20,6 +20,7 @@ let docked = true;
 let renderQueued = false;
 let resizeQueued = false;
 let lastSentHeight = 0;
+let fixedHeight = false;
 // The assistant message currently streaming: { el, body, raw }.
 let liveMsg = null;
 
@@ -130,7 +131,7 @@ function renderLive() {
 // shrink while an answer is streaming, so the bottom edge does not chase the
 // text as it arrives.
 function requestResize() {
-  if (mode === 'hud' || opanel.hidden || resizeQueued) return;
+  if (mode === 'hud' || opanel.hidden || resizeQueued || fixedHeight) return;
   resizeQueued = true;
   requestAnimationFrame(() => {
     resizeQueued = false;
@@ -166,9 +167,13 @@ window.aeval.on('overlay:state', (next) => {
   // A docked answer grows away from the input bar's edge; a free one grows
   // from its own anchor. The stylesheet pins the panel to those edges so the
   // window's own glide uncovers it.
-  if (typeof next.acrylic === 'boolean') {
-    document.body.dataset.acrylic = next.acrylic ? '1' : '0';
+  if (next.outputWidth) {
+    document.documentElement.style.setProperty('--panel-w', next.outputWidth + 'px');
   }
+  // A dragged height means the window no longer follows the transcript, so
+  // the renderer stops asking it to.
+  fixedHeight = !!next.outputFixedHeight;
+  document.body.dataset.fixedHeight = fixedHeight ? '1' : '0';
   if (next.outputPos) {
     docked = next.outputPos.docked;
     const anchor = docked ? next.inputAnchor || next.outputPos : next.outputPos;

@@ -27,7 +27,9 @@ const skills = require('./lib/skills');
 const motion = require('./lib/motion');
 const cursorBuddy = require('./lib/cursor-buddy');
 
-const PILL = { width: 72, height: 44 };
+const PILL = { width: 104, height: 40 };
+// Widths are user-set now; these are the shipping defaults and the bounds a
+// drag is clamped to.
 const PANEL_WIDTH = 420;
 const INPUT_MIN_HEIGHT = 62;
 const INPUT_MAX_HEIGHT = 280;
@@ -35,8 +37,15 @@ const DEFAULT_INPUT_HEIGHT = 76;
 const OUTPUT_MIN_HEIGHT = 90;
 const OUTPUT_MAX_HEIGHT = 620;
 const DEFAULT_OUTPUT_HEIGHT = 120;
-const HUD_INPUT_SIZE = { width: PANEL_WIDTH, height: 140 };
-const HUD_OUTPUT_SIZE = { width: PANEL_WIDTH, height: 200 };
+// The layout ghosts take the real widths, so what is dragged is the size
+// the window will actually be.
+function hudInputSize() {
+  return { width: store.getInputWidth(), height: 140 };
+}
+
+function hudOutputSize() {
+  return { width: store.getOutputWidth(), height: 200 };
+}
 const DOCK_GAP = 8;
 const SNAP_MARGIN = 16;
 const SNAP_DISTANCE = 110;
@@ -52,6 +61,9 @@ const ACTION_LABELS = {
 // window has been still this long, so the ghost never teleports mid-drag.
 const DROP_SETTLE_MS = 160;
 const CHAT_HISTORY_LIMIT = 12;
+// The stored answer style when nothing is pinned: the router picks per
+// request from the screen and the question.
+const AUTO_SKILL = 'auto';
 
 // Window transition lengths. Exits run at roughly half their entrance, per
 // DESIGN.md; the table there is the source of these numbers.
@@ -73,6 +85,7 @@ let pendingShot = null;
 let lastCaptureOk = true;
 let currentAbort = null;
 let queryGen = 0;
+let queryBusy = false;
 let captureModeActive = false;
 let escapeRegistered = false;
 let hudInputPending = null;
@@ -137,7 +150,7 @@ function pillBounds() {
 
 function inputBounds(height) {
   const h = clampNum(Math.round(height), INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT);
-  return boundsForSize({ width: PANEL_WIDTH, height: h }, store.getOverlayPos());
+  return boundsForSize({ width: store.getInputWidth(), height: h }, store.getOverlayPos());
 }
 
 // Docked answers sit against the input bar, on whichever side has room:
@@ -157,8 +170,13 @@ function dockedBounds(inputRect, size, inputV) {
 }
 
 function outputBounds(height) {
-  const h = clampNum(Math.round(height), OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
-  const size = { width: PANEL_WIDTH, height: h };
+  const wa = workArea();
+  // A height the user dragged to wins over the transcript's own measurement.
+  const manual = store.getOutputHeight();
+  const h = manual
+    ? clampNum(manual, OUTPUT_MIN_HEIGHT, wa.height - 40)
+    : clampNum(Math.round(height), OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+  const size = { width: store.getOutputWidth(), height: h };
   const op = store.getOutputPos();
   if (op.docked && overlayWin && !overlayWin.isDestroyed()) {
     return dockedBounds(overlayWin.getBounds(), size, store.getOverlayPos().v);
@@ -234,41 +252,24 @@ function attachContextMenu(win) {
   });
 }
 
-// Windows 11 can put real acrylic behind a window. That matters because CSS
-// backdrop-filter cannot see past a window boundary: a transparent overlay
-// has nothing to blur, so whatever is underneath shows through sharp, which
-// is what made these surfaces read as stickers rather than glass. Acrylic
-// needs transparent:false, and in exchange DWM supplies the rounded corner
-// the CSS radius used to provide. Windows 10 ignores backgroundMaterial and
-// would just get an opaque square, so it keeps the transparent recipe.
-const WIN11_BUILD = 22000;
-
-function supportsAcrylic() {
-  if (process.platform !== 'win32') return false;
-  const build = Number(String(process.getSystemVersion() || '').split('.')[2]);
-  return Number.isFinite(build) && build >= WIN11_BUILD;
-}
-
-const ACRYLIC = supportsAcrylic();
-
-function surfaceOptions() {
-  return ACRYLIC
-    ? {
-        transparent: false,
-        backgroundColor: '#00000000',
-        backgroundMaterial: 'acrylic',
-        // An opaque window can take the real system drop shadow, which
-        // separates it from the desktop better than any CSS one.
-        hasShadow: true,
-      }
-    : { transparent: true, hasShadow: false };
-}
-
+// Acrylic was tried here and reverted. Windows 11 does give a real blurred
+// backdrop through backgroundMaterial, and in an isolated two-window test it
+// looked markedly better than a transparent surface. In the actual app it
+// broke the things that matter more: an opaque window stops behaving like a
+// reliable topmost overlay, it needs the layered style added back the moment
+// setOpacity touches it, and the churn showed up as artifacts on the
+// desktop. Depth is done in CSS instead, and the windows stay transparent,
+// which is the recipe that works.
 function baseWindowOptions() {
   return {
     frame: false,
-    ...surfaceOptions(),
-    resizable: false,
+    transparent: true,
+    hasShadow: false,
+    // Draggable edges. The height of the input bar stays pinned to its
+    // content by giving it an equal minimum and maximum on that axis, so a
+    // drag can only change the width, which is the only axis where a
+    // one-line field has anything to gain.
+    resizable: true,
     movable: false,
     minimizable: false,
     maximizable: false,
@@ -312,9 +313,11 @@ function createOverlay() {
   });
   attachContextMenu(overlayWin);
   overlayWin.on('move', onInputMove);
+  overlayWin.on('resize', onInputResize);
   overlayWin.on('closed', () => {
     overlayWin = null;
   });
+  applyInputLimits();
 }
 
 function createOutput() {
@@ -335,9 +338,11 @@ function createOutput() {
   });
   attachContextMenu(outputWin);
   outputWin.on('move', onOutputMove);
+  outputWin.on('resize', onOutputResize);
   outputWin.on('closed', () => {
     outputWin = null;
   });
+  outputLimits();
 }
 
 function openSettings() {
@@ -351,12 +356,16 @@ function openSettings() {
   // than the work area; on a short screen the panel scrolls instead of
   // hanging off the bottom edge.
   const wa = workArea();
+  const saved = store.getSettingsSize();
   settingsWin = new BrowserWindow({
-    width: 460,
-    height: clampNum(700, 420, wa.height - 40),
+    width: saved.width,
+    height: clampNum(saved.height, 360, wa.height - 40),
+    minWidth: 380,
+    minHeight: 360,
+    maxWidth: 900,
     frame: false,
-    ...surfaceOptions(),
-    resizable: false,
+    transparent: true,
+    resizable: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -374,6 +383,16 @@ function openSettings() {
   settingsWin.once('ready-to-show', () => {
     settingsWin.show();
     cursorBuddy.notify('settings-opened');
+  });
+  // The size survives closing, so the panel opens where it was left.
+  let settingsResizeTimer = null;
+  settingsWin.on('resize', () => {
+    clearTimeout(settingsResizeTimer);
+    settingsResizeTimer = setTimeout(() => {
+      if (settingsWin && !settingsWin.isDestroyed()) {
+        store.setSettingsSize(settingsWin.getBounds());
+      }
+    }, DROP_SETTLE_MS);
   });
   settingsWin.on('closed', () => {
     settingsWin = null;
@@ -404,10 +423,12 @@ function expandPanel() {
   if (wasPill) {
     // The renderer measures itself while the glide is running, so its height
     // report is applied once the glide lands rather than fighting it.
+    markApp(overlayWin);
+    unlockInput();
     motion.animate(overlayWin, { from, to, duration: T_EXPAND, onDone: syncInputBounds });
   } else {
     motion.stop(overlayWin);
-    overlayWin.setBounds(to);
+    setInputBounds(to);
   }
   overlayWin.show();
   overlayWin.focus();
@@ -430,14 +451,20 @@ function collapsePanel() {
   if (wasPanel) {
     // The renderer keeps showing the panel until the frame is nearly pill
     // sized, so the contents shrink away instead of vanishing at frame one.
+    markApp(overlayWin);
+    unlockInput();
     motion.animate(overlayWin, {
       to,
       duration: T_COLLAPSE,
-      onDone: sendOverlayState,
+      onDone: () => {
+        applyInputLimits();
+        markApp(overlayWin);
+        sendOverlayState();
+      },
     });
   } else {
     motion.stop(overlayWin);
-    overlayWin.setBounds(to);
+    setInputBounds(to);
     sendOverlayState();
   }
   applyRegistrations();
@@ -458,31 +485,39 @@ function showOutput() {
   const op = store.getOutputPos();
   const anchorV = op.docked ? store.getOverlayPos().v : op.v;
   const anchorH = op.docked ? store.getOverlayPos().h : op.h;
-  outputWin.setOpacity(0);
+  markApp(outputWin);
   outputWin.setBounds(motion.shrunkFrom(to, anchorV, anchorH));
   outputWin.showInactive();
-  motion.animate(outputWin, {
-    to,
-    duration: T_OUT_IN,
-    opacityFrom: 0,
-    opacityTo: 1,
-    onDone: syncOutputBounds,
-  });
+  // The fade is the renderer's entrance animation, not window opacity.
+  motion.animate(outputWin, { to, duration: T_OUT_IN, onDone: syncOutputBounds });
 }
 
 // Applies a height the renderer reported while a glide was in flight.
+function keepOnTop() {
+  for (const win of [overlayWin, outputWin]) {
+    if (win && !win.isDestroyed() && win.isVisible()) {
+      win.setAlwaysOnTop(true, 'screen-saver');
+    }
+  }
+}
+
 function syncInputBounds() {
+  keepOnTop();
   if (overlayMode !== 'panel' || !overlayWin || overlayWin.isDestroyed()) return;
   const want = inputBounds(currentInputHeight);
   const have = overlayWin.getBounds();
-  if (have.height !== want.height || have.y !== want.y) overlayWin.setBounds(want);
+  if (have.height !== want.height || have.y !== want.y) setInputBounds(want);
+  else applyInputLimits();
+  markApp(overlayWin);
   repositionOutputIfDocked();
 }
 
 function syncOutputBounds() {
+  keepOnTop();
   if (!outputActive || !outputWin || outputWin.isDestroyed()) return;
   const want = outputBounds(currentOutputHeight);
   const have = outputWin.getBounds();
+  markApp(outputWin);
   if (have.height !== want.height || have.y !== want.y) outputWin.setBounds(want);
 }
 
@@ -495,29 +530,19 @@ function hideOutput() {
   }
   outputActive = false;
   if (!outputWin || outputWin.isDestroyed()) return;
-  const rect = outputWin.getBounds();
-  const op = store.getOutputPos();
-  const anchorV = op.docked ? store.getOverlayPos().v : op.v;
-  const anchorH = op.docked ? store.getOverlayPos().h : op.h;
-  motion.animate(outputWin, {
-    to: motion.shrunkFrom(rect, anchorV, anchorH),
-    duration: T_OUT_OUT,
-    opacityFrom: 1,
-    opacityTo: 0,
-    onDone: () => {
-      if (outputWin && !outputWin.isDestroyed()) {
-        outputWin.hide();
-        outputWin.setBounds(rect);
-        outputWin.setOpacity(1);
-      }
-    },
-  });
+  // Hiding is immediate. An exit animation here has to survive being taken
+  // over half way through, and the failure mode is a window left invisible
+  // with no way back, which is worse than no exit animation at all.
+  motion.stop(outputWin);
+  outputWin.hide();
 }
 
 // Growing during a conversation glides too, so a long answer does not make
 // the window edge jump.
 function resizeOutput(to) {
   if (!outputWin || outputWin.isDestroyed()) return;
+  markApp(outputWin);
+  outputLimits();
   motion.animate(outputWin, { to, duration: T_OUT_GROW });
 }
 
@@ -529,6 +554,7 @@ function repositionOutputIfDocked() {
   // position against wherever the input bar ended up.
   if (motion.isAnimating(outputWin)) return;
   // Otherwise following the input bar is immediate; a glide would lag.
+  markApp(outputWin);
   outputWin.setBounds(outputBounds(currentOutputHeight));
 }
 
@@ -541,7 +567,12 @@ function sendOverlayState() {
     captureOk: lastCaptureOk,
     inputAnchor: store.getOverlayPos(),
     outputPos: store.getOutputPos(),
-    acrylic: ACRYLIC,
+    pillState: queryBusy ? 'busy' : chat.length ? 'chat' : 'idle',
+    inputWidth: store.getInputWidth(),
+    outputWidth: store.getOutputWidth(),
+    // A dragged height means the transcript fills the window and scrolls
+    // inside it, instead of the window following the transcript.
+    outputFixedHeight: store.getOutputHeight() > 0,
   };
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
@@ -554,14 +585,13 @@ function sendOverlayState() {
 
 function enterHudEditor() {
   if (!overlayWin || !outputWin || overlayMode === 'hud') return;
+  unlockInput();
   if (cursorBuddy.isActive()) cursorBuddy.cancel();
   abortCurrentQuery();
   // Layout editing is a direct-manipulation mode; no glide may be left
   // running to move a ghost the user is dragging.
   motion.stop(overlayWin);
   motion.stop(outputWin);
-  overlayWin.setOpacity(1);
-  outputWin.setOpacity(1);
   overlayMode = 'hud';
   overlayHidden = false;
   outputActive = false;
@@ -571,13 +601,17 @@ function enterHudEditor() {
   overlayWin.setIgnoreMouseEvents(false);
   overlayWin.setFocusable(true);
   overlayWin.setMovable(true);
-  overlayWin.setBounds(boundsForSize(HUD_INPUT_SIZE, hudInputPending));
+  unlockInput();
+  overlayWin.setBounds(boundsForSize(hudInputSize(), hudInputPending));
+  lockSize(overlayWin, hudInputSize().width, hudInputSize().height);
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.show();
   overlayWin.focus();
 
   outputWin.setMovable(true);
+  unlockSize(outputWin);
   outputWin.setBounds(hudOutputGhostBounds());
+  lockSize(outputWin, hudOutputSize().width, hudOutputSize().height);
   outputWin.setAlwaysOnTop(true, 'screen-saver');
   outputWin.showInactive();
 
@@ -588,9 +622,9 @@ function enterHudEditor() {
 
 function hudOutputGhostBounds() {
   if (hudOutputPending.docked && overlayWin && !overlayWin.isDestroyed()) {
-    return dockedBounds(overlayWin.getBounds(), HUD_OUTPUT_SIZE, hudInputPending.v);
+    return dockedBounds(overlayWin.getBounds(), hudOutputSize(), hudInputPending.v);
   }
-  return boundsForSize(HUD_OUTPUT_SIZE, hudOutputPending);
+  return boundsForSize(hudOutputSize(), hudOutputPending);
 }
 
 function exitHudEditor() {
@@ -600,8 +634,10 @@ function exitHudEditor() {
   hudInputPending = null;
   hudOutputPending = null;
   overlayWin.setMovable(false);
+  applyInputLimits();
   if (outputWin && !outputWin.isDestroyed()) {
     outputWin.setMovable(false);
+    outputLimits();
     outputWin.hide();
   }
   collapsePanel();
@@ -622,6 +658,110 @@ function withSnapGuard(fn) {
 // re-docked it). Instead each event just resets a settle timer, and the
 // snap decision runs once, after the drag stops.
 
+// The input bar may only be resized sideways: its height belongs to its
+// content. That is enforced with matching minimum and maximum heights, which
+// means the app has to unlock them before changing the height itself,
+// because setBounds is clamped by the same limits a drag is.
+// Resizability is expressed entirely through size limits, never through
+// setResizable. On a frameless window, clearing the resizable flag strips the
+// thick-frame style and setting it back does not restore it, so a window
+// switched off once stays unresizable for the rest of the session. Equal
+// minimum and maximum sizes pin a window just as firmly and are reversible.
+function lockSize(win, w, h) {
+  if (!win || win.isDestroyed()) return;
+  win.setMinimumSize(w, h);
+  win.setMaximumSize(w, h);
+}
+
+function unlockSize(win) {
+  if (!win || win.isDestroyed()) return;
+  win.setMinimumSize(1, 1);
+  win.setMaximumSize(4000, 4000);
+}
+
+function outputLimits() {
+  if (!outputWin || outputWin.isDestroyed()) return;
+  outputWin.setMinimumSize(store.MIN_W, OUTPUT_MIN_HEIGHT);
+  outputWin.setMaximumSize(store.MAX_W, Math.max(240, workArea().height));
+}
+
+function applyInputLimits() {
+  if (!overlayWin || overlayWin.isDestroyed()) return;
+  const b = overlayWin.getBounds();
+  if (overlayMode !== 'panel') {
+    // The pill is far narrower than the panel minimum, and the layout ghost
+    // is dragged rather than resized. Leaving the panel limits in place here
+    // makes Windows widen the pill to satisfy them, and the app then reads
+    // that back as a width the user chose.
+    lockSize(overlayWin, b.width, b.height);
+    return;
+  }
+  // Width is the user's, height belongs to the content.
+  overlayWin.setMinimumSize(store.MIN_W, b.height);
+  overlayWin.setMaximumSize(store.MAX_W, b.height);
+}
+
+function unlockInput() {
+  unlockSize(overlayWin);
+}
+
+// Telling an app-driven bounds change apart from a drag. Without this the
+// collapse animation would run the window down to pill width and the last
+// frame would be stored as a chosen width.
+const appBoundsAt = new Map();
+
+function markApp(win) {
+  if (win && !win.isDestroyed()) appBoundsAt.set(win.id, Date.now());
+}
+
+function appDriven(win) {
+  if (!win || win.isDestroyed()) return true;
+  if (motion.isAnimating(win)) return true;
+  return Date.now() - (appBoundsAt.get(win.id) || 0) < 500;
+}
+
+// Every programmatic change to the input bar goes through here: unlock the
+// height axis, move, re-lock, and mark it as the app moving itself.
+function setInputBounds(rect) {
+  if (!overlayWin || overlayWin.isDestroyed()) return;
+  markApp(overlayWin);
+  unlockInput();
+  overlayWin.setBounds(rect);
+  applyInputLimits();
+}
+
+let inputResizeTimer = null;
+let outputResizeTimer = null;
+
+function onInputResize() {
+  // Only the open panel is user-resizable; the pill and the layout ghost
+  // change size for reasons that are never a drag.
+  if (overlayMode !== 'panel' || !overlayWin) return;
+  clearTimeout(inputResizeTimer);
+  inputResizeTimer = setTimeout(() => {
+    if (!overlayWin || overlayWin.isDestroyed() || appDriven(overlayWin)) return;
+    store.setInputWidth(overlayWin.getBounds().width);
+    applyInputLimits();
+    sendOverlayState();
+    repositionOutputIfDocked();
+  }, DROP_SETTLE_MS);
+}
+
+function onOutputResize() {
+  if (overlayMode === 'hud' || !outputWin || !outputActive) return;
+  clearTimeout(outputResizeTimer);
+  outputResizeTimer = setTimeout(() => {
+    if (!outputWin || outputWin.isDestroyed() || appDriven(outputWin)) return;
+    const b = outputWin.getBounds();
+    store.setOutputWidth(b.width);
+    // Dragging the height is how the answer window stops sizing itself to
+    // the transcript; New chat hands that back.
+    store.setOutputHeight(b.height);
+    currentOutputHeight = b.height;
+    sendOverlayState();
+  }, DROP_SETTLE_MS);
+}
+
 function onInputMove() {
   if (overlayMode !== 'hud' || hudSnapInProgress || !overlayWin) return;
   // A docked answer ghost follows the drag live.
@@ -635,7 +775,7 @@ function onInputMove() {
 function settleInputDrag() {
   if (overlayMode !== 'hud' || !overlayWin || overlayWin.isDestroyed()) return;
   const rect = overlayWin.getBounds();
-  const snap = findSnap(rect, HUD_INPUT_SIZE);
+  const snap = findSnap(rect, hudInputSize());
   if (snap) {
     withSnapGuard(() => overlayWin.setBounds(snap.rect));
     hudInputPending = snap.pos;
@@ -659,7 +799,7 @@ function onOutputMove() {
 function settleOutputDrag() {
   if (overlayMode !== 'hud' || !outputWin || outputWin.isDestroyed() || !overlayWin) return;
   const rect = outputWin.getBounds();
-  const dockSlot = dockedBounds(overlayWin.getBounds(), HUD_OUTPUT_SIZE, hudInputPending.v);
+  const dockSlot = dockedBounds(overlayWin.getBounds(), hudOutputSize(), hudInputPending.v);
   if (centerDistance(dockSlot, rect) <= DOCK_DISTANCE) {
     withSnapGuard(() => outputWin.setBounds(dockSlot));
     hudOutputPending = { ...hudOutputPending, docked: true };
@@ -667,7 +807,7 @@ function settleOutputDrag() {
     outputWin.webContents.send('hud:snapped', {});
     return;
   }
-  const snap = findSnap(rect, HUD_OUTPUT_SIZE);
+  const snap = findSnap(rect, hudOutputSize());
   if (snap) {
     withSnapGuard(() => outputWin.setBounds(snap.rect));
     hudOutputPending = { ...snap.pos, docked: false };
@@ -692,7 +832,7 @@ function setHudDock(docked) {
     const dir = hudInputPending && hudInputPending.v === 'bottom' ? -1 : 1;
     const freed = posFromRect({ ...rect, y: rect.y + dir * (DOCK_DISTANCE + 20) });
     hudOutputPending = { ...freed, docked: false };
-    withSnapGuard(() => outputWin.setBounds(boundsForSize(HUD_OUTPUT_SIZE, hudOutputPending)));
+    withSnapGuard(() => outputWin.setBounds(boundsForSize(hudOutputSize(), hudOutputPending)));
   }
   outputWin.webContents.send('hud:docked', { docked: hudOutputPending.docked });
   outputWin.webContents.send('hud:snapped', {});
@@ -865,6 +1005,8 @@ async function handleQuerySubmit(question) {
   // feels instant; the capture happens under the thinking dots.
   send('chat:user', { text });
   send('query:start', {});
+  queryBusy = true;
+  sendOverlayState();
   showOutput();
   // Every message captures the screen fresh, so follow-ups talk about what
   // is on screen now, not what was there at the first hotkey press.
@@ -883,38 +1025,77 @@ async function handleQuerySubmit(question) {
   try {
     // Brain mode: a vision model reads the screen first, then a stronger
     // text-only model answers from that reading. The reader call is not
-    // streamed, so the user watches the thinking dots through it; saying so
-    // is better than an unexplained pause.
+    // streamed, so the user watches the thinking dots through it; naming the
+    // stage is better than an unexplained pause.
+    //
+    // Every failure here degrades instead of stopping. A reader that errors
+    // or loses the format drops the request back to one stage, and a brain
+    // that dies before producing a word is retried on the model that can see
+    // the screen. The user gets an answer unless the vision model itself is
+    // unreachable.
     let screenReport = null;
     if (useBrain && shot) {
       send('query:stage', { label: 'Reading your screen' });
-      screenReport = await ai.readScreen({
-        apiKey: store.getApiKey(),
-        model,
-        imageBase64: shot.base64,
-        imageWidth: shot.width,
-        imageHeight: shot.height,
-        question: text,
-        signal,
-      });
-      answering = store.getBrain();
-      send('query:stage', { label: 'Thinking' });
+      try {
+        screenReport = await ai.readScreen({
+          apiKey: store.getApiKey(),
+          model,
+          imageBase64: shot.base64,
+          imageWidth: shot.width,
+          imageHeight: shot.height,
+          question: text,
+          signal,
+        });
+      } catch (readErr) {
+        if (readErr.name === 'AbortError') throw readErr;
+        screenReport = null;
+      }
     }
-    await ai.streamQuery({
+
+    // Automatic answer style: the reader has actually looked at the screen,
+    // so its task word outranks anything guessed from the wording.
+    const pinned = store.getSkillId();
+    const chosen =
+      pinned === AUTO_SKILL
+        ? skills.route({ question: text, task: ai.extractTask(screenReport) }).id
+        : pinned;
+    const skill = skills.get(chosen);
+
+    const base = {
       apiKey: store.getApiKey(),
-      model: answering,
       question: text,
-      screenReport,
-      imageBase64: screenReport || !shot ? null : shot.base64,
       imageWidth: shot ? shot.width : 0,
       imageHeight: shot ? shot.height : 0,
       history,
       // The answering procedure travels with every request, which is what
       // holds a small fast model to a useful answer shape.
-      skill: skills.get(store.getSkillId()),
+      skill,
       signal,
       onDelta: (t) => extractor.push(t),
-    });
+    };
+
+    if (screenReport) {
+      answering = store.getBrain();
+      send('query:stage', { label: 'Thinking' });
+      try {
+        await ai.streamQuery({ ...base, model: answering, screenReport });
+      } catch (brainErr) {
+        // Nothing reached the user yet, so the request can still be served
+        // by the model that already saw the screen.
+        if (brainErr.name === 'AbortError' || extractor.text) throw brainErr;
+        answering = model;
+        send('query:stage', { label: 'Answering directly' });
+        await ai.streamQuery({ ...base, model, imageBase64: shot.base64 });
+      }
+    } else {
+      answering = model;
+      if (useBrain && shot) send('query:stage', { label: 'Answering directly' });
+      await ai.streamQuery({
+        ...base,
+        model,
+        imageBase64: shot ? shot.base64 : null,
+      });
+    }
     extractor.flush();
     chat.push({ role: 'assistant', text: extractor.text });
     send('query:done', {});
@@ -932,6 +1113,8 @@ async function handleQuerySubmit(question) {
     return { status: 'error' };
   } finally {
     if (currentAbort && currentAbort.signal === signal) currentAbort = null;
+    queryBusy = false;
+    sendOverlayState();
   }
 }
 
@@ -956,6 +1139,8 @@ function showModelPoints(points, shot) {
 function resetChat() {
   abortCurrentQuery();
   chat = [];
+  // New chat hands sizing back to the transcript.
+  store.setOutputHeight(0);
   currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
   if (outputWin && !outputWin.isDestroyed()) {
     outputWin.webContents.send('chat:reset', {});
@@ -996,7 +1181,7 @@ function registerIpc() {
     currentInputHeight = height;
     // A glide already ends at the panel size and re-syncs on landing.
     if (motion.isAnimating(overlayWin)) return;
-    overlayWin.setBounds(inputBounds(height));
+    setInputBounds(inputBounds(height));
     repositionOutputIfDocked();
   });
   ipcMain.handle('output:resize', (_e, { height }) => {
@@ -1039,7 +1224,6 @@ function registerIpc() {
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
     version: app.getVersion(),
-    acrylic: ACRYLIC,
   }));
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
@@ -1205,6 +1389,9 @@ if (!gotLock) {
     if (process.env.AEVAL_SHOT) {
       setTimeout(runShots, 1200);
     }
+    if (!process.env.AEVAL_SMOKE && !process.env.AEVAL_SHOT) {
+      setInterval(keepOnTop, 4000);
+    }
   });
 
   app.on('window-all-closed', () => {
@@ -1258,11 +1445,16 @@ async function runShots() {
         scrollSettings: (top) =>
           evalIn(settingsWin, `document.querySelector('main').scrollTop = ${top}; true`),
         openModelList: () =>
-          evalIn(settingsWin, `document.getElementById('model-combo-btn').click(); true`),
+          evalIn(
+            settingsWin,
+            `(() => { document.querySelector('[data-edit="sec-model"]').click();` +
+              ` document.getElementById('model-combo-btn').click(); return true; })()`
+          ),
         enableBrain: () =>
           evalIn(
             settingsWin,
-            `(() => { const c = document.getElementById('brain-enabled');` +
+            `(() => { document.querySelector('[data-edit="sec-brain"]').click();` +
+              ` const c = document.getElementById('brain-enabled');` +
               ` c.checked = true; c.dispatchEvent(new Event('change')); return true; })()`
           ),
         closeModelList: () => evalIn(settingsWin, `document.body.click(); true`),
@@ -1363,7 +1555,7 @@ async function runSmoke() {
     const brainPrompt = ai.makeSystemPrompt({
       imageWidth: 1280,
       imageHeight: 800,
-      skill: skills.get(store.getSkillId()),
+      skill: skills.get(skills.DEFAULT_ID),
       viaReader: true,
     });
     log(
@@ -1380,13 +1572,39 @@ async function runSmoke() {
     const prompt = ai.makeSystemPrompt({
       imageWidth: 1280,
       imageHeight: 800,
-      skill: skills.get(store.getSkillId()),
+      skill: skills.get(skills.route({ question: 'why did this fail' }).id),
     });
     log(
       'skillInPrompt',
       prompt.includes('Screen assistant') && prompt.includes('1280x800') ? 'ok' : 'missing'
     );
     log('skillFallback', skills.get('no-such-skill').id);
+    log('skillDefault', store.getSkillId());
+    const routed = ['why did the build fail', 'what is this dialog', 'reword this email', 'help']
+      .map((q) => skills.route({ question: q }).id)
+      .join(',');
+    log('skillRoute', routed);
+    log('skillRouteFromScreen', skills.route({ question: 'x', task: 'rewrite' }).id);
+    // Resizing. The pill must never be forced up to the panel minimum: that
+    // was the bug that stored a widened pill as a chosen width.
+    log('widthDefaults', `${store.getInputWidth()}:${store.getOutputWidth()}`);
+    collapsePanel();
+    applyInputLimits();
+    log('pillWidthHeld', overlayWin.getBounds().width);
+    const cmin = overlayWin.getMinimumSize();
+    const cmax = overlayWin.getMaximumSize();
+    log('pillPinned', cmin[0] === cmax[0] && cmin[1] === cmax[1]);
+    await triggerCapture();
+    // The expand glide is still running for a moment; the panel only becomes
+    // user-resizable once it lands and re-applies its limits.
+    await new Promise((r) => setTimeout(r, T_EXPAND + 120));
+    const pmin = overlayWin.getMinimumSize();
+    const pmax = overlayWin.getMaximumSize();
+    log('panelWidthRange', `${pmin[0]}-${pmax[0]}`);
+    log('panelHeightPinned', pmin[1] === pmax[1]);
+    log('panelWidthHeld', overlayWin.getBounds().width);
+    log('widthAfterCycle', store.getInputWidth());
+    log('outputAutoHeight', store.getOutputHeight() === 0);
     // Window motion resolves its curve and its anchored start rectangles.
     const rect = { x: 100, y: 40, width: 420, height: 200 };
     const grown = motion.shrunkFrom(rect, 'top', 'right');
@@ -1404,7 +1622,6 @@ async function runSmoke() {
         ` window.renderMarkdownInto(d, '# T\\n- a\\n- b\\n**s** and \\u0060c\\u0060');` +
         ` return d.innerHTML; })()`
     );
-    log('acrylic', ACRYLIC);
     log(
       'markdown',
       mdHtml.includes('<li>') && mdHtml.includes('<strong>') && mdHtml.includes('md-h')
@@ -1434,8 +1651,8 @@ async function runSmoke() {
     const redocked = hudOutputPending && hudOutputPending.docked === true;
     log('hudDockToggle', `${detached}:${redocked}`);
     const snap = findSnap(
-      boundsForSize(HUD_INPUT_SIZE, { h: 'left', v: 'top', offX: 30, offY: 30 }),
-      HUD_INPUT_SIZE
+      boundsForSize(hudInputSize(), { h: 'left', v: 'top', offX: 30, offY: 30 }),
+      hudInputSize()
     );
     log('hudSnapFound', snap ? `${snap.pos.h}-${snap.pos.v}` : 'none');
     exitHudEditor();

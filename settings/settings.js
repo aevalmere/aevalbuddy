@@ -5,8 +5,6 @@ const toggleKeyBtn = document.getElementById('toggle-key');
 const saveKeyBtn = document.getElementById('save-key');
 const testKeyBtn = document.getElementById('test-key');
 const removeKeyBtn = document.getElementById('remove-key');
-const keyState = document.getElementById('key-state');
-const keyStateText = document.getElementById('key-state-text');
 const keyStatus = document.getElementById('key-status');
 const appVersion = document.getElementById('app-version');
 const showPaid = document.getElementById('show-paid');
@@ -24,6 +22,36 @@ const quitBtn = document.getElementById('quit-app');
 let data = { shortcuts: {}, active: {} };
 let capturing = null; // { action } while recording a new combo
 let watchSelector = null;
+
+// ------------------------------------------------------------- collapsing
+
+// A group shows one line until Edit is pressed. Only one is open at a time,
+// because two open groups is most of the way back to the wall of controls
+// this replaced.
+function openSection(id) {
+  for (const sec of document.querySelectorAll('main section')) {
+    const open = sec.id === id;
+    sec.dataset.open = open ? '1' : '0';
+    const edit = sec.querySelector('.edit[data-edit]');
+    if (edit) edit.textContent = open ? 'Done' : 'Edit';
+  }
+}
+
+function closeSections() {
+  openSection(null);
+}
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.edit[data-edit]');
+  if (!btn) return;
+  const sec = document.getElementById(btn.dataset.edit);
+  openSection(sec && sec.dataset.open === '1' ? null : btn.dataset.edit);
+});
+
+function setSummary(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
 
 // Status lines share one helper so none can leave stale text behind or
 // reserve space while empty.
@@ -48,8 +76,7 @@ const setShortcutError = makeStatus(shortcutError);
 // --------------------------------------------------------------- API key
 
 function renderKeyState(saved) {
-  keyState.classList.toggle('on', saved);
-  keyStateText.textContent = saved ? 'Saved' : 'Not set';
+  setSummary('key-summary', saved ? 'Saved' : 'Not set');
   removeKeyBtn.hidden = !saved;
   testKeyBtn.hidden = !saved;
 }
@@ -119,6 +146,9 @@ function makeCombo(config) {
     }
     const known = state.index.get(state.current);
     label.textContent = known ? known.name : state.current || 'Choose...';
+    if (config.summaryId) {
+      setSummary(config.summaryId, known ? known.name : state.current || 'Not set');
+    }
     // The collapsed control shows price and context only: it is one line, and
     // a description worth reading gets cut off there. The description goes
     // underneath, where it has room to wrap.
@@ -254,6 +284,7 @@ const modelCombo = makeCombo({
   list: document.getElementById('model-combo-list'),
   note: document.getElementById('model-note'),
   kind: 'vision',
+  summaryId: 'model-summary',
   save: (id) => window.aeval.invoke('settings:save-model', { model: id }),
 });
 
@@ -271,6 +302,13 @@ const brainCombo = makeCombo({
 function showBrainPicker(on) {
   brainComboEl.hidden = !on;
   brainNoteEl.hidden = !on;
+  setSummary('brain-summary', on ? brainName() : 'Off');
+}
+
+function brainName() {
+  const el = document.getElementById('brain-combo-label');
+  const name = el ? el.textContent.trim() : '';
+  return name && name !== 'Loading...' ? name : 'On';
 }
 
 showPaid.addEventListener('change', () => {
@@ -287,9 +325,15 @@ brainEnabled.addEventListener('change', () => {
 
 // ----------------------------------------------------------------- skills
 
+const AUTO = {
+  id: 'auto',
+  name: 'Automatic',
+  summary: 'Picks from what is on screen and what you asked. Recommended.',
+};
+
 function renderSkills(list, current) {
   skillList.innerHTML = '';
-  for (const s of list) {
+  for (const s of [AUTO].concat(list)) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'skill-option';
@@ -315,6 +359,8 @@ function renderSkills(list, current) {
     }
     skillList.appendChild(btn);
   }
+  const active = [AUTO].concat(list).find((s) => s.id === current) || AUTO;
+  setSummary('skill-summary', active.name);
 }
 
 skillList.addEventListener('click', (e) => {
@@ -322,7 +368,9 @@ skillList.addEventListener('click', (e) => {
   if (!btn) return;
   window.aeval.invoke('settings:save-skill', { skill: btn.dataset.id }).then((r) => {
     for (const other of skillList.querySelectorAll('.skill-option')) {
-      other.setAttribute('aria-checked', String(other.dataset.id === r.skill));
+      const on = other.dataset.id === r.skill;
+      other.setAttribute('aria-checked', String(on));
+      if (on) setSummary('skill-summary', other.querySelector('.skill-name').textContent);
     }
   });
 });
@@ -330,6 +378,10 @@ skillList.addEventListener('click', (e) => {
 // -------------------------------------------------------------- shortcuts
 
 function renderShortcuts() {
+  setSummary(
+    'shortcut-summary',
+    [data.shortcuts.captureQuery, data.shortcuts.toggleVisibility].filter(Boolean).join(' · ')
+  );
   for (const row of shortcutList.querySelectorAll('.sc-row[data-action]')) {
     const action = row.dataset.action;
     const kbd = row.querySelector('.sc-current');
@@ -472,6 +524,10 @@ window.addEventListener('keydown', (e) => {
     brainCombo.close(true);
     return;
   }
+  if (document.querySelector('main section[data-open="1"]')) {
+    closeSections();
+    return;
+  }
   window.aeval.invoke('settings:close');
 });
 
@@ -509,7 +565,6 @@ document.addEventListener('click', (e) => {
 window.aeval.invoke('settings:get').then((d) => {
   data = d;
   appVersion.textContent = d.version || '';
-  document.body.dataset.acrylic = d.acrylic ? '1' : '0';
   showPaid.checked = !!d.showPaid;
   brainEnabled.checked = !!d.brainEnabled;
   showBrainPicker(!!d.brainEnabled);
@@ -519,5 +574,8 @@ window.aeval.invoke('settings:get').then((d) => {
   modelCombo.setCurrent(d.model || '');
   brainCombo.setCurrent(d.brain || '');
   modelCombo.load();
-  brainCombo.load();
+  brainCombo.load().then(() => showBrainPicker(!!d.brainEnabled));
+  // Nothing saved yet means the key field should be in front of the user
+  // rather than one click behind an Edit link.
+  openSection(d.hasKey ? null : 'sec-key');
 });

@@ -23,8 +23,13 @@
   --gutter: 12px;
   --control: 32px;
   --hairline: rgba(201, 207, 221, 0.10);
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
-  --lift: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.11);
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.45), 0 18px 44px rgba(0, 0, 0, 0.55);
+  /* Opaque. At 97% a bright terminal behind the panel still showed through
+     enough to read, which fights the text on top of it. The depth comes from
+     the gradient, the edge and the shadow, not from translucency. */
+  --skin: linear-gradient(#3E404A, #262930);
+  --edge: rgba(201, 207, 221, 0.17);
   --chrome: 0.55;
 }
 
@@ -71,69 +76,98 @@ button {
 /* ------------------------------------------------------------------- pill */
 
 #pill {
-  width: 64px;
-  height: 36px;
-  margin: 4px;
-  border-radius: 12px;
-  background: rgba(43, 44, 51, 0.88);
-  border: 1px solid rgba(48, 61, 106, 0.55);
+  position: fixed;
+  inset: 3px;
+  border-radius: 11px;
+  background: var(--skin);
+  border: 1px solid var(--edge);
+  box-shadow: var(--bevel), var(--lift);
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
   cursor: pointer;
-  transition: border-color var(--d-fast) ease, background var(--d-fast) ease,
-    transform var(--d-fast) var(--ease-out);
+  transition: border-color var(--d-fast) ease, filter var(--d-fast) ease;
 }
 
 #pill.in {
-  animation: pill-in 200ms var(--ease-glide);
+  animation: pill-in 220ms var(--ease-glide);
 }
 
 @keyframes pill-in {
   from {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.88);
   }
 }
 
 #pill:hover {
-  background: rgba(43, 44, 51, 0.97);
-  border-color: var(--twilight);
-  transform: scale(1.04);
+  border-color: rgba(201, 207, 221, 0.34);
+  filter: brightness(1.14);
 }
 
-.pill-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--slate);
-  opacity: 0.55;
+.pill-mark {
+  flex: 0 0 auto;
+  color: var(--slate);
+  opacity: 0.7;
   transition: opacity var(--d-fast) ease;
 }
 
-#pill:hover .pill-dot {
+#pill:hover .pill-mark {
   opacity: 1;
+}
+
+.pill-label {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.75);
+  transition: color var(--d-fast) ease;
+}
+
+#pill:hover .pill-label {
+  color: var(--slate);
+}
+
+/* The state light. Dim when there is nothing to come back to, lit when a
+   conversation is waiting behind it, breathing while an answer is on its
+   way. Reading the collapsed pill now tells you something. */
+.pill-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(201, 207, 221, 0.3);
+  transition: background var(--d-fast) ease, box-shadow var(--d-fast) ease;
+}
+
+body[data-pill="chat"] .pill-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.4);
+}
+
+body[data-pill="busy"] .pill-dot {
+  background: var(--accent);
+  animation: pill-breathe 1.4s ease-in-out infinite;
+}
+
+body[data-pill="busy"] .pill-label {
+  color: rgba(201, 207, 221, 0.6);
+}
+
+@keyframes pill-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 body[data-mode="panel"] #pill {
   display: none;
-}
-
-/* With acrylic the window itself is the surface, so the pill fills it
-   rather than floating inside it with its own margin and edge, which would
-   leave a ring of bare acrylic around a darker shape. */
-body[data-acrylic="1"] #pill {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  border: none;
-  border-radius: 0;
-  background: rgba(43, 44, 51, 0.55);
-}
-
-body[data-acrylic="1"] #pill:hover {
-  background: rgba(43, 44, 51, 0.72);
-  transform: none;
 }
 
 /* ------------------------------------------------------- panel positioning
@@ -144,10 +178,14 @@ body[data-acrylic="1"] #pill:hover {
    inside moves while the frame changes size, which is what removes the
    flicker that a CSS scale on the same gesture used to produce. */
 
+/* The width follows the window, which the user can drag. It is set as a
+   variable rather than 100% on purpose: during the opening glide the frame
+   is still narrow, and a percentage would reflow the contents inside it,
+   which is the reflow this pinning exists to avoid. */
 #panel,
 #opanel {
   position: fixed;
-  width: 420px;
+  width: var(--panel-w, 420px);
 }
 
 body[data-anchor-h="left"] #panel,
@@ -163,7 +201,7 @@ body[data-anchor-h="right"] #opanel {
 body[data-anchor-h="center"] #panel,
 body[data-anchor-h="center"] #opanel {
   left: 50%;
-  margin-left: -210px;
+  margin-left: calc(var(--panel-w, 420px) / -2);
 }
 
 body[data-anchor-v="top"] #panel,
@@ -182,25 +220,18 @@ body[data-anchor-v="bottom"] #opanel {
 
 /* One surface. The bar itself is the field: there is no bordered input
    sitting inside a bordered panel, which was the single loudest amateur tell
-   in the v0.3 capture. Where the window supplies acrylic, it also supplies
-   the corner and the edge, so the CSS drops both. */
+   in the v0.3 capture. Depth comes from the material, not from stacking
+   boxes: a top-lit gradient, one crisp edge, a contact shadow and a deep
+   soft one. */
 #panel {
-  background: rgba(43, 44, 51, 0.97);
-  border: 1px solid rgba(201, 207, 221, 0.14);
+  background: var(--skin);
+  border: 1px solid var(--edge);
   border-radius: 12px;
   padding: var(--gutter);
   display: flex;
   flex-direction: column;
   gap: var(--gutter);
   box-shadow: var(--bevel), var(--lift);
-}
-
-body[data-acrylic="1"] #panel,
-body[data-acrylic="1"] #opanel {
-  background: rgba(43, 44, 51, 0.62);
-  border: none;
-  border-radius: 0;
-  box-shadow: var(--bevel);
 }
 
 /* The surface only fades; its contents arrive a beat later, staggered, so
@@ -270,11 +301,7 @@ body[data-acrylic="1"] #opanel {
 }
 
 #panel:focus-within {
-  border-color: rgba(201, 207, 221, 0.26);
-}
-
-body[data-acrylic="1"] #panel:focus-within {
-  background: rgba(43, 44, 51, 0.70);
+  border-color: rgba(201, 207, 221, 0.3);
 }
 
 /* Chrome recedes: idle at 55%, full only under the cursor. */
@@ -345,8 +372,8 @@ body[data-acrylic="1"] #panel:focus-within {
 /* ---------------------------------------------------------------- opanel */
 
 #opanel {
-  background: rgba(43, 44, 51, 0.97);
-  border: 1px solid rgba(201, 207, 221, 0.14);
+  background: var(--skin);
+  border: 1px solid var(--edge);
   border-radius: 12px;
   padding: var(--gutter);
   display: flex;
@@ -399,6 +426,7 @@ body[data-acrylic="1"] #panel:focus-within {
   flex-direction: column;
   gap: 8px;
   max-height: 520px;
+  min-height: 0;
   overflow-y: auto;
   /* The gutter is reserved whether or not the scrollbar is showing, so the
      bubbles do not shift sideways the moment a conversation gets long. */
@@ -559,6 +587,19 @@ body[data-acrylic="1"] #panel:focus-within {
 
 .error-row svg {
   flex: 0 0 auto;
+}
+
+/* A height the user dragged to: the panel fills the window and the
+   transcript scrolls inside it, rather than the window chasing the text. */
+body[data-fixed-height="1"] #opanel {
+  top: 0;
+  bottom: 0;
+  height: 100%;
+}
+
+body[data-fixed-height="1"] #chat {
+  flex: 1;
+  max-height: none;
 }
 
 /* --------------------------------------------------------------- markdown */
