@@ -11,6 +11,8 @@ const INVOKE_CHANNELS = new Set([
   'overlay:resize',
   'overlay:set-ignore',
   'overlay:open-settings',
+  'output:resize',
+  'open-external',
   'query:submit',
   'query:cancel',
   'settings:get',
@@ -33,6 +35,8 @@ const INVOKE_CHANNELS = new Set([
 const LISTEN_CHANNELS = new Set([
   'overlay:state',
   'hud:snapped',
+  'hud:docked',
+  'query:start',
   'query:delta',
   'query:done',
   'query:error',

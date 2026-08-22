@@ -122,27 +122,105 @@ input::placeholder {
   color: rgba(201, 207, 221, 0.55);
 }
 
-select {
+/* Custom dropdown: native select popups misrender inside transparent
+   frameless windows on Windows, so the list is ordinary DOM. */
+.combo {
+  position: relative;
   flex: 1;
   min-width: 0;
-  font-family: inherit;
+}
+
+#model-combo-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 14px;
   color: #C9CFDD;
   background: rgba(16, 37, 79, 0.45);
   border: 1px solid #303D6A;
   border-radius: 8px;
   padding: 8px 10px;
+  text-align: left;
+  transition: border-color 150ms ease;
 }
 
-select:focus {
-  outline: none;
+#model-combo-btn:hover {
+  border-color: rgba(201, 207, 221, 0.4);
+}
+
+#model-combo-btn[aria-expanded="true"] {
   border-color: #823A80;
-  box-shadow: 0 0 0 1px #823A80, 0 0 0 2px rgba(201, 207, 221, 0.35);
 }
 
-select option {
+#model-combo-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#model-combo-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  list-style: none;
   background: #10254F;
-  color: #C9CFDD;
+  border: 1px solid #303D6A;
+  border-radius: 8px;
+  padding: 4px;
+  max-height: 210px;
+  overflow-y: auto;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  animation: combo-open 140ms ease;
+}
+
+@keyframes combo-open {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#model-combo-list[hidden] {
+  display: none;
+}
+
+#model-combo-list li {
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#model-combo-list li:hover {
+  background: rgba(48, 61, 106, 0.5);
+}
+
+#model-combo-list li:focus,
+#model-combo-list li:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px #823A80;
+  background: rgba(48, 61, 106, 0.5);
+}
+
+#model-combo-list li.selected {
+  background: rgba(130, 58, 128, 0.22);
+  box-shadow: inset 0 0 0 1px #823A80;
+}
+
+#model-combo-list li.muted {
+  cursor: default;
+  color: rgba(201, 207, 221, 0.6);
 }
 
 input:focus {

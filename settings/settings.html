@@ -55,7 +55,22 @@
           OpenRouter privacy settings.
         </p>
         <div class="row">
-          <select id="model-select" aria-label="Free vision models from OpenRouter"></select>
+          <div class="combo" id="model-combo">
+            <button
+              id="model-combo-btn"
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="Free vision models from OpenRouter"
+            >
+              <span id="model-combo-label">Loading models...</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <ul id="model-combo-list" role="listbox" aria-label="Free vision models" hidden></ul>
+          </div>
         </div>
         <div class="row">
           <input

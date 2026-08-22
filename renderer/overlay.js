@@ -8,17 +8,10 @@ const closeBtn = document.getElementById('close-btn');
 const notice = document.getElementById('notice');
 const noticeText = document.getElementById('notice-text');
 const noticeSettings = document.getElementById('notice-settings');
-const errorBox = document.getElementById('error');
-const errorText = document.getElementById('error-text');
-const response = document.getElementById('response');
-const responseWrap = document.getElementById('response-wrap');
-const copyResponseBtn = document.getElementById('copy-response');
 const hud = document.getElementById('hud');
 const hudDone = document.getElementById('hud-done');
 
 let state = { mode: 'pill', hasKey: false, captureOk: true };
-let busy = false;
-let lastGen = 0;
 let watchSelector = null;
 let ignoreState = true;
 let resizeQueued = false;
@@ -33,7 +26,6 @@ function render(prevMode) {
   if (state.mode === 'panel') {
     renderNotice();
     if (prevMode !== 'panel') {
-      resetConversation();
       input.focus();
       input.select();
     }
@@ -42,10 +34,6 @@ function render(prevMode) {
 }
 
 function renderNotice() {
-  if (busy) {
-    notice.hidden = true;
-    return;
-  }
   if (!state.hasKey) {
     noticeText.textContent = 'No OpenRouter API key saved yet.';
     noticeSettings.hidden = false;
@@ -58,14 +46,6 @@ function renderNotice() {
   } else {
     notice.hidden = true;
   }
-}
-
-function resetConversation() {
-  responseWrap.hidden = true;
-  response.textContent = '';
-  response.classList.remove('thinking');
-  errorBox.hidden = true;
-  busy = false;
 }
 
 function requestResize() {
@@ -83,65 +63,12 @@ new ResizeObserver(requestResize).observe(panel);
 // ------------------------------------------------------------------ query
 
 function submit() {
-  const question = input.value;
-  errorBox.hidden = true;
-  responseWrap.hidden = false;
-  response.textContent = 'Thinking...';
-  response.classList.add('thinking');
-  busy = true;
-  renderNotice();
-  requestResize();
-  window.aeval.invoke('query:submit', { question }).then((result) => {
-    if (!result) return;
-    if (result.status === 'needs-key' || result.status === 'walkthrough') {
-      busy = false;
-      responseWrap.hidden = true;
-      response.textContent = '';
-      response.classList.remove('thinking');
-      if (result.status === 'walkthrough') input.value = '';
-      renderNotice();
-      requestResize();
+  window.aeval.invoke('query:submit', { question: input.value }).then((result) => {
+    if (result && result.status === 'walkthrough') {
+      input.value = '';
     }
   });
 }
-
-window.aeval.on('query:delta', ({ gen, text }) => {
-  if (gen < lastGen) return;
-  if (gen > lastGen) {
-    lastGen = gen;
-    response.textContent = '';
-    response.classList.remove('thinking');
-    responseWrap.hidden = false;
-  }
-  if (text) {
-    response.textContent += text;
-    response.scrollTop = response.scrollHeight;
-    requestResize();
-  }
-});
-
-window.aeval.on('query:done', ({ gen }) => {
-  if (gen < lastGen) return;
-  busy = false;
-  response.classList.remove('thinking');
-  if (!response.textContent) responseWrap.hidden = true;
-  renderNotice();
-  requestResize();
-});
-
-window.aeval.on('query:error', ({ gen, message }) => {
-  if (gen < lastGen) return;
-  busy = false;
-  response.classList.remove('thinking');
-  if (response.textContent === 'Thinking...') {
-    responseWrap.hidden = true;
-    response.textContent = '';
-  }
-  errorText.textContent = message;
-  errorBox.hidden = false;
-  renderNotice();
-  requestResize();
-});
 
 // ------------------------------------------------------------------ state
 
@@ -149,6 +76,13 @@ window.aeval.on('overlay:state', (next) => {
   const prevMode = state.mode;
   state = { ...state, ...next };
   render(prevMode);
+});
+
+let snapFlashTimer = null;
+window.aeval.on('hud:snapped', () => {
+  hud.classList.add('snapped');
+  clearTimeout(snapFlashTimer);
+  snapFlashTimer = setTimeout(() => hud.classList.remove('snapped'), 350);
 });
 
 // ------------------------------------------------------------ interactions
@@ -172,28 +106,8 @@ noticeSettings.addEventListener('click', () => {
 closeBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:collapse');
 });
-
 hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');
-});
-
-let copyFlashTimer = null;
-copyResponseBtn.addEventListener('click', () => {
-  if (response.classList.contains('thinking') || !response.textContent) return;
-  window.aeval.invoke('clipboard:write', { text: response.textContent }).then(() => {
-    copyResponseBtn.textContent = 'Copied.';
-    clearTimeout(copyFlashTimer);
-    copyFlashTimer = setTimeout(() => {
-      copyResponseBtn.textContent = 'Copy';
-    }, 1600);
-  });
-});
-
-let snapFlashTimer = null;
-window.aeval.on('hud:snapped', () => {
-  hud.classList.add('snapped');
-  clearTimeout(snapFlashTimer);
-  snapFlashTimer = setTimeout(() => hud.classList.remove('snapped'), 350);
 });
 
 input.addEventListener('keydown', (e) => {

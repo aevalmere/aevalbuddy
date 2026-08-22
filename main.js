@@ -8,6 +8,7 @@ const {
   screen,
   desktopCapturer,
   clipboard,
+  shell,
   Menu,
 } = require('electron');
 const path = require('path');
@@ -26,12 +27,18 @@ const cursorBuddy = require('./lib/cursor-buddy');
 
 const PILL = { width: 72, height: 44 };
 const PANEL_WIDTH = 420;
-const PANEL_MIN_HEIGHT = 150;
-const PANEL_MAX_HEIGHT = 600;
-const DEFAULT_PANEL_HEIGHT = 170;
-const HUD_SIZE = { width: PANEL_WIDTH, height: 230 };
+const INPUT_MIN_HEIGHT = 62;
+const INPUT_MAX_HEIGHT = 280;
+const DEFAULT_INPUT_HEIGHT = 76;
+const OUTPUT_MIN_HEIGHT = 90;
+const OUTPUT_MAX_HEIGHT = 620;
+const DEFAULT_OUTPUT_HEIGHT = 120;
+const HUD_INPUT_SIZE = { width: PANEL_WIDTH, height: 140 };
+const HUD_OUTPUT_SIZE = { width: PANEL_WIDTH, height: 200 };
+const DOCK_GAP = 8;
 const SNAP_MARGIN = 16;
 const SNAP_DISTANCE = 110;
+const DOCK_DISTANCE = 150;
 const DEFAULT_PROMPT = "What's on my screen and what should I do?";
 
 const ACTION_LABELS = {
@@ -39,18 +46,22 @@ const ACTION_LABELS = {
   toggleVisibility: 'Show or hide overlay',
 };
 
-let overlayWin = null;
+let overlayWin = null; // the input window: pill and query bar
+let outputWin = null; // the answer window
 let settingsWin = null;
 let overlayMode = 'pill'; // 'pill' | 'panel' | 'hud'
 let overlayHidden = false;
-let currentPanelHeight = DEFAULT_PANEL_HEIGHT;
+let outputActive = false;
+let currentInputHeight = DEFAULT_INPUT_HEIGHT;
+let currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
 let pendingShot = null;
 let lastCaptureOk = true;
 let currentAbort = null;
 let queryGen = 0;
 let captureModeActive = false;
 let escapeRegistered = false;
-let hudPendingPos = null;
+let hudInputPending = null;
+let hudOutputPending = null;
 let hudSnapInProgress = false;
 const lastRegisterResults = { captureQuery: false, toggleVisibility: false };
 
@@ -77,11 +88,16 @@ function workArea() {
   return screen.getPrimaryDisplay().workArea;
 }
 
-// Every overlay window size is placed from the same stored anchor, so the
-// pill, the panel, and the HUD ghost all hug the same corner or edge.
+function clampNum(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+// Places a box from an anchor config: each axis hugs an edge (with offset)
+// or centers. The pill, input bar, answer window, and both HUD ghosts all
+// position through this, so everything shares the same spatial logic.
 function boundsForSize(size, pos) {
   const wa = workArea();
-  const p = pos || store.getOverlayPos();
+  const p = pos;
   let x;
   if (p.h === 'left') x = wa.x + p.offX;
   else if (p.h === 'right') x = wa.x + wa.width - p.offX - size.width;
@@ -90,18 +106,44 @@ function boundsForSize(size, pos) {
   if (p.v === 'top') y = wa.y + p.offY;
   else if (p.v === 'bottom') y = wa.y + wa.height - p.offY - size.height;
   else y = wa.y + Math.round((wa.height - size.height) / 2);
-  x = Math.max(wa.x, Math.min(x, wa.x + wa.width - size.width));
-  y = Math.max(wa.y, Math.min(y, wa.y + wa.height - size.height));
+  x = clampNum(x, wa.x, wa.x + wa.width - size.width);
+  y = clampNum(y, wa.y, wa.y + wa.height - size.height);
   return { x, y, width: size.width, height: size.height };
 }
 
 function pillBounds() {
-  return boundsForSize(PILL);
+  return boundsForSize(PILL, store.getOverlayPos());
 }
 
-function panelBounds(height) {
-  const h = Math.max(PANEL_MIN_HEIGHT, Math.min(PANEL_MAX_HEIGHT, Math.round(height)));
-  return boundsForSize({ width: PANEL_WIDTH, height: h });
+function inputBounds(height) {
+  const h = clampNum(Math.round(height), INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT);
+  return boundsForSize({ width: PANEL_WIDTH, height: h }, store.getOverlayPos());
+}
+
+// Docked answers sit against the input bar, on whichever side has room:
+// below a top-anchored input, above a bottom-anchored one.
+function dockedBounds(inputRect, size, inputV) {
+  const wa = workArea();
+  const y =
+    inputV === 'bottom'
+      ? inputRect.y - DOCK_GAP - size.height
+      : inputRect.y + inputRect.height + DOCK_GAP;
+  return {
+    x: clampNum(inputRect.x, wa.x, wa.x + wa.width - size.width),
+    y: clampNum(y, wa.y, wa.y + wa.height - size.height),
+    width: size.width,
+    height: size.height,
+  };
+}
+
+function outputBounds(height) {
+  const h = clampNum(Math.round(height), OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+  const size = { width: PANEL_WIDTH, height: h };
+  const op = store.getOutputPos();
+  if (op.docked && overlayWin && !overlayWin.isDestroyed()) {
+    return dockedBounds(overlayWin.getBounds(), size, store.getOverlayPos().v);
+  }
+  return boundsForSize(size, op);
 }
 
 // Derives an anchor config from a free-dropped rect: each axis hugs the
@@ -129,13 +171,18 @@ function snapAnchors() {
   return anchors;
 }
 
-function findSnap(rect) {
+function centerDistance(a, b) {
+  return Math.hypot(
+    a.x + a.width / 2 - (b.x + b.width / 2),
+    a.y + a.height / 2 - (b.y + b.height / 2)
+  );
+}
+
+function findSnap(rect, size) {
   let best = null;
   for (const pos of snapAnchors()) {
-    const target = boundsForSize(HUD_SIZE, pos);
-    const dx = target.x + target.width / 2 - (rect.x + rect.width / 2);
-    const dy = target.y + target.height / 2 - (rect.y + rect.height / 2);
-    const dist = Math.hypot(dx, dy);
+    const target = boundsForSize(size, pos);
+    const dist = centerDistance(target, rect);
     if (dist <= SNAP_DISTANCE && (!best || dist < best.dist)) {
       best = { pos, rect: target, dist };
     }
@@ -167,9 +214,8 @@ function attachContextMenu(win) {
   });
 }
 
-function createOverlay() {
-  overlayWin = new BrowserWindow({
-    ...pillBounds(),
+function baseWindowOptions() {
+  return {
     frame: false,
     transparent: true,
     resizable: false,
@@ -179,7 +225,6 @@ function createOverlay() {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    focusable: false,
     hasShadow: false,
     show: false,
     webPreferences: {
@@ -187,7 +232,11 @@ function createOverlay() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-  });
+  };
+}
+
+function createOverlay() {
+  overlayWin = new BrowserWindow({ ...pillBounds(), ...baseWindowOptions(), focusable: false });
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   // Core Cluely-defining feature: exclude the overlay from screen capture.
   // On Windows this maps to WDA_EXCLUDEFROMCAPTURE and is reliable on
@@ -205,9 +254,26 @@ function createOverlay() {
   });
   overlayWin.webContents.on('did-finish-load', sendOverlayState);
   attachContextMenu(overlayWin);
-  overlayWin.on('moved', onOverlayMoved);
+  overlayWin.on('moved', onInputMoved);
   overlayWin.on('closed', () => {
     overlayWin = null;
+  });
+}
+
+function createOutput() {
+  outputWin = new BrowserWindow({
+    ...boundsForSize({ width: PANEL_WIDTH, height: DEFAULT_OUTPUT_HEIGHT }, store.getOverlayPos()),
+    ...baseWindowOptions(),
+    focusable: true,
+  });
+  outputWin.setAlwaysOnTop(true, 'screen-saver');
+  outputWin.setContentProtection(true);
+  outputWin.loadFile(path.join(__dirname, 'renderer', 'output.html'));
+  outputWin.webContents.on('did-finish-load', sendOverlayState);
+  attachContextMenu(outputWin);
+  outputWin.on('moved', onOutputMoved);
+  outputWin.on('closed', () => {
+    outputWin = null;
   });
 }
 
@@ -258,7 +324,7 @@ function expandPanel() {
   overlayHidden = false;
   overlayWin.setIgnoreMouseEvents(false);
   overlayWin.setFocusable(true);
-  overlayWin.setBounds(panelBounds(currentPanelHeight));
+  overlayWin.setBounds(inputBounds(currentInputHeight));
   // setFocusable can drop the z-order flag on Windows; reassert it.
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.show();
@@ -270,8 +336,9 @@ function expandPanel() {
 function collapsePanel() {
   if (!overlayWin) return;
   abortCurrentQuery();
+  hideOutput();
   overlayMode = 'pill';
-  currentPanelHeight = DEFAULT_PANEL_HEIGHT;
+  currentInputHeight = DEFAULT_INPUT_HEIGHT;
   overlayWin.blur();
   overlayWin.setBounds(pillBounds());
   overlayWin.setFocusable(false);
@@ -282,65 +349,139 @@ function collapsePanel() {
   sendOverlayState();
 }
 
+function showOutput() {
+  if (!outputWin || outputWin.isDestroyed()) return;
+  outputActive = true;
+  outputWin.setBounds(outputBounds(currentOutputHeight));
+  outputWin.setAlwaysOnTop(true, 'screen-saver');
+  outputWin.showInactive();
+}
+
+function hideOutput() {
+  outputActive = false;
+  currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
+  if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
+}
+
+function repositionOutputIfDocked() {
+  if (outputActive && store.getOutputPos().docked && outputWin && !outputWin.isDestroyed()) {
+    outputWin.setBounds(outputBounds(currentOutputHeight));
+  }
+}
+
 function sendOverlayState() {
-  if (!overlayWin || overlayWin.isDestroyed()) return;
-  overlayWin.webContents.send('overlay:state', {
+  const payload = {
     mode: overlayMode,
     hasKey: store.hasApiKey(),
     captureOk: lastCaptureOk,
-  });
+  };
+  for (const win of [overlayWin, outputWin]) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('overlay:state', payload);
+    }
+  }
 }
 
 // ------------------------------------------------------------------ HUD edit
 
 function enterHudEditor() {
-  if (!overlayWin || overlayMode === 'hud') return;
+  if (!overlayWin || !outputWin || overlayMode === 'hud') return;
   if (cursorBuddy.isActive()) cursorBuddy.cancel();
   abortCurrentQuery();
   overlayMode = 'hud';
   overlayHidden = false;
-  hudPendingPos = store.getOverlayPos();
+  outputActive = false;
+  hudInputPending = store.getOverlayPos();
+  hudOutputPending = store.getOutputPos();
+
   overlayWin.setIgnoreMouseEvents(false);
   overlayWin.setFocusable(true);
   overlayWin.setMovable(true);
-  overlayWin.setBounds(boundsForSize(HUD_SIZE));
+  overlayWin.setBounds(boundsForSize(HUD_INPUT_SIZE, hudInputPending));
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.show();
   overlayWin.focus();
+
+  outputWin.setMovable(true);
+  outputWin.setBounds(hudOutputGhostBounds());
+  outputWin.setAlwaysOnTop(true, 'screen-saver');
+  outputWin.showInactive();
+
   applyRegistrations();
   sendOverlayState();
+  outputWin.webContents.send('hud:docked', { docked: hudOutputPending.docked });
+}
+
+function hudOutputGhostBounds() {
+  if (hudOutputPending.docked && overlayWin && !overlayWin.isDestroyed()) {
+    return dockedBounds(overlayWin.getBounds(), HUD_OUTPUT_SIZE, hudInputPending.v);
+  }
+  return boundsForSize(HUD_OUTPUT_SIZE, hudOutputPending);
 }
 
 function exitHudEditor() {
   if (!overlayWin || overlayMode !== 'hud') return;
-  const pos = hudPendingPos || posFromRect(overlayWin.getBounds());
-  store.setOverlayPos(pos);
-  hudPendingPos = null;
+  store.setOverlayPos(hudInputPending || posFromRect(overlayWin.getBounds()));
+  store.setOutputPos(hudOutputPending || store.getOutputPos());
+  hudInputPending = null;
+  hudOutputPending = null;
   overlayWin.setMovable(false);
+  if (outputWin && !outputWin.isDestroyed()) {
+    outputWin.setMovable(false);
+    outputWin.hide();
+  }
   collapsePanel();
   if (settingsWin && !settingsWin.isDestroyed()) settingsWin.focus();
 }
 
-// Fires when a drag of the HUD ghost ends (and after programmatic setBounds,
-// hence the reentry guard). Snaps to the nearest of the nine anchors when
-// close enough, otherwise keeps the free position.
-function onOverlayMoved() {
+function withSnapGuard(fn) {
+  hudSnapInProgress = true;
+  fn();
+  setImmediate(() => {
+    hudSnapInProgress = false;
+  });
+}
+
+// Fires when a drag of the input ghost ends. Snaps to the nearest anchor
+// when close enough; a docked answer ghost follows along.
+function onInputMoved() {
   if (overlayMode !== 'hud' || hudSnapInProgress || !overlayWin) return;
   const rect = overlayWin.getBounds();
-  const snap = findSnap(rect);
+  const snap = findSnap(rect, HUD_INPUT_SIZE);
   if (snap) {
-    hudSnapInProgress = true;
-    overlayWin.setBounds(snap.rect);
-    setImmediate(() => {
-      hudSnapInProgress = false;
-    });
-    hudPendingPos = snap.pos;
-    if (!overlayWin.isDestroyed()) {
-      overlayWin.webContents.send('hud:snapped', {});
-    }
+    withSnapGuard(() => overlayWin.setBounds(snap.rect));
+    hudInputPending = snap.pos;
+    overlayWin.webContents.send('hud:snapped', {});
   } else {
-    hudPendingPos = posFromRect(rect);
+    hudInputPending = posFromRect(rect);
   }
+  if (hudOutputPending && hudOutputPending.docked && outputWin && !outputWin.isDestroyed()) {
+    withSnapGuard(() => outputWin.setBounds(hudOutputGhostBounds()));
+  }
+}
+
+// Fires when a drag of the answer ghost ends. Docking to the input bar wins
+// over anchor snapping; otherwise the same nine anchors apply.
+function onOutputMoved() {
+  if (overlayMode !== 'hud' || hudSnapInProgress || !outputWin || !overlayWin) return;
+  const rect = outputWin.getBounds();
+  const dockSlot = dockedBounds(overlayWin.getBounds(), HUD_OUTPUT_SIZE, hudInputPending.v);
+  if (centerDistance(dockSlot, rect) <= DOCK_DISTANCE) {
+    withSnapGuard(() => outputWin.setBounds(dockSlot));
+    hudOutputPending = { ...hudOutputPending, docked: true };
+    outputWin.webContents.send('hud:docked', { docked: true });
+    outputWin.webContents.send('hud:snapped', {});
+    return;
+  }
+  const snap = findSnap(rect, HUD_OUTPUT_SIZE);
+  if (snap) {
+    withSnapGuard(() => outputWin.setBounds(snap.rect));
+    hudOutputPending = { ...snap.pos, docked: false };
+    outputWin.webContents.send('hud:snapped', {});
+  } else {
+    hudOutputPending = { ...posFromRect(rect), docked: false };
+  }
+  outputWin.webContents.send('hud:docked', { docked: false });
 }
 
 // ------------------------------------------------------------- screen capture
@@ -380,6 +521,8 @@ async function captureScreen() {
 async function triggerCapture() {
   if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
+  abortCurrentQuery();
+  hideOutput();
   pendingShot = await captureScreen();
   lastCaptureOk = !!pendingShot;
   expandPanel();
@@ -397,11 +540,17 @@ function onToggleHotkey() {
   if (overlayHidden) {
     if (cursorBuddy.isActive()) cursorBuddy.cancel();
     overlayWin.hide();
-  } else if (overlayMode === 'panel') {
-    overlayWin.show();
-    overlayWin.focus();
+    if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
   } else {
-    overlayWin.showInactive();
+    if (overlayMode === 'panel') {
+      overlayWin.show();
+      overlayWin.focus();
+    } else {
+      overlayWin.showInactive();
+    }
+    if (outputActive && outputWin && !outputWin.isDestroyed()) {
+      outputWin.showInactive();
+    }
   }
   applyRegistrations();
 }
@@ -481,10 +630,12 @@ async function handleQuerySubmit(question) {
   currentAbort = new AbortController();
   const signal = currentAbort.signal;
   const send = (channel, payload) => {
-    if (overlayWin && !overlayWin.isDestroyed()) {
-      overlayWin.webContents.send(channel, { gen, ...payload });
+    if (outputWin && !outputWin.isDestroyed()) {
+      outputWin.webContents.send(channel, { gen, ...payload });
     }
   };
+  send('query:start', {});
+  showOutput();
   try {
     await ai.streamQuery({
       apiKey: store.getApiKey(),
@@ -536,8 +687,14 @@ function registerIpc() {
   });
   ipcMain.handle('overlay:resize', (_e, { height }) => {
     if (overlayMode !== 'panel' || !overlayWin) return;
-    currentPanelHeight = height;
-    overlayWin.setBounds(panelBounds(height));
+    currentInputHeight = height;
+    overlayWin.setBounds(inputBounds(height));
+    repositionOutputIfDocked();
+  });
+  ipcMain.handle('output:resize', (_e, { height }) => {
+    if (overlayMode === 'hud' || !outputActive || !outputWin) return;
+    currentOutputHeight = height;
+    outputWin.setBounds(outputBounds(height));
   });
   ipcMain.handle('overlay:set-ignore', (_e, { ignore }) => {
     if (!overlayWin || overlayMode !== 'pill') return;
@@ -550,6 +707,12 @@ function registerIpc() {
 
   ipcMain.handle('hud:enter', () => enterHudEditor());
   ipcMain.handle('hud:exit', () => exitHudEditor());
+
+  ipcMain.handle('open-external', (_e, { url }) => {
+    if (/^https?:\/\//i.test(String(url || ''))) {
+      shell.openExternal(url);
+    }
+  });
 
   ipcMain.handle('settings:get', () => ({
     hasKey: store.hasApiKey(),
@@ -664,6 +827,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     registerIpc();
     createOverlay();
+    createOutput();
     applyRegistrations();
     if (!lastRegisterResults.captureQuery || !lastRegisterResults.toggleVisibility) {
       console.warn(
@@ -701,7 +865,7 @@ if (!gotLock) {
 async function runSmoke() {
   const log = (label, value) => console.log(`[SMOKE] ${label}=${value}`);
   try {
-    log('windows', overlayWin && !overlayWin.isDestroyed() ? 'overlay-ok' : 'overlay-missing');
+    log('windows', overlayWin && outputWin ? 'overlay+output-ok' : 'missing');
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
@@ -716,11 +880,16 @@ async function runSmoke() {
     log('queryWithoutKey', submitResult.status);
     enterHudEditor();
     log('hudMode', overlayMode);
-    const snap = findSnap(boundsForSize(HUD_SIZE, { h: 'left', v: 'top', offX: 30, offY: 30 }));
+    log('hudDockedDefault', hudOutputPending ? hudOutputPending.docked : 'none');
+    const snap = findSnap(
+      boundsForSize(HUD_INPUT_SIZE, { h: 'left', v: 'top', offX: 30, offY: 30 }),
+      HUD_INPUT_SIZE
+    );
     log('hudSnapFound', snap ? `${snap.pos.h}-${snap.pos.v}` : 'none');
     exitHudEditor();
     log('hudExitMode', overlayMode);
     log('storedPos', JSON.stringify(store.getOverlayPos()));
+    log('storedOutputPos', JSON.stringify(store.getOutputPos()));
     startWalkthrough();
     log('walkthrough', cursorBuddy.isActive());
     setTimeout(() => {

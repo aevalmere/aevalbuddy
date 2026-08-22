@@ -62,12 +62,13 @@ button {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
 #pill:hover {
   background: rgba(43, 44, 51, 0.97);
   border-color: var(--twilight);
+  transform: scale(1.04);
 }
 
 .pill-dot {
@@ -98,6 +99,18 @@ body[data-mode="panel"] #pill {
   flex-direction: column;
   gap: 10px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  animation: rise 170ms ease;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .panel-top {
@@ -163,8 +176,7 @@ body[data-mode="panel"] #pill {
 }
 
 #notice[hidden],
-#error[hidden],
-#response-wrap[hidden] {
+#error[hidden] {
   display: none;
 }
 
@@ -195,15 +207,33 @@ body[data-mode="panel"] #pill {
 
 /* --------------------------------------------------------------- response */
 
-#response-wrap {
+#opanel {
+  background: rgba(43, 44, 51, 0.97);
+  border: 1px solid var(--twilight);
+  border-radius: 12px;
+  padding: 10px 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  animation: rise 170ms ease;
+}
+
+#opanel[hidden] {
+  display: none;
 }
 
 #response-tools {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+#stream-state {
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.7);
+  margin-right: auto;
 }
 
 #copy-response {
@@ -224,25 +254,101 @@ body[data-mode="panel"] #pill {
 #response {
   font-size: 14px;
   line-height: 1.55;
-  white-space: pre-wrap;
   word-break: break-word;
-  max-height: 380px;
+  max-height: 420px;
   overflow-y: auto;
   padding-right: 4px;
   user-select: text;
 }
 
-#response.thinking {
-  opacity: 0.6;
-}
-
-#response::-webkit-scrollbar {
+#response::-webkit-scrollbar,
+#response pre::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
-#response::-webkit-scrollbar-thumb {
+#response::-webkit-scrollbar-thumb,
+#response pre::-webkit-scrollbar-thumb {
   background: var(--twilight);
   border-radius: 4px;
+}
+
+/* Markdown output. Sizes stay restrained: body size everywhere, headings
+   differ by weight, not scale jumps. */
+#response .md-p {
+  margin: 3px 0;
+}
+
+#response .md-gap {
+  height: 8px;
+}
+
+#response .md-h {
+  font-weight: 600;
+  margin: 10px 0 4px;
+}
+
+#response .md-h1 {
+  font-size: 15px;
+}
+
+#response ul,
+#response ol {
+  margin: 4px 0 6px;
+  padding-left: 20px;
+}
+
+#response li {
+  margin: 2px 0;
+}
+
+#response code {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 13px;
+  background: rgba(16, 37, 79, 0.6);
+  border: 1px solid rgba(48, 61, 106, 0.6);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+#response pre {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: rgba(16, 37, 79, 0.55);
+  border: 1px solid var(--twilight);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin: 6px 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+#response blockquote {
+  border-left: 2px solid var(--twilight);
+  padding-left: 10px;
+  margin: 4px 0;
+  color: rgba(201, 207, 221, 0.8);
+}
+
+#response hr {
+  border: none;
+  border-top: 1px solid var(--twilight);
+  margin: 8px 0;
+}
+
+#response a {
+  color: var(--slate);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#response a:hover {
+  text-decoration-color: var(--accent);
+}
+
+#response strong {
+  font-weight: 600;
 }
 
 /* -------------------------------------------------------------- HUD edit */
@@ -291,6 +397,16 @@ body[data-mode="panel"] #pill {
 #hud-done {
   -webkit-app-region: no-drag;
   min-width: 96px;
+}
+
+.dock-badge {
+  font-size: 12px;
+  color: var(--slate);
+  background: rgba(130, 58, 128, 0.18);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-bottom: 6px;
 }
 
 /* ---------------------------------------------------------------- motion */
