@@ -1,6 +1,6 @@
 {
   "name": "aevalbuddy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Screen-aware AI overlay for Windows. Hidden from screen share, answers questions about whatever is on screen.",
   "main": "main.js",
   "private": true,
@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electronmon .",
+    "shots": "node tools/shots-run.js",
     "build": "electron-builder --win"
   },
   "electronmon": {

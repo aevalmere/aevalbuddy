@@ -109,6 +109,48 @@ body[data-mode="panel"] #pill {
   display: none;
 }
 
+/* ------------------------------------------------------- panel positioning
+
+   The window itself glides open (see lib/motion.js); these surfaces are
+   pinned at their full size against the edge the window grows away from, so
+   the growth uncovers a finished layout instead of reflowing one. Nothing
+   inside moves while the frame changes size, which is what removes the
+   flicker that a CSS scale on the same gesture used to produce. */
+
+#panel,
+#opanel {
+  position: fixed;
+  width: 420px;
+}
+
+body[data-anchor-h="left"] #panel,
+body[data-anchor-h="left"] #opanel {
+  left: 0;
+}
+
+body[data-anchor-h="right"] #panel,
+body[data-anchor-h="right"] #opanel {
+  right: 0;
+}
+
+body[data-anchor-h="center"] #panel,
+body[data-anchor-h="center"] #opanel {
+  left: 50%;
+  margin-left: -210px;
+}
+
+body[data-anchor-v="top"] #panel,
+body[data-anchor-v="top"] #opanel,
+body[data-anchor-v="center"] #panel,
+body[data-anchor-v="center"] #opanel {
+  top: 0;
+}
+
+body[data-anchor-v="bottom"] #panel,
+body[data-anchor-v="bottom"] #opanel {
+  bottom: 0;
+}
+
 /* ------------------------------------------------------------------ panel */
 
 #panel {
@@ -124,16 +166,30 @@ body[data-mode="panel"] #pill {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* Expansion out of the pill's corner; transform-origin is set from the
-   anchor by overlay.js. */
+/* The surface only fades; its contents arrive a beat later, staggered, so
+   the panel reads as filling in behind the opening frame. */
 #panel.in {
-  animation: panel-in var(--d-slow) var(--ease-glide);
+  animation: surface-in var(--d-fast) var(--ease-out);
 }
 
-@keyframes panel-in {
+#panel.in > * {
+  animation: content-in var(--d-med) var(--ease-out) backwards;
+}
+
+#panel.in > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+@keyframes surface-in {
   from {
     opacity: 0;
-    transform: scale(0.9);
+  }
+}
+
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
 }
 
@@ -241,32 +297,9 @@ body[data-mode="panel"] #pill {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* A docked answer grows away from the input bar's edge; a free one grows
-   from its own anchor. output.js sets data-origin. */
-#opanel[data-origin="top"] {
-  --rise: -8px;
-  transform-origin: top center;
-}
-
-#opanel[data-origin="bottom"] {
-  --rise: 8px;
-  transform-origin: bottom center;
-}
-
-#opanel[data-origin="center"] {
-  --rise: 0px;
-  transform-origin: center;
-}
-
+/* The window glides open around it; the surface only fades. */
 #opanel.in {
-  animation: opanel-in var(--d-slow) var(--ease-glide);
-}
-
-@keyframes opanel-in {
-  from {
-    opacity: 0;
-    transform: translateY(var(--rise, -8px)) scale(0.95);
-  }
+  animation: surface-in var(--d-fast) var(--ease-out);
 }
 
 #chat-tools {
@@ -274,7 +307,9 @@ body[data-mode="panel"] #pill {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 0 4px;
+  /* Matches the transcript's own padding so the title sits on the same
+     vertical line as the message bubbles below it. */
+  padding: 0 2px;
 }
 
 .chat-title {
@@ -305,7 +340,10 @@ body[data-mode="panel"] #pill {
   gap: 8px;
   max-height: 520px;
   overflow-y: auto;
-  padding: 2px 4px 2px 2px;
+  /* The gutter is reserved whether or not the scrollbar is showing, so the
+     bubbles do not shift sideways the moment a conversation gets long. */
+  scrollbar-gutter: stable;
+  padding: 2px;
   user-select: text;
 }
 

@@ -114,19 +114,21 @@ function renderLive() {
   });
 }
 
-// Grow-only, coarse steps: the window widens its viewport as the transcript
-// needs it and stays put otherwise. Shrinking happens only on New chat.
+// The window is sized to the transcript exactly. It used to round up to 24px
+// steps and never shrink, which left a band of empty panel under short
+// answers. An 8px deadband keeps it from twitching, and it still refuses to
+// shrink while an answer is streaming, so the bottom edge does not chase the
+// text as it arrives.
 function requestResize() {
   if (mode === 'hud' || opanel.hidden || resizeQueued) return;
   resizeQueued = true;
   requestAnimationFrame(() => {
     resizeQueued = false;
-    const raw = Math.ceil(opanel.getBoundingClientRect().height) + 2;
-    const stepped = Math.ceil(raw / 24) * 24;
-    if (stepped > lastSentHeight) {
-      lastSentHeight = stepped;
-      window.aeval.invoke('output:resize', { height: stepped });
-    }
+    const height = Math.ceil(opanel.getBoundingClientRect().height);
+    if (height < lastSentHeight && liveMsg) return;
+    if (Math.abs(height - lastSentHeight) < 8) return;
+    lastSentHeight = height;
+    window.aeval.invoke('output:resize', { height });
   });
 }
 
@@ -151,12 +153,14 @@ window.aeval.on('overlay:state', (next) => {
     // existing transcript back; without this the window would show blank.
     opanel.hidden = false;
   }
-  // Entrance origin: a docked answer grows away from the input bar's edge;
-  // a free one grows from its own anchor.
+  // A docked answer grows away from the input bar's edge; a free one grows
+  // from its own anchor. The stylesheet pins the panel to those edges so the
+  // window's own glide uncovers it.
   if (next.outputPos) {
     docked = next.outputPos.docked;
-    const v = docked ? (next.inputAnchor && next.inputAnchor.v) || 'top' : next.outputPos.v;
-    opanel.dataset.origin = v === 'bottom' ? 'bottom' : v === 'center' ? 'center' : 'top';
+    const anchor = docked ? next.inputAnchor || next.outputPos : next.outputPos;
+    document.body.dataset.anchorH = anchor.h || 'right';
+    document.body.dataset.anchorV = anchor.v || 'top';
   }
   // Reopening the panel with an existing transcript replays the entrance.
   if (mode === 'panel' && prevMode === 'pill' && !opanel.hidden) {

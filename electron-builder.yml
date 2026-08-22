@@ -8,6 +8,7 @@ files:
   - lib/**
   - renderer/**
   - settings/**
+  - skills/**
   - package.json
 win:
   target: nsis

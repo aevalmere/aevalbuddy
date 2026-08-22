@@ -1,5 +1,6 @@
 node_modules/
 dist/
+shots/
 npm-debug.log*
 Thumbs.db
 .DS_Store

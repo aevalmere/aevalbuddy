@@ -60,6 +60,37 @@ and a shadow alone disappears on dark backgrounds (3:1 boundary requirement).
 - Game HUD editors: layout editing is a dedicated mode with drag, snap, and an explicit non-drag control
   for every drag action (dock and detach are also buttons).
 
+## v0.3 plan: what changes and why
+
+Written after photographing every surface with `npm run shots` (see below). Each item names the defect
+seen in the shot, the cause, and the change.
+
+| # | Defect in the shot | Cause | Change |
+| --- | --- | --- | --- |
+| 1 | Answers take many seconds to start | the picker only offered `:free` models, which are queued and rate limited | curated tiers: one recommended fast model as the default, a fast tier, and the free tier kept for zero-credit accounts. Labels carry live price and context, so they never go stale |
+| 2 | The pointer is a pulsing violet reticle | it was drawn as a ring plus dot, centred on the target | an arrow cursor drawn to the Windows geometry, tip exactly on the target pixel, no ring, no pulse, one soft drop shadow |
+| 3 | Weak models ramble and miss the point | the system prompt described the app but never how to think | skills: markdown procedure files loaded at boot and appended to the system prompt, so the answer shape is enforced outside the model |
+| 4 | The callout is a floating box with a close X jammed into the text | it was built as a tooltip, not a character | speech bubble with a tail aimed at the arrow, text typed out, a small buddy face, and drag to move it |
+| 5 | Settings reads as four unrelated boxes; shortcut rows wrap and misalign | rows were flex with a full-text warning inline; every card carried an always-reserved status line | numbered steps (connect, choose a model, choose how it answers), a three-column grid for shortcuts so every row aligns, status lines that take no space until they say something |
+| 7 | Opening flashes: the window appears at full size, then the contents scale | Electron paints the window at its final bounds before the renderer has the new mode | the window bounds are animated from the pill outward on the glide curve, opacity ramps from 0, and content staggers in behind it |
+| 8 | Dead grey band under a short answer | the answer window only ever grew, in 24px steps | exact content height with an 8px deadband; it still refuses to shrink mid-stream |
+
+### Window motion (new)
+
+Window bounds are animated in the main process, because CSS cannot move an OS window. One helper drives
+every case on `--ease-glide`, sampled at 120Hz:
+
+| Transition | From | To | Duration |
+| --- | --- | --- | --- |
+| Pill to panel | pill rect, opacity 1 | input rect | 260ms |
+| Panel to pill | input rect | pill rect | 170ms |
+| Answer appears | 92% height at the dock edge, opacity 0 | full rect, opacity 1 | 300ms |
+| Answer leaves | full rect | 96%, opacity 0 | 150ms |
+| Answer regrows | old rect | new rect | 200ms |
+
+Exits are roughly half their entrance, per the rule above. Under `prefers-reduced-motion` (read once from
+the renderer at boot) every window animation collapses to a single setBounds.
+
 ## Every surface ships four states
 
 | Surface | Loading | Empty | Error | Offline |

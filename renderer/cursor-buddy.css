@@ -1,9 +1,13 @@
-/* Pointer overlay for the guided walkthrough. Lives in its own transparent
-   window covering the primary display; the window is click-through except
-   while hovering the callout. Same palette as the overlay: dot in pale
-   slate, highlight ring in the grape soda accent, callout on space indigo.
-   Movement is driven from JS (requestAnimationFrame), so only opacity is
-   transitioned here. */
+/* The pointer and its speech bubble. Own transparent window covering the
+   primary display, click-through except while the cursor is over the bubble.
+
+   Two rules matter here. The arrow's tip is at its own (0,0), so the element
+   translate is the target pixel with no centring maths anywhere. And there
+   is no glow: a soft drop shadow reads as a real cursor sitting above the
+   desktop, a coloured halo reads as a game reticle.
+
+   Palette as everywhere else: black, space indigo, shadow grey, grape soda,
+   pale slate, twilight indigo. */
 
 * {
   box-sizing: border-box;
@@ -20,6 +24,8 @@ body {
   font-family: -apple-system, "Segoe UI", sans-serif;
 }
 
+/* ----------------------------------------------------------------- arrow */
+
 #buddy {
   position: fixed;
   left: 0;
@@ -27,7 +33,7 @@ body {
   width: 0;
   height: 0;
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 180ms ease;
   will-change: transform;
 }
 
@@ -38,60 +44,47 @@ body {
 #buddy.done,
 #callout.done {
   opacity: 0;
-  transition: opacity 400ms ease;
+  transition: opacity 360ms ease;
 }
 
-.ring {
+.arrow {
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate(-50%, -50%);
-  border: 2px solid #823A80;
-  /* Thin pale outline keeps the ring visible over dark app surfaces. */
-  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.65);
-  border-radius: 50%;
-  animation: buddy-pulse 1.6s ease-in-out infinite;
+  overflow: visible;
+  /* Depth, not glow: the same offset shadow Windows draws under its own
+     cursor, so the arrow sits on the desktop instead of hovering over it. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
-.dot {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 10px;
-  height: 10px;
-  transform: translate(-50%, -50%);
-  background: #C9CFDD;
-  border: 1px solid #10254F;
-  border-radius: 50%;
+.arrow-body {
+  fill: #C9CFDD;
+  stroke: #000000;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
 }
 
-@keyframes buddy-pulse {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.12);
-    opacity: 0.72;
+/* A single press-down on arrival: the pointer lands rather than fading in
+   on the spot. Scaling about the tip keeps the tip on target throughout. */
+#buddy.land .arrow {
+  animation: arrow-land 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  transform-origin: 1px 1px;
+}
+
+@keyframes arrow-land {
+  from {
+    transform: scale(1.45);
   }
 }
+
+/* ---------------------------------------------------------------- bubble */
 
 #callout {
   position: fixed;
   left: 0;
   top: 0;
-  max-width: 270px;
-  background: #10254F;
-  border: 1px solid #303D6A;
-  border-radius: 12px;
-  color: #C9CFDD;
-  font-size: 14px;
-  line-height: 1.45;
-  padding: 10px 30px 9px 13px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   opacity: 0;
-  transition: opacity 200ms ease;
+  transition: opacity 180ms ease;
   will-change: transform;
 }
 
@@ -99,28 +92,140 @@ body {
   opacity: 1;
 }
 
-.callout-hint {
-  margin-top: 4px;
+.bubble-body {
+  max-width: 280px;
+  min-width: 168px;
+  background: #10254F;
+  border: 1px solid #303D6A;
+  border-radius: 12px;
+  color: #C9CFDD;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 8px 12px 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+#callout.dragging .bubble-body {
+  cursor: grabbing;
+}
+
+#callout.in .bubble-body {
+  animation: bubble-in 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+/* The tail points back at the arrow. Its side flips with the bubble. */
+.bubble-tail {
+  position: absolute;
+  top: 18px;
+  width: 10px;
+  height: 10px;
+  background: #10254F;
+  border-left: 1px solid #303D6A;
+  border-bottom: 1px solid #303D6A;
+  transform: rotate(45deg);
+}
+
+#callout[data-side="right"] .bubble-tail {
+  left: -6px;
+}
+
+#callout[data-side="left"] .bubble-tail {
+  right: -6px;
+  transform: rotate(225deg);
+}
+
+.bubble-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* Small face so the pointer reads as someone helping rather than a tooltip
+   that appeared. Two eyes on the accent, nothing more. */
+.face {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #823A80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.eye {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #C9CFDD;
+  animation: blink 5.5s infinite;
+}
+
+@keyframes blink {
+  0%,
+  95%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.15);
+  }
+}
+
+.who {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(201, 207, 221, 0.75);
+}
+
+#callout-count {
+  margin-left: auto;
   font-size: 12px;
   color: rgba(201, 207, 221, 0.7);
+}
+
+#callout-message {
+  min-height: 20px;
+}
+
+/* The cursor that trails the typed-out text. */
+#callout-message.typing::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  margin-left: 1px;
+  vertical-align: -2px;
+  background: #823A80;
+  animation: caret 900ms steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
 }
 
 #callout-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
   margin-top: 8px;
 }
 
 #callout-actions[hidden] {
   display: none;
-}
-
-#callout-count {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
-  margin-right: auto;
 }
 
 .callout-btn {
@@ -145,25 +250,23 @@ body {
 }
 
 #callout-close {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   background: none;
   color: #C9CFDD;
-  opacity: 0.75;
+  opacity: 0.7;
   cursor: pointer;
   transition: background 150ms ease, opacity 150ms ease;
 }
 
 #callout-close:hover {
-  background: rgba(48, 61, 106, 0.5);
+  background: rgba(48, 61, 106, 0.6);
   opacity: 1;
 }
 
@@ -174,7 +277,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
   }
 }

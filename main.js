@@ -23,6 +23,8 @@ if (process.env.AEVAL_USERDATA) {
 
 const store = require('./lib/store');
 const ai = require('./lib/openrouter');
+const skills = require('./lib/skills');
+const motion = require('./lib/motion');
 const cursorBuddy = require('./lib/cursor-buddy');
 
 const PILL = { width: 72, height: 44 };
@@ -50,6 +52,14 @@ const ACTION_LABELS = {
 // window has been still this long, so the ghost never teleports mid-drag.
 const DROP_SETTLE_MS = 160;
 const CHAT_HISTORY_LIMIT = 12;
+
+// Window transition lengths. Exits run at roughly half their entrance, per
+// DESIGN.md; the table there is the source of these numbers.
+const T_EXPAND = 260;
+const T_COLLAPSE = 170;
+const T_OUT_IN = 300;
+const T_OUT_OUT = 150;
+const T_OUT_GROW = 200;
 
 let overlayWin = null; // the input window: pill and query bar
 let outputWin = null; // the answer window
@@ -262,7 +272,15 @@ function createOverlay() {
     // showInactive keeps focus in whatever app the user was using.
     overlayWin.showInactive();
   });
-  overlayWin.webContents.on('did-finish-load', sendOverlayState);
+  overlayWin.webContents.on('did-finish-load', () => {
+    sendOverlayState();
+    // Window motion lives in the main process, where no media query exists;
+    // the overlay renderer answers for it once, at boot.
+    overlayWin.webContents
+      .executeJavaScript('matchMedia("(prefers-reduced-motion: reduce)").matches')
+      .then((value) => motion.setReducedMotion(value))
+      .catch(() => {});
+  });
   attachContextMenu(overlayWin);
   overlayWin.on('move', onInputMove);
   overlayWin.on('closed', () => {
@@ -300,9 +318,13 @@ function openSettings() {
     cursorBuddy.notify('settings-opened');
     return;
   }
+  // Tall enough to show a whole step without scrolling, but never taller
+  // than the work area; on a short screen the panel scrolls instead of
+  // hanging off the bottom edge.
+  const wa = workArea();
   settingsWin = new BrowserWindow({
-    width: 480,
-    height: 800,
+    width: 500,
+    height: clampNum(760, 420, wa.height - 40),
     frame: false,
     transparent: true,
     resizable: false,
@@ -334,56 +356,151 @@ function openSettings() {
 
 // ------------------------------------------------------------ expand/collapse
 
+// The mode reaches the renderer before the window starts growing, so the
+// panel is already painted inside the pill-sized frame and the growth reveals
+// it. Doing it the other way round is what produced the opening flash: a
+// full-size window showing pill content for one frame.
 function expandPanel() {
   if (!overlayWin || overlayMode === 'hud') return;
+  const wasPill = overlayMode === 'pill';
+  const from = overlayWin.getBounds();
   overlayMode = 'panel';
   overlayHidden = false;
   overlayWin.setIgnoreMouseEvents(false);
   overlayWin.setFocusable(true);
-  overlayWin.setBounds(inputBounds(currentInputHeight));
   // setFocusable can drop the z-order flag on Windows; reassert it.
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  sendOverlayState();
+  const to = inputBounds(currentInputHeight);
+  if (wasPill) {
+    // The renderer measures itself while the glide is running, so its height
+    // report is applied once the glide lands rather than fighting it.
+    motion.animate(overlayWin, { from, to, duration: T_EXPAND, onDone: syncInputBounds });
+  } else {
+    motion.stop(overlayWin);
+    overlayWin.setBounds(to);
+  }
   overlayWin.show();
   overlayWin.focus();
   applyRegistrations();
-  sendOverlayState();
 }
 
 function collapsePanel() {
   if (!overlayWin) return;
   abortCurrentQuery();
   hideOutput();
+  const wasPanel = overlayMode === 'panel';
   overlayMode = 'pill';
   currentInputHeight = DEFAULT_INPUT_HEIGHT;
   overlayWin.blur();
-  overlayWin.setBounds(pillBounds());
   overlayWin.setFocusable(false);
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
   overlayWin.setIgnoreMouseEvents(true, { forward: true });
   overlayWin.showInactive();
+  const to = pillBounds();
+  if (wasPanel) {
+    // The renderer keeps showing the panel until the frame is nearly pill
+    // sized, so the contents shrink away instead of vanishing at frame one.
+    motion.animate(overlayWin, {
+      to,
+      duration: T_COLLAPSE,
+      onDone: sendOverlayState,
+    });
+  } else {
+    motion.stop(overlayWin);
+    overlayWin.setBounds(to);
+    sendOverlayState();
+  }
   applyRegistrations();
-  sendOverlayState();
 }
 
+// Arrives folded against the edge it grows away from, at zero opacity, so
+// there is no first frame of an unpainted window.
 function showOutput() {
   if (!outputWin || outputWin.isDestroyed()) return;
+  const reopening = !outputActive;
   outputActive = true;
-  outputWin.setBounds(outputBounds(currentOutputHeight));
   outputWin.setAlwaysOnTop(true, 'screen-saver');
+  const to = outputBounds(currentOutputHeight);
+  if (!reopening) {
+    resizeOutput(to);
+    return;
+  }
+  const op = store.getOutputPos();
+  const anchorV = op.docked ? store.getOverlayPos().v : op.v;
+  const anchorH = op.docked ? store.getOverlayPos().h : op.h;
+  outputWin.setOpacity(0);
+  outputWin.setBounds(motion.shrunkFrom(to, anchorV, anchorH));
   outputWin.showInactive();
+  motion.animate(outputWin, {
+    to,
+    duration: T_OUT_IN,
+    opacityFrom: 0,
+    opacityTo: 1,
+    onDone: syncOutputBounds,
+  });
+}
+
+// Applies a height the renderer reported while a glide was in flight.
+function syncInputBounds() {
+  if (overlayMode !== 'panel' || !overlayWin || overlayWin.isDestroyed()) return;
+  const want = inputBounds(currentInputHeight);
+  const have = overlayWin.getBounds();
+  if (have.height !== want.height || have.y !== want.y) overlayWin.setBounds(want);
+  repositionOutputIfDocked();
+}
+
+function syncOutputBounds() {
+  if (!outputActive || !outputWin || outputWin.isDestroyed()) return;
+  const want = outputBounds(currentOutputHeight);
+  const have = outputWin.getBounds();
+  if (have.height !== want.height || have.y !== want.y) outputWin.setBounds(want);
 }
 
 // The grown height survives hide so a conversation reopens at its size;
 // only New chat resets it.
 function hideOutput() {
+  if (!outputActive) {
+    if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
+    return;
+  }
   outputActive = false;
-  if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
+  if (!outputWin || outputWin.isDestroyed()) return;
+  const rect = outputWin.getBounds();
+  const op = store.getOutputPos();
+  const anchorV = op.docked ? store.getOverlayPos().v : op.v;
+  const anchorH = op.docked ? store.getOverlayPos().h : op.h;
+  motion.animate(outputWin, {
+    to: motion.shrunkFrom(rect, anchorV, anchorH),
+    duration: T_OUT_OUT,
+    opacityFrom: 1,
+    opacityTo: 0,
+    onDone: () => {
+      if (outputWin && !outputWin.isDestroyed()) {
+        outputWin.hide();
+        outputWin.setBounds(rect);
+        outputWin.setOpacity(1);
+      }
+    },
+  });
+}
+
+// Growing during a conversation glides too, so a long answer does not make
+// the window edge jump.
+function resizeOutput(to) {
+  if (!outputWin || outputWin.isDestroyed()) return;
+  motion.animate(outputWin, { to, duration: T_OUT_GROW });
 }
 
 function repositionOutputIfDocked() {
-  if (outputActive && store.getOutputPos().docked && outputWin && !outputWin.isDestroyed()) {
-    outputWin.setBounds(outputBounds(currentOutputHeight));
-  }
+  if (!outputActive || !store.getOutputPos().docked) return;
+  if (!outputWin || outputWin.isDestroyed()) return;
+  // An answer window that is still gliding open must not be cut short here:
+  // its own landing calls syncOutputBounds, which recomputes the docked
+  // position against wherever the input bar ended up.
+  if (motion.isAnimating(outputWin)) return;
+  // Otherwise following the input bar is immediate; a glide would lag.
+  outputWin.setBounds(outputBounds(currentOutputHeight));
 }
 
 function sendOverlayState() {
@@ -409,6 +526,12 @@ function enterHudEditor() {
   if (!overlayWin || !outputWin || overlayMode === 'hud') return;
   if (cursorBuddy.isActive()) cursorBuddy.cancel();
   abortCurrentQuery();
+  // Layout editing is a direct-manipulation mode; no glide may be left
+  // running to move a ghost the user is dragging.
+  motion.stop(overlayWin);
+  motion.stop(outputWin);
+  overlayWin.setOpacity(1);
+  outputWin.setOpacity(1);
   overlayMode = 'hud';
   overlayHidden = false;
   outputActive = false;
@@ -609,6 +732,8 @@ function onToggleHotkey() {
   overlayHidden = !overlayHidden;
   if (overlayHidden) {
     if (cursorBuddy.isActive()) cursorBuddy.cancel();
+    motion.stop(overlayWin);
+    motion.stop(outputWin);
     overlayWin.hide();
     if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
   } else {
@@ -730,6 +855,9 @@ async function handleQuerySubmit(question) {
       imageWidth: shot ? shot.width : 0,
       imageHeight: shot ? shot.height : 0,
       history,
+      // The answering procedure travels with every request, which is what
+      // holds a small fast model to a useful answer shape.
+      skill: skills.get(store.getSkillId()),
       signal,
       onDelta: (t) => extractor.push(t),
     });
@@ -812,13 +940,16 @@ function registerIpc() {
   ipcMain.handle('overlay:resize', (_e, { height }) => {
     if (overlayMode !== 'panel' || !overlayWin) return;
     currentInputHeight = height;
+    // A glide already ends at the panel size and re-syncs on landing.
+    if (motion.isAnimating(overlayWin)) return;
     overlayWin.setBounds(inputBounds(height));
     repositionOutputIfDocked();
   });
   ipcMain.handle('output:resize', (_e, { height }) => {
     if (overlayMode === 'hud' || !outputActive || !outputWin) return;
     currentOutputHeight = height;
-    outputWin.setBounds(outputBounds(height));
+    if (motion.isAnimating(outputWin)) return;
+    resizeOutput(outputBounds(height));
   });
   ipcMain.handle('overlay:set-ignore', (_e, { ignore }) => {
     if (!overlayWin || overlayMode !== 'pill') return;
@@ -844,10 +975,19 @@ function registerIpc() {
     hasKey: store.hasApiKey(),
     model: store.getModel(),
     defaultModel: ai.DEFAULT_MODEL,
+    skills: skills.list(),
+    skill: store.getSkillId(),
     shortcuts: store.getShortcuts(),
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
     version: app.getVersion(),
+  }));
+
+  ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
+
+  ipcMain.handle('settings:save-skill', (_e, { skill }) => ({
+    ok: true,
+    skill: store.setSkillId(skill),
   }));
 
   ipcMain.handle('settings:save-key', (_e, { key }) => {
@@ -873,7 +1013,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('models:list', async () => {
-    const result = await ai.listFreeVisionModels();
+    const result = await ai.listModels();
     return { ...result, current: store.getModel(), defaultModel: ai.DEFAULT_MODEL };
   });
 
@@ -974,13 +1114,17 @@ if (!gotLock) {
     if (
       !store.hasApiKey() &&
       !store.getWalkthroughAutoShown() &&
-      !process.env.AEVAL_SMOKE
+      !process.env.AEVAL_SMOKE &&
+      !process.env.AEVAL_SHOT
     ) {
       store.setWalkthroughAutoShown();
       setTimeout(startWalkthrough, 1000);
     }
     if (process.env.AEVAL_SMOKE) {
       setTimeout(runSmoke, 800);
+    }
+    if (process.env.AEVAL_SHOT) {
+      setTimeout(runShots, 1200);
     }
   });
 
@@ -991,6 +1135,72 @@ if (!gotLock) {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
   });
+}
+
+// Visual self-check: photographs every surface so the layout can be looked
+// at rather than guessed at. See lib/shots.js.
+async function runShots() {
+  const shots = require('./lib/shots');
+  const evalIn = (win, code) =>
+    win && !win.isDestroyed() ? win.webContents.executeJavaScript(code) : Promise.resolve();
+  try {
+    await shots.run({
+      dir: process.env.AEVAL_SHOT,
+      windows: () => ({
+        overlay: overlayWin,
+        output: outputWin,
+        settings: settingsWin,
+        buddy: cursorBuddy.debugWindow(),
+      }),
+      actions: {
+        clearKey: () => {
+          store.clearApiKey();
+          sendOverlayState();
+        },
+        setKey: (k) => {
+          store.setApiKey(k);
+          sendOverlayState();
+        },
+        expandPanel: async () => {
+          expandPanel();
+        },
+        collapse: () => collapsePanel(),
+        seedChat: (messages) => {
+          chat = messages.slice();
+          showOutput();
+          outputWin.webContents.send('chat:sync', { messages });
+        },
+        seedThinking: () => {
+          outputWin.webContents.send('query:start', { gen: ++queryGen });
+        },
+        enterHud: () => enterHudEditor(),
+        exitHud: () => exitHudEditor(),
+        openSettings: () => openSettings(),
+        scrollSettings: (top) =>
+          evalIn(settingsWin, `document.querySelector('main').scrollTop = ${top}; true`),
+        openModelList: () =>
+          evalIn(settingsWin, `document.getElementById('model-combo-btn').click(); true`),
+        closeModelList: () => evalIn(settingsWin, `document.body.click(); true`),
+        probe: async (name, win, selector) => {
+          if (!win || win.isDestroyed()) return;
+          const inner = await evalIn(
+            win,
+            `(() => { const el = document.querySelector('${selector}');` +
+              ` return el ? Math.ceil(el.getBoundingClientRect().height) : -1; })()`
+          );
+          console.log(`[SHOT] fit.${name}=window${win.getBounds().height}:surface${inner}`);
+        },
+        showPoint: () =>
+          cursorBuddy.showPoints([
+            { x: 420, y: 230, label: 'Press Save to apply the change' },
+          ]),
+      },
+    });
+    app.exit(0);
+  } catch (err) {
+    console.error('[SHOT] error', err);
+    app.exit(1);
+  }
 }
 
 // Headless self-check used by automated verification: boots the real app,
@@ -1004,8 +1214,36 @@ async function runSmoke() {
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
-    const modelList = await ai.listFreeVisionModels();
-    log('modelList', `${modelList.models.length}:${modelList.live ? 'live' : 'fallback'}`);
+    const modelList = await ai.listModels();
+    const tiers = modelList.groups.map((g) => `${g.tier}${g.models.length}`).join(',');
+    log('modelList', `${tiers}:${modelList.live ? 'live' : 'fallback'}`);
+    const recommended = modelList.groups.find((g) => g.tier === 'recommended');
+    log(
+      'modelDefaultOffered',
+      !!(recommended && recommended.models.some((m) => m.id === ai.DEFAULT_MODEL))
+    );
+    // Every skill file parses and the chosen one reaches the system prompt.
+    const skillList = skills.list();
+    log('skills', `${skillList.length}:${skillList.map((s) => s.id).join('+')}`);
+    const prompt = ai.makeSystemPrompt({
+      imageWidth: 1280,
+      imageHeight: 800,
+      skill: skills.get(store.getSkillId()),
+    });
+    log(
+      'skillInPrompt',
+      prompt.includes('Screen assistant') && prompt.includes('1280x800') ? 'ok' : 'missing'
+    );
+    log('skillFallback', skills.get('no-such-skill').id);
+    // Window motion resolves its curve and its anchored start rectangles.
+    const rect = { x: 100, y: 40, width: 420, height: 200 };
+    const grown = motion.shrunkFrom(rect, 'top', 'right');
+    log(
+      'motionAnchor',
+      grown.y === rect.y && grown.x + grown.width === rect.x + rect.width
+        ? 'top-right-held'
+        : `wrong:${JSON.stringify(grown)}`
+    );
     const shot = await captureScreen();
     log('capture', shot ? `ok:${shot.bytes}bytes:${shot.width}x${shot.height}` : 'failed');
     // Markdown renders inside the real answer window, not a simulation.

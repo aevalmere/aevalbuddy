@@ -8,24 +8,39 @@
   <link rel="stylesheet" href="cursor-buddy.css" />
 </head>
 <body>
+  <!-- The arrow is drawn to the proportions of the standard Windows pointer
+       and its tip sits at the element's own origin, so translating the
+       element to a coordinate lands the tip on that exact pixel. -->
   <div id="buddy" aria-hidden="true">
-    <span class="ring"></span>
-    <span class="dot"></span>
+    <svg class="arrow" viewBox="0 0 24 32" width="24" height="32">
+      <path class="arrow-body"
+            d="M1 1 L1 24.2 L6.9 18.6 L10.6 27.4 L14.4 25.8 L10.8 17.2 L18.8 17.2 Z" />
+    </svg>
   </div>
+
   <div id="callout" role="status">
-    <button id="callout-close" type="button" aria-label="Dismiss pointer">
-      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none"
-           stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-    <p id="callout-message"></p>
-    <div id="callout-actions" hidden>
-      <span id="callout-count"></span>
-      <button id="callout-next" type="button" class="callout-btn">Next</button>
+    <div class="bubble-tail" aria-hidden="true"></div>
+    <div class="bubble-body">
+      <div class="bubble-head">
+        <span class="face" aria-hidden="true">
+          <span class="eye"></span>
+          <span class="eye"></span>
+        </span>
+        <span class="who">Buddy</span>
+        <span id="callout-count"></span>
+        <button id="callout-close" type="button" aria-label="Dismiss the pointer">
+          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <p id="callout-message"></p>
+      <div id="callout-actions" hidden>
+        <button id="callout-next" type="button" class="callout-btn">Next</button>
+      </div>
     </div>
-    <p class="callout-hint">Esc also dismisses this</p>
   </div>
   <script src="buddy.js"></script>
 </body>

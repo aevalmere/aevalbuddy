@@ -20,6 +20,8 @@ const INVOKE_CHANNELS = new Set([
   'settings:save-key',
   'settings:clear-key',
   'settings:save-model',
+  'settings:save-skill',
+  'settings:test-key',
   'settings:close',
   'models:list',
   'clipboard:write',
@@ -52,6 +54,7 @@ const LISTEN_CHANNELS = new Set([
   'buddy:show',
   'buddy:hide',
   'buddy:done',
+  'buddy:move',
   'settings:data',
 ]);
 

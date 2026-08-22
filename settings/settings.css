@@ -1,7 +1,12 @@
 /* Same palette as the overlay: black, space indigo, shadow grey, grape soda
    accent, pale slate, twilight indigo. Scales per DESIGN.md: spacing
-   4/8/12/16/24/32, radius 4 chips, 6 controls, 8 cards, 12 window. Sections
-   separate by whitespace plus a small background shift, not borders. */
+   4/8/12/16/24/32, radius 4 chips, 6 controls, 8 cards, 12 window.
+
+   Two layout rules earn their keep here. Every card is a grid with one
+   column, so its children share a left edge no matter what they are. And the
+   shortcut rows are a three-column grid rather than flex, because a flex row
+   lets a long warning squeeze the label into two lines and knock every
+   column out of line with the row above. */
 
 :root {
   --black: #000000;
@@ -59,10 +64,11 @@ button {
 /* --------------------------------------------------------------- titlebar */
 
 #titlebar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 12px 20px;
+  padding: 12px 12px 12px 16px;
   -webkit-app-region: drag;
 }
 
@@ -92,7 +98,9 @@ button {
 
 main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 4px 16px 16px;
   display: flex;
   flex-direction: column;
@@ -108,52 +116,90 @@ main::-webkit-scrollbar-thumb {
   border-radius: 4px;
 }
 
+/* One column, one gap: every child of a card lines up on the same left edge
+   and is spaced the same distance from its neighbour, with no per-element
+   margins to drift out of step. */
 .card {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
   background: rgba(48, 61, 106, 0.14);
   border-radius: 8px;
   padding: 16px;
 }
 
 .card-head {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
-.card-head h2 {
-  margin-bottom: 0;
+.step {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate);
+  background: rgba(130, 58, 128, 0.35);
+  border-radius: 50%;
 }
 
 h2 {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  margin-bottom: 8px;
+}
+
+.card-head .chip {
+  margin-left: auto;
 }
 
 .desc {
   font-size: 13px;
-  color: rgba(201, 207, 221, 0.75);
+  color: rgba(201, 207, 221, 0.78);
   line-height: 1.5;
-  margin-bottom: 12px;
+}
+
+.note {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.72);
+  line-height: 1.45;
+}
+
+.note:empty {
+  display: none;
 }
 
 .row {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
-.row:last-child {
-  margin-bottom: 0;
+/* Status lines take no room until they have something to say, which is what
+   kept leaving an empty band at the bottom of a card. */
+.status {
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(201, 207, 221, 0.9);
 }
 
-.status-row {
-  min-height: 18px;
-  margin-bottom: 0;
+.status[hidden] {
+  display: none;
+}
+
+.status.error {
+  color: var(--slate);
+  background: rgba(16, 37, 79, 0.6);
+  border-radius: 6px;
+  padding: 8px 10px;
 }
 
 /* ------------------------------------------------------------------ chips */
@@ -215,8 +261,7 @@ input:focus {
    frameless windows on Windows, so the list is ordinary DOM. */
 .combo {
   position: relative;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
 }
 
 #model-combo-btn {
@@ -225,7 +270,6 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 14px;
   color: var(--slate);
   background: rgba(16, 37, 79, 0.45);
   border: 1px solid var(--twilight);
@@ -243,10 +287,29 @@ input:focus {
   border-color: var(--accent);
 }
 
+.combo-lines {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 #model-combo-label {
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.combo-detail {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-detail:empty {
+  display: none;
 }
 
 #model-combo-list {
@@ -260,8 +323,9 @@ input:focus {
   border: 1px solid var(--twilight);
   border-radius: 8px;
   padding: 4px;
-  max-height: 210px;
+  max-height: 300px;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
   animation: combo-open 140ms var(--ease-out);
 }
@@ -286,46 +350,142 @@ input:focus {
   border-radius: 4px;
 }
 
-#model-combo-list li {
+.combo-group {
+  padding: 8px 9px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(201, 207, 221, 0.6);
+  cursor: default;
+}
+
+.combo-option {
+  display: grid;
+  gap: 2px;
   padding: 7px 9px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.combo-option .opt-name {
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#model-combo-list li:hover {
+.combo-option .opt-detail {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.72);
+  line-height: 1.4;
+}
+
+.combo-option:hover {
   background: rgba(48, 61, 106, 0.5);
 }
 
-#model-combo-list li:focus,
-#model-combo-list li:focus-visible {
+.combo-option:focus,
+.combo-option:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px var(--accent);
   background: rgba(48, 61, 106, 0.5);
 }
 
-#model-combo-list li.selected {
+.combo-option.selected {
   background: rgba(130, 58, 128, 0.22);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
-#model-combo-list li.muted {
-  cursor: default;
+details {
+  width: 100%;
+}
+
+summary {
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.8);
+  cursor: pointer;
+  padding: 2px 0;
+  border-radius: 4px;
+}
+
+summary:hover {
+  color: var(--slate);
+}
+
+details[open] summary {
+  margin-bottom: 8px;
+}
+
+details .row {
+  margin-bottom: 6px;
+}
+
+/* ------------------------------------------------------------------ skill */
+
+#skill-list {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+}
+
+.skill-option {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  gap: 4px 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  transition: background var(--d-fast) ease;
+}
+
+.skill-option:hover {
+  background: rgba(48, 61, 106, 0.35);
+}
+
+.skill-option[aria-checked="true"] {
+  background: rgba(130, 58, 128, 0.18);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.skill-mark {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border: 1px solid var(--twilight);
+  border-radius: 50%;
+}
+
+.skill-option[aria-checked="true"] .skill-mark {
+  border-color: var(--accent);
+  background:
+    radial-gradient(circle at center, var(--accent) 0 3.5px, transparent 3.5px);
+}
+
+.skill-name {
+  font-size: 14px;
+}
+
+.skill-summary {
+  grid-column: 2;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  line-height: 1.45;
+  color: rgba(201, 207, 221, 0.72);
 }
 
 /* ---------------------------------------------------------------- buttons */
 
+/* Card-level secondary actions share one look, so their text starts on the
+   card's left edge like every other child rather than a padding width in. */
 #toggle-key,
-#remove-key,
+#test-key,
+#save-model,
 .sc-change,
 #reset-shortcuts,
-#edit-position,
-#quit-app {
+#edit-position {
+  flex: 0 0 auto;
   padding: 7px 12px;
   border-radius: 6px;
   background: rgba(48, 61, 106, 0.3);
@@ -333,15 +493,31 @@ input:focus {
 }
 
 #toggle-key:hover,
-#remove-key:hover,
+#test-key:hover,
+#save-model:hover,
 .sc-change:hover,
 #reset-shortcuts:hover,
-#edit-position:hover,
-#quit-app:hover {
+#edit-position:hover {
   background: rgba(48, 61, 106, 0.55);
 }
 
+/* Destructive and terminal actions are readable but never the loudest thing
+   on the page. */
+.quiet {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.75);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.quiet:hover {
+  background: rgba(48, 61, 106, 0.4);
+  color: var(--slate);
+}
+
 .primary {
+  flex: 0 0 auto;
   background: var(--accent);
   color: var(--slate);
   font-weight: 600;
@@ -358,41 +534,42 @@ input:focus {
   transform: scale(0.97);
 }
 
-#key-status,
-#model-status {
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.85);
-}
-
 /* -------------------------------------------------------------- shortcuts */
 
 #shortcut-list {
+  width: 100%;
   list-style: none;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 2px;
 }
 
-.shortcut-row {
-  display: flex;
+.sc-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 10px;
   padding: 9px 0;
 }
 
-.shortcut-row + .shortcut-row {
+.sc-row + .sc-row {
   border-top: 1px solid rgba(48, 61, 106, 0.35);
 }
 
 .sc-label {
-  flex: 1;
+  min-width: 0;
 }
 
+/* The warning gets its own full-width line under the row it belongs to, so a
+   long message can never squeeze the keycap and button columns. */
 .sc-warn {
+  grid-column: 1 / -1;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.75);
-  background: rgba(16, 37, 79, 0.6);
-  border-radius: 4px;
-  padding: 2px 7px;
+  color: rgba(201, 207, 221, 0.78);
+  line-height: 1.4;
+}
+
+.sc-warn[hidden] {
+  display: none;
 }
 
 kbd {
@@ -404,49 +581,31 @@ kbd {
   border-radius: 4px;
   padding: 2px 7px;
   white-space: nowrap;
+  justify-self: end;
 }
 
-.shortcut-row.capturing .sc-change {
+.sc-row.capturing .sc-change {
   background: rgba(130, 58, 128, 0.3);
 }
 
 .sc-fixed {
   font-size: 13px;
   color: rgba(201, 207, 221, 0.7);
-  padding: 2px 7px;
-}
-
-#shortcut-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(16, 37, 79, 0.5);
-  line-height: 1.4;
-}
-
-#shortcut-error[hidden] {
-  display: none;
-}
-
-#shortcut-error svg {
-  flex: 0 0 auto;
-}
-
-#reset-shortcuts {
-  margin-top: 8px;
+  /* Sits in the button column so it lines up with the Change buttons. */
+  min-width: 68px;
+  text-align: center;
 }
 
 /* ----------------------------------------------------------------- footer */
 
 footer {
-  padding: 12px 16px;
+  flex: 0 0 auto;
+  padding: 10px 16px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  border-top: 1px solid rgba(48, 61, 106, 0.3);
 }
 
 #about {

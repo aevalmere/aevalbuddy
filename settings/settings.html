@@ -10,7 +10,7 @@
 <body>
   <div id="app">
     <header id="titlebar">
-      <span class="title">Settings</span>
+      <span class="title">AevalBuddy settings</span>
       <button id="close-settings" type="button" aria-label="Close settings">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -21,18 +21,21 @@
     </header>
 
     <main>
+      <!-- The three steps run in the order a new install needs them: get a
+           key, choose what answers, choose how it answers. -->
       <section class="card" aria-labelledby="key-heading">
         <div class="card-head">
-          <h2 id="key-heading">OpenRouter API key</h2>
+          <span class="step" aria-hidden="true">1</span>
+          <h2 id="key-heading">Connect to OpenRouter</h2>
           <span id="key-state" class="chip">
             <span class="chip-dot" aria-hidden="true"></span>
             <span id="key-state-text">No key yet</span>
           </span>
         </div>
         <p class="desc">
-          Queries go straight from this machine to OpenRouter. Create a free
-          key at openrouter.ai/keys; it is stored on this machine, encrypted
-          with Windows credential storage when available.
+          AevalBuddy talks to models through OpenRouter. Get a key at
+          openrouter.ai/keys, paste it here, and it stays on this machine,
+          encrypted by Windows.
         </p>
         <div class="row">
           <input
@@ -47,97 +50,114 @@
         </div>
         <div class="row">
           <button id="save-key" type="button" class="primary">Save key</button>
-          <button id="remove-key" type="button" hidden>Remove key</button>
-          <span id="key-status" role="status"></span>
+          <button id="test-key" type="button">Test it</button>
+          <button id="remove-key" type="button" class="quiet" hidden>Remove</button>
         </div>
+        <p id="key-status" class="status" role="status" hidden></p>
       </section>
 
       <section class="card" aria-labelledby="model-heading">
-        <h2 id="model-heading">Model</h2>
+        <div class="card-head">
+          <span class="step" aria-hidden="true">2</span>
+          <h2 id="model-heading">Pick a model</h2>
+        </div>
         <p class="desc">
-          Free vision models from OpenRouter's live list. Pick one, or paste
-          any model id below; leave it empty and save to restore the default.
+          Fast models answer in about a second and bill fractions of a cent a
+          question. Free models cost nothing but are queued and rate limited,
+          which is why they feel slow.
         </p>
-        <div class="row">
-          <div class="combo" id="model-combo">
-            <button
-              id="model-combo-btn"
-              type="button"
-              aria-haspopup="listbox"
-              aria-expanded="false"
-              aria-label="Free vision models from OpenRouter"
-            >
+        <div class="combo" id="model-combo">
+          <button
+            id="model-combo-btn"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-label="Model"
+          >
+            <span class="combo-lines">
               <span id="model-combo-label">Loading models...</span>
-              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
-            <ul id="model-combo-list" role="listbox" aria-label="Free vision models" hidden></ul>
+              <span id="model-combo-detail" class="combo-detail"></span>
+            </span>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <ul id="model-combo-list" role="listbox" aria-label="Models" hidden></ul>
+        </div>
+        <p id="model-note" class="note"></p>
+        <details id="model-custom">
+          <summary>Use a different model id</summary>
+          <div class="row">
+            <input
+              id="model-input"
+              type="text"
+              aria-label="OpenRouter model id"
+              placeholder="vendor/model-name"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="save-model" type="button">Save</button>
           </div>
+          <p class="note">
+            Any OpenRouter model that accepts images. Clear the box and save to
+            go back to the recommended one.
+          </p>
+        </details>
+        <p id="model-status" class="status" role="status" hidden></p>
+      </section>
+
+      <section class="card" aria-labelledby="skill-heading">
+        <div class="card-head">
+          <span class="step" aria-hidden="true">3</span>
+          <h2 id="skill-heading">How it answers</h2>
         </div>
-        <div class="row">
-          <input
-            id="model-input"
-            type="text"
-            aria-label="OpenRouter model id"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button id="save-model" type="button" class="primary">Save model</button>
-        </div>
-        <div class="row status-row">
-          <span id="model-status" role="status"></span>
-        </div>
+        <p class="desc">
+          Each option is a procedure the assistant follows before it replies.
+          It keeps small, fast models on the point instead of rambling.
+        </p>
+        <div id="skill-list" role="radiogroup" aria-labelledby="skill-heading"></div>
+      </section>
+
+      <section class="card" aria-labelledby="shortcut-heading">
+        <h2 id="shortcut-heading">Shortcuts</h2>
+        <ul id="shortcut-list">
+          <li class="sc-row" data-action="captureQuery">
+            <span class="sc-label">Capture and ask</span>
+            <kbd class="sc-current"></kbd>
+            <button class="sc-change" type="button">Change</button>
+            <span class="sc-warn" hidden>Not active: another app owns this combo</span>
+          </li>
+          <li class="sc-row" data-action="toggleVisibility">
+            <span class="sc-label">Show or hide overlay</span>
+            <kbd class="sc-current"></kbd>
+            <button class="sc-change" type="button">Change</button>
+            <span class="sc-warn" hidden>Not active: another app owns this combo</span>
+          </li>
+          <li class="sc-row">
+            <span class="sc-label">Close or collapse</span>
+            <kbd>Esc</kbd>
+            <span class="sc-fixed">Fixed</span>
+          </li>
+        </ul>
+        <p id="shortcut-error" class="status error" role="alert" hidden></p>
+        <button id="reset-shortcuts" type="button">Reset to defaults</button>
       </section>
 
       <section class="card" aria-labelledby="layout-heading">
         <h2 id="layout-heading">Layout</h2>
         <p class="desc">
           Rearrange the input bar and the answer window like a game HUD. Drag
-          either one; it snaps to edges and corners. Drop the answer near the
-          input to dock them, or press Detach to split them apart.
+          either one and it snaps to edges and corners. Drop the answer near
+          the input bar to dock them, or press Detach to split them apart.
         </p>
         <button id="edit-position" type="button">Edit layout</button>
-      </section>
-
-      <section class="card" aria-labelledby="shortcut-heading">
-        <h2 id="shortcut-heading">Shortcuts</h2>
-        <ul id="shortcut-list">
-          <li class="shortcut-row" data-action="captureQuery">
-            <span class="sc-label">Capture and ask</span>
-            <span class="sc-warn" hidden>Inactive: taken by another app</span>
-            <kbd class="sc-current"></kbd>
-            <button class="sc-change" type="button">Change</button>
-          </li>
-          <li class="shortcut-row" data-action="toggleVisibility">
-            <span class="sc-label">Show or hide overlay</span>
-            <span class="sc-warn" hidden>Inactive: taken by another app</span>
-            <kbd class="sc-current"></kbd>
-            <button class="sc-change" type="button">Change</button>
-          </li>
-          <li class="shortcut-row">
-            <span class="sc-label">Close or collapse</span>
-            <kbd>Esc</kbd>
-            <span class="sc-fixed">Fixed</span>
-          </li>
-        </ul>
-        <p id="shortcut-error" role="alert" hidden>
-          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <span id="shortcut-error-text"></span>
-        </p>
-        <button id="reset-shortcuts" type="button">Reset to defaults</button>
       </section>
     </main>
 
     <footer>
       <span id="about">AevalBuddy <span id="app-version"></span></span>
-      <button id="quit-app" type="button">Quit AevalBuddy</button>
+      <button id="quit-app" type="button" class="quiet">Quit</button>
     </footer>
   </div>
   <script src="settings.js"></script>

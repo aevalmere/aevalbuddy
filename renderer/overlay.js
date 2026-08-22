@@ -18,13 +18,12 @@ let resizeQueued = false;
 
 // ----------------------------------------------------------------- render
 
-// The panel expands out of the pill: both share the same screen anchor, so
-// scaling from that corner reads as the pill growing into the panel.
-function anchorOrigin() {
+// The window grows away from the anchored corner (lib/motion.js); the
+// stylesheet pins the panel to those same edges so the growth uncovers it.
+function applyAnchor() {
   const a = state.inputAnchor || { h: 'right', v: 'top' };
-  const h = a.h === 'center' ? 'center' : a.h;
-  const v = a.v === 'center' ? 'center' : a.v;
-  return `${h} ${v}`;
+  document.body.dataset.anchorH = a.h;
+  document.body.dataset.anchorV = a.v;
 }
 
 function replayAnim(el, cls) {
@@ -35,11 +34,11 @@ function replayAnim(el, cls) {
 
 function render(prevMode) {
   document.body.dataset.mode = state.mode;
+  applyAnchor();
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';
   hud.hidden = state.mode !== 'hud';
   if (state.mode === 'panel') {
-    panel.style.transformOrigin = anchorOrigin();
     if (prevMode !== 'panel') replayAnim(panel, 'in');
     renderNotice();
     if (prevMode !== 'panel') {
@@ -49,7 +48,6 @@ function render(prevMode) {
     requestResize();
   }
   if (state.mode === 'pill' && prevMode !== 'pill') {
-    pill.style.transformOrigin = anchorOrigin();
     replayAnim(pill, 'in');
   }
 }
@@ -74,7 +72,9 @@ function requestResize() {
   resizeQueued = true;
   requestAnimationFrame(() => {
     resizeQueued = false;
-    const height = Math.ceil(panel.getBoundingClientRect().height) + 2;
+    // getBoundingClientRect is border-box, so this is the whole panel
+    // including its 1px border; padding it out again leaves a dead strip.
+    const height = Math.ceil(panel.getBoundingClientRect().height);
     window.aeval.invoke('overlay:resize', { height });
   });
 }
