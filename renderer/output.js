@@ -146,6 +146,10 @@ window.aeval.on('overlay:state', (next) => {
   hud.hidden = mode !== 'hud';
   if (mode === 'hud') {
     opanel.hidden = true;
+  } else if (chatEl.childElementCount) {
+    // Leaving the layout editor (or any later state change) brings an
+    // existing transcript back; without this the window would show blank.
+    opanel.hidden = false;
   }
   // Entrance origin: a docked answer grows away from the input bar's edge;
   // a free one grows from its own anchor.
