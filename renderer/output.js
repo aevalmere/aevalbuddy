@@ -75,10 +75,20 @@ function addAssistantMsg() {
   return entry;
 }
 
-function setThinking(entry, on) {
+function setThinking(entry, on, label) {
   if (on) {
-    entry.body.innerHTML =
-      '<span class="think-dots" aria-label="Thinking"><i></i><i></i><i></i></span>';
+    entry.body.textContent = '';
+    const dots = document.createElement('span');
+    dots.className = 'think-dots';
+    dots.setAttribute('aria-label', label || 'Thinking');
+    dots.innerHTML = '<i></i><i></i><i></i>';
+    entry.body.appendChild(dots);
+    if (label) {
+      const tag = document.createElement('span');
+      tag.className = 'stage-label';
+      tag.textContent = label;
+      entry.body.appendChild(tag);
+    }
   }
   entry.el.classList.toggle('thinking', on);
 }
@@ -156,6 +166,9 @@ window.aeval.on('overlay:state', (next) => {
   // A docked answer grows away from the input bar's edge; a free one grows
   // from its own anchor. The stylesheet pins the panel to those edges so the
   // window's own glide uncovers it.
+  if (typeof next.acrylic === 'boolean') {
+    document.body.dataset.acrylic = next.acrylic ? '1' : '0';
+  }
   if (next.outputPos) {
     docked = next.outputPos.docked;
     const anchor = docked ? next.inputAnchor || next.outputPos : next.outputPos;
@@ -210,6 +223,12 @@ window.aeval.on('query:start', ({ gen }) => {
   setThinking(liveMsg, true);
   scrollToBottom(true);
   requestResize();
+});
+
+// Brain mode reads the screen before it thinks; each stage says so.
+window.aeval.on('query:stage', ({ gen, label }) => {
+  if (gen < lastGen || !liveMsg || liveMsg.raw) return;
+  setThinking(liveMsg, true, label);
 });
 
 window.aeval.on('query:delta', ({ gen, text }) => {

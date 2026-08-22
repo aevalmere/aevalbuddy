@@ -34,6 +34,9 @@ function replayAnim(el, cls) {
 
 function render(prevMode) {
   document.body.dataset.mode = state.mode;
+  // Where the OS supplies acrylic it also supplies the corner and the edge,
+  // so the stylesheet stops drawing its own.
+  document.body.dataset.acrylic = state.acrylic ? '1' : '0';
   applyAnchor();
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';

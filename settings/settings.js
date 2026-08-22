@@ -9,15 +9,10 @@ const keyState = document.getElementById('key-state');
 const keyStateText = document.getElementById('key-state-text');
 const keyStatus = document.getElementById('key-status');
 const appVersion = document.getElementById('app-version');
-const modelInput = document.getElementById('model-input');
-const modelCustom = document.getElementById('model-custom');
-const saveModelBtn = document.getElementById('save-model');
-const modelStatus = document.getElementById('model-status');
-const modelNote = document.getElementById('model-note');
-const comboBtn = document.getElementById('model-combo-btn');
-const comboLabel = document.getElementById('model-combo-label');
-const comboDetail = document.getElementById('model-combo-detail');
-const comboList = document.getElementById('model-combo-list');
+const showPaid = document.getElementById('show-paid');
+const brainEnabled = document.getElementById('brain-enabled');
+const brainComboEl = document.getElementById('brain-combo');
+const brainNoteEl = document.getElementById('brain-note');
 const skillList = document.getElementById('skill-list');
 const editPositionBtn = document.getElementById('edit-position');
 const shortcutList = document.getElementById('shortcut-list');
@@ -27,13 +22,11 @@ const closeBtn = document.getElementById('close-settings');
 const quitBtn = document.getElementById('quit-app');
 
 let data = { shortcuts: {}, active: {} };
-let modelIndex = new Map(); // id -> { name, note, detail, tier }
-let offlineNote = '';
 let capturing = null; // { action } while recording a new combo
 let watchSelector = null;
 
-// Status lines share one helper so none of them can leave stale text behind
-// or reserve space while empty.
+// Status lines share one helper so none can leave stale text behind or
+// reserve space while empty.
 function makeStatus(el) {
   let timer = null;
   return (text, sticky) => {
@@ -50,30 +43,16 @@ function makeStatus(el) {
 }
 
 const setKeyStatus = makeStatus(keyStatus);
-const setModelStatus = makeStatus(modelStatus);
 const setShortcutError = makeStatus(shortcutError);
 
-// ------------------------------------------------------------------ load
-
-window.aeval.invoke('settings:get').then((d) => {
-  data = d;
-  modelInput.value = d.model || '';
-  modelInput.placeholder = d.defaultModel || '';
-  appVersion.textContent = d.version || '';
-  renderKeyState(!!d.hasKey);
-  renderSkills(d.skills || [], d.skill);
-  renderShortcuts();
-  loadModels();
-});
+// --------------------------------------------------------------- API key
 
 function renderKeyState(saved) {
   keyState.classList.toggle('on', saved);
-  keyStateText.textContent = saved ? 'Key saved' : 'No key yet';
+  keyStateText.textContent = saved ? 'Saved' : 'Not set';
   removeKeyBtn.hidden = !saved;
-  testKeyBtn.disabled = !saved;
+  testKeyBtn.hidden = !saved;
 }
-
-// --------------------------------------------------------------- API key
 
 toggleKeyBtn.addEventListener('click', () => {
   const show = keyInput.type === 'password';
@@ -94,7 +73,7 @@ function saveKey() {
     toggleKeyBtn.textContent = 'Show';
     toggleKeyBtn.setAttribute('aria-pressed', 'false');
     renderKeyState(true);
-    setKeyStatus('Saved. Press "Test it" to check it works.');
+    setKeyStatus('Saved.');
   });
 }
 
@@ -102,15 +81,13 @@ saveKeyBtn.addEventListener('click', saveKey);
 
 testKeyBtn.addEventListener('click', () => {
   setKeyStatus('Checking...', true);
-  window.aeval.invoke('settings:test-key').then((r) => {
-    setKeyStatus(r.message, !r.ok);
-  });
+  window.aeval.invoke('settings:test-key').then((r) => setKeyStatus(r.message, !r.ok));
 });
 
 removeKeyBtn.addEventListener('click', () => {
   window.aeval.invoke('settings:clear-key').then(() => {
     renderKeyState(false);
-    setKeyStatus('Key removed.');
+    setKeyStatus('Removed.');
   });
 });
 
@@ -121,155 +98,191 @@ keyInput.addEventListener('keydown', (e) => {
   }
 });
 
-// ----------------------------------------------------------------- model
+// ----------------------------------------------------------------- combos
 
-function loadModels() {
-  window.aeval.invoke('models:list').then(({ groups, live }) => {
-    comboList.innerHTML = '';
-    modelIndex = new Map();
-    for (const group of groups || []) {
-      const head = document.createElement('li');
-      head.className = 'combo-group';
-      head.setAttribute('aria-hidden', 'true');
-      head.textContent = group.label;
-      comboList.appendChild(head);
-      for (const m of group.models) {
-        modelIndex.set(m.id, m);
-        const li = document.createElement('li');
-        li.className = 'combo-option';
-        li.setAttribute('role', 'option');
-        li.tabIndex = -1;
-        li.dataset.id = m.id;
-        li.title = m.id;
-        const name = document.createElement('span');
-        name.className = 'opt-name';
-        name.textContent = m.name;
-        li.appendChild(name);
-        const detail = optionDetail(m);
-        if (detail) {
-          const d = document.createElement('span');
-          d.className = 'opt-detail';
-          d.textContent = detail;
-          li.appendChild(d);
-        }
-        comboList.appendChild(li);
-      }
+// Two pickers with identical behaviour (the model that sees the screen, and
+// the optional brain that answers from its reading), so the behaviour is
+// written once and instantiated twice rather than copied.
+function makeCombo(config) {
+  const { rootId, button, label, detail, list, note, kind, save } = config;
+  const state = { index: new Map(), offline: '', current: '' };
+
+  function optionDetail(m) {
+    return [m.note, m.detail].filter(Boolean).join(' ');
+  }
+
+  function sync() {
+    for (const li of list.querySelectorAll('li[data-id]')) {
+      const selected = li.dataset.id === state.current;
+      li.classList.toggle('selected', selected);
+      li.setAttribute('aria-selected', String(selected));
     }
-    offlineNote = live
-      ? ''
-      : 'Could not reach OpenRouter, so this is the built-in list. Prices and availability may have moved on.';
-    syncCombo();
+    const known = state.index.get(state.current);
+    label.textContent = known ? known.name : state.current || 'Choose...';
+    // The collapsed control shows price and context only: it is one line, and
+    // a description worth reading gets cut off there. The description goes
+    // underneath, where it has room to wrap.
+    detail.textContent = known ? known.detail : state.current ? 'Custom model id' : '';
+    if (note) {
+      note.textContent = [known ? known.note : '', state.offline].filter(Boolean).join(' ');
+    }
+  }
+
+  function load() {
+    return window.aeval.invoke('models:list', { kind }).then((res) => {
+      list.innerHTML = '';
+      state.index = new Map();
+      if (res.current) state.current = res.current;
+      for (const group of res.groups || []) {
+        const head = document.createElement('li');
+        head.className = 'combo-group';
+        head.setAttribute('aria-hidden', 'true');
+        head.textContent = group.label;
+        list.appendChild(head);
+        for (const m of group.models) {
+          state.index.set(m.id, m);
+          const li = document.createElement('li');
+          li.className = 'combo-option';
+          li.setAttribute('role', 'option');
+          li.tabIndex = -1;
+          li.dataset.id = m.id;
+          li.title = m.id;
+          const name = document.createElement('span');
+          name.className = 'opt-name';
+          name.textContent = m.name;
+          li.appendChild(name);
+          const d = optionDetail(m);
+          if (d) {
+            const el = document.createElement('span');
+            el.className = 'opt-detail';
+            el.textContent = d;
+            li.appendChild(el);
+          }
+          list.appendChild(li);
+        }
+      }
+      state.offline = res.live
+        ? ''
+        : 'Could not reach OpenRouter, so this is the built-in list.';
+      sync();
+    });
+  }
+
+  function open() {
+    list.hidden = false;
+    button.setAttribute('aria-expanded', 'true');
+    const target = list.querySelector('li.selected') || list.querySelector('li[data-id]');
+    if (target) target.focus();
+  }
+
+  function close(focusButton) {
+    list.hidden = true;
+    button.setAttribute('aria-expanded', 'false');
+    if (focusButton) button.focus();
+  }
+
+  function choose(id) {
+    state.current = id;
+    save(id).then(() => sync());
+    close(true);
+  }
+
+  button.addEventListener('click', () => {
+    if (list.hidden) open();
+    else close(false);
   });
-}
 
-function optionDetail(m) {
-  return [m.note, m.detail].filter(Boolean).join(' ');
-}
-
-function syncCombo() {
-  const current = modelInput.value.trim();
-  for (const li of comboList.querySelectorAll('li[data-id]')) {
-    const selected = li.dataset.id === current;
-    li.classList.toggle('selected', selected);
-    li.setAttribute('aria-selected', String(selected));
-  }
-  const known = modelIndex.get(current);
-  comboLabel.textContent = known ? known.name : current || 'Choose a model...';
-  // The collapsed control shows only price and context: it is one line, and
-  // a description long enough to be useful gets cut off there anyway. The
-  // description goes under the control, where it has room to wrap.
-  comboDetail.textContent = known ? known.detail : current ? 'Custom model id' : '';
-  modelNote.textContent = [known ? known.note : '', offlineNote].filter(Boolean).join(' ');
-  // A model that is not in the list came from the custom field, so show that
-  // field open rather than leaving the id invisible.
-  if (current && !known) modelCustom.open = true;
-}
-
-function comboOpen() {
-  comboList.hidden = false;
-  comboBtn.setAttribute('aria-expanded', 'true');
-  const target =
-    comboList.querySelector('li.selected') || comboList.querySelector('li[data-id]');
-  if (target) target.focus();
-}
-
-function comboClose(focusButton) {
-  comboList.hidden = true;
-  comboBtn.setAttribute('aria-expanded', 'false');
-  if (focusButton) comboBtn.focus();
-}
-
-function chooseModel(id) {
-  modelInput.value = id;
-  saveModel();
-  comboClose(true);
-}
-
-comboBtn.addEventListener('click', () => {
-  if (comboList.hidden) comboOpen();
-  else comboClose(false);
-});
-
-comboBtn.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    comboOpen();
-  }
-});
-
-comboList.addEventListener('click', (e) => {
-  const li = e.target.closest('li[data-id]');
-  if (li) chooseModel(li.dataset.id);
-});
-
-comboList.addEventListener('keydown', (e) => {
-  const options = [...comboList.querySelectorAll('li[data-id]')];
-  const idx = options.indexOf(document.activeElement);
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    (options[idx + 1] || options[0]).focus();
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    (options[idx - 1] || options[options.length - 1]).focus();
-  } else if (e.key === 'Home') {
-    e.preventDefault();
-    if (options[0]) options[0].focus();
-  } else if (e.key === 'End') {
-    e.preventDefault();
-    if (options.length) options[options.length - 1].focus();
-  } else if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault();
-    if (idx >= 0) chooseModel(options[idx].dataset.id);
-  } else if (e.key === 'Escape') {
-    e.preventDefault();
-    e.stopPropagation();
-    comboClose(true);
-  } else if (e.key === 'Tab') {
-    comboClose(false);
-  }
-});
-
-document.addEventListener('click', (e) => {
-  if (!comboList.hidden && !e.target.closest('#model-combo')) {
-    comboClose(false);
-  }
-});
-
-function saveModel() {
-  window.aeval.invoke('settings:save-model', { model: modelInput.value }).then((r) => {
-    if (!r.ok) return;
-    modelInput.value = r.model;
-    syncCombo();
-    setModelStatus('Saved.');
+  button.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      open();
+    }
   });
+
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('li[data-id]');
+    if (li) choose(li.dataset.id);
+  });
+
+  list.addEventListener('keydown', (e) => {
+    const options = [...list.querySelectorAll('li[data-id]')];
+    const idx = options.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      (options[idx + 1] || options[0]).focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      (options[idx - 1] || options[options.length - 1]).focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      if (options[0]) options[0].focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      if (options.length) options[options.length - 1].focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (idx >= 0) choose(options[idx].dataset.id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
+    } else if (e.key === 'Tab') {
+      close(false);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!list.hidden && !e.target.closest('#' + rootId)) close(false);
+  });
+
+  return {
+    load,
+    close,
+    isOpen: () => !list.hidden,
+    setCurrent: (id) => {
+      state.current = id;
+      sync();
+    },
+  };
 }
 
-saveModelBtn.addEventListener('click', saveModel);
-modelInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    saveModel();
-  }
+const modelCombo = makeCombo({
+  rootId: 'model-combo',
+  button: document.getElementById('model-combo-btn'),
+  label: document.getElementById('model-combo-label'),
+  detail: document.getElementById('model-combo-detail'),
+  list: document.getElementById('model-combo-list'),
+  note: document.getElementById('model-note'),
+  kind: 'vision',
+  save: (id) => window.aeval.invoke('settings:save-model', { model: id }),
+});
+
+const brainCombo = makeCombo({
+  rootId: 'brain-combo',
+  button: document.getElementById('brain-combo-btn'),
+  label: document.getElementById('brain-combo-label'),
+  detail: document.getElementById('brain-combo-detail'),
+  list: document.getElementById('brain-combo-list'),
+  note: brainNoteEl,
+  kind: 'text',
+  save: (id) => window.aeval.invoke('settings:save-brain', { model: id }),
+});
+
+function showBrainPicker(on) {
+  brainComboEl.hidden = !on;
+  brainNoteEl.hidden = !on;
+}
+
+showPaid.addEventListener('change', () => {
+  window.aeval
+    .invoke('settings:set-show-paid', { on: showPaid.checked })
+    .then(() => Promise.all([modelCombo.load(), brainCombo.load()]));
+});
+
+brainEnabled.addEventListener('change', () => {
+  window.aeval
+    .invoke('settings:set-brain-enabled', { on: brainEnabled.checked })
+    .then((r) => showBrainPicker(r.brainEnabled));
 });
 
 // ----------------------------------------------------------------- skills
@@ -314,12 +327,6 @@ skillList.addEventListener('click', (e) => {
   });
 });
 
-// -------------------------------------------------------------- position
-
-editPositionBtn.addEventListener('click', () => {
-  window.aeval.invoke('hud:enter');
-});
-
 // -------------------------------------------------------------- shortcuts
 
 function renderShortcuts() {
@@ -328,11 +335,11 @@ function renderShortcuts() {
     const kbd = row.querySelector('.sc-current');
     const warn = row.querySelector('.sc-warn');
     const button = row.querySelector('.sc-change');
-    kbd.textContent = data.shortcuts[action] || '';
-    warn.hidden = data.active[action] !== false;
     const isCapturing = capturing && capturing.action === action;
+    kbd.textContent = isCapturing ? 'Press keys' : data.shortcuts[action] || '';
+    warn.hidden = data.active[action] !== false;
     row.classList.toggle('capturing', !!isCapturing);
-    button.textContent = isCapturing ? 'Press keys' : 'Change';
+    button.textContent = isCapturing ? 'Cancel' : 'Change';
   }
 }
 
@@ -354,7 +361,14 @@ function endCapture() {
 shortcutList.addEventListener('click', (e) => {
   const button = e.target.closest('.sc-change');
   if (!button) return;
-  startCapture(button.closest('.sc-row').dataset.action, button);
+  const action = button.closest('.sc-row').dataset.action;
+  // The same button cancels, so a recording started by accident is not a
+  // trap that only Escape gets out of.
+  if (capturing && capturing.action === action) {
+    endCapture();
+    return;
+  }
+  startCapture(action, button);
 });
 
 const KEY_ALIASES = {
@@ -398,7 +412,7 @@ window.addEventListener(
     const key = normalizeKey(e);
     if (!key) return; // a bare modifier press; keep listening
     if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-      setShortcutError('Include Ctrl, Alt, or Win in the combo, then try again.', true);
+      setShortcutError('Include Ctrl, Alt, or Win in the combo.', true);
       return;
     }
     const mods = [];
@@ -415,7 +429,7 @@ window.addEventListener(
         endCapture();
       } else {
         setShortcutError(r.error, true);
-        // Stay in capture mode so the user can immediately try another combo.
+        // Stay in capture mode so another combo can be tried immediately.
       }
     });
   },
@@ -431,15 +445,31 @@ resetBtn.addEventListener('click', () => {
   });
 });
 
+editPositionBtn.addEventListener('click', () => {
+  window.aeval.invoke('hud:enter');
+});
+
 // ----------------------------------------------------------- window chrome
 
 closeBtn.addEventListener('click', () => window.aeval.invoke('settings:close'));
 quitBtn.addEventListener('click', () => window.aeval.invoke('app:quit'));
 
+// Links out open in the real browser, main-process validated to http/https.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-external]');
+  if (!a) return;
+  e.preventDefault();
+  window.aeval.invoke('open-external', { url: a.dataset.external });
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || capturing) return;
-  if (!comboList.hidden) {
-    comboClose(true);
+  if (modelCombo.isOpen()) {
+    modelCombo.close(true);
+    return;
+  }
+  if (brainCombo.isOpen()) {
+    brainCombo.close(true);
     return;
   }
   window.aeval.invoke('settings:close');
@@ -472,4 +502,22 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest(watchSelector)) {
     window.aeval.invoke('buddy:dismiss');
   }
+});
+
+// ------------------------------------------------------------------ load
+
+window.aeval.invoke('settings:get').then((d) => {
+  data = d;
+  appVersion.textContent = d.version || '';
+  document.body.dataset.acrylic = d.acrylic ? '1' : '0';
+  showPaid.checked = !!d.showPaid;
+  brainEnabled.checked = !!d.brainEnabled;
+  showBrainPicker(!!d.brainEnabled);
+  renderKeyState(!!d.hasKey);
+  renderSkills(d.skills || [], d.skill);
+  renderShortcuts();
+  modelCombo.setCurrent(d.model || '');
+  brainCombo.setCurrent(d.brain || '');
+  modelCombo.load();
+  brainCombo.load();
 });

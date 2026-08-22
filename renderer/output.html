@@ -10,8 +10,13 @@
 <body data-mode="idle">
   <section id="opanel" hidden aria-label="AevalBuddy conversation">
     <div id="chat-tools">
-      <span class="chat-title">AevalBuddy</span>
-      <button id="new-chat" type="button" aria-label="Start a new conversation">New chat</button>
+      <button id="new-chat" type="button" aria-label="Start a new conversation" title="New conversation">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14"></path>
+          <path d="M5 12h14"></path>
+        </svg>
+      </button>
     </div>
     <div id="chat" role="log" aria-live="polite"></div>
   </section>

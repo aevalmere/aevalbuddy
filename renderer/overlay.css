@@ -16,6 +16,16 @@
   --d-fast: 150ms;
   --d-med: 240ms;
   --d-slow: 380ms;
+
+  /* Surface tokens, per the v0.4 table in DESIGN.md. One gutter, one control
+     height, one divider, one shadow. Anything that invents its own is a
+     defect. */
+  --gutter: 12px;
+  --control: 32px;
+  --hairline: rgba(201, 207, 221, 0.10);
+  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
+  --lift: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --chrome: 0.55;
 }
 
 * {
@@ -109,6 +119,23 @@ body[data-mode="panel"] #pill {
   display: none;
 }
 
+/* With acrylic the window itself is the surface, so the pill fills it
+   rather than floating inside it with its own margin and edge, which would
+   leave a ring of bare acrylic around a darker shape. */
+body[data-acrylic="1"] #pill {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(43, 44, 51, 0.55);
+}
+
+body[data-acrylic="1"] #pill:hover {
+  background: rgba(43, 44, 51, 0.72);
+  transform: none;
+}
+
 /* ------------------------------------------------------- panel positioning
 
    The window itself glides open (see lib/motion.js); these surfaces are
@@ -153,17 +180,27 @@ body[data-anchor-v="bottom"] #opanel {
 
 /* ------------------------------------------------------------------ panel */
 
+/* One surface. The bar itself is the field: there is no bordered input
+   sitting inside a bordered panel, which was the single loudest amateur tell
+   in the v0.3 capture. Where the window supplies acrylic, it also supplies
+   the corner and the edge, so the CSS drops both. */
 #panel {
   background: rgba(43, 44, 51, 0.97);
-  /* Border kept on purpose: the window floats over arbitrary desktop
-     content, and a shadow alone vanishes on dark backgrounds. */
-  border: 1px solid var(--twilight);
+  border: 1px solid rgba(201, 207, 221, 0.14);
   border-radius: 12px;
-  padding: 14px 16px 12px;
+  padding: var(--gutter);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  gap: var(--gutter);
+  box-shadow: var(--bevel), var(--lift);
+}
+
+body[data-acrylic="1"] #panel,
+body[data-acrylic="1"] #opanel {
+  background: rgba(43, 44, 51, 0.62);
+  border: none;
+  border-radius: 0;
+  box-shadow: var(--bevel);
 }
 
 /* The surface only fades; its contents arrive a beat later, staggered, so
@@ -196,61 +233,82 @@ body[data-anchor-v="bottom"] #opanel {
 .panel-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  height: var(--control);
 }
 
+/* No box: the text sits directly on the surface. Focus is shown by the
+   caret and by the panel's own border brightening, never by a ring. */
 #query-input {
   flex: 1;
   min-width: 0;
+  height: 100%;
   font-family: inherit;
   font-size: 15px;
+  line-height: var(--control);
   color: var(--slate);
-  background: rgba(16, 37, 79, 0.45);
-  border: 1px solid var(--twilight);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background: none;
+  border: none;
+  padding: 0;
   user-select: text;
+  caret-color: var(--accent);
 }
 
 #query-input::placeholder {
-  color: rgba(201, 207, 221, 0.55);
+  color: rgba(201, 207, 221, 0.45);
 }
 
-#query-input:focus {
+/* The blanket :focus-visible rule further up draws an outline and a 1px
+   halo. On the query field that halo redraws exactly the nested box this
+   design removes, so the field opts out: its focus is the caret, plus the
+   panel border lifting. */
+#query-input:focus,
+#query-input:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 2px rgba(201, 207, 221, 0.35);
+  box-shadow: none;
+  border-radius: 0;
 }
 
+#panel:focus-within {
+  border-color: rgba(201, 207, 221, 0.26);
+}
+
+body[data-acrylic="1"] #panel:focus-within {
+  background: rgba(43, 44, 51, 0.70);
+}
+
+/* Chrome recedes: idle at 55%, full only under the cursor. */
 .panel-top button {
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: var(--control);
+  height: var(--control);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
   color: var(--slate);
-  opacity: 0.8;
+  opacity: var(--chrome);
   transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
 .panel-top button:hover {
-  background: rgba(48, 61, 106, 0.4);
+  background: rgba(201, 207, 221, 0.08);
   opacity: 1;
 }
 
 /* ----------------------------------------------------------------- notice */
 
+/* Separated by a hairline and whitespace. A filled pill here would be a
+   third level of nesting inside an already filled panel. */
 #notice {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(16, 37, 79, 0.5);
+  padding-top: var(--gutter);
+  border-top: 1px solid var(--hairline);
+  color: rgba(201, 207, 221, 0.8);
 }
 
 #notice[hidden] {
@@ -288,13 +346,13 @@ body[data-anchor-v="bottom"] #opanel {
 
 #opanel {
   background: rgba(43, 44, 51, 0.97);
-  border: 1px solid var(--twilight);
+  border: 1px solid rgba(201, 207, 221, 0.14);
   border-radius: 12px;
-  padding: 10px 12px 12px;
+  padding: var(--gutter);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--bevel), var(--lift);
 }
 
 /* The window glides open around it; the surface only fades. */
@@ -302,34 +360,36 @@ body[data-anchor-v="bottom"] #opanel {
   animation: surface-in var(--d-fast) var(--ease-out);
 }
 
+/* No title row. The product does not need to introduce itself on its own
+   surface, and the only control here earns its place by being quiet: a
+   single icon at 55%, in the same column as everything else. */
 #chat-tools {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  /* Matches the transcript's own padding so the title sits on the same
-     vertical line as the message bubbles below it. */
-  padding: 0 2px;
-}
-
-.chat-title {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: rgba(201, 207, 221, 0.7);
+  justify-content: flex-end;
+  height: 20px;
+  margin-bottom: -4px;
 }
 
 #new-chat {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.85);
-  padding: 3px 9px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--slate);
+  opacity: 0;
+  transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
+}
+
+#opanel:hover #new-chat,
+#new-chat:focus-visible {
+  opacity: var(--chrome);
 }
 
 #new-chat:hover {
-  background: rgba(48, 61, 106, 0.4);
-  color: var(--slate);
+  background: rgba(201, 207, 221, 0.08);
+  opacity: 1;
 }
 
 /* ------------------------------------------------------------- transcript */
@@ -376,23 +436,39 @@ body[data-anchor-v="bottom"] #opanel {
 
 .bubble {
   max-width: 88%;
-  border-radius: 12px;
-  padding: 7px 11px;
   font-size: 14px;
   line-height: 1.55;
   word-break: break-word;
 }
 
+/* The question stays a chip so the transcript still reads as a
+   conversation. The answer does not: an answer is a document, and putting
+   it in a coloured bubble is what made this look like a toy chat app. */
 .msg.user .bubble {
-  background: rgba(48, 61, 106, 0.6);
+  background: rgba(201, 207, 221, 0.09);
+  border-radius: 10px;
   border-bottom-right-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.9);
   white-space: pre-wrap;
 }
 
 .msg.assistant .bubble {
-  background: rgba(16, 37, 79, 0.55);
-  border-bottom-left-radius: 4px;
   max-width: 100%;
+  padding: 2px 0 0;
+}
+
+/* A hairline above each answer, so question and answer stay legible as
+   separate turns without either of them needing a container. */
+.msg.assistant + .msg.user {
+  margin-top: 4px;
+}
+
+.msg.user + .msg.assistant {
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+  width: 100%;
 }
 
 .msg-meta {
@@ -420,8 +496,18 @@ body[data-anchor-v="bottom"] #opanel {
 
 .think-dots {
   display: inline-flex;
+  align-items: center;
   gap: 4px;
   padding: 4px 0 2px;
+}
+
+/* Brain mode runs two calls, and the first one is not streamed. Naming the
+   stage turns an unexplained pause into progress. */
+.stage-label {
+  margin-left: 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(201, 207, 221, 0.7);
 }
 
 .think-dots i {
@@ -456,14 +542,19 @@ body[data-anchor-v="bottom"] #opanel {
 
 .error-row {
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  font-size: 14px;
-  line-height: 1.4;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(16, 37, 79, 0.5);
-  border: 1px solid var(--twilight);
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  color: rgba(201, 207, 221, 0.85);
+}
+
+.error-row svg {
+  margin-top: 2px;
+  color: var(--accent);
 }
 
 .error-row svg {

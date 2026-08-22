@@ -98,3 +98,47 @@ the renderer at boot) every window animation collapses to a single setBounds.
 | Answer window | thinking dots inside the assistant bubble | window stays hidden until a first message exists | inline row naming the failure and the fix | network errors name the connection and the retry key |
 | Model picker | "Loading models..." label | never empty: live list, else known-models fallback with a labelled note | inline note when the live fetch failed | fallback list keeps the picker usable |
 | Settings key | saved state shown as a chip | "No key yet" chip plus the walkthrough | inline message next to the field | not applicable (local) |
+
+## v0.4: why the input and answer surfaces read as amateur
+
+"It does not feel like Cluely" is a real observation, and it is not about the animation. Reading the
+captured surfaces against what premium overlays actually do, there are eight specific tells. Each is a
+rule violated, not a matter of taste.
+
+| # | Tell in the current build | Why it reads cheap | Rule |
+| --- | --- | --- | --- |
+| 1 | A bordered, differently-coloured text field sits inside a bordered panel | Boxes inside boxes. Every serious command bar makes the bar itself the field | One surface per window. Nothing inside a window gets its own border |
+| 2 | Focus draws a 2px accent ring plus a slate halo around the inner field | A glowing outline is a 2010 web form | Focus lifts the whole surface: border brightens, nothing glows |
+| 3 | Paddings run 14/16/12 on the panel, 8/10 in the field, 30px buttons | Three rhythms in a 66px bar | One rhythm: 12px gutter, 32px control height, everywhere |
+| 4 | The gear and X sit at full contrast, same weight as the text | Chrome competes with content | Idle chrome at 55%, full only on hover or focus |
+| 5 | The answer window carries a title bar reading "AevalBuddy" | Branding inside your own overlay is noise the user already knows | No product name on a surface the product owns |
+| 6 | Both the question and the answer sit in coloured bubbles | Bubbles read as a toy chat app; an answer is a document | The question is a quiet right-aligned chip; the answer is prose directly on the surface |
+| 7 | The notice is a filled pill inside a filled panel | Third level of nesting | Separate with a hairline at 8% and whitespace, never another fill |
+| 8 | Surfaces are 97% opaque flat grey with a hard shadow | It sits on top of the desktop rather than belonging to it | Translucent surface, real background blur, a 1px inner highlight along the top edge, one large soft shadow |
+
+Number 8 needs an OS feature, not CSS: `backdrop-filter` cannot see past a window boundary, so a
+transparent Electron window has nothing to blur. Windows 11 exposes real acrylic through
+`backgroundMaterial`, which is incompatible with `transparent: true`. That trade is tested in the app
+and kept only if it survives a real screen capture, not assumed.
+
+### Surface tokens (new)
+
+| Token | Value | Note |
+| --- | --- | --- |
+| gutter | 12px | one padding value for panel, bar, and answer |
+| control | 32px | every icon button and field row |
+| hairline | `rgba(201, 207, 221, 0.10)` | the only divider |
+| top highlight | `inset 0 1px 0 rgba(201, 207, 221, 0.09)` | the glass bevel |
+| shadow | `0 16px 40px rgba(0, 0, 0, 0.45)` | one soft shadow, no hard offset |
+| chrome idle | 0.55 opacity | icon buttons at rest |
+
+### What the v0.4 rebuild actually changed
+
+Verified against a live composited capture, not a page render: the query bar is one surface with the text
+sitting on it, focus is the caret plus a border lift, chrome idles at 55%, the answer is prose with only
+the question keeping a container, and the window supplies the corner, the edge, and the shadow wherever
+Windows 11 acrylic is available.
+
+One defect only the live capture could have caught: the blanket `:focus-visible` rule was drawing a 1px
+halo around the query field, which redrew exactly the nested box the rebuild removes. A page render shows
+it as intended styling; over a real desktop it reads as the old design.

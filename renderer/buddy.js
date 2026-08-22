@@ -14,14 +14,13 @@ const buddy = document.getElementById('buddy');
 const callout = document.getElementById('callout');
 const calloutMessage = document.getElementById('callout-message');
 const calloutClose = document.getElementById('callout-close');
-const calloutActions = document.getElementById('callout-actions');
 const calloutCount = document.getElementById('callout-count');
-const calloutNext = document.getElementById('callout-next');
+const calloutHint = document.getElementById('callout-hint');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EASE = reduceMotion ? 1 : 0.16;
 const TYPE_MS = 16; // per character
-const ARROW_W = 24;
+const ARROW_W = 26;
 const GAP = 8;
 const EDGE = 12;
 
@@ -37,6 +36,10 @@ let ignoreState = true;
 let dragBy = { x: 0, y: 0 };
 let dragging = null;
 let typeTimer = null;
+// Point mode advances by clicking the bubble; walkthrough steps advance on
+// the app action they describe, so a click there only dismisses.
+let advanceOnClick = false;
+let lastOfSequence = false;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -134,12 +137,14 @@ function replay(el, cls) {
 }
 
 window.aeval.on('buddy:show', ({ x, y, message: msg, kind, stepIndex, stepCount }) => {
-  // Model-directed points advance with a button; walkthrough steps advance
-  // on the app actions they describe, so they get no button.
+  // Model-directed points are stepped through by clicking the bubble;
+  // walkthrough steps advance on the app action they describe.
   const isPoint = kind === 'point';
-  calloutActions.hidden = !isPoint;
+  advanceOnClick = isPoint;
+  lastOfSequence = isPoint && stepIndex + 1 >= stepCount;
+  calloutHint.hidden = !isPoint;
   if (isPoint) {
-    calloutNext.textContent = stepIndex + 1 < stepCount ? 'Next' : 'Got it';
+    calloutHint.textContent = lastOfSequence ? 'click to close' : 'click for the next one';
     calloutCount.textContent = stepCount > 1 ? `${stepIndex + 1} of ${stepCount}` : '';
   } else {
     calloutCount.textContent = '';
@@ -216,21 +221,25 @@ callout.addEventListener('mousedown', (e) => {
   e.preventDefault();
 });
 
+// A click that never moved is navigation, not a drag. The first one finishes
+// the typing (the way a dialogue box in a game does), the next one moves on.
 document.addEventListener('mouseup', (e) => {
   if (!dragging) return;
   const moved =
     Math.abs(e.clientX - dragging.fromX) > 2 || Math.abs(e.clientY - dragging.fromY) > 2;
   dragging = null;
   callout.classList.remove('dragging');
-  if (!moved) finishTyping();
+  if (moved) return;
+  replay(callout, 'press');
+  if (typeTimer) {
+    finishTyping();
+    return;
+  }
+  if (advanceOnClick) window.aeval.invoke('buddy:advance');
 });
 
 window.addEventListener('resize', positionCallout);
 
 calloutClose.addEventListener('click', () => {
   window.aeval.invoke('buddy:dismiss');
-});
-
-calloutNext.addEventListener('click', () => {
-  window.aeval.invoke('buddy:advance');
 });

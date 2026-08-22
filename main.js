@@ -234,10 +234,40 @@ function attachContextMenu(win) {
   });
 }
 
+// Windows 11 can put real acrylic behind a window. That matters because CSS
+// backdrop-filter cannot see past a window boundary: a transparent overlay
+// has nothing to blur, so whatever is underneath shows through sharp, which
+// is what made these surfaces read as stickers rather than glass. Acrylic
+// needs transparent:false, and in exchange DWM supplies the rounded corner
+// the CSS radius used to provide. Windows 10 ignores backgroundMaterial and
+// would just get an opaque square, so it keeps the transparent recipe.
+const WIN11_BUILD = 22000;
+
+function supportsAcrylic() {
+  if (process.platform !== 'win32') return false;
+  const build = Number(String(process.getSystemVersion() || '').split('.')[2]);
+  return Number.isFinite(build) && build >= WIN11_BUILD;
+}
+
+const ACRYLIC = supportsAcrylic();
+
+function surfaceOptions() {
+  return ACRYLIC
+    ? {
+        transparent: false,
+        backgroundColor: '#00000000',
+        backgroundMaterial: 'acrylic',
+        // An opaque window can take the real system drop shadow, which
+        // separates it from the desktop better than any CSS one.
+        hasShadow: true,
+      }
+    : { transparent: true, hasShadow: false };
+}
+
 function baseWindowOptions() {
   return {
     frame: false,
-    transparent: true,
+    ...surfaceOptions(),
     resizable: false,
     movable: false,
     minimizable: false,
@@ -245,7 +275,6 @@ function baseWindowOptions() {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
-    hasShadow: false,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -323,10 +352,10 @@ function openSettings() {
   // hanging off the bottom edge.
   const wa = workArea();
   settingsWin = new BrowserWindow({
-    width: 500,
-    height: clampNum(760, 420, wa.height - 40),
+    width: 460,
+    height: clampNum(700, 420, wa.height - 40),
     frame: false,
-    transparent: true,
+    ...surfaceOptions(),
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -512,6 +541,7 @@ function sendOverlayState() {
     captureOk: lastCaptureOk,
     inputAnchor: store.getOverlayPos(),
     outputPos: store.getOutputPos(),
+    acrylic: ACRYLIC,
   };
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
@@ -825,6 +855,7 @@ async function handleQuerySubmit(question) {
   const history = chat.slice(-CHAT_HISTORY_LIMIT);
   chat.push({ role: 'user', text });
   const model = store.getModel();
+  const useBrain = store.getBrainEnabled();
   const send = (channel, payload) => {
     if (outputWin && !outputWin.isDestroyed()) {
       outputWin.webContents.send(channel, { gen, ...payload });
@@ -846,12 +877,35 @@ async function handleQuerySubmit(question) {
   // Point directives are stripped out of the stream before display and
   // collected; the pointer appears once the answer finishes.
   const extractor = ai.createPointExtractor((t) => send('query:delta', { text: t }));
+  // Which model an error should name: the reader until it hands over, the
+  // brain afterwards.
+  let answering = model;
   try {
+    // Brain mode: a vision model reads the screen first, then a stronger
+    // text-only model answers from that reading. The reader call is not
+    // streamed, so the user watches the thinking dots through it; saying so
+    // is better than an unexplained pause.
+    let screenReport = null;
+    if (useBrain && shot) {
+      send('query:stage', { label: 'Reading your screen' });
+      screenReport = await ai.readScreen({
+        apiKey: store.getApiKey(),
+        model,
+        imageBase64: shot.base64,
+        imageWidth: shot.width,
+        imageHeight: shot.height,
+        question: text,
+        signal,
+      });
+      answering = store.getBrain();
+      send('query:stage', { label: 'Thinking' });
+    }
     await ai.streamQuery({
       apiKey: store.getApiKey(),
-      model,
+      model: answering,
       question: text,
-      imageBase64: shot ? shot.base64 : null,
+      screenReport,
+      imageBase64: screenReport || !shot ? null : shot.base64,
       imageWidth: shot ? shot.width : 0,
       imageHeight: shot ? shot.height : 0,
       history,
@@ -869,7 +923,7 @@ async function handleQuerySubmit(question) {
   } catch (err) {
     extractor.flush();
     if (extractor.text) chat.push({ role: 'assistant', text: extractor.text });
-    const message = ai.friendlyError(err, model);
+    const message = ai.friendlyError(err, err.stage === 'reader' ? model : answering);
     if (message) {
       send('query:error', { message });
     } else {
@@ -975,12 +1029,17 @@ function registerIpc() {
     hasKey: store.hasApiKey(),
     model: store.getModel(),
     defaultModel: ai.DEFAULT_MODEL,
+    brain: store.getBrain(),
+    brainEnabled: store.getBrainEnabled(),
+    defaultBrain: ai.DEFAULT_BRAIN,
+    showPaid: store.getShowPaidModels(),
     skills: skills.list(),
     skill: store.getSkillId(),
     shortcuts: store.getShortcuts(),
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
     version: app.getVersion(),
+    acrylic: ACRYLIC,
   }));
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
@@ -1012,10 +1071,30 @@ function registerIpc() {
     return { ok: true, model: saved };
   });
 
-  ipcMain.handle('models:list', async () => {
-    const result = await ai.listModels();
-    return { ...result, current: store.getModel(), defaultModel: ai.DEFAULT_MODEL };
+  ipcMain.handle('models:list', async (_e, payload) => {
+    const kind = payload && payload.kind === 'text' ? 'text' : 'vision';
+    const result = await ai.listModels({ kind, includePaid: store.getShowPaidModels() });
+    return {
+      ...result,
+      kind,
+      current: kind === 'text' ? store.getBrain() : store.getModel(),
+    };
   });
+
+  ipcMain.handle('settings:save-brain', (_e, { model }) => ({
+    ok: true,
+    brain: store.setBrain(model),
+  }));
+
+  ipcMain.handle('settings:set-brain-enabled', (_e, { on }) => ({
+    ok: true,
+    brainEnabled: store.setBrainEnabled(on),
+  }));
+
+  ipcMain.handle('settings:set-show-paid', (_e, { on }) => ({
+    ok: true,
+    showPaid: store.setShowPaidModels(on),
+  }));
 
   ipcMain.handle('clipboard:write', (_e, { text }) => {
     clipboard.writeText(String(text || ''));
@@ -1180,6 +1259,12 @@ async function runShots() {
           evalIn(settingsWin, `document.querySelector('main').scrollTop = ${top}; true`),
         openModelList: () =>
           evalIn(settingsWin, `document.getElementById('model-combo-btn').click(); true`),
+        enableBrain: () =>
+          evalIn(
+            settingsWin,
+            `(() => { const c = document.getElementById('brain-enabled');` +
+              ` c.checked = true; c.dispatchEvent(new Event('change')); return true; })()`
+          ),
         closeModelList: () => evalIn(settingsWin, `document.body.click(); true`),
         probe: async (name, win, selector) => {
           if (!win || win.isDestroyed()) return;
@@ -1189,6 +1274,46 @@ async function runShots() {
               ` return el ? Math.ceil(el.getBoundingClientRect().height) : -1; })()`
           );
           console.log(`[SHOT] fit.${name}=window${win.getBounds().height}:surface${inner}`);
+        },
+        // Content protection makes these windows invisible to any normal
+        // capture, which is the point of the app; it is turned off for the
+        // length of one frame here and turned straight back on.
+        liveShot: async (outPath) => {
+          const wins = [overlayWin, outputWin].filter((x) => x && !x.isDestroyed());
+          for (const win of wins) win.setContentProtection(false);
+          await new Promise((r) => setTimeout(r, 500));
+          try {
+            const display = screen.getPrimaryDisplay();
+            const sources = await desktopCapturer.getSources({
+              types: ['screen'],
+              thumbnailSize: { width: display.size.width, height: display.size.height },
+            });
+            const src =
+              sources.find((s) => s.display_id === String(display.id)) || sources[0];
+            const shot = src.thumbnail;
+            const full = shot.getSize();
+            const k = full.width / display.size.width;
+            const rects = wins.map((w) => w.getBounds());
+            const x0 = Math.min(...rects.map((r) => r.x)) - 40;
+            const y0 = Math.min(...rects.map((r) => r.y)) - 40;
+            const x1 = Math.max(...rects.map((r) => r.x + r.width)) + 40;
+            const y1 = Math.max(...rects.map((r) => r.y + r.height)) + 40;
+            const crop = {
+              x: Math.max(0, Math.round(x0 * k)),
+              y: Math.max(0, Math.round(y0 * k)),
+              width: Math.round((x1 - x0) * k),
+              height: Math.round((y1 - y0) * k),
+            };
+            require('fs').writeFileSync(outPath, shot.crop(crop).toPNG());
+            return `${crop.width}x${crop.height}`;
+          } finally {
+            for (const win of wins) {
+              if (!win.isDestroyed()) win.setContentProtection(true);
+            }
+          }
+        },
+        closeSettings: () => {
+          if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
         },
         showPoint: () =>
           cursorBuddy.showPoints([
@@ -1217,11 +1342,38 @@ async function runSmoke() {
     const modelList = await ai.listModels();
     const tiers = modelList.groups.map((g) => `${g.tier}${g.models.length}`).join(',');
     log('modelList', `${tiers}:${modelList.live ? 'live' : 'fallback'}`);
-    const recommended = modelList.groups.find((g) => g.tier === 'recommended');
+    // Nothing paid may appear until it is asked for, and the default has to
+    // be one of the free ones.
+    log('modelListPaidHidden', modelList.groups.every((g) => g.tier === 'free'));
+    const freeGroup = modelList.groups.find((g) => g.tier === 'free');
     log(
       'modelDefaultOffered',
-      !!(recommended && recommended.models.some((m) => m.id === ai.DEFAULT_MODEL))
+      !!(freeGroup && freeGroup.models.some((m) => m.id === ai.DEFAULT_MODEL))
     );
+    const paidList = await ai.listModels({ includePaid: true });
+    log('modelListWithPaid', paidList.groups.map((g) => `${g.tier}${g.models.length}`).join(','));
+    const brainList = await ai.listModels({ kind: 'text' });
+    const brainFree = brainList.groups.find((g) => g.tier === 'free');
+    log(
+      'brainListDefault',
+      !!(brainFree && brainFree.models.some((m) => m.id === ai.DEFAULT_BRAIN))
+    );
+    // The brain never sees an image, so its prompt must describe a reading
+    // and still teach the point directive.
+    const brainPrompt = ai.makeSystemPrompt({
+      imageWidth: 1280,
+      imageHeight: 800,
+      skill: skills.get(store.getSkillId()),
+      viaReader: true,
+    });
+    log(
+      'brainPrompt',
+      brainPrompt.includes('cannot see the screen') && brainPrompt.includes('[[point')
+        ? 'ok'
+        : 'missing'
+    );
+    log('brainDefault', store.getBrain());
+    log('brainEnabledDefault', store.getBrainEnabled());
     // Every skill file parses and the chosen one reaches the system prompt.
     const skillList = skills.list();
     log('skills', `${skillList.length}:${skillList.map((s) => s.id).join('+')}`);
@@ -1252,6 +1404,7 @@ async function runSmoke() {
         ` window.renderMarkdownInto(d, '# T\\n- a\\n- b\\n**s** and \\u0060c\\u0060');` +
         ` return d.innerHTML; })()`
     );
+    log('acrylic', ACRYLIC);
     log(
       'markdown',
       mdHtml.includes('<li>') && mdHtml.includes('<strong>') && mdHtml.includes('md-h')

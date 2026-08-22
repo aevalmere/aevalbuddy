@@ -1,12 +1,11 @@
-/* Same palette as the overlay: black, space indigo, shadow grey, grape soda
-   accent, pale slate, twilight indigo. Scales per DESIGN.md: spacing
-   4/8/12/16/24/32, radius 4 chips, 6 controls, 8 cards, 12 window.
+/* Palette as everywhere else: black, space indigo, shadow grey, grape soda
+   accent, pale slate, twilight indigo. Same surface tokens as the overlay.
 
-   Two layout rules earn their keep here. Every card is a grid with one
-   column, so its children share a left edge no matter what they are. And the
-   shortcut rows are a three-column grid rather than flex, because a flex row
-   lets a long warning squeeze the label into two lines and knock every
-   column out of line with the row above. */
+   The v0.3 version put every group in a filled card with a paragraph of
+   explanation under the heading. That is a lot of furniture for a list of
+   six settings, and it pushed half the window below the fold. This one
+   separates sections with a hairline and nothing else, and trusts a label
+   next to a control to be self-explanatory. */
 
 :root {
   --black: #000000;
@@ -18,6 +17,11 @@
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --d-fast: 150ms;
+  --gutter: 16px;
+  --control: 32px;
+  --hairline: rgba(201, 207, 221, 0.10);
+  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
+  --chrome: 0.6;
 }
 
 * {
@@ -40,10 +44,18 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--black);
-  border: 1px solid var(--twilight);
+  background: rgba(20, 20, 24, 0.97);
+  border: 1px solid rgba(201, 207, 221, 0.14);
   border-radius: 12px;
+  box-shadow: var(--bevel);
   overflow: hidden;
+}
+
+/* Where Windows supplies acrylic it also supplies the corner and the edge. */
+body[data-acrylic="1"] #app {
+  background: rgba(20, 20, 24, 0.55);
+  border: none;
+  border-radius: 0;
 }
 
 button {
@@ -57,7 +69,6 @@ button {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  box-shadow: 0 0 0 1px var(--slate);
   border-radius: 4px;
 }
 
@@ -68,29 +79,31 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 12px 12px 16px;
+  padding: 10px 10px 10px var(--gutter);
   -webkit-app-region: drag;
 }
 
 #titlebar .title {
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: rgba(201, 207, 221, 0.75);
 }
 
 #titlebar button {
   -webkit-app-region: no-drag;
-  width: 30px;
-  height: 30px;
+  width: var(--control);
+  height: var(--control);
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
-  opacity: 0.8;
+  opacity: var(--chrome);
   transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
 #titlebar button:hover {
-  background: rgba(48, 61, 106, 0.4);
+  background: rgba(201, 207, 221, 0.08);
   opacity: 1;
 }
 
@@ -101,10 +114,7 @@ main {
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 4px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  padding: 0 var(--gutter) var(--gutter);
 }
 
 main::-webkit-scrollbar {
@@ -112,63 +122,46 @@ main::-webkit-scrollbar {
 }
 
 main::-webkit-scrollbar-thumb {
-  background: var(--twilight);
+  background: rgba(201, 207, 221, 0.18);
   border-radius: 4px;
 }
 
-/* One column, one gap: every child of a card lines up on the same left edge
-   and is spaced the same distance from its neighbour, with no per-element
-   margins to drift out of step. */
-.card {
+/* One column, one gap, a hairline between groups. No fills, no cards. */
+section {
   display: grid;
   gap: 8px;
   justify-items: start;
-  background: rgba(48, 61, 106, 0.14);
-  border-radius: 8px;
-  padding: 16px;
+  padding: var(--gutter) 0;
 }
 
-.card-head {
+section + section {
+  border-top: 1px solid var(--hairline);
+}
+
+.row-head {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.step {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--slate);
-  background: rgba(130, 58, 128, 0.35);
-  border-radius: 50%;
+  min-height: 20px;
 }
 
 h2 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  color: rgba(201, 207, 221, 0.75);
 }
 
-.card-head .chip {
+.row-head .chip,
+.row-head .switch {
   margin-left: auto;
-}
-
-.desc {
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.78);
-  line-height: 1.5;
 }
 
 .note {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.72);
-  line-height: 1.45;
+  line-height: 1.5;
+  color: rgba(201, 207, 221, 0.62);
 }
 
 .note:empty {
@@ -182,37 +175,29 @@ h2 {
   gap: 8px;
 }
 
-/* Status lines take no room until they have something to say, which is what
-   kept leaving an empty band at the bottom of a card. */
+.row.subtle {
+  gap: 14px;
+}
+
 .status {
   width: 100%;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
-  color: rgba(201, 207, 221, 0.9);
+  color: rgba(201, 207, 221, 0.85);
 }
 
 .status[hidden] {
   display: none;
 }
 
-.status.error {
-  color: var(--slate);
-  background: rgba(16, 37, 79, 0.6);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-
-/* ------------------------------------------------------------------ chips */
+/* ------------------------------------------------------------ chip, switch */
 
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.75);
-  background: rgba(16, 37, 79, 0.5);
-  border-radius: 4px;
-  padding: 3px 9px;
+  color: rgba(201, 207, 221, 0.62);
   white-space: nowrap;
 }
 
@@ -220,41 +205,89 @@ h2 {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(201, 207, 221, 0.4);
+  background: rgba(201, 207, 221, 0.3);
 }
 
 .chip.on {
-  color: var(--slate);
+  color: rgba(201, 207, 221, 0.85);
 }
 
 .chip.on .chip-dot {
   background: var(--accent);
-  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.5);
+  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.45);
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.62);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.switch input {
+  appearance: none;
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(201, 207, 221, 0.16);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--d-fast) ease;
+}
+
+.switch input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--slate);
+  transition: transform var(--d-fast) var(--ease-out);
+}
+
+.switch input:checked {
+  background: var(--accent);
+}
+
+.switch input:checked::after {
+  transform: translateX(12px);
+}
+
+.switch:hover {
+  color: rgba(201, 207, 221, 0.85);
 }
 
 /* ----------------------------------------------------------------- inputs */
 
-input {
+input[type="password"],
+input[type="text"] {
   flex: 1;
   min-width: 0;
+  height: var(--control);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--slate);
-  background: rgba(16, 37, 79, 0.45);
-  border: 1px solid var(--twilight);
+  background: rgba(201, 207, 221, 0.07);
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 0 10px;
   user-select: text;
 }
 
 input::placeholder {
-  color: rgba(201, 207, 221, 0.55);
+  color: rgba(201, 207, 221, 0.4);
 }
 
-input:focus {
+input[type="password"]:focus,
+input[type="text"]:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 2px rgba(201, 207, 221, 0.35);
+  border-color: rgba(201, 207, 221, 0.3);
+  background: rgba(201, 207, 221, 0.1);
 }
 
 /* Custom dropdown: native select popups misrender inside transparent
@@ -264,36 +297,46 @@ input:focus {
   width: 100%;
 }
 
-#model-combo-btn {
+.combo[hidden] {
+  display: none;
+}
+
+.combo > button {
   width: 100%;
+  min-height: var(--control);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   color: var(--slate);
-  background: rgba(16, 37, 79, 0.45);
-  border: 1px solid var(--twilight);
+  background: rgba(201, 207, 221, 0.07);
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   text-align: left;
-  transition: border-color var(--d-fast) ease;
+  transition: background var(--d-fast) ease;
 }
 
-#model-combo-btn:hover {
-  border-color: rgba(201, 207, 221, 0.4);
+.combo > button:hover {
+  background: rgba(201, 207, 221, 0.11);
 }
 
-#model-combo-btn[aria-expanded="true"] {
-  border-color: var(--accent);
+.combo > button[aria-expanded="true"] {
+  border-color: rgba(201, 207, 221, 0.3);
+}
+
+.combo > button svg {
+  flex: 0 0 auto;
+  opacity: var(--chrome);
 }
 
 .combo-lines {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
-#model-combo-label {
+.combo-lines > span:first-child {
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -302,7 +345,7 @@ input:focus {
 
 .combo-detail {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.72);
+  color: rgba(201, 207, 221, 0.62);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -312,21 +355,21 @@ input:focus {
   display: none;
 }
 
-#model-combo-list {
+.combo ul {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
   z-index: 10;
   list-style: none;
-  background: var(--indigo);
-  border: 1px solid var(--twilight);
+  background: #141418;
+  border: 1px solid rgba(201, 207, 221, 0.16);
   border-radius: 8px;
   padding: 4px;
-  max-height: 300px;
+  max-height: 320px;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
   animation: combo-open 140ms var(--ease-out);
 }
 
@@ -337,26 +380,26 @@ input:focus {
   }
 }
 
-#model-combo-list[hidden] {
+.combo ul[hidden] {
   display: none;
 }
 
-#model-combo-list::-webkit-scrollbar {
+.combo ul::-webkit-scrollbar {
   width: 8px;
 }
 
-#model-combo-list::-webkit-scrollbar-thumb {
-  background: var(--twilight);
+.combo ul::-webkit-scrollbar-thumb {
+  background: rgba(201, 207, 221, 0.18);
   border-radius: 4px;
 }
 
 .combo-group {
   padding: 8px 9px 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(201, 207, 221, 0.6);
+  color: rgba(201, 207, 221, 0.45);
   cursor: default;
 }
 
@@ -377,48 +420,19 @@ input:focus {
 
 .combo-option .opt-detail {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.72);
+  color: rgba(201, 207, 221, 0.62);
   line-height: 1.4;
 }
 
-.combo-option:hover {
-  background: rgba(48, 61, 106, 0.5);
-}
-
+.combo-option:hover,
 .combo-option:focus,
 .combo-option:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px var(--accent);
-  background: rgba(48, 61, 106, 0.5);
+  background: rgba(201, 207, 221, 0.09);
 }
 
 .combo-option.selected {
-  background: rgba(130, 58, 128, 0.22);
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-details {
-  width: 100%;
-}
-
-summary {
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.8);
-  cursor: pointer;
-  padding: 2px 0;
-  border-radius: 4px;
-}
-
-summary:hover {
-  color: var(--slate);
-}
-
-details[open] summary {
-  margin-bottom: 8px;
-}
-
-details .row {
-  margin-bottom: 6px;
+  background: rgba(130, 58, 128, 0.25);
 }
 
 /* ------------------------------------------------------------------ skill */
@@ -426,42 +440,40 @@ details .row {
 #skill-list {
   width: 100%;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .skill-option {
   display: grid;
-  grid-template-columns: 16px 1fr;
+  grid-template-columns: 14px 1fr;
   align-items: start;
-  gap: 4px 10px;
+  gap: 2px 10px;
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
+  padding: 7px 9px;
   border-radius: 6px;
   transition: background var(--d-fast) ease;
 }
 
 .skill-option:hover {
-  background: rgba(48, 61, 106, 0.35);
+  background: rgba(201, 207, 221, 0.06);
 }
 
 .skill-option[aria-checked="true"] {
-  background: rgba(130, 58, 128, 0.18);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: rgba(130, 58, 128, 0.2);
 }
 
 .skill-mark {
-  width: 14px;
-  height: 14px;
-  margin-top: 3px;
-  border: 1px solid var(--twilight);
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border: 1px solid rgba(201, 207, 221, 0.35);
   border-radius: 50%;
 }
 
 .skill-option[aria-checked="true"] .skill-mark {
   border-color: var(--accent);
-  background:
-    radial-gradient(circle at center, var(--accent) 0 3.5px, transparent 3.5px);
+  background: radial-gradient(circle at center, var(--accent) 0 3px, transparent 3px);
 }
 
 .skill-name {
@@ -472,56 +484,55 @@ details .row {
   grid-column: 2;
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(201, 207, 221, 0.72);
+  color: rgba(201, 207, 221, 0.62);
 }
 
 /* ---------------------------------------------------------------- buttons */
 
-/* Card-level secondary actions share one look, so their text starts on the
-   card's left edge like every other child rather than a padding width in. */
 #toggle-key,
-#test-key,
-#save-model,
-.sc-change,
-#reset-shortcuts,
-#edit-position {
+.sc-change {
   flex: 0 0 auto;
-  padding: 7px 12px;
+  height: var(--control);
+  padding: 0 12px;
   border-radius: 6px;
-  background: rgba(48, 61, 106, 0.3);
+  font-size: 13px;
+  background: rgba(201, 207, 221, 0.07);
   transition: background var(--d-fast) ease;
 }
 
 #toggle-key:hover,
-#test-key:hover,
-#save-model:hover,
-.sc-change:hover,
-#reset-shortcuts:hover,
-#edit-position:hover {
-  background: rgba(48, 61, 106, 0.55);
+.sc-change:hover {
+  background: rgba(201, 207, 221, 0.13);
 }
 
-/* Destructive and terminal actions are readable but never the loudest thing
-   on the page. */
-.quiet {
-  padding: 7px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.75);
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+/* Secondary actions read as text, not as more boxes. */
+.link {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.62);
+  text-decoration: none;
+  padding: 2px 0;
+  border-radius: 4px;
+  transition: color var(--d-fast) ease;
 }
 
-.quiet:hover {
-  background: rgba(48, 61, 106, 0.4);
+.link:hover {
   color: var(--slate);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link[hidden] {
+  display: none;
 }
 
 .primary {
   flex: 0 0 auto;
+  height: var(--control);
+  padding: 0 14px;
   background: var(--accent);
   color: var(--slate);
+  font-size: 13px;
   font-weight: 600;
-  padding: 7px 14px;
   border-radius: 6px;
   transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
 }
@@ -543,28 +554,26 @@ details .row {
   gap: 2px;
 }
 
+/* A grid, not flex: a long warning gets its own full-width line instead of
+   squeezing the label and knocking the columns out of line with the row
+   above it. */
 .sc-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 10px;
-  padding: 9px 0;
-}
-
-.sc-row + .sc-row {
-  border-top: 1px solid rgba(48, 61, 106, 0.35);
+  padding: 5px 0;
 }
 
 .sc-label {
   min-width: 0;
+  font-size: 14px;
 }
 
-/* The warning gets its own full-width line under the row it belongs to, so a
-   long message can never squeeze the keycap and button columns. */
 .sc-warn {
   grid-column: 1 / -1;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.78);
+  color: rgba(201, 207, 221, 0.62);
   line-height: 1.4;
 }
 
@@ -575,24 +584,22 @@ details .row {
 kbd {
   font-family: inherit;
   font-size: 12px;
-  color: var(--slate);
-  background: rgba(130, 58, 128, 0.18);
-  border: 1px solid var(--accent);
+  color: rgba(201, 207, 221, 0.85);
+  background: rgba(201, 207, 221, 0.09);
   border-radius: 4px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   white-space: nowrap;
   justify-self: end;
 }
 
-.sc-row.capturing .sc-change {
+.sc-row.capturing kbd {
   background: rgba(130, 58, 128, 0.3);
 }
 
 .sc-fixed {
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.7);
-  /* Sits in the button column so it lines up with the Change buttons. */
-  min-width: 68px;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.45);
+  min-width: 62px;
   text-align: center;
 }
 
@@ -600,17 +607,17 @@ kbd {
 
 footer {
   flex: 0 0 auto;
-  padding: 10px 16px 12px;
+  padding: 10px var(--gutter);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border-top: 1px solid rgba(48, 61, 106, 0.3);
+  border-top: 1px solid var(--hairline);
 }
 
 #about {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  color: rgba(201, 207, 221, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {

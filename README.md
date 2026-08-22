@@ -28,9 +28,11 @@ On the very first launch a pointer appears and walks you to the settings panel, 
 
 Type a question and press Enter, or press Enter on an empty box to send the default prompt ("What's on my screen and what should I do?"). Clicking the idle pill does the same thing as the capture shortcut.
 
-It works like a messaging app. Your message appears as a bubble, the answer streams into a bubble under it, and typing again sends a follow-up in the same conversation (each message captures the screen fresh, so "what about now?" means now). The transcript scrolls inside the answer window instead of bouncing its size around. Hover an answer for its Copy button, select text for partial copies, right-click for copy and paste menus, and press New chat in the answer window to start over. Collapsing with Esc keeps the conversation; it comes back with the next capture. Nothing is saved to disk; quitting clears it.
+It works like a messaging app, without looking like one. Your question appears as a small chip on the right, the answer streams in underneath as prose rather than in a coloured bubble, and typing again sends a follow-up in the same conversation (each message captures the screen fresh, so "what about now?" means now). The transcript scrolls inside the answer window instead of bouncing its size around. Hover an answer for its Copy button, select text for partial copies, right-click for copy and paste menus, and use the + at the top of the answer window to start over. Collapsing with Esc keeps the conversation; it comes back with the next capture. Nothing is saved to disk; quitting clears it.
 
-Answers render markdown: headings, lists, bold, inline code, fenced code blocks, and links that open in your browser. And when an answer involves a specific place on your screen, the assistant sends the pointer there: an arrow glides to the exact pixel and a speech bubble types out what to do, with the tail pointing back at the arrow. Drag the bubble if it is covering something, click it to skip the typing, press Next to walk through several spots, and close it with its X or Esc.
+Answers render markdown: headings, lists, bold, inline code, fenced code blocks, and links that open in your browser. And when an answer involves a specific place on your screen, the assistant sends the pointer there: an arrow glides to the exact pixel and a speech bubble types out what to do, with the tail pointing back at the arrow.
+
+The bubble is the control. Click it once to finish the typing, click again for the next spot, and click the last one to dismiss; the line under the message says which. Drag it anywhere if it is covering something, or close it with its X or Esc.
 
 The input bar and the answer are separate windows. By default the answer docks under the input bar; the layout editor can split them apart (see Layout).
 
@@ -38,24 +40,40 @@ The first two shortcuts are rebindable in settings: press Change, then press the
 
 ### Model
 
-The default is `qwen/qwen3.7-flash`. A screen assistant lives or dies on how fast the first words appear, and the free tier is queued and rate limited, which is what made earlier versions crawl. This one is not free, but at roughly $0.03 per million input tokens a question costs a small fraction of a cent, and a dollar of credit lasts a very long time.
+Everything in the picker is free by default. The list is the free vision
+models OpenRouter currently offers, with live context sizes, and the default
+is `google/gemma-4-26b-a4b-it:free`: it activates only 4B parameters per
+token, which makes it the quickest of them. Free models are queued and rate
+limited, so they are slower to start than paid ones; that is the trade.
 
-The picker groups models by what they are for, with live prices and context sizes pulled from OpenRouter so the labels cannot go stale:
+Flip "Show paid" to add a second group. Those bill per token at rates where a
+question costs a fraction of a cent (`qwen/qwen3.7-flash` is the one to pick),
+and nothing paid is ever selected for you. Every id is checked against the
+live list before it is offered, so a retired model disappears from the picker
+rather than failing mid-question.
 
-| Group | What it is |
-| --- | --- |
-| Recommended | the default: quick, reads a screen well |
-| Fast | DeepSeek, GLM, ByteDance Seed and a small Qwen, all in the same speed class |
-| Smarter, slower | GLM 5V and Qwen Max, for multi-step problems |
-| Free | whatever OpenRouter currently gives away with image input; costs nothing, queued and rate limited |
+### Separate brain
 
-Every curated id is checked against the live list before it is offered, so a retired model disappears from the picker rather than failing mid-question. "Use a different model id" accepts any other OpenRouter model that takes images; clear it and save to return to the recommended one. The dropdown is custom-drawn because native select popups misrender inside transparent frameless windows on Windows.
+The strongest free models on OpenRouter are text only. GLM 5.2 cannot see an
+image, so the only way to put it behind a screen assistant is to give it a
+reading of the screen instead. That is what this switch does: the model above
+reads the screen into a short structured report, and a second model answers
+from that report.
 
-If you have no credit at all, pick something from the Free group; the error you get otherwise says exactly that and where to fix it. Two other OpenRouter quirks: free ids ending in `:free` rotate over time, and OpenRouter blocks them entirely until the account allows them. If an error mentions a data policy, open openrouter.ai, go to Settings then Privacy, and enable "Free model publication".
+The report is not prose. It names the app, the state, the text that matters
+copied exactly, and a list of controls with their pixel centres, which is what
+lets the brain still point at things it never saw.
+
+What it costs is worth knowing. Two calls run in sequence, so the wait is the
+reader's full reply plus the brain's first token, and the answer window says
+which stage it is on rather than sitting on an unexplained pause. The brain
+also only knows what the reader wrote down: a detail the reader skipped is a
+detail the brain cannot use. Off by default; the default brain is
+`z-ai/glm-5.2:free`.
 
 ### How it answers
 
-Settings has a third step: a procedure the assistant follows before it replies. Each one is a markdown file in `skills/` that travels with every request, so the shape of the answer is enforced outside the model. That is what keeps a small fast model on the point instead of rambling, and it is the difference between an answer that names the next action and one that describes the screen back to you.
+Settings calls this Answer style: a procedure the assistant follows before it replies. Each one is a markdown file in `skills/` that travels with every request, so the shape of the answer is enforced outside the model. That is what keeps a small fast model on the point instead of rambling, and it is the difference between an answer that names the next action and one that describes the screen back to you.
 
 Four ship with the app: Screen assistant (the default), Debug an error, Explain this, Improve this writing. Adding your own is dropping a file into `skills/` with a `name` and `summary` in its front matter; it appears in the picker at next launch.
 
@@ -65,7 +83,7 @@ Settings has "Edit layout". It turns both windows into draggable layout ghosts, 
 
 To separate the answer from the input bar, drag the answer ghost clear of the dock zone, or just press its Detach button; press Dock to input (or drop it back near the input bar) to reattach, shown by a "Docked to input" badge. A docked answer follows the input bar and grows away from it (downward from a top anchor, upward from a bottom one). Press Done or Esc to keep the layout. The pill, the input bar, the answer, and future launches all use the saved positions.
 
-Quit from the settings panel (gear icon in the query panel, then "Quit AevalBuddy"). The overlay has no taskbar icon, so the hotkeys and the pill are the whole interface. The settings footer shows the app version, which is the quick way to confirm which build is running.
+Quit from the settings panel (gear icon in the query panel, then Quit). The overlay has no taskbar icon, so the hotkeys and the pill are the whole interface. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ## Develop it (the live-reload loop)
 
@@ -83,7 +101,9 @@ Two rules that save confusion. Only one copy of the app can run at a time (a sec
 npm run shots
 ```
 
-This boots the app, drives every surface into a representative state, and writes a PNG of each one to `shots/`: the pill, the query panel with and without a key, a frame caught part way through the opening glide, the conversation, the thinking state, both layout ghosts, settings top and bottom, the model list open, and the pointer with its bubble.
+This boots the app, drives every surface into a representative state, and writes a PNG of each one to `shots/`: the pill, the query panel with and without a key, a frame caught part way through the opening glide, the conversation, the thinking state, both layout ghosts, settings top and bottom, both model lists, the pointer with its bubble, and one shot of the real overlay composited over the desktop.
+
+That last one matters: `capturePage` renders the page in isolation, so it can never show the acrylic backdrop or the system shadow, because neither belongs to the page. The live shot goes through `desktopCapturer` with content protection off for a single frame (and straight back on), cropped to the overlay plus a margin, so what lands on disk is what a person actually sees and nothing else from the desktop.
 
 It works by calling `webContents.capturePage()`, which renders the page itself rather than reading the display, so it sees windows that are invisible to screenshots (see below). It runs against a throwaway settings profile, which means it does not disturb a copy of the app you already have running. It also prints `fit.<surface>=windowN:surfaceN` lines: those two numbers should match, and a gap between them is a band of empty window showing under the panel.
 
@@ -93,7 +113,7 @@ It works by calling `webContents.capturePage()`, which renders the page itself r
 npm run build
 ```
 
-This produces `dist/AevalBuddy Setup 0.3.0.exe` (NSIS, per-user install, no admin prompt).
+This produces `dist/AevalBuddy Setup 0.4.0.exe` (NSIS, per-user install, no admin prompt).
 
 The installer is unsigned, so Windows SmartScreen shows "Windows protected your PC" on first run. That is expected for an unsigned app, not a defect. Click "More info", then "Run anyway". Code signing needs a paid certificate and is out of scope for this MVP.
 
@@ -105,7 +125,10 @@ A side effect worth knowing: the screenshots AevalBuddy sends to the model also 
 
 ## Design notes and assumptions
 
-- Visual constraints (palette usage, motion curves, spacing and radius scales, per-surface states) live in `DESIGN.md`; the stylesheets build to it. The signature motion is one decelerating curve, `cubic-bezier(0.32, 0.72, 0, 1)`.
+- Visual constraints (palette usage, motion curves, spacing and radius scales, surface tokens, per-surface states) live in `DESIGN.md`; the stylesheets build to it. The signature motion is one decelerating curve, `cubic-bezier(0.32, 0.72, 0, 1)`.
+- The surfaces use Windows 11 acrylic, not CSS translucency. `backdrop-filter` cannot see past a window boundary, so a transparent overlay has nothing to blur and whatever sits behind it shows through sharp; that is what made these panels read as stickers. Acrylic needs `transparent: false`, and in exchange DWM supplies the rounded corner and the drop shadow, so the stylesheets stop drawing their own. Windows 10 ignores `backgroundMaterial` and would get an opaque square, so it keeps the transparent recipe; `supportsAcrylic()` in `main.js` picks between them on the build number.
+- One surface per window: the query bar has no field inside it, because a bordered input inside a bordered panel is the loudest tell that a UI was assembled rather than designed. Focus is the caret plus the panel border lifting, never a ring.
+- An answer is a document, so it renders as prose directly on the surface. Only the question keeps a container, a quiet chip, which is what preserves the sense of a conversation without the app looking like a toy chat client.
 - Opening animates the OS window, not just its contents. CSS can only move pixels inside a window, so a CSS scale played after Electron paints the window at full size reads as a snap followed by a wobble; that was the flash. `lib/motion.js` glides the window bounds themselves on the same curve, and the stylesheets pin each panel to the edge the window grows away from, so the growth uncovers a finished layout instead of reflowing one. Under `prefers-reduced-motion`, read once from the renderer at boot, every window transition collapses to a single setBounds.
 - The pointer's arrow has its tip at its own element origin, so the transform is the target pixel with no centring maths in between. Coordinates map from image pixels to screen position by ratio, which sidesteps DPI scaling.
 - The conversation is held in memory only. The model sees up to the last 12 turns as text; only the newest message carries the screen image, so request size stays flat.
@@ -129,8 +152,8 @@ A side effect worth knowing: the screenshots AevalBuddy sends to the model also 
 DESIGN.md                  design constraints: palette usage, motion, scales, states
 main.js                    windows, hotkeys, capture, chat state, HUD editor, docking, IPC
 preload.js                 allowlisted contextBridge between main and renderers
-lib/openrouter.js          OpenRouter client: SSE streaming, history, point directives, models
-lib/store.js               electron-store wrapper: key encryption, model, skill, shortcuts, positions
+lib/openrouter.js          OpenRouter client: SSE streaming, the reader stage, history, point directives, models
+lib/store.js               electron-store wrapper: key encryption, model, brain, skill, shortcuts, positions
 lib/skills.js              loads skills/*.md and appends the chosen one to the system prompt
 lib/motion.js              window-bounds animation: the glide curve, anchored start rects
 lib/cursor-buddy.js        pointer state machine: walkthrough steps and model-directed points
