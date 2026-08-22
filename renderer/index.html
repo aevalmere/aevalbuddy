@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:" />
+  <title>AevalBuddy</title>
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body data-mode="pill">
+  <div id="pill" role="button" tabindex="0" aria-label="Open AevalBuddy. Captures the screen and opens the query panel.">
+    <span class="pill-dot" aria-hidden="true"></span>
+  </div>
+
+  <section id="panel" hidden aria-label="AevalBuddy query panel">
+    <div class="panel-top">
+      <input
+        id="query-input"
+        type="text"
+        placeholder="Ask about your screen..."
+        aria-label="Ask about your screen. Press Enter to send."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="settings-btn" type="button" aria-label="Open settings">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+      <button id="close-btn" type="button" aria-label="Collapse overlay">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div id="notice" role="status" hidden>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span id="notice-text"></span>
+      <button id="notice-settings" type="button" class="accent-btn" hidden>Open settings</button>
+    </div>
+
+    <div id="error" role="alert" hidden>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="9" y1="9" x2="15" y2="15"></line>
+      </svg>
+      <span id="error-text"></span>
+    </div>
+
+    <div id="response" role="log" aria-live="polite" hidden></div>
+
+    <div class="hint-row">
+      <span class="hint"><kbd id="hint-capture"></kbd> captures</span>
+      <span class="hint"><kbd>Esc</kbd> closes</span>
+    </div>
+  </section>
+
+  <script src="overlay.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "aevalbuddy",
+  "version": "0.1.0",
+  "description": "Screen-aware AI overlay for Windows. Hidden from screen share, answers questions about whatever is on screen.",
+  "main": "main.js",
+  "private": true,
+  "author": "darkelights",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^38.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "electron-winstaller@5.4.0": true
+  }
+}

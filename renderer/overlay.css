@@ -1,0 +1,247 @@
+/* Palette: #000000 black, #10254F space indigo, #2B2C33 shadow grey,
+   #823A80 grape soda (single accent), #C9CFDD pale slate, #303D6A twilight
+   indigo. Nothing outside this palette. */
+
+:root {
+  --black: #000000;
+  --indigo: #10254F;
+  --grey: #2B2C33;
+  --accent: #823A80;
+  --slate: #C9CFDD;
+  --twilight: #303D6A;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  color: var(--slate);
+  font-size: 14px;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--slate);
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------------- pill */
+
+#pill {
+  width: 64px;
+  height: 36px;
+  margin: 4px;
+  border-radius: 11px;
+  background: rgba(43, 44, 51, 0.88);
+  border: 1px solid rgba(48, 61, 106, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+#pill:hover {
+  background: rgba(43, 44, 51, 0.97);
+  border-color: var(--twilight);
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--slate);
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
+#pill:hover .pill-dot {
+  opacity: 1;
+}
+
+body[data-mode="panel"] #pill {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ panel */
+
+#panel {
+  background: rgba(43, 44, 51, 0.97);
+  border: 1px solid var(--twilight);
+  border-radius: 12px;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+.panel-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#query-input {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--slate);
+  background: rgba(16, 37, 79, 0.45);
+  border: 1px solid var(--twilight);
+  border-radius: 8px;
+  padding: 8px 10px;
+  user-select: text;
+}
+
+#query-input::placeholder {
+  color: rgba(201, 207, 221, 0.55);
+}
+
+#query-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 2px rgba(201, 207, 221, 0.35);
+}
+
+.panel-top button {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: var(--slate);
+  opacity: 0.8;
+  transition: background 150ms ease, opacity 150ms ease;
+}
+
+.panel-top button:hover {
+  background: rgba(48, 61, 106, 0.4);
+  opacity: 1;
+}
+
+/* --------------------------------------------------------- notice / error */
+
+#notice,
+#error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(16, 37, 79, 0.5);
+  border: 1px solid var(--twilight);
+}
+
+#notice[hidden],
+#error[hidden],
+#response[hidden] {
+  display: none;
+}
+
+#notice svg,
+#error svg {
+  flex: 0 0 auto;
+}
+
+#notice span,
+#error span {
+  flex: 1;
+}
+
+.accent-btn {
+  flex: 0 0 auto;
+  background: var(--accent);
+  color: var(--slate);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 7px;
+  transition: opacity 150ms ease;
+}
+
+.accent-btn:hover {
+  opacity: 0.88;
+}
+
+/* --------------------------------------------------------------- response */
+
+#response {
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+  user-select: text;
+}
+
+#response.thinking {
+  opacity: 0.6;
+}
+
+#response::-webkit-scrollbar {
+  width: 8px;
+}
+
+#response::-webkit-scrollbar-thumb {
+  background: var(--twilight);
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------------- hint */
+
+.hint-row {
+  display: flex;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.hint {
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.75);
+}
+
+kbd {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--slate);
+  background: rgba(130, 58, 128, 0.18);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+/* ---------------------------------------------------------------- motion */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

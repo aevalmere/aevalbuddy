@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'" />
+  <title>AevalBuddy settings</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="titlebar">
+      <span class="title">AevalBuddy</span>
+      <button id="close-settings" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </header>
+
+    <main>
+      <section aria-labelledby="key-heading">
+        <h2 id="key-heading">API key</h2>
+        <p class="desc">
+          Queries go straight from this machine to the Anthropic API. The key is
+          stored locally, encrypted with Windows credential storage when available.
+        </p>
+        <div class="row">
+          <input
+            id="api-key-input"
+            type="password"
+            placeholder="sk-ant-..."
+            aria-label="Anthropic API key"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="toggle-key" type="button" aria-pressed="false">Show</button>
+        </div>
+        <div class="row">
+          <button id="save-key" type="button" class="primary">Save key</button>
+          <span id="key-status" role="status"></span>
+        </div>
+      </section>
+
+      <section aria-labelledby="shortcut-heading">
+        <h2 id="shortcut-heading">Shortcuts</h2>
+        <ul id="shortcut-list">
+          <li class="shortcut-row" data-action="captureQuery">
+            <span class="sc-label">Capture and ask</span>
+            <span class="sc-warn" hidden>Inactive: taken by another app</span>
+            <kbd class="sc-current"></kbd>
+            <button class="sc-change" type="button">Change</button>
+          </li>
+          <li class="shortcut-row" data-action="toggleVisibility">
+            <span class="sc-label">Show or hide overlay</span>
+            <span class="sc-warn" hidden>Inactive: taken by another app</span>
+            <kbd class="sc-current"></kbd>
+            <button class="sc-change" type="button">Change</button>
+          </li>
+          <li class="shortcut-row">
+            <span class="sc-label">Close or collapse</span>
+            <kbd>Esc</kbd>
+            <span class="sc-fixed">Fixed</span>
+          </li>
+        </ul>
+        <p id="shortcut-error" role="alert" hidden>
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="shortcut-error-text"></span>
+        </p>
+        <button id="reset-shortcuts" type="button">Reset to defaults</button>
+      </section>
+    </main>
+
+    <footer>
+      <button id="quit-app" type="button">Quit AevalBuddy</button>
+    </footer>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>

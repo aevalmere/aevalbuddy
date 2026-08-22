@@ -1,0 +1,17 @@
+appId: com.aevalbuddy.app
+productName: AevalBuddy
+directories:
+  output: dist
+files:
+  - main.js
+  - preload.js
+  - lib/**
+  - renderer/**
+  - settings/**
+  - package.json
+win:
+  target: nsis
+nsis:
+  oneClick: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
