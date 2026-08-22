@@ -11,6 +11,8 @@ const noticeSettings = document.getElementById('notice-settings');
 const errorBox = document.getElementById('error');
 const errorText = document.getElementById('error-text');
 const response = document.getElementById('response');
+const responseWrap = document.getElementById('response-wrap');
+const copyResponseBtn = document.getElementById('copy-response');
 const hud = document.getElementById('hud');
 const hudDone = document.getElementById('hud-done');
 
@@ -59,7 +61,7 @@ function renderNotice() {
 }
 
 function resetConversation() {
-  response.hidden = true;
+  responseWrap.hidden = true;
   response.textContent = '';
   response.classList.remove('thinking');
   errorBox.hidden = true;
@@ -83,7 +85,7 @@ new ResizeObserver(requestResize).observe(panel);
 function submit() {
   const question = input.value;
   errorBox.hidden = true;
-  response.hidden = false;
+  responseWrap.hidden = false;
   response.textContent = 'Thinking...';
   response.classList.add('thinking');
   busy = true;
@@ -93,7 +95,7 @@ function submit() {
     if (!result) return;
     if (result.status === 'needs-key' || result.status === 'walkthrough') {
       busy = false;
-      response.hidden = true;
+      responseWrap.hidden = true;
       response.textContent = '';
       response.classList.remove('thinking');
       if (result.status === 'walkthrough') input.value = '';
@@ -109,7 +111,7 @@ window.aeval.on('query:delta', ({ gen, text }) => {
     lastGen = gen;
     response.textContent = '';
     response.classList.remove('thinking');
-    response.hidden = false;
+    responseWrap.hidden = false;
   }
   if (text) {
     response.textContent += text;
@@ -122,7 +124,7 @@ window.aeval.on('query:done', ({ gen }) => {
   if (gen < lastGen) return;
   busy = false;
   response.classList.remove('thinking');
-  if (!response.textContent) response.hidden = true;
+  if (!response.textContent) responseWrap.hidden = true;
   renderNotice();
   requestResize();
 });
@@ -132,7 +134,7 @@ window.aeval.on('query:error', ({ gen, message }) => {
   busy = false;
   response.classList.remove('thinking');
   if (response.textContent === 'Thinking...') {
-    response.hidden = true;
+    responseWrap.hidden = true;
     response.textContent = '';
   }
   errorText.textContent = message;
@@ -173,6 +175,18 @@ closeBtn.addEventListener('click', () => {
 
 hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');
+});
+
+let copyFlashTimer = null;
+copyResponseBtn.addEventListener('click', () => {
+  if (response.classList.contains('thinking') || !response.textContent) return;
+  window.aeval.invoke('clipboard:write', { text: response.textContent }).then(() => {
+    copyResponseBtn.textContent = 'Copied.';
+    clearTimeout(copyFlashTimer);
+    copyFlashTimer = setTimeout(() => {
+      copyResponseBtn.textContent = 'Copy';
+    }, 1600);
+  });
 });
 
 let snapFlashTimer = null;

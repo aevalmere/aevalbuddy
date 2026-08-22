@@ -17,6 +17,8 @@ const INVOKE_CHANNELS = new Set([
   'settings:save-key',
   'settings:save-model',
   'settings:close',
+  'models:list',
+  'clipboard:write',
   'hud:enter',
   'hud:exit',
   'shortcuts:set',

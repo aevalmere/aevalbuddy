@@ -59,7 +59,12 @@
       <span id="error-text"></span>
     </div>
 
-    <div id="response" role="log" aria-live="polite" hidden></div>
+    <div id="response-wrap" hidden>
+      <div id="response-tools">
+        <button id="copy-response" type="button" aria-label="Copy the answer">Copy</button>
+      </div>
+      <div id="response" role="log" aria-live="polite"></div>
+    </div>
   </section>
 
   <section id="hud" hidden aria-label="Overlay position editor">

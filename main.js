@@ -7,8 +7,18 @@ const {
   ipcMain,
   screen,
   desktopCapturer,
+  clipboard,
+  Menu,
 } = require('electron');
 const path = require('path');
+
+// Automated checks point this at a scratch directory so they get their own
+// settings store and single-instance lock, never colliding with a real
+// session of the app. Must run before lib/store.js is required, because the
+// store binds to the userData path at construction.
+if (process.env.AEVAL_USERDATA) {
+  app.setPath('userData', process.env.AEVAL_USERDATA);
+}
 
 const store = require('./lib/store');
 const ai = require('./lib/openrouter');
@@ -135,6 +145,28 @@ function findSnap(rect) {
 
 // -------------------------------------------------------------------- windows
 
+// Right-click menu with the editing commands a frameless window otherwise
+// lacks: copy on selections, plus cut/paste inside text fields.
+function attachContextMenu(win) {
+  win.webContents.on('context-menu', (_e, params) => {
+    const template = [];
+    if (params.isEditable) {
+      template.push(
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { type: 'separator' },
+        { role: 'selectAll' }
+      );
+    } else if (params.selectionText && params.selectionText.trim()) {
+      template.push({ role: 'copy' }, { role: 'selectAll' });
+    }
+    if (template.length) {
+      Menu.buildFromTemplate(template).popup({ window: win });
+    }
+  });
+}
+
 function createOverlay() {
   overlayWin = new BrowserWindow({
     ...pillBounds(),
@@ -172,6 +204,7 @@ function createOverlay() {
     overlayWin.showInactive();
   });
   overlayWin.webContents.on('did-finish-load', sendOverlayState);
+  attachContextMenu(overlayWin);
   overlayWin.on('moved', onOverlayMoved);
   overlayWin.on('closed', () => {
     overlayWin = null;
@@ -187,7 +220,7 @@ function openSettings() {
   }
   settingsWin = new BrowserWindow({
     width: 470,
-    height: 700,
+    height: 760,
     frame: false,
     transparent: true,
     resizable: false,
@@ -203,6 +236,7 @@ function openSettings() {
   });
   // The key-entry screen stays out of screen shares as well.
   settingsWin.setContentProtection(true);
+  attachContextMenu(settingsWin);
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
   settingsWin.once('ready-to-show', () => {
     settingsWin.show();
@@ -542,6 +576,16 @@ function registerIpc() {
     return { ok: true, model: saved };
   });
 
+  ipcMain.handle('models:list', async () => {
+    const result = await ai.listFreeVisionModels();
+    return { ...result, current: store.getModel(), defaultModel: ai.DEFAULT_MODEL };
+  });
+
+  ipcMain.handle('clipboard:write', (_e, { text }) => {
+    clipboard.writeText(String(text || ''));
+    return { ok: true };
+  });
+
   ipcMain.handle('settings:close', () => {
     if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
   });
@@ -661,6 +705,8 @@ async function runSmoke() {
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
+    const modelList = await ai.listFreeVisionModels();
+    log('modelList', `${modelList.models.length}:${modelList.live ? 'live' : 'fallback'}`);
     const shot = await captureScreen();
     log('capture', shot ? `ok:${shot.bytes}bytes` : 'failed');
     await triggerCapture();

@@ -48,10 +48,15 @@
       <section aria-labelledby="model-heading">
         <h2 id="model-heading">Model</h2>
         <p class="desc">
-          Any OpenRouter model id. Ids ending in :free cost nothing. Pick a
-          vision-capable model so it can read the screenshot; leave the field
-          empty and save to restore the default.
+          Pick a free vision model from the live OpenRouter list, or paste any
+          model id below. Ids ending in :free cost nothing; leave the field
+          empty and save to restore the default. If a free model errors with a
+          data policy message, enable "Free model publication" in your
+          OpenRouter privacy settings.
         </p>
+        <div class="row">
+          <select id="model-select" aria-label="Free vision models from OpenRouter"></select>
+        </div>
         <div class="row">
           <input
             id="model-input"

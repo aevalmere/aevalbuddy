@@ -26,13 +26,15 @@ On the very first launch a pointer appears and walks you to the settings panel, 
 | `Ctrl+Shift+H` | Hide or show the overlay |
 | `Esc` | Collapse the panel, close settings, exit the layout editor, or dismiss the walkthrough |
 
-Type a question and press Enter, or press Enter on an empty box to send the default prompt ("What's on my screen and what should I do?"). Clicking the idle pill does the same thing as the capture shortcut.
+Type a question and press Enter, or press Enter on an empty box to send the default prompt ("What's on my screen and what should I do?"). Clicking the idle pill does the same thing as the capture shortcut. Answers have a Copy button, the text is selectable, and right-click gives copy and paste menus everywhere, including the key field in settings.
 
 The first two shortcuts are rebindable in settings: press Change, then press the new combo. New combos must include Ctrl, Alt, or Win. If another app already owns the combo, settings shows an inline error and keeps listening for a different one. Changes apply immediately, no restart. `Esc` is fixed. Shortcuts are listed in settings only; the query panel stays clean.
 
 ### Model
 
-The default model is `thinkingmachines/inkling:free`, picked because it costs nothing and accepts images. Change it in settings to any OpenRouter model id. Two things to know: free ids (ending in `:free`) rotate over time, so if queries start failing with "model not found", grab a current id from openrouter.ai/models; and the model must be vision-capable to actually read the screenshot, otherwise you get a clear inline error naming the problem.
+The default model is `dots-studio/dots-3-note-preview:free`, picked because it costs nothing and its modality is exactly image plus text. Settings shows a dropdown of the free vision models currently on OpenRouter (fetched live, with a static fallback when offline); picking one saves immediately, and a text field below accepts any other OpenRouter model id.
+
+Two OpenRouter quirks to know. Free ids (ending in `:free`) rotate over time, so if queries fail with "model unavailable", pick a fresh one from the dropdown. And OpenRouter blocks `:free` models entirely until the account allows them: if errors mention a data policy, open openrouter.ai, go to Settings then Privacy, and enable "Free model publication". The inline error tells you this when it happens.
 
 ### Overlay position
 
@@ -65,7 +67,8 @@ A side effect worth knowing: the screenshots AevalBuddy sends to the model also 
 - The overlay position is stored as an edge anchor plus offset, so the pill and the panel always hug the same corner and a bottom-anchored panel grows upward.
 - Rebinding rejects Shift-only combos on purpose: `Shift+A` would fire while typing capital letters.
 - `electron-store` is pinned to v8, the last CommonJS release; v10+ is ESM-only and cannot be `require`d from a CommonJS main process.
-- The default model was taken from OpenRouter's live model list on the day this was written (one of three `:free` ids that accept image input). The list shifts, which is why the model is a setting rather than a constant.
+- The default model was taken from OpenRouter's live model list on the day this was written (one of three `:free` ids that accept image input). The list shifts, which is why settings fetches it live and the model is a setting rather than a constant.
+- A model that streams no answer text (some free models emit only reasoning traffic through certain providers) produces a clear inline error instead of an empty panel.
 - No conversation history: each capture and question is a single stateless request.
 
 ## Files

@@ -122,6 +122,29 @@ input::placeholder {
   color: rgba(201, 207, 221, 0.55);
 }
 
+select {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: #C9CFDD;
+  background: rgba(16, 37, 79, 0.45);
+  border: 1px solid #303D6A;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+select:focus {
+  outline: none;
+  border-color: #823A80;
+  box-shadow: 0 0 0 1px #823A80, 0 0 0 2px rgba(201, 207, 221, 0.35);
+}
+
+select option {
+  background: #10254F;
+  color: #C9CFDD;
+}
+
 input:focus {
   outline: none;
   border-color: #823A80;

@@ -5,6 +5,7 @@ const toggleKeyBtn = document.getElementById('toggle-key');
 const saveKeyBtn = document.getElementById('save-key');
 const keyStatus = document.getElementById('key-status');
 const modelInput = document.getElementById('model-input');
+const modelSelect = document.getElementById('model-select');
 const saveModelBtn = document.getElementById('save-model');
 const modelStatus = document.getElementById('model-status');
 const editPositionBtn = document.getElementById('edit-position');
@@ -27,6 +28,35 @@ window.aeval.invoke('settings:get').then((d) => {
   modelInput.value = d.model || '';
   modelInput.placeholder = d.defaultModel || '';
   renderShortcuts();
+  loadModels();
+});
+
+function loadModels() {
+  window.aeval.invoke('models:list').then(({ models, live }) => {
+    modelSelect.innerHTML = '';
+    const placeholder = new Option(
+      live ? 'Pick a free vision model...' : 'Pick a model (offline list)...',
+      ''
+    );
+    placeholder.disabled = true;
+    modelSelect.add(placeholder);
+    for (const m of models) {
+      modelSelect.add(new Option(m.name, m.id));
+    }
+    syncModelSelect();
+  });
+}
+
+function syncModelSelect() {
+  const current = modelInput.value.trim();
+  const match = [...modelSelect.options].find((o) => o.value === current);
+  modelSelect.value = match ? current : '';
+}
+
+modelSelect.addEventListener('change', () => {
+  if (!modelSelect.value) return;
+  modelInput.value = modelSelect.value;
+  saveModel();
 });
 
 function renderShortcuts() {
@@ -87,6 +117,7 @@ function saveModel() {
   window.aeval.invoke('settings:save-model', { model: modelInput.value }).then((r) => {
     if (!r.ok) return;
     modelInput.value = r.model;
+    syncModelSelect();
     clearTimeout(modelStatusTimer);
     modelStatus.textContent = 'Saved.';
     modelStatusTimer = setTimeout(() => {
