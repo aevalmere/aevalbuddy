@@ -183,3 +183,49 @@ limits first and re-applies them after, and each one is stamped so the resize ha
 drag. Without the stamp, the collapse animation ran the window down to pill width and stored that as a
 chosen width; without mode-aware limits, the panel minimum was applied to the pill and Windows widened
 it to satisfy them.
+
+## v0.6: the pipeline was starving its own brain
+
+Answers were imprecise, and the user's guess at why was right: the reading was bad before the thinking
+started. Four separate losses stacked up, each one invisible on its own.
+
+| Loss | What it did | Fixed by |
+| --- | --- | --- |
+| Capture at 1280 wide, JPEG 70 falling to 35 | On a 2560 display that is a halving, and quality 35 turns 12px UI text to grey mush. Every misread identifier started here | 1600 long edge, quality 88, floor 62 |
+| The fastest free model as the default reader | 4B active parameters, chosen for speed, doing the one job where accuracy is everything | A model built for reading images is the default; the fast one is still there, labelled as the speed trade |
+| Pixel coordinates from a model that cannot see | The brain was copying digits out of a report and, when they were not there, inventing them. Numbers always looked plausible, so nothing caught it | The brain names a target, the app resolves the name against the reader's table, and an unmatched name points at nothing |
+| A reading capped at 900 tokens with one TEXT line | The brain only ever knows what the reader wrote down; a truncated error message is an unanswerable question | 1600 tokens, an explicit instruction to copy the whole error, and a FOCUS line |
+
+The coordinate grid moved from pixels to 0 to 1000 across the view. A vision model asked for "the centre
+in pixels, the view is 1600x1000" has to hold two numbers it was never given; the normalised grid is the
+convention these models are trained on and needs no context to be correct.
+
+### Pointing, as a contract
+
+| Who is answering | Directive | Resolved by |
+| --- | --- | --- |
+| A model looking at the screen | `[[point x=.. y=.. \| label]]` | Ratio from image pixels to display pixels, which is DPI-proof |
+| A text-only brain | `[[point Save button]]` | Exact, then containment, then word overlap against the reader's ELEMENTS table. Under half the words in common it is dropped |
+
+Dropping is the important half. A pointer in the wrong place is worse than no pointer, because it is
+confidently wrong in a way the user cannot check.
+
+### A scrollbar has to be visible to count as one
+
+The transcript scrolled the whole time. The thumb was `#303D6A` against a panel that runs `#3E404A` to
+`#262930`, which is roughly the same value, so it read as a surface with no way down. That is the same
+thing as not scrolling. The thumb is now pale slate at 26%, the bottom edge fades while there is more
+below, and the transcript's own ceiling is sent from the main process so it agrees with the window's
+rather than clipping under it.
+
+### Windows: off the taskbar, above everything
+
+`skipTaskbar` asks the shell to drop the button. `WS_EX_TOOLWINDOW`, which `type: 'toolbar'` sets, takes
+the window out of the window list altogether, so it leaves Alt-Tab too. Settings was the one window that
+had neither, plus no always-on-top, which is why the app still had a labelled taskbar entry and why that
+window hid behind things. Every window now carries the same three: tool window, skip taskbar, and
+always-on-top at `screen-saver` with a relative level of 1, which puts it above other topmost windows
+rather than level with them.
+
+Content protection is guarded on the Windows build. Below 19041 the call does nothing, and settings says
+so rather than letting the user believe the overlay is hidden when it is not.

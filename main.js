@@ -27,6 +27,34 @@ const skills = require('./lib/skills');
 const motion = require('./lib/motion');
 const cursorBuddy = require('./lib/cursor-buddy');
 
+const IS_WINDOWS = process.platform === 'win32';
+
+// WDA_EXCLUDEFROMCAPTURE, which is what makes these windows invisible to a
+// screen share, needs Windows 10 build 19041. Below that setContentProtection
+// is a silent no-op, and a user who believes the overlay is hidden when it is
+// not is worse off than one who was told. os.release() reports the NT version,
+// so the third segment is the build.
+const WIN_BUILD = IS_WINDOWS ? Number(require('os').release().split('.')[2]) || 0 : 0;
+const CAN_HIDE_FROM_CAPTURE = !IS_WINDOWS || WIN_BUILD >= 19041;
+
+// Every window of this app is a tool window: never in the taskbar, never in
+// Alt-Tab, and pinned one level above the ordinary always-on-top band so a
+// media player or another overlay cannot sit in front of it. skipTaskbar
+// alone only asks the shell to drop the button; WS_EX_TOOLWINDOW, which is
+// what type:'toolbar' sets on Windows, takes it out of the window list
+// altogether. The relative level of 1 is the part that answers "it hides
+// behind things".
+function pinOnTop(win) {
+  if (!win || win.isDestroyed()) return;
+  win.setAlwaysOnTop(true, 'screen-saver', 1);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+}
+
+function hideFromCapture(win) {
+  if (!win || win.isDestroyed() || !CAN_HIDE_FROM_CAPTURE) return;
+  win.setContentProtection(true);
+}
+
 const PILL = { width: 104, height: 40 };
 // Widths are user-set now; these are the shipping defaults and the bounds a
 // drag is clamped to.
@@ -35,7 +63,15 @@ const INPUT_MIN_HEIGHT = 62;
 const INPUT_MAX_HEIGHT = 280;
 const DEFAULT_INPUT_HEIGHT = 76;
 const OUTPUT_MIN_HEIGHT = 90;
-const OUTPUT_MAX_HEIGHT = 620;
+// How tall the answer window is allowed to grow on its own. This was a flat
+// 620, which is a third of a 1440p screen and most of a laptop one; it now
+// follows the display, so a long answer uses the room that is actually there
+// before it starts scrolling.
+const OUTPUT_MAX_FRACTION = 0.66;
+const OUTPUT_MAX_FLOOR = 380;
+function outputMaxHeight() {
+  return Math.max(OUTPUT_MAX_FLOOR, Math.round(workArea().height * OUTPUT_MAX_FRACTION));
+}
 const DEFAULT_OUTPUT_HEIGHT = 120;
 // The layout ghosts take the real widths, so what is dragged is the size
 // the window will actually be.
@@ -175,7 +211,7 @@ function outputBounds(height) {
   const manual = store.getOutputHeight();
   const h = manual
     ? clampNum(manual, OUTPUT_MIN_HEIGHT, wa.height - 40)
-    : clampNum(Math.round(height), OUTPUT_MIN_HEIGHT, OUTPUT_MAX_HEIGHT);
+    : clampNum(Math.round(height), OUTPUT_MIN_HEIGHT, outputMaxHeight());
   const size = { width: store.getOutputWidth(), height: h };
   const op = store.getOutputPos();
   if (op.docked && overlayWin && !overlayWin.isDestroyed()) {
@@ -277,6 +313,7 @@ function baseWindowOptions() {
     skipTaskbar: true,
     alwaysOnTop: true,
     show: false,
+    ...(IS_WINDOWS ? { type: 'toolbar' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -287,13 +324,13 @@ function baseWindowOptions() {
 
 function createOverlay() {
   overlayWin = new BrowserWindow({ ...pillBounds(), ...baseWindowOptions(), focusable: false });
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(overlayWin);
   // Core Cluely-defining feature: exclude the overlay from screen capture.
   // On Windows this maps to WDA_EXCLUDEFROMCAPTURE and is reliable on
   // Windows 10 2004+. Some capture backends (older OS builds, some hardware
   // capture cards) may still see the window; the app keeps working either
   // way, the overlay is just visible in those recordings.
-  overlayWin.setContentProtection(true);
+  hideFromCapture(overlayWin);
   // Click-through while idle; forward:true keeps mousemove events flowing so
   // the renderer can re-enable hit-testing when the cursor is over the pill.
   overlayWin.setIgnoreMouseEvents(true, { forward: true });
@@ -326,8 +363,8 @@ function createOutput() {
     ...baseWindowOptions(),
     focusable: true,
   });
-  outputWin.setAlwaysOnTop(true, 'screen-saver');
-  outputWin.setContentProtection(true);
+  pinOnTop(outputWin);
+  hideFromCapture(outputWin);
   outputWin.loadFile(path.join(__dirname, 'renderer', 'output.html'));
   outputWin.webContents.on('did-finish-load', () => {
     sendOverlayState();
@@ -369,6 +406,12 @@ function openSettings() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
+    // Settings was the one window still advertising the app: it kept a
+    // taskbar button and sat in the normal z-order, so opening it put a
+    // labelled entry on the bar and let other windows cover it.
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    ...(IS_WINDOWS ? { type: 'toolbar' } : {}),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -377,7 +420,8 @@ function openSettings() {
     },
   });
   // The key-entry screen stays out of screen shares as well.
-  settingsWin.setContentProtection(true);
+  hideFromCapture(settingsWin);
+  pinOnTop(settingsWin);
   attachContextMenu(settingsWin);
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
   settingsWin.once('ready-to-show', () => {
@@ -417,7 +461,7 @@ function expandPanel() {
   overlayWin.setIgnoreMouseEvents(false);
   overlayWin.setFocusable(true);
   // setFocusable can drop the z-order flag on Windows; reassert it.
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(overlayWin);
   sendOverlayState();
   const to = inputBounds(currentInputHeight);
   if (wasPill) {
@@ -444,7 +488,7 @@ function collapsePanel() {
   currentInputHeight = DEFAULT_INPUT_HEIGHT;
   overlayWin.blur();
   overlayWin.setFocusable(false);
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(overlayWin);
   overlayWin.setIgnoreMouseEvents(true, { forward: true });
   overlayWin.showInactive();
   const to = pillBounds();
@@ -476,7 +520,7 @@ function showOutput() {
   if (!outputWin || outputWin.isDestroyed()) return;
   const reopening = !outputActive;
   outputActive = true;
-  outputWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(outputWin);
   const to = outputBounds(currentOutputHeight);
   if (!reopening) {
     resizeOutput(to);
@@ -494,10 +538,8 @@ function showOutput() {
 
 // Applies a height the renderer reported while a glide was in flight.
 function keepOnTop() {
-  for (const win of [overlayWin, outputWin]) {
-    if (win && !win.isDestroyed() && win.isVisible()) {
-      win.setAlwaysOnTop(true, 'screen-saver');
-    }
+  for (const win of [overlayWin, outputWin, settingsWin]) {
+    if (win && !win.isDestroyed() && win.isVisible()) pinOnTop(win);
   }
 }
 
@@ -543,7 +585,14 @@ function resizeOutput(to) {
   if (!outputWin || outputWin.isDestroyed()) return;
   markApp(outputWin);
   outputLimits();
-  motion.animate(outputWin, { to, duration: T_OUT_GROW });
+  // A height reported while this glide is in flight is refused by the
+  // resize handler and only remembered, so the glide has to re-apply what
+  // is remembered when it lands. Without this the window kept whatever
+  // height it was already growing towards and every later report was
+  // dropped: the answer went on getting longer inside a window that had
+  // stopped growing, which is what a transcript that will not scroll looks
+  // like from the outside.
+  motion.animate(outputWin, { to, duration: T_OUT_GROW, onDone: syncOutputBounds });
 }
 
 function repositionOutputIfDocked() {
@@ -573,6 +622,10 @@ function sendOverlayState() {
     // A dragged height means the transcript fills the window and scrolls
     // inside it, instead of the window following the transcript.
     outputFixedHeight: store.getOutputHeight() > 0,
+    // The transcript's own ceiling. It has to agree with the window's, or the
+    // window stops growing while the transcript still has room, and the
+    // bottom of the answer is simply cut off.
+    chatMax: outputMaxHeight() - 56,
   };
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
@@ -604,7 +657,7 @@ function enterHudEditor() {
   unlockInput();
   overlayWin.setBounds(boundsForSize(hudInputSize(), hudInputPending));
   lockSize(overlayWin, hudInputSize().width, hudInputSize().height);
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(overlayWin);
   overlayWin.show();
   overlayWin.focus();
 
@@ -612,7 +665,7 @@ function enterHudEditor() {
   unlockSize(outputWin);
   outputWin.setBounds(hudOutputGhostBounds());
   lockSize(outputWin, hudOutputSize().width, hudOutputSize().height);
-  outputWin.setAlwaysOnTop(true, 'screen-saver');
+  pinOnTop(outputWin);
   outputWin.showInactive();
 
   applyRegistrations();
@@ -840,11 +893,23 @@ function setHudDock(docked) {
 
 // ------------------------------------------------------------- screen capture
 
+// How much detail the reader gets. The old numbers were 1280 across at JPEG
+// quality 70, stepping down to 35 to stay under a megabyte: on a 2560-wide
+// display that is a halving, and quality 35 turns 12px UI text into grey
+// mush. Everything downstream is reading that image, so every wrong answer
+// about a variable name, an error string or a button label started here. The
+// long edge now goes to 1600 at quality 88, and the floor is high enough that
+// text stays legible even when the budget bites.
+const SHOT_LONG_EDGE = 1600;
+const SHOT_QUALITY = 88;
+const SHOT_QUALITY_FLOOR = 62;
+const SHOT_BUDGET = 1600 * 1024;
+
 async function captureScreen() {
   try {
     const primary = screen.getPrimaryDisplay();
     const { width, height } = primary.size;
-    const scale = Math.min(1, 1280 / width);
+    const scale = Math.min(1, SHOT_LONG_EDGE / Math.max(width, height));
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: {
@@ -856,12 +921,12 @@ async function captureScreen() {
     const source =
       sources.find((s) => s.display_id === String(primary.id)) || sources[0];
     if (source.thumbnail.isEmpty()) return null;
-    // Step quality down until the payload is comfortably under 1MB so the
-    // API round trip stays fast.
-    let quality = 70;
+    // Step quality down only as far as still-readable text allows. A slower
+    // upload beats an unreadable screen.
+    let quality = SHOT_QUALITY;
     let buf = source.thumbnail.toJPEG(quality);
-    while (buf.length > 950 * 1024 && quality > 35) {
-      quality -= 15;
+    while (buf.length > SHOT_BUDGET && quality > SHOT_QUALITY_FLOOR) {
+      quality -= 8;
       buf = source.thumbnail.toJPEG(quality);
     }
     // The image size and display bounds let point directives map back from
@@ -1099,7 +1164,7 @@ async function handleQuerySubmit(question) {
     extractor.flush();
     chat.push({ role: 'assistant', text: extractor.text });
     send('query:done', {});
-    showModelPoints(extractor.points, shot);
+    showModelPoints(extractor.points, shot, ai.parseElements(screenReport));
     return { status: 'done' };
   } catch (err) {
     extractor.flush();
@@ -1118,21 +1183,38 @@ async function handleQuerySubmit(question) {
   }
 }
 
-// Maps directive coordinates from image pixels to screen coordinates and
-// hands them to the pointer. Ratio mapping sidesteps DPI scale factors.
-function showModelPoints(points, shot) {
+// Turns directives into screen coordinates. Two paths, because two kinds of
+// model produce them.
+//
+// A model that saw the screen gives pixels in the captured view, which map
+// across by ratio; using ratios rather than the scale factor keeps it right
+// on a display at any DPI.
+//
+// A brain working from a reading gives a name, which is looked up in the
+// reader's ELEMENTS table and mapped from the 0-1000 grid. A name that
+// matches nothing is dropped: a pointer at the wrong place is worse than no
+// pointer, and it was the blind model's invented digits that put it there.
+function showModelPoints(points, shot, elements) {
   if (!points || !points.length || !shot || !shot.width || !shot.height) return;
   if (overlayMode === 'hud') return;
   const b = shot.display;
-  const mapped = points
-    .filter((p) => p.x >= 0 && p.y >= 0 && p.x <= shot.width && p.y <= shot.height)
-    .map((p) => ({
-      x: Math.round(b.x + (p.x / shot.width) * b.width),
-      y: Math.round(b.y + (p.y / shot.height) * b.height),
-      label: p.label || 'Here',
-    }));
+  const toScreen = (fx, fy, label) => ({
+    x: Math.round(b.x + fx * b.width),
+    y: Math.round(b.y + fy * b.height),
+    label: label || 'Here',
+  });
+  const mapped = [];
+  for (const p of points) {
+    if (p.x === null || p.x === undefined) {
+      const el = ai.matchElement(p.label, elements);
+      if (el) mapped.push(toScreen(el.x / 1000, el.y / 1000, p.label || el.label));
+      continue;
+    }
+    if (p.x < 0 || p.y < 0 || p.x > shot.width || p.y > shot.height) continue;
+    mapped.push(toScreen(p.x / shot.width, p.y / shot.height, p.label));
+  }
   if (!mapped.length) return;
-  cursorBuddy.showPoints(mapped);
+  cursorBuddy.showPoints(mapped.slice(0, 3));
   applyRegistrations();
 }
 
@@ -1224,6 +1306,10 @@ function registerIpc() {
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
     version: app.getVersion(),
+    // Below Windows 10 build 19041 the call that hides these windows from a
+    // screen share does nothing at all. Believing the overlay is hidden when
+    // it is not is the worst way to find out.
+    canHide: CAN_HIDE_FROM_CAPTURE,
   }));
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
@@ -1628,6 +1714,81 @@ async function runSmoke() {
         ? 'ok'
         : `unexpected:${mdHtml.slice(0, 80)}`
     );
+    // Scrolling. A transcript taller than the answer window has to scroll
+    // inside it. When it does not, the window clips and the top of the answer
+    // is simply gone, with no way to reach it.
+    const longChat = [];
+    for (let i = 0; i < 8; i += 1) {
+      longChat.push({ role: 'user', text: `question number ${i}` });
+      longChat.push({ role: 'assistant', text: `Paragraph ${i} of the answer. `.repeat(24) });
+    }
+    chat = longChat.slice();
+    showOutput();
+    outputWin.webContents.send('chat:sync', { messages: longChat });
+    await new Promise((r) => setTimeout(r, 800));
+    const scrollProbe = await outputWin.webContents.executeJavaScript(
+      `(() => { const c = document.getElementById('chat');` +
+        ` c.scrollTop = 1e6;` +
+        ` return [c.scrollHeight, c.clientHeight, c.scrollTop, getComputedStyle(c).overflowY].join(':');` +
+        ` })()`
+    );
+    log('transcriptScroll', scrollProbe);
+    // A real wheel event, not an assignment to scrollTop: the question is
+    // whether turning the wheel over the transcript moves it.
+    await outputWin.webContents.executeJavaScript(
+      `document.getElementById('chat').scrollTop = 0; true`
+    );
+    // The window has just been resized around the seeded transcript; a wheel
+    // event delivered into a layout that has not settled lands on nothing.
+    await new Promise((r) => setTimeout(r, 300));
+    let wheeled = 0;
+    for (let attempt = 0; attempt < 5 && !wheeled; attempt += 1) {
+      outputWin.webContents.sendInputEvent({
+        type: 'mouseWheel',
+        x: Math.round(outputWin.getBounds().width / 2),
+        y: Math.round(outputWin.getBounds().height / 2),
+        deltaX: 0,
+        deltaY: -160,
+        canScroll: true,
+      });
+      await new Promise((r) => setTimeout(r, 250));
+      wheeled = await outputWin.webContents.executeJavaScript(
+        `document.getElementById('chat').scrollTop`
+      );
+    }
+    log('transcriptWheel', wheeled > 0 ? `moved:${Math.round(wheeled)}` : 'stuck');
+    // The transcript's ceiling and the window's have to be the same number,
+    // or one of them clips the other.
+    const chatMax = await outputWin.webContents.executeJavaScript(
+      `getComputedStyle(document.getElementById('chat')).maxHeight`
+    );
+    log('chatCeiling', `${chatMax}:window${outputMaxHeight()}`);
+    const thumb = await outputWin.webContents.executeJavaScript(
+      `(() => { const s = getComputedStyle(document.documentElement);` +
+        ` return s.getPropertyValue('--scroll-thumb').trim(); })()`
+    );
+    log('scrollThumb', thumb || 'unset');
+    log('answerHeightUnderLongChat', outputWin.getBounds().height);
+    // The window has to follow the transcript. A height reported during a
+    // glide used to be dropped, which left long answers inside a window that
+    // had stopped growing.
+    const surface = await outputWin.webContents.executeJavaScript(
+      `Math.ceil(document.getElementById('opanel').getBoundingClientRect().height)`
+    );
+    log(
+      'answerFollowsTranscript',
+      outputWin.getBounds().height === surface ? 'exact' : `window${outputWin.getBounds().height}:surface${surface}`
+    );
+    const moreFlags = await outputWin.webContents.executeJavaScript(
+      `(() => { const c = document.getElementById('chat');` +
+        ` c.scrollTop = 0; c.dispatchEvent(new Event('scroll'));` +
+        ` const top = document.body.dataset.more;` +
+        ` c.scrollTop = c.scrollHeight; c.dispatchEvent(new Event('scroll'));` +
+        ` return top + ':' + document.body.dataset.more; })()`
+    );
+    log('moreIndicator', moreFlags);
+    resetChat();
+
     // Point directives split across deltas are stripped and collected.
     const ex = ai.createPointExtractor(() => {});
     ex.push('Press Save [[point x=1');
@@ -1640,6 +1801,56 @@ async function runSmoke() {
     await triggerCapture();
     log('mode', overlayMode);
     log('hasKey', store.hasApiKey());
+    // Off the taskbar and off Alt-Tab: skipTaskbar asks the shell to drop the
+    // button, the toolbar window type takes it out of the window list.
+    const base = baseWindowOptions();
+    log('taskbarHidden', `${base.skipTaskbar}:${base.type || 'default'}`);
+    log('overlayOnTop', overlayWin.isAlwaysOnTop());
+    log('outputOnTop', outputWin.isAlwaysOnTop());
+    openSettings();
+    await new Promise((r) => setTimeout(r, 600));
+    log(
+      'settingsWindow',
+      settingsWin ? `onTop${settingsWin.isAlwaysOnTop()}` : 'missing'
+    );
+    settingsWin.close();
+    log('captureProtection', CAN_HIDE_FROM_CAPTURE ? 'on' : `unsupported:build${WIN_BUILD}`);
+    // The reader's table, and the two directive shapes that read from it.
+    const sampleReport = [
+      'SCREEN: VS Code',
+      'STATE: the build failed',
+      'FOCUS: the terminal',
+      'TASK: debug',
+      'TEXT: Cannot find module react-dom',
+      'ELEMENTS:',
+      '- Run and Debug | 120, 340',
+      '- Terminal tab | 480,905',
+    ].join('\n');
+    const els = ai.parseElements(sampleReport);
+    log('readerElements', els.map((e) => `${e.label}@${e.x},${e.y}`).join('+') || 'none');
+    log(
+      'pointByName',
+      `${(ai.matchElement('the terminal tab', els) || {}).label}:${
+        ai.matchElement('Publish to production', els) ? 'wrongmatch' : 'dropped'
+      }`
+    );
+    const named = ai.createPointExtractor(() => {});
+    named.push('Open the [[point Terminal ');
+    named.push('tab]] and read it.');
+    named.flush();
+    log(
+      'pointNamedExtract',
+      `${named.points.length}:${named.points[0] ? named.points[0].label : 'none'}:${
+        named.text.includes('[[') ? 'leaked' : 'clean'
+      }`
+    );
+    showModelPoints(
+      [{ x: null, y: null, label: 'terminal tab' }, { x: null, y: null, label: 'nothing here' }],
+      { width: 1600, height: 900, display: { x: 0, y: 0, width: 1600, height: 900 } },
+      els
+    );
+    log('pointResolved', cursorBuddy.isActive());
+    cursorBuddy.cancel();
     const submitResult = await handleQuerySubmit('smoke question');
     log('queryWithoutKey', `${submitResult.status}:chat${chat.length}`);
     enterHudEditor();

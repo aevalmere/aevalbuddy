@@ -565,6 +565,8 @@ document.addEventListener('click', (e) => {
 window.aeval.invoke('settings:get').then((d) => {
   data = d;
   appVersion.textContent = d.version || '';
+  const captureWarning = document.getElementById('capture-warning');
+  if (captureWarning) captureWarning.hidden = d.canHide !== false;
   showPaid.checked = !!d.showPaid;
   brainEnabled.checked = !!d.brainEnabled;
   showBrainPicker(!!d.brainEnabled);

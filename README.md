@@ -42,9 +42,12 @@ The first two shortcuts are rebindable in settings: press Change, then press the
 
 Everything in the picker is free by default. The list is the free vision
 models OpenRouter currently offers, with live context sizes, and the default
-is `google/gemma-4-26b-a4b-it:free`: it activates only 4B parameters per
-token, which makes it the quickest of them. Free models are queued and rate
-limited, so they are slower to start than paid ones; that is the trade.
+is `nvidia/nemotron-nano-12b-v2-vl:free`, which is built for reading images
+and is the best of the free ones at small text and dense interfaces. This
+model's only job may be reading the screen for the brain, and a wrong answer
+built on a misread variable name is not a fast answer. `google/gemma-4-26b-a4b-it:free`
+is still there if you want speed over accuracy. Free models are queued and
+rate limited, so they are slower to start than paid ones; that is the trade.
 
 Flip "Show paid" to add a second group. Those bill per token at rates where a
 question costs a fraction of a cent (`qwen/qwen3.7-flash` is the one to pick),
@@ -60,15 +63,24 @@ reading of the screen instead. That is what this switch does: the model above
 reads the screen into a short structured report, and a second model answers
 from that report.
 
-The report is not prose. It names the app, the state, the text that matters
-copied exactly, and a list of controls with their pixel centres, which is what
-lets the brain still point at things it never saw.
+The report is not prose. It names the app, the state, what has focus, the text
+that matters copied character for character, and a list of controls with their
+positions on a 0 to 1000 grid.
+
+The brain never sees those numbers. It cannot check a coordinate it did not
+observe, and when it was allowed to write one it copied the wrong row or made
+one up, which is what put the pointer in the wrong place. It names a target
+instead, and the app looks the name up in the reader's list. A name that
+matches nothing points at nothing, on purpose: a pointer in the wrong place is
+worse than none.
 
 What it costs is worth knowing. Two calls run in sequence, so the wait is the
 reader's full reply plus the brain's first token, and the answer window says
 which stage it is on rather than sitting on an unexplained pause. The brain
 also only knows what the reader wrote down: a detail the reader skipped is a
-detail the brain cannot use. Off by default; the default brain is
+detail the brain cannot use. On by default, because the difference between a
+12B model's answer and GLM 5.2's is most of the difference in answer quality;
+turn it off for one fast call instead of two. The default brain is
 `z-ai/glm-5.2:free`.
 
 ### Answer style
@@ -84,6 +96,13 @@ free model on the point instead of rambling. Pin one by hand in settings if you 
 every time. Adding your own is dropping a file into `skills/` with a `name` and `summary` in its front
 matter; it appears at next launch.
 
+### Reading a long answer
+
+The transcript scrolls inside the answer window: wheel over it, or Page Up,
+Page Down, Home and End. The window grows with the answer up to two thirds of
+your screen height before the scrolling starts, and the bottom edge fades
+while there is more below.
+
 ### Resizing and layout
 
 Drag any window edge. The input bar and the answer window resize from 320 to 900 wide and remember it;
@@ -97,7 +116,7 @@ Settings has "Edit layout". It turns both windows into draggable layout ghosts, 
 
 To separate the answer from the input bar, drag the answer ghost clear of the dock zone, or just press its Detach button; press Dock to input (or drop it back near the input bar) to reattach, shown by a "Docked to input" badge. A docked answer follows the input bar and grows away from it (downward from a top anchor, upward from a bottom one). Press Done or Esc to keep the layout. The pill, the input bar, the answer, and future launches all use the saved positions.
 
-Quit from the settings panel (gear icon in the query panel, then Quit). The overlay has no taskbar icon, so the hotkeys and the pill are the whole interface. The settings footer shows the app version, which is the quick way to confirm which build is running.
+Quit from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the hotkeys and the pill are the whole interface. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ## Develop it (the live-reload loop)
 
@@ -136,6 +155,8 @@ The installer is unsigned, so Windows SmartScreen shows "Windows protected your 
 The overlay, settings, and walkthrough windows all call `setContentProtection(true)`, which maps to `WDA_EXCLUDEFROMCAPTURE` on Windows. Screen shares, recordings, and screenshots taken through standard capture APIs will not include them. This is reliable on Windows 10 2004 and later, but not guaranteed for every capture backend (some hardware capture devices and older OS builds still see the window). The app keeps working either way; the overlay is just visible in those recordings.
 
 A side effect worth knowing: the screenshots AevalBuddy sends to the model also exclude its own windows, so the model sees your screen, not the assistant.
+
+Below Windows 10 build 19041 the call does nothing at all, so the app checks the build and says so in the settings footer rather than letting you believe the overlay is hidden when it is not.
 
 ## Design notes and assumptions
 

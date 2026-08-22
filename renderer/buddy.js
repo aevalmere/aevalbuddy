@@ -177,6 +177,10 @@ window.aeval.on('buddy:hide', () => {
   // Fade only; position is kept so a re-show glides from where it was.
   buddy.classList.remove('visible');
   callout.classList.remove('visible');
+  // The main process hands the mouse back at the same moment; this keeps the
+  // local flag in step so the next mousemove does not think it already did.
+  dragging = null;
+  ignoreState = true;
 });
 
 window.aeval.on('buddy:done', () => {

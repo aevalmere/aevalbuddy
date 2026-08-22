@@ -29,7 +29,46 @@ let liveMsg = null;
 function scrollToBottom(force) {
   const nearBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 48;
   if (force || nearBottom) chatEl.scrollTop = chatEl.scrollHeight;
+  markOverflow();
 }
+
+// Fades the bottom edge while there is more transcript below the fold. A
+// transcript that scrolls but gives no sign that it does is indistinguishable
+// from one that has been cut off.
+function markOverflow() {
+  const more = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight > 8;
+  document.body.dataset.more = more ? '1' : '0';
+}
+
+chatEl.addEventListener('scroll', markOverflow, { passive: true });
+
+// Keys reach the transcript whether or not it holds focus, because this
+// window is shown without taking focus from whatever the user was doing and
+// they may never click into it.
+const SCROLL_KEYS = {
+  PageDown: (h) => h * 0.9,
+  PageUp: (h) => -h * 0.9,
+  ArrowDown: () => 60,
+  ArrowUp: () => -60,
+  End: () => Infinity,
+  Home: () => -Infinity,
+};
+
+document.addEventListener('keydown', (e) => {
+  if (mode === 'hud' || opanel.hidden) return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const step = SCROLL_KEYS[e.key];
+  if (!step) return;
+  const target = e.target;
+  // Never steal a key from a control that wants it.
+  if (target && target.closest && target.closest('input, textarea, button')) return;
+  const by = step(chatEl.clientHeight);
+  if (by === Infinity) chatEl.scrollTop = chatEl.scrollHeight;
+  else if (by === -Infinity) chatEl.scrollTop = 0;
+  else chatEl.scrollTop += by;
+  markOverflow();
+  e.preventDefault();
+});
 
 function addUserMsg(text) {
   const msg = document.createElement('div');
@@ -135,6 +174,7 @@ function requestResize() {
   resizeQueued = true;
   requestAnimationFrame(() => {
     resizeQueued = false;
+    markOverflow();
     const height = Math.ceil(opanel.getBoundingClientRect().height);
     if (height < lastSentHeight && liveMsg) return;
     if (Math.abs(height - lastSentHeight) < 8) return;
@@ -169,6 +209,9 @@ window.aeval.on('overlay:state', (next) => {
   // window's own glide uncovers it.
   if (next.outputWidth) {
     document.documentElement.style.setProperty('--panel-w', next.outputWidth + 'px');
+  }
+  if (next.chatMax) {
+    document.documentElement.style.setProperty('--chat-max', next.chatMax + 'px');
   }
   // A dragged height means the window no longer follows the transcript, so
   // the renderer stops asking it to.
@@ -278,6 +321,7 @@ window.aeval.on('chat:reset', () => {
   liveMsg = null;
   lastSentHeight = 0;
   opanel.hidden = true;
+  markOverflow();
 });
 
 // Rebuilds the transcript after a renderer reload (dev watcher).

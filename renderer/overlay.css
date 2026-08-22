@@ -31,6 +31,13 @@
   --skin: linear-gradient(#3E404A, #262930);
   --edge: rgba(201, 207, 221, 0.17);
   --chrome: 0.55;
+  /* A scrollbar has to be visible to count as one. The thumb used to be
+     twilight, which against this panel is roughly the same value as the
+     panel: the transcript scrolled perfectly and looked as though it could
+     not, which is the same thing as being unable to. Pale slate at low alpha
+     reads at a glance and still recedes. */
+  --scroll-thumb: rgba(201, 207, 221, 0.26);
+  --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
 }
 
 * {
@@ -425,9 +432,12 @@ body[data-anchor-v="bottom"] #opanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 520px;
+  /* Sent by the main process from the work area, so the ceiling here and the
+     window's own ceiling are the same number. */
+  max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   /* The gutter is reserved whether or not the scrollbar is showing, so the
      bubbles do not shift sideways the moment a conversation gets long. */
   scrollbar-gutter: stable;
@@ -435,13 +445,57 @@ body[data-anchor-v="bottom"] #opanel {
   user-select: text;
 }
 
-#chat::-webkit-scrollbar {
-  width: 8px;
+/* Focusable so Page Down, Home and End reach the transcript. The ring is
+   suppressed because the panel is the only thing on screen and a box around
+   the whole transcript reads as an error state. */
+#chat:focus,
+#chat:focus-visible {
+  outline: none;
 }
 
-#chat::-webkit-scrollbar-thumb {
-  background: var(--twilight);
-  border-radius: 4px;
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* There is more below. Only shown while the transcript is scrolled away from
+   the bottom, so it never sits under the last line of a short answer. */
+#opanel::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 28px;
+  border-radius: 0 0 11px 11px;
+  background: linear-gradient(rgba(38, 41, 48, 0), rgba(38, 41, 48, 0.92));
+  opacity: 0;
+  transition: opacity var(--d-fast) ease;
+  pointer-events: none;
+}
+
+body[data-more="1"] #opanel::after {
+  opacity: 1;
 }
 
 .msg {
@@ -666,12 +720,16 @@ body[data-fixed-height="1"] #chat {
   white-space: pre;
 }
 
+/* Kept narrower than the page scrollbar: a code block is a small box, and a
+   10px bar inside it eats the indentation. */
 .md-body pre::-webkit-scrollbar {
   height: 8px;
 }
 
 .md-body pre::-webkit-scrollbar-thumb {
-  background: var(--twilight);
+  background: var(--scroll-thumb);
+  border: 2px solid transparent;
+  background-clip: padding-box;
   border-radius: 4px;
 }
 
