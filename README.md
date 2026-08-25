@@ -188,13 +188,15 @@ That last one matters: `capturePage` renders the page in isolation, so it can ne
 
 It works by calling `webContents.capturePage()`, which renders the page itself rather than reading the display, so it sees windows that are invisible to screenshots (see below). It runs against a throwaway settings profile, which means it does not disturb a copy of the app you already have running. It also prints `fit.<surface>=windowN:surfaceN` lines: those two numbers should match, and a gap between them is a band of empty window showing under the panel.
 
+Because that is a page render rather than a screen read, the run does not need the desktop to itself. `AEVAL_SHOT_OFFSCREEN=1 npm run shots` holds every window at zero opacity and click-through while it works, so you can keep using the machine and nothing of the app appears on screen. The single shot it cannot take that way is the composited `12-live-overlay`, which goes through `desktopCapturer` and therefore needs the window to actually be on the display; it is skipped, and the log says so rather than writing out a blank frame.
+
 ## Build the installer
 
 ```bash
 npm run build
 ```
 
-This produces `dist/AevalBuddy Setup 0.5.0.exe` (NSIS, per-user install, no admin prompt).
+This produces `dist/AevalBuddy Setup 0.7.0.exe` (NSIS, per-user install, no admin prompt).
 
 The installer is unsigned, so Windows SmartScreen shows "Windows protected your PC" on first run. That is expected for an unsigned app, not a defect. Click "More info", then "Run anyway". Code signing needs a paid certificate and is out of scope for this MVP.
 
@@ -247,6 +249,9 @@ lib/store.js               electron-store wrapper: key encryption, model, brain,
 lib/skills.js              loads skills/*.md and appends the chosen one to the system prompt
 lib/motion.js              window-bounds animation: the glide curve, anchored start rects
 lib/cursor-buddy.js        pointer state machine: walkthrough steps and model-directed points
+lib/region.js              area selection: the scrim window and the rectangle it returns
+lib/tray.js                tray icon and menu; the way back in when the overlay is hidden
+lib/history.js             conversation store: one JSON file, atomic write, debounced
 lib/shots.js               visual self-check: photographs every surface (npm run shots)
 skills/*.md                answering procedures; drop a file in to add one
 tools/shots-run.js         runner for npm run shots (scratch profile, output in shots/)
@@ -256,6 +261,8 @@ renderer/output.html|js    the answer window: conversation transcript, answer la
 renderer/markdown.js       built-in markdown renderer (escape first, then transform)
 renderer/buddy.html|js     the pointer window: arrow, speech bubble, typing, drag
 renderer/cursor-buddy.css  pointer and bubble styling
+renderer/region.*          the area selector: scrim, drag rectangle, dimensions
 settings/                  settings window: API key, model picker, layout editor, shortcuts
+history/                   history window: searchable conversation list
 electron-builder.yml       NSIS packaging config (output in dist/)
 ```
