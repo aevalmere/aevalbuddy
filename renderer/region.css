@@ -1,0 +1,202 @@
+/* The area selector. Same palette as everything else: black, space indigo,
+   shadow grey, grape soda, pale slate, twilight indigo.
+
+   The one rule here is that the selection must read as a hole in the scrim
+   rather than a box drawn on top of it. Nothing tints the inside, the border
+   sits entirely outside the chosen pixels, and the corner ticks point inward,
+   so what the user sees framed is exactly what the model receives. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  cursor: crosshair;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  user-select: none;
+}
+
+/* ----------------------------------------------------------------- scrim */
+
+.scrim {
+  position: fixed;
+  background: rgba(11, 12, 16, 0.46);
+  /* No transition: the panels are driven from mousemove and easing them puts
+     the darkened area a frame behind the cursor. */
+}
+
+/* Before the first drag the whole screen is dimmed by the top panel alone. */
+body:not([data-dragging]) #scrim-top {
+  inset: 0;
+}
+
+body:not([data-dragging]) #scrim-bottom,
+body:not([data-dragging]) #scrim-left,
+body:not([data-dragging]) #scrim-right {
+  display: none;
+}
+
+/* ------------------------------------------------------------- selection */
+
+#sel {
+  position: fixed;
+  pointer-events: none;
+}
+
+#sel[hidden] {
+  display: none;
+}
+
+/* Hairlines just outside the selection, so the border never covers a pixel
+   that is about to be sent.
+
+   Two-tone on purpose: a pale line with a dark one outside it. A single light
+   hairline disappears against a white document and a single dark one
+   disappears against a dark editor, and the selector has to be legible over
+   whatever the user is pointing it at. */
+.edge {
+  position: absolute;
+  background: #E8EBF2;
+  box-shadow: 0 0 0 1px rgba(11, 12, 16, 0.55);
+}
+
+.edge-t,
+.edge-b {
+  left: -1px;
+  right: -1px;
+  height: 1px;
+}
+
+.edge-t { top: -1px; }
+.edge-b { bottom: -1px; }
+
+.edge-l,
+.edge-r {
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+}
+
+.edge-l { left: -1px; }
+.edge-r { right: -1px; }
+
+.corner {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 3px solid #C56FC3;
+  /* Same reasoning as the edges: a dark rim keeps the accent readable on a
+     pale background without turning the corner into a block of colour. */
+  filter: drop-shadow(0 0 1px rgba(11, 12, 16, 0.85));
+}
+
+.c-tl { top: -3px; left: -3px; border-right: 0; border-bottom: 0; }
+.c-tr { top: -3px; right: -3px; border-left: 0; border-bottom: 0; }
+.c-bl { bottom: -3px; left: -3px; border-right: 0; border-top: 0; }
+.c-br { bottom: -3px; right: -3px; border-left: 0; border-top: 0; }
+
+/* ------------------------------------------------------------- size chip */
+
+#size {
+  position: fixed;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  color: #E8EBF2;
+  background: rgba(18, 20, 28, 0.92);
+  border: 1px solid #303D6A;
+  border-radius: 4px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+#size[hidden] {
+  display: none;
+}
+
+#size.too-small {
+  color: #E4818C;
+  border-color: #6B2E38;
+}
+
+/* ------------------------------------------------------------------ hint */
+
+#hint {
+  position: fixed;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #E8EBF2;
+  background: rgba(18, 20, 28, 0.92);
+  border: 1px solid #303D6A;
+  border-radius: 999px;
+  padding: 8px 16px 8px 12px;
+  box-shadow: 0 8px 28px -14px rgba(0, 0, 0, .9);
+  animation: hint-in 240ms cubic-bezier(.32, .72, 0, 1) both;
+}
+
+/* It has said its piece by the time the drag starts, and a floating label
+   over the area being chosen is in the way. */
+body[data-dragging] #hint {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+}
+
+/* The buddy's face, so the selector reads as the same character as the
+   pointer rather than as a system tool. */
+.face {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #823A80;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: none;
+}
+
+.eye {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #F1E7F0;
+}
+
+kbd {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #A9B0C2;
+  border: 1px solid #3A4260;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hint {
+    animation: none;
+  }
+}

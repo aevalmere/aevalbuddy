@@ -26,6 +26,9 @@ const ai = require('./lib/openrouter');
 const skills = require('./lib/skills');
 const motion = require('./lib/motion');
 const cursorBuddy = require('./lib/cursor-buddy');
+const tray = require('./lib/tray');
+const region = require('./lib/region');
+const history = require('./lib/history');
 
 const IS_WINDOWS = process.platform === 'win32';
 
@@ -90,6 +93,7 @@ const DEFAULT_PROMPT = "What's on my screen and what should I do?";
 
 const ACTION_LABELS = {
   captureQuery: 'Capture and ask',
+  captureRegion: 'Ask about an area',
   toggleVisibility: 'Show or hide overlay',
 };
 
@@ -118,10 +122,26 @@ let outputActive = false;
 let currentInputHeight = DEFAULT_INPUT_HEIGHT;
 let currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
 let pendingShot = null;
+// The area this conversation is about, in screen coordinates, or null for the
+// whole screen. It outlives one message on purpose: having drawn a box around
+// a stack trace, "and the line above it?" should look at the same box rather
+// than silently widening to the desktop.
+let activeRegion = null;
+// The last question actually sent, so the error row can re-send that instead
+// of whatever is (not) in the input box.
+let lastQuestion = '';
 let lastCaptureOk = true;
 let currentAbort = null;
 let queryGen = 0;
 let queryBusy = false;
+// One id per conversation, so history replaces the growing chat rather than
+// appending a new row after every answer.
+let chatId = newChatId();
+let historyWin = null;
+
+function newChatId() {
+  return `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
 let captureModeActive = false;
 let escapeRegistered = false;
 let hudInputPending = null;
@@ -626,6 +646,13 @@ function sendOverlayState() {
     // window stops growing while the transcript still has room, and the
     // bottom of the answer is simply cut off.
     chatMax: outputMaxHeight() - 56,
+    // The panel shows a chip for an active area so the constraint is never
+    // invisible: a follow-up that only sees a corner of the screen has to say
+    // so before the answer does.
+    region: activeRegion
+      ? { width: activeRegion.width, height: activeRegion.height }
+      : null,
+    busy: queryBusy,
   };
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
@@ -905,11 +932,43 @@ const SHOT_QUALITY = 88;
 const SHOT_QUALITY_FLOOR = 62;
 const SHOT_BUDGET = 1600 * 1024;
 
-async function captureScreen() {
+// The screen the user is working on, which is the one their pointer is on.
+// This used to be the primary display unconditionally, and on a two-monitor
+// desk that is a coin flip: the app read one screen, answered about it, and
+// pointed at it, while the user was looking at the other one.
+function activeDisplay() {
   try {
-    const primary = screen.getPrimaryDisplay();
-    const { width, height } = primary.size;
-    const scale = Math.min(1, SHOT_LONG_EDGE / Math.max(width, height));
+    return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  } catch (err) {
+    // getCursorScreenPoint can fail on a locked or switching session.
+    return screen.getPrimaryDisplay();
+  }
+}
+
+/**
+ * A JPEG of the screen, or of one area of it, plus what the pointer needs to
+ * map an answer's coordinates back onto the display.
+ *
+ * The whole screen is downscaled to the long-edge budget, which on a 2560x1440
+ * desktop is 0.62x and turns 12px interface text into about seven pixels. An
+ * area is captured at the display's native resolution and cropped instead, so
+ * the same budget buys a 600x300 selection at 1:1. That difference is the
+ * difference between a model reading a variable name and guessing at it.
+ *
+ * @param {object} [opts]
+ * @param {{x, y, width, height}} [opts.region] screen coordinates
+ */
+async function captureScreen(opts) {
+  const want = (opts && opts.region) || null;
+  try {
+    const target = want ? screen.getDisplayMatching(want) : activeDisplay();
+    const { width, height } = target.size;
+    // Native pixels for an area (so the crop loses nothing), long-edge budget
+    // for the whole screen (so a 4K desktop is not decoded at full size for
+    // an image that is about to be shrunk anyway).
+    const scale = want
+      ? target.scaleFactor || 1
+      : Math.min(1, SHOT_LONG_EDGE / Math.max(width, height));
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: {
@@ -918,26 +977,67 @@ async function captureScreen() {
       },
     });
     if (!sources.length) return null;
+    // Only an id match is trustworthy on a multi-monitor desk. Without one,
+    // the primary is a better guess than source order, which follows no rule
+    // the app can rely on.
     const source =
-      sources.find((s) => s.display_id === String(primary.id)) || sources[0];
+      sources.find((s) => s.display_id === String(target.id)) ||
+      sources.find((s) => s.display_id === String(screen.getPrimaryDisplay().id)) ||
+      sources[0];
     if (source.thumbnail.isEmpty()) return null;
+
+    let image = source.thumbnail;
+    let shotRegion = null;
+    if (want) {
+      // The thumbnail does not always come back at exactly the size asked
+      // for, so the crop is scaled by what actually arrived rather than by
+      // what was requested.
+      const got = image.getSize();
+      const kx = got.width / width;
+      const ky = got.height / height;
+      const x = clampNum(Math.round((want.x - target.bounds.x) * kx), 0, Math.max(0, got.width - 1));
+      const y = clampNum(Math.round((want.y - target.bounds.y) * ky), 0, Math.max(0, got.height - 1));
+      image = image.crop({
+        x,
+        y,
+        width: clampNum(Math.round(want.width * kx), 1, got.width - x),
+        height: clampNum(Math.round(want.height * ky), 1, got.height - y),
+      });
+      // Only a very large selection needs shrinking at all, which is the
+      // whole point of choosing one.
+      const cs = image.getSize();
+      const long = Math.max(cs.width, cs.height);
+      if (long > SHOT_LONG_EDGE) {
+        const k = SHOT_LONG_EDGE / long;
+        image = image.resize({
+          width: Math.round(cs.width * k),
+          height: Math.round(cs.height * k),
+          quality: 'best',
+        });
+      }
+      shotRegion = { ...want };
+    }
+    if (image.isEmpty()) return null;
+
     // Step quality down only as far as still-readable text allows. A slower
     // upload beats an unreadable screen.
     let quality = SHOT_QUALITY;
-    let buf = source.thumbnail.toJPEG(quality);
+    let buf = image.toJPEG(quality);
     while (buf.length > SHOT_BUDGET && quality > SHOT_QUALITY_FLOOR) {
       quality -= 8;
-      buf = source.thumbnail.toJPEG(quality);
+      buf = image.toJPEG(quality);
     }
-    // The image size and display bounds let point directives map back from
-    // image pixels to screen coordinates.
-    const size = source.thumbnail.getSize();
+    // The image size, and the rectangle it covers on screen, let point
+    // directives map back from the view to screen coordinates. For an area
+    // that rectangle is the selection, not the display.
+    const size = image.getSize();
     return {
       base64: buf.toString('base64'),
       bytes: buf.length,
       width: size.width,
       height: size.height,
-      display: { ...primary.bounds },
+      display: { ...target.bounds },
+      region: shotRegion,
     };
   } catch (err) {
     // Capture can fail on locked desktops or exotic display drivers; the
@@ -949,17 +1049,58 @@ async function captureScreen() {
 async function triggerCapture() {
   if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
-  pendingShot = await captureScreen();
+  pendingShot = await captureScreen({ region: activeRegion });
   lastCaptureOk = !!pendingShot;
   expandPanel();
   // An existing conversation comes back with the panel.
   if (chat.length) showOutput();
 }
 
+/**
+ * Draw a box, then ask about what is inside it.
+ *
+ * The selection sticks to the conversation rather than to the one message, so
+ * follow-ups keep looking at the same rectangle. Clearing it is one click on
+ * the chip in the panel, and New chat drops it too.
+ */
+async function triggerRegionCapture() {
+  if (!overlayWin || overlayMode === 'hud' || region.isActive()) return;
+  const pick = region.select(activeDisplay());
+  // Claim Escape for the selector now that one is open, and hand it back
+  // however the selection ends.
+  applyRegistrations();
+  const rect = await pick;
+  applyRegistrations();
+  if (!rect) {
+    // Cancelled. If the panel was already open it stays exactly as it was.
+    sendOverlayState();
+    return;
+  }
+  activeRegion = rect;
+  overlayHidden = false;
+  pendingShot = await captureScreen({ region: rect });
+  lastCaptureOk = !!pendingShot;
+  expandPanel();
+  if (chat.length) showOutput();
+  sendOverlayState();
+}
+
+// Back to the whole screen. The next message re-captures, so nothing has to be
+// re-asked to make it take effect.
+function clearRegion() {
+  if (!activeRegion) return;
+  activeRegion = null;
+  sendOverlayState();
+}
+
 // ------------------------------------------------------------------- hotkeys
 
 function onCaptureHotkey() {
   triggerCapture();
+}
+
+function onRegionHotkey() {
+  triggerRegionCapture();
 }
 
 function onToggleHotkey() {
@@ -982,10 +1123,26 @@ function onToggleHotkey() {
       outputWin.showInactive();
     }
   }
+  // Hidden is the state the tray exists to reverse, so its label has to say
+  // which way round things currently are.
+  tray.refresh({ hidden: overlayHidden });
   applyRegistrations();
 }
 
 function onEscapePressed() {
+  // First claim, above everything: choosing an area is a modal gesture with a
+  // full-screen scrim over the desktop.
+  //
+  // The selector has its own Escape handler, and while the panel is open that
+  // handler never runs -- Escape is a global shortcut then, and a global
+  // shortcut is consumed before any window sees the key. So pressing Escape
+  // during a selection collapsed the panel and left the scrim covering the
+  // screen, which is the worst of both: the thing the user wanted dismissed
+  // stayed, and the thing they were using went away.
+  if (region.isActive()) {
+    region.cancel();
+    return;
+  }
   if (cursorBuddy.isActive()) {
     cursorBuddy.cancel();
     return;
@@ -996,6 +1153,12 @@ function onEscapePressed() {
   }
   if (settingsWin && !settingsWin.isDestroyed() && settingsWin.isFocused()) {
     settingsWin.close();
+    return;
+  }
+  // Same reasoning as settings: a focused window closes itself before Escape
+  // means anything to the overlay behind it.
+  if (historyWin && !historyWin.isDestroyed() && historyWin.isFocused()) {
+    historyWin.close();
     return;
   }
   if (overlayMode === 'panel') {
@@ -1016,11 +1179,17 @@ function applyRegistrations() {
     shortcuts.captureQuery,
     onCaptureHotkey
   );
+  lastRegisterResults.captureRegion = globalShortcut.register(
+    shortcuts.captureRegion,
+    onRegionHotkey
+  );
   lastRegisterResults.toggleVisibility = globalShortcut.register(
     shortcuts.toggleVisibility,
     onToggleHotkey
   );
-  if (overlayMode !== 'pill' || cursorBuddy.isActive()) {
+  // The tray menu prints the current combos beside each item.
+  tray.refresh({ hidden: overlayHidden });
+  if (overlayMode !== 'pill' || cursorBuddy.isActive() || region.isActive()) {
     escapeRegistered = globalShortcut.register('Escape', onEscapePressed);
   }
 }
@@ -1037,6 +1206,58 @@ function validAccelerator(accelerator) {
 
 // --------------------------------------------------------------- query flow
 
+// How many models one request may burn through before giving up. Two
+// stand-ins is enough to ride out the usual free-tier queue and few enough
+// that a genuine outage still surfaces quickly.
+const MAX_MODEL_ATTEMPTS = 3;
+
+// "google/gemma-4-26b-a4b-it:free" reads as "gemma-4-26b-a4b-it" in a status
+// line the user glances at for half a second.
+function shortModel(id) {
+  const name = String(id || '').split('/').pop().replace(/:free$/, '');
+  return name.length > 28 ? `${name.slice(0, 27)}\u2026` : name;
+}
+
+/**
+ * Runs a model call, and moves to the next free model of the same kind when
+ * the failure is one a different model could answer.
+ *
+ * Free models are queued and rate limited by design: a 429 is an ordinary
+ * Tuesday, not an exception. Showing the user an error and asking them to go
+ * and pick a different model in Settings is making them do the app's job, and
+ * it is the difference between the app feeling broken and feeling reliable.
+ *
+ * Paid models never get a stand-in. Quietly moving a billed request onto a
+ * different billed model is not the app's decision to make.
+ *
+ * @param {object} o
+ * @param {'vision'|'text'} o.kind
+ * @param {string} o.model the first choice
+ * @param {(model: string) => Promise<any>} o.run
+ * @param {() => boolean} [o.canRetry] false once bytes have reached the user
+ * @param {(model: string) => void} [o.onSwitch]
+ */
+async function withFailover(o) {
+  const tried = [];
+  let attempt = o.model;
+  let lastErr = null;
+  while (attempt) {
+    tried.push(attempt);
+    if (tried.length > 1 && o.onSwitch) o.onSwitch(attempt);
+    try {
+      return { model: attempt, value: await o.run(attempt) };
+    } catch (err) {
+      lastErr = err;
+      if (err.name === 'AbortError') throw err;
+      // Half an answer on screen cannot be replaced by another model's half.
+      if (o.canRetry && !o.canRetry()) throw err;
+      if (!ai.shouldFailover(err) || !/:free$/.test(attempt)) throw err;
+      attempt = tried.length >= MAX_MODEL_ATTEMPTS ? null : ai.nextFreeModel(o.kind, tried);
+    }
+  }
+  throw lastErr;
+}
+
 function abortCurrentQuery() {
   if (currentAbort) {
     currentAbort.abort();
@@ -1044,9 +1265,18 @@ function abortCurrentQuery() {
   }
 }
 
-async function handleQuerySubmit(question) {
+/**
+ * One conversation turn.
+ *
+ * @param {string} question
+ * @param {object} [opts]
+ * @param {boolean} [opts.retry] re-run the turn already at the end of the
+ *        transcript, rather than adding a second copy of the same question
+ */
+async function handleQuerySubmit(question, opts) {
+  const o = opts || {};
   const q = String(question || '').trim();
-  if (/^help me[.!]?$/i.test(q)) {
+  if (!o.retry && /^help me[.!]?$/i.test(q)) {
     startWalkthrough();
     return { status: 'walkthrough' };
   }
@@ -1057,8 +1287,15 @@ async function handleQuerySubmit(question) {
   abortCurrentQuery();
   const gen = ++queryGen;
   const text = q || DEFAULT_PROMPT;
-  const history = chat.slice(-CHAT_HISTORY_LIMIT);
-  chat.push({ role: 'user', text });
+  lastQuestion = text;
+  // A retry re-runs the question already sitting unanswered at the end of the
+  // transcript. Pushing it again would show the user their own question twice
+  // and send the model a duplicate turn. If the transcript has moved on since
+  // the failure, it is an ordinary new message after all.
+  const last = chat[chat.length - 1];
+  const resume = !!o.retry && !!last && last.role === 'user' && last.text === text;
+  const priorTurns = (resume ? chat.slice(0, -1) : chat).slice(-CHAT_HISTORY_LIMIT);
+  if (!resume) chat.push({ role: 'user', text });
   const model = store.getModel();
   const useBrain = store.getBrainEnabled();
   const send = (channel, payload) => {
@@ -1068,17 +1305,18 @@ async function handleQuerySubmit(question) {
   };
   // Echo the message and the thinking state before the capture so sending
   // feels instant; the capture happens under the thinking dots.
-  send('chat:user', { text });
+  if (!resume) send('chat:user', { text });
   send('query:start', {});
   queryBusy = true;
   sendOverlayState();
   showOutput();
   // Every message captures the screen fresh, so follow-ups talk about what
   // is on screen now, not what was there at the first hotkey press.
-  pendingShot = await captureScreen();
+  pendingShot = await captureScreen({ region: activeRegion });
   lastCaptureOk = !!pendingShot;
   sendOverlayState();
   const shot = pendingShot;
+  const viaRegion = !!(shot && shot.region);
   currentAbort = new AbortController();
   const signal = currentAbort.signal;
   // Point directives are stripped out of the stream before display and
@@ -1102,15 +1340,24 @@ async function handleQuerySubmit(question) {
     if (useBrain && shot) {
       send('query:stage', { label: 'Reading your screen' });
       try {
-        screenReport = await ai.readScreen({
-          apiKey: store.getApiKey(),
+        const read = await withFailover({
+          kind: 'vision',
           model,
-          imageBase64: shot.base64,
-          imageWidth: shot.width,
-          imageHeight: shot.height,
-          question: text,
-          signal,
+          onSwitch: (m) =>
+            send('query:stage', { label: `Busy \u2014 reading with ${shortModel(m)}` }),
+          run: (m) =>
+            ai.readScreen({
+              apiKey: store.getApiKey(),
+              model: m,
+              imageBase64: shot.base64,
+              imageWidth: shot.width,
+              imageHeight: shot.height,
+              question: text,
+              region: viaRegion,
+              signal,
+            }),
         });
+        screenReport = read.value;
       } catch (readErr) {
         if (readErr.name === 'AbortError') throw readErr;
         screenReport = null;
@@ -1131,7 +1378,8 @@ async function handleQuerySubmit(question) {
       question: text,
       imageWidth: shot ? shot.width : 0,
       imageHeight: shot ? shot.height : 0,
-      history,
+      viaRegion,
+      history: priorTurns,
       // The answering procedure travels with every request, which is what
       // holds a small fast model to a useful answer shape.
       skill,
@@ -1143,7 +1391,15 @@ async function handleQuerySubmit(question) {
       answering = store.getBrain();
       send('query:stage', { label: 'Thinking' });
       try {
-        await ai.streamQuery({ ...base, model: answering, screenReport });
+        const spoke = await withFailover({
+          kind: 'text',
+          model: answering,
+          canRetry: () => !extractor.text,
+          onSwitch: (m) =>
+            send('query:stage', { label: `Busy \u2014 thinking with ${shortModel(m)}` }),
+          run: (m) => ai.streamQuery({ ...base, model: m, screenReport }),
+        });
+        answering = spoke.model;
       } catch (brainErr) {
         // Nothing reached the user yet, so the request can still be served
         // by the model that already saw the screen.
@@ -1155,23 +1411,41 @@ async function handleQuerySubmit(question) {
     } else {
       answering = model;
       if (useBrain && shot) send('query:stage', { label: 'Answering directly' });
-      await ai.streamQuery({
-        ...base,
+      const spoke = await withFailover({
+        kind: 'vision',
         model,
-        imageBase64: shot ? shot.base64 : null,
+        canRetry: () => !extractor.text,
+        onSwitch: (m) => send('query:stage', { label: `Busy \u2014 asking ${shortModel(m)}` }),
+        run: (m) =>
+          ai.streamQuery({
+            ...base,
+            model: m,
+            imageBase64: shot ? shot.base64 : null,
+          }),
       });
+      answering = spoke.model;
     }
     extractor.flush();
     chat.push({ role: 'assistant', text: extractor.text });
     send('query:done', {});
-    showModelPoints(extractor.points, shot, ai.parseElements(screenReport));
+    rememberChat(answering);
+    showModelPoints(
+      extractor.points,
+      shot,
+      ai.parseElements(screenReport, shot ? { width: shot.width, height: shot.height } : null)
+    );
     return { status: 'done' };
   } catch (err) {
     extractor.flush();
-    if (extractor.text) chat.push({ role: 'assistant', text: extractor.text });
+    if (extractor.text) {
+      chat.push({ role: 'assistant', text: extractor.text });
+      rememberChat(answering);
+    }
     const message = ai.friendlyError(err, err.stage === 'reader' ? model : answering);
     if (message) {
-      send('query:error', { message });
+      // The error row offers Retry, which re-sends this exact question rather
+      // than whatever the cleared input box would have sent.
+      send('query:error', { message, question: text });
     } else {
       send('query:done', {});
     }
@@ -1183,21 +1457,47 @@ async function handleQuerySubmit(question) {
   }
 }
 
+// A coordinate pair from a model that looked at the screen, as a fraction of
+// the captured view.
+//
+// The contract is the 0-1000 grid, the same one the reader's table uses; see
+// GRID_RULE. Reading those numbers as view pixels instead, which is what this
+// did, put the centre of the screen at roughly a third across and dropped
+// everything down the right and bottom edges for being out of range.
+//
+// Over 1000 the pair can only be view pixels, so it is read as such rather
+// than thrown away. Below it the two readings are genuinely indistinguishable
+// and the stated grid wins; that is what the prompt is for.
+function pointFraction(p, shot) {
+  const x = Number(p.x);
+  const y = Number(p.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0) return null;
+  if (x > 1000 || y > 1000) {
+    if (x > shot.width || y > shot.height) return null;
+    return { fx: x / shot.width, fy: y / shot.height };
+  }
+  return { fx: x / 1000, fy: y / 1000 };
+}
+
 // Turns directives into screen coordinates. Two paths, because two kinds of
-// model produce them.
+// model produce them, but one coordinate system: both arrive on the 0-1000
+// grid and both map across by ratio, which keeps them right on a display at
+// any DPI.
 //
-// A model that saw the screen gives pixels in the captured view, which map
-// across by ratio; using ratios rather than the scale factor keeps it right
-// on a display at any DPI.
-//
-// A brain working from a reading gives a name, which is looked up in the
-// reader's ELEMENTS table and mapped from the 0-1000 grid. A name that
-// matches nothing is dropped: a pointer at the wrong place is worse than no
-// pointer, and it was the blind model's invented digits that put it there.
+// A model that saw the screen gives the pair itself. A brain working from a
+// reading gives a name, which is looked up in the reader's ELEMENTS table. A
+// name that matches nothing, or that matches two rows equally well, is
+// dropped: a pointer at the wrong place is worse than no pointer, and it was
+// the blind model's invented digits that put it there.
 function showModelPoints(points, shot, elements) {
   if (!points || !points.length || !shot || !shot.width || !shot.height) return;
   if (overlayMode === 'hud') return;
-  const b = shot.display;
+  // The rectangle the model was actually looking at. For an area that is the
+  // selection, not the display: a grid coordinate is a fraction of the view,
+  // and the view is the crop. Mapping it onto the whole screen instead would
+  // reintroduce exactly the drift the grid fix removed, scaled by however
+  // small the selection was.
+  const b = shot.region || shot.display;
   const toScreen = (fx, fy, label) => ({
     x: Math.round(b.x + fx * b.width),
     y: Math.round(b.y + fy * b.height),
@@ -1210,17 +1510,130 @@ function showModelPoints(points, shot, elements) {
       if (el) mapped.push(toScreen(el.x / 1000, el.y / 1000, p.label || el.label));
       continue;
     }
-    if (p.x < 0 || p.y < 0 || p.x > shot.width || p.y > shot.height) continue;
-    mapped.push(toScreen(p.x / shot.width, p.y / shot.height, p.label));
+    const f = pointFraction(p, shot);
+    if (!f) continue;
+    mapped.push(toScreen(f.fx, f.fy, p.label));
   }
   if (!mapped.length) return;
-  cursorBuddy.showPoints(mapped.slice(0, 3));
+  // The pointer window has to open on the screen the shot came from, not on
+  // whichever one Windows calls primary.
+  cursorBuddy.showPoints(mapped.slice(0, 3), screen.getDisplayMatching(b));
   applyRegistrations();
+}
+
+// Saved after every answer rather than at the end of the conversation: a
+// crash, a hard quit, or simply forgetting to press New chat should not lose
+// what was already said.
+function rememberChat(model) {
+  history.save({ id: chatId, model, messages: chat });
+  notifyHistoryChanged();
+}
+
+function notifyHistoryChanged() {
+  if (historyWin && !historyWin.isDestroyed()) {
+    historyWin.webContents.send('history:changed', {});
+  }
+}
+
+function openHistory() {
+  if (historyWin && !historyWin.isDestroyed()) {
+    historyWin.show();
+    historyWin.focus();
+    return;
+  }
+  const wa = workArea();
+  const saved = store.getHistorySize();
+  historyWin = new BrowserWindow({
+    width: saved.width,
+    height: clampNum(saved.height, 360, wa.height - 40),
+    minWidth: 380,
+    minHeight: 360,
+    maxWidth: 900,
+    frame: false,
+    transparent: true,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    ...(IS_WINDOWS ? { type: 'toolbar' } : {}),
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  // Past conversations are the most private thing this app holds, so the
+  // window that lists them stays out of screen shares like every other one.
+  hideFromCapture(historyWin);
+  pinOnTop(historyWin);
+  attachContextMenu(historyWin);
+  historyWin.loadFile(path.join(__dirname, 'history', 'history.html'));
+  historyWin.once('ready-to-show', () => {
+    if (historyWin && !historyWin.isDestroyed()) historyWin.show();
+  });
+  historyWin.on('resize', () => {
+    if (historyWin && !historyWin.isDestroyed()) store.setHistorySize(historyWin.getBounds());
+  });
+  historyWin.on('closed', () => {
+    historyWin = null;
+  });
+}
+
+function closeHistory() {
+  if (historyWin && !historyWin.isDestroyed()) historyWin.close();
+}
+
+/** Brings a stored conversation back as the live one. */
+function openConversation(id) {
+  const entry = history.get(id);
+  if (!entry) return { ok: false };
+  abortCurrentQuery();
+  chatId = entry.id;
+  chat = entry.messages.map((m) => ({ role: m.role, text: m.text }));
+  // Reopened from text alone: the screen it was about is long gone, so the
+  // next message starts from the whole screen again.
+  activeRegion = null;
+  lastQuestion = '';
+  store.setOutputHeight(0);
+  currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
+  closeHistory();
+  overlayHidden = false;
+  expandPanel();
+  showOutput();
+  if (outputWin && !outputWin.isDestroyed()) {
+    outputWin.webContents.send('chat:sync', { messages: chat });
+  }
+  sendOverlayState();
+  return { ok: true };
+}
+
+// Windows only reads the Run key at login, so this is written once at boot and
+// again whenever the switch moves.
+function applyLaunchAtLogin() {
+  const on = store.getLaunchAtLogin();
+  // Unpackaged, this would register the Electron binary rather than the app.
+  // The preference is still remembered; it just is not handed to Windows.
+  if (!app.isPackaged) return on;
+  try {
+    app.setLoginItemSettings({ openAtLogin: on, path: process.execPath, args: [] });
+  } catch (err) {
+    // A locked-down profile can refuse the Run key. Nothing else depends on
+    // it, so the app carries on without startup.
+  }
+  return on;
 }
 
 function resetChat() {
   abortCurrentQuery();
   chat = [];
+  chatId = newChatId();
+  // A new conversation is about the whole screen again. Carrying a box over
+  // from the last one is a constraint the user cannot see.
+  activeRegion = null;
+  lastQuestion = '';
   // New chat hands sizing back to the transcript.
   store.setOutputHeight(0);
   currentOutputHeight = DEFAULT_OUTPUT_HEIGHT;
@@ -1280,7 +1693,26 @@ function registerIpc() {
 
   ipcMain.handle('query:submit', (_e, { question }) => handleQuerySubmit(question));
   ipcMain.handle('query:cancel', () => abortCurrentQuery());
+  // Re-sends the question that failed. The input box was cleared on send, so
+  // without this the only "retry" available was an empty box, which submits
+  // the default question instead of the one that did not work.
+  ipcMain.handle('query:retry', () => {
+    if (!lastQuestion) return { status: 'nothing-to-retry' };
+    return handleQuerySubmit(lastQuestion, { retry: true });
+  });
   ipcMain.handle('chat:new', () => resetChat());
+
+  ipcMain.handle('region:pick', () => triggerRegionCapture());
+  ipcMain.handle('region:clear', () => clearRegion());
+
+  ipcMain.handle('overlay:open-history', () => openHistory());
+  ipcMain.handle('history:list', (_e, payload) => ({
+    rows: history.list(payload && payload.query),
+  }));
+  ipcMain.handle('history:open', (_e, { id }) => openConversation(id));
+  ipcMain.handle('history:remove', (_e, { id }) => ({ ok: history.remove(id) }));
+  ipcMain.handle('history:clear', () => ({ ok: history.clear() }));
+  ipcMain.handle('history:close', () => closeHistory());
 
   ipcMain.handle('hud:enter', () => enterHudEditor());
   ipcMain.handle('hud:exit', () => exitHudEditor());
@@ -1310,6 +1742,12 @@ function registerIpc() {
     // screen share does nothing at all. Believing the overlay is hidden when
     // it is not is the worst way to find out.
     canHide: CAN_HIDE_FROM_CAPTURE,
+    saveHistory: store.getSaveHistory(),
+    historyCount: history.count(),
+    launchAtLogin: store.getLaunchAtLogin(),
+    // Unpackaged, the Run key would point at the Electron binary, so the
+    // switch is shown as remembered-but-inactive rather than silently lying.
+    launchAtLoginLive: app.isPackaged,
   }));
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
@@ -1360,6 +1798,25 @@ function registerIpc() {
     ok: true,
     brainEnabled: store.setBrainEnabled(on),
   }));
+
+  ipcMain.handle('settings:set-save-history', (_e, { on }) => {
+    const value = store.setSaveHistory(on);
+    history.setEnabled(value);
+    // Turning it off stops new writes; it does not silently delete what is
+    // already there. Clear all is a separate, deliberate act.
+    return { ok: true, saveHistory: value, historyCount: history.count() };
+  });
+
+  ipcMain.handle('settings:clear-history', () => {
+    history.clear();
+    notifyHistoryChanged();
+    return { ok: true, historyCount: history.count() };
+  });
+
+  ipcMain.handle('settings:set-launch-at-login', (_e, { on }) => {
+    store.setLaunchAtLogin(on);
+    return { ok: true, launchAtLogin: applyLaunchAtLogin() };
+  });
 
   ipcMain.handle('settings:set-show-paid', (_e, { on }) => ({
     ok: true,
@@ -1449,10 +1906,29 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     registerIpc();
+    region.registerIpc();
+    history.setEnabled(store.getSaveHistory());
     createOverlay();
     createOutput();
+    applyLaunchAtLogin();
+    // Before applyRegistrations, which refreshes the tray labels with the
+    // accelerators it has just registered.
+    tray.init({
+      capture: () => triggerCapture(),
+      captureRegion: () => triggerRegionCapture(),
+      toggleVisibility: () => onToggleHotkey(),
+      newChat: () => resetChat(),
+      openHistory: () => openHistory(),
+      openSettings: () => openSettings(),
+      quit: () => app.quit(),
+      shortcuts: () => store.getShortcuts(),
+    });
     applyRegistrations();
-    if (!lastRegisterResults.captureQuery || !lastRegisterResults.toggleVisibility) {
+    if (
+      !lastRegisterResults.captureQuery ||
+      !lastRegisterResults.captureRegion ||
+      !lastRegisterResults.toggleVisibility
+    ) {
       console.warn(
         '[aevalbuddy] some shortcuts failed to register:',
         JSON.stringify(lastRegisterResults)
@@ -1486,6 +1962,9 @@ if (!gotLock) {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    // The last conversation is usually still inside the debounce.
+    history.flushNow();
+    tray.destroy();
   });
 }
 
@@ -1502,6 +1981,8 @@ async function runShots() {
         overlay: overlayWin,
         output: outputWin,
         settings: settingsWin,
+        history: historyWin,
+        region: region.debugWindow(),
         buddy: cursorBuddy.debugWindow(),
       }),
       actions: {
@@ -1525,6 +2006,59 @@ async function runShots() {
         seedThinking: () => {
           outputWin.webContents.send('query:start', { gen: ++queryGen });
         },
+        // The failure path is a surface too, and the one most likely to be
+        // seen on a bad day: an error the user can act on rather than read.
+        seedError: (message, question) => {
+          outputWin.webContents.send('query:error', { gen: queryGen, message, question });
+        },
+        // The chip that says a conversation is looking at a rectangle.
+        setRegion: (r) => {
+          activeRegion = r;
+          sendOverlayState();
+        },
+        openHistory: () => {
+          history.setEnabled(true);
+          history.clear();
+          history.save({
+            id: 'shot-1',
+            model: 'z-ai/glm-5.2:free',
+            messages: [
+              { role: 'user', text: 'what is this error and how do I fix it?' },
+              {
+                role: 'assistant',
+                text: 'A missing peer dependency. Install react-dom@19 and restart the dev server.',
+              },
+            ],
+          });
+          history.save({
+            id: 'shot-2',
+            model: 'z-ai/glm-5.2:free',
+            messages: [
+              { role: 'user', text: 'make this paragraph shorter and less formal' },
+              { role: 'assistant', text: 'Here is a tighter version that keeps the ask up front.' },
+            ],
+          });
+          history.save({
+            id: 'shot-3',
+            model: 'nvidia/nemotron-nano-12b-v2-vl:free',
+            messages: [
+              { role: 'user', text: 'which of these two buttons actually submits the form?' },
+              { role: 'assistant', text: 'The one on the right. The left one resets the fields.' },
+            ],
+          });
+          openHistory();
+        },
+        showRegionSelector: () => region.select(screen.getPrimaryDisplay()),
+        dragRegion: (box) =>
+          evalIn(
+            region.debugWindow(),
+            `(() => { const at = (t, x, y) => document.dispatchEvent(` +
+              `new MouseEvent(t, { clientX: x, clientY: y, button: 0, bubbles: true }));` +
+              ` at('mousedown', ${box.x}, ${box.y});` +
+              ` at('mousemove', ${box.x + box.width}, ${box.y + box.height});` +
+              ` return true; })()`
+          ),
+        cancelRegion: () => region.cancel(),
         enterHud: () => enterHudEditor(),
         exitHud: () => exitHudEditor(),
         openSettings: () => openSettings(),
@@ -1544,6 +2078,7 @@ async function runShots() {
               ` c.checked = true; c.dispatchEvent(new Event('change')); return true; })()`
           ),
         closeModelList: () => evalIn(settingsWin, `document.body.click(); true`),
+        closeHistory: () => closeHistory(),
         probe: async (name, win, selector) => {
           if (!win || win.isDestroyed()) return;
           const inner = await evalIn(
@@ -1615,6 +2150,10 @@ async function runSmoke() {
     log('windows', overlayWin && outputWin ? 'overlay+output-ok' : 'missing');
     log('version', app.getVersion());
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
+    log('shortcut.captureRegion', lastRegisterResults.captureRegion);
+    // Nothing else in the app is reachable once the overlay is hidden, so the
+    // tray coming up is not a nicety.
+    log('tray', tray.isReady());
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
     const modelList = await ai.listModels();
@@ -1652,7 +2191,8 @@ async function runSmoke() {
     );
     log('brainDefault', store.getBrain());
     log('brainEnabledDefault', store.getBrainEnabled());
-    // Every skill file parses and the chosen one reaches the system prompt.
+    // Every skill file parses and the chosen one reaches the system prompt,
+    // along with the coordinate contract the pointer depends on.
     const skillList = skills.list();
     log('skills', `${skillList.length}:${skillList.map((s) => s.id).join('+')}`);
     const prompt = ai.makeSystemPrompt({
@@ -1662,7 +2202,27 @@ async function runSmoke() {
     });
     log(
       'skillInPrompt',
-      prompt.includes('Screen assistant') && prompt.includes('1280x800') ? 'ok' : 'missing'
+      prompt.includes('Screen assistant') && prompt.includes('0 to 1000 grid')
+        ? 'ok'
+        : 'missing'
+    );
+    // The view size is never quoted at the model: it does not know how large
+    // the image it received is, and a number it cannot check is a number it
+    // converts wrongly. Instructions also have to arrive as lines, not as one
+    // paragraph with the pointer rule buried in it.
+    log(
+      'promptShape',
+      `${prompt.includes('1280x800') ? 'leaksize' : 'nosize'}:${
+        prompt.split('\n').length > 8 ? 'lines' : 'runon'
+      }`
+    );
+    // Both stages teach the same coordinate system. Two conventions in one app
+    // is what sent every point up and to the left.
+    log(
+      'gridShared',
+      ai.makeSystemPrompt({ imageWidth: 1280, imageHeight: 800, viaReader: true }).includes('point ')
+        ? 'ok'
+        : 'missing'
     );
     log('skillFallback', skills.get('no-such-skill').id);
     log('skillDefault', store.getSkillId());
@@ -1789,15 +2349,43 @@ async function runSmoke() {
     log('moreIndicator', moreFlags);
     resetChat();
 
-    // Point directives split across deltas are stripped and collected.
+    const SHOT_1600 = { width: 1600, height: 900 };
+    // Point directives split across deltas are stripped and collected, and
+    // the space the directive was sitting in closes behind it.
     const ex = ai.createPointExtractor(() => {});
     ex.push('Press Save [[point x=1');
     ex.push('20 y=340 | Save button]] to finish.');
     ex.flush();
     log(
       'pointExtract',
-      `${ex.points.length}:${ex.text.includes('[[') ? 'leaked' : 'clean'}`
+      `${ex.points.length}:${ex.text.includes('[[') ? 'leaked' : 'clean'}:${
+        ex.text.includes('  ') ? 'doublespace' : 'tight'
+      }`
     );
+    // The shapes a model reaches for when it drifts off the stated one. Each
+    // has to yield a point, and none may put brackets on screen: a malformed
+    // directive is swallowed, because showing it loses the pointer anyway and
+    // shows the machinery as well.
+    const DRIFT = [
+      'a [[point x=120, y=340 | Save]] b',
+      'a [[point 120, 340 | Save]] b',
+      'a [[point (500, 500)]] b',
+      'a [[point x=120.5 y=340]] b',
+      'a [[point x=120 y=340 - Save]] b',
+      'a [[point at the Save button]] b',
+    ];
+    const drift = DRIFT.map((line) => {
+      const e = ai.createPointExtractor(() => {});
+      e.push(line);
+      e.flush();
+      return e.points.length === 1 && !e.text.includes('[[');
+    });
+    log('pointShapes', `${drift.filter(Boolean).length}/${DRIFT.length}`);
+    // Ordinary text that happens to hold double brackets is not a directive.
+    const arr = ai.createPointExtractor(() => {});
+    arr.push('the matrix [[1,2],[3,4]] is fine');
+    arr.flush();
+    log('pointNonDirective', arr.text.includes('[[1,2]') ? 'kept' : 'eaten');
     await triggerCapture();
     log('mode', overlayMode);
     log('hasKey', store.hasApiKey());
@@ -1834,6 +2422,41 @@ async function runSmoke() {
         ai.matchElement('Publish to production', els) ? 'wrongmatch' : 'dropped'
       }`
     );
+    // The row shapes the reader drifts into. All six describe the same
+    // control; all six have to survive, because a dropped row is a name the
+    // brain uses and the app cannot resolve.
+    const ROWS = [
+      '- Save button | 120, 340',
+      '- Save button (120, 340)',
+      '- Save button | x=120, y=340',
+      '- Save button: 120, 340',
+      '1. Save button | 120, 340',
+      '- **Save button** | 0.12, 0.34',
+    ];
+    const rows = ROWS.map((row) => {
+      const one = ai.parseElements(`ELEMENTS:\n${row}`);
+      return one.length === 1 && one[0].x === 120 && one[0].y === 340;
+    });
+    log('readerRowShapes', `${rows.filter(Boolean).length}/${ROWS.length}`);
+    // A row that came back in view pixels is rescaled when the view size is
+    // known, and dropped when it is not.
+    const pixelRow = 'ELEMENTS:\n- Save button | 1920, 1080';
+    log(
+      'readerPixelRow',
+      `${(ai.parseElements(pixelRow, { width: 2560, height: 1440 })[0] || {}).x}:${
+        ai.parseElements(pixelRow).length ? 'kept' : 'dropped'
+      }`
+    );
+    // Two rows matching a name equally well is not a coin flip.
+    const ambiguous = ai.parseElements(
+      'ELEMENTS:\n- Terminal tab | 480,905\n- Problems tab | 600,905'
+    );
+    log(
+      'pointAmbiguous',
+      `${ai.matchElement('tab', ambiguous) ? 'guessed' : 'dropped'}:${
+        (ai.matchElement('Problems tab', ambiguous) || {}).label
+      }`
+    );
     const named = ai.createPointExtractor(() => {});
     named.push('Open the [[point Terminal ');
     named.push('tab]] and read it.');
@@ -1851,6 +2474,157 @@ async function runSmoke() {
     );
     log('pointResolved', cursorBuddy.isActive());
     cursorBuddy.cancel();
+    // 500,500 is the middle of the screen on the 0-1000 grid and nowhere near
+    // it if the pair is read as pixels of the captured view. This is the
+    // regression that put every pointer up and to the left.
+    log('pointGridMapping', JSON.stringify(pointFraction({ x: 500, y: 500 }, SHOT_1600)));
+    // Over 1000 the pair can only be view pixels, and used to be dropped.
+    log('pointPixelRescue', JSON.stringify(pointFraction({ x: 1500, y: 875 }, SHOT_1600)));
+    // The bottom edge of the grid is on screen, not out of range.
+    log('pointBottomEdge', JSON.stringify(pointFraction({ x: 990, y: 990 }, SHOT_1600)));
+    log('pointOffScreen', JSON.stringify(pointFraction({ x: 4000, y: 10 }, SHOT_1600)));
+
+    // ---------------------------------------------------------------- area
+    // The whole point of choosing an area is that the same pixel budget buys
+    // more of the pixels that matter. This measures it rather than asserting
+    // it: pixels-per-point for the whole screen against the same for a crop.
+    const disp = screen.getPrimaryDisplay();
+    const box = { x: disp.bounds.x + 40, y: disp.bounds.y + 40, width: 320, height: 200 };
+    const areaShot = await captureScreen({ region: box });
+    const fullShot = await captureScreen();
+    log(
+      'regionCapture',
+      areaShot
+        ? `${areaShot.width}x${areaShot.height}:${areaShot.region ? 'tagged' : 'untagged'}`
+        : 'failed'
+    );
+    if (areaShot && fullShot) {
+      const fullPpd = fullShot.width / disp.size.width;
+      const areaPpd = areaShot.width / box.width;
+      log('regionSharper', `${fullPpd.toFixed(2)}x->${areaPpd.toFixed(2)}x`);
+    }
+    // A point in an area is a fraction of the area, not of the screen. The
+    // centre of a box at 40,40 sized 320x200 is 200,140 -- nowhere near the
+    // centre of the display.
+    const areaCentre = areaShot
+      ? {
+          x: Math.round(areaShot.region.x + 0.5 * areaShot.region.width),
+          y: Math.round(areaShot.region.y + 0.5 * areaShot.region.height),
+        }
+      : null;
+    log('regionPointTarget', JSON.stringify(areaCentre));
+    // The selector opens and cancels without stranding a full-screen scrim.
+    const pick = region.select(disp);
+    region.cancel();
+    log('regionSelectorCancels', (await pick) === null && !region.isActive());
+    // Escape during a selection must dismiss the scrim, not the panel behind
+    // it. The global shortcut is consumed before any window sees the key, so
+    // the selector's own handler never runs while the panel is open.
+    const escPick = region.select(disp);
+    const wasPanel = overlayMode;
+    onEscapePressed();
+    log(
+      'regionEscape',
+      `${(await escPick) === null ? 'cancelled' : 'stuck'}:${
+        overlayMode === wasPanel ? 'panel-kept' : 'panel-lost'
+      }`
+    );
+    log(
+      'regionPrompt',
+      ai.makeSystemPrompt({ imageWidth: 800, imageHeight: 400, viaRegion: true }).includes('one area')
+        ? 'ok'
+        : 'missing'
+    );
+
+    // ------------------------------------------------------------ failover
+    // A free model that is rate limited is handed on to the next free one; a
+    // rejected key is not, because no other model would accept it either.
+    let seen = [];
+    const rode = await withFailover({
+      kind: 'vision',
+      model: ai.DEFAULT_MODEL,
+      run: (m) => {
+        seen.push(m);
+        if (seen.length < 2) return Promise.reject(Object.assign(new Error('busy'), { status: 429 }));
+        return Promise.resolve('answered');
+      },
+    });
+    log('failoverRateLimit', `${seen.length}:${rode.model !== ai.DEFAULT_MODEL ? 'switched' : 'same'}`);
+    let held = 'no-throw';
+    try {
+      await withFailover({
+        kind: 'vision',
+        model: ai.DEFAULT_MODEL,
+        run: () => Promise.reject(Object.assign(new Error('bad key'), { status: 401 })),
+      });
+    } catch (err) {
+      held = `threw:${err.status}`;
+    }
+    log('failoverKeepsAuthError', held);
+    let capped = 0;
+    try {
+      await withFailover({
+        kind: 'vision',
+        model: ai.DEFAULT_MODEL,
+        run: () => {
+          capped += 1;
+          return Promise.reject(Object.assign(new Error('busy'), { status: 429 }));
+        },
+      });
+    } catch (err) {
+      // Expected: every attempt failed.
+    }
+    log('failoverCapped', `${capped}<=${MAX_MODEL_ATTEMPTS}:${capped <= MAX_MODEL_ATTEMPTS}`);
+
+    // ------------------------------------------------------------- history
+    history.setEnabled(true);
+    history.clear();
+    history.save({
+      id: 'smoke-1',
+      model: 'test',
+      messages: [
+        { role: 'user', text: 'why is the build red' },
+        { role: 'assistant', text: 'A peer dependency is missing.' },
+      ],
+    });
+    history.save({
+      id: 'smoke-2',
+      model: 'test',
+      messages: [{ role: 'user', text: 'reword this paragraph' }],
+    });
+    // The same id twice is an edit of one conversation, not a second row.
+    history.save({
+      id: 'smoke-1',
+      model: 'test',
+      messages: [
+        { role: 'user', text: 'why is the build red' },
+        { role: 'assistant', text: 'A peer dependency is missing.' },
+        { role: 'user', text: 'and the warning under it?' },
+      ],
+    });
+    log('historySaved', `${history.count()}:${(history.get('smoke-1') || {}).messages.length}`);
+    log(
+      'historyTitle',
+      (history.list()[0] || {}).title === 'reword this paragraph' ||
+        (history.list()[0] || {}).title === 'why is the build red'
+        ? 'ok'
+        : 'wrong'
+    );
+    // Search reaches the bodies, not only the titles.
+    log(
+      'historySearch',
+      `${history.list('peer dependency').length}:${history.list('nothing here at all').length}`
+    );
+    history.remove('smoke-2');
+    log('historyRemove', history.count());
+    // Off means no new writes, and does not delete what is already there.
+    history.setEnabled(false);
+    history.save({ id: 'smoke-3', messages: [{ role: 'user', text: 'nope' }] });
+    log('historyRespectsSwitch', `${history.count()}:${history.get('smoke-3') ? 'wrote' : 'skipped'}`);
+    history.setEnabled(store.getSaveHistory());
+    history.clear();
+    log('historyCleared', history.count());
+    log('historyRetryGuard', lastQuestion === '' ? 'nothing-to-retry' : 'has-question');
     const submitResult = await handleQuerySubmit('smoke question');
     log('queryWithoutKey', `${submitResult.status}:chat${chat.length}`);
     enterHudEditor();

@@ -30,6 +30,14 @@
         autocomplete="off"
         spellcheck="false"
       />
+      <button id="region-btn" type="button" aria-label="Ask about an area of the screen"
+              title="Ask about an area">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
+          <path d="M2 6h14a2 2 0 0 1 2 2v14"></path>
+        </svg>
+      </button>
       <button id="settings-btn" type="button" aria-label="Open settings">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -44,6 +52,20 @@
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
+    </div>
+
+    <!-- An area constrains every message in the conversation, not just the
+         one that chose it, so it stays on screen for as long as it is in
+         force. A follow-up answered from a corner of the screen with nothing
+         saying so is indistinguishable from a bad answer. -->
+    <div id="region-chip" hidden>
+      <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 2v14a2 2 0 0 0 2 2h14"></path>
+        <path d="M2 6h14a2 2 0 0 1 2 2v14"></path>
+      </svg>
+      <span id="region-size"></span>
+      <button id="region-clear" type="button">Whole screen</button>
     </div>
 
     <div id="notice" role="status" hidden>

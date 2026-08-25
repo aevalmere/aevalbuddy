@@ -330,6 +330,58 @@ body[data-anchor-v="bottom"] #opanel {
   opacity: 1;
 }
 
+/* ------------------------------------------------------------ region chip */
+
+/* Reads as a state the panel is in, not as another control: same hairline
+   separation as the notice, no fill, and the only button in it is the way
+   out. */
+#region-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.4;
+  padding-top: 10px;
+  margin-top: 2px;
+  border-top: 1px solid var(--hairline);
+  color: rgba(201, 207, 221, 0.72);
+}
+
+#region-chip[hidden] {
+  display: none;
+}
+
+#region-chip svg {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+#region-size {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+#region-clear {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.62);
+  padding: 2px 7px;
+  border-radius: 5px;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#region-clear:hover {
+  background: rgba(201, 207, 221, 0.08);
+  color: var(--slate);
+}
+
+/* The button that starts a selection stays lit while one is in force, so the
+   panel says which mode it is in from two places at once. */
+body[data-region="1"] #region-btn {
+  color: var(--accent);
+  opacity: 1;
+}
+
 /* ----------------------------------------------------------------- notice */
 
 /* Separated by a hairline and whitespace. A filled pill here would be a
@@ -400,11 +452,12 @@ body[data-anchor-v="bottom"] #opanel {
 #chat-tools {
   display: flex;
   justify-content: flex-end;
+  gap: 2px;
   height: 20px;
   margin-bottom: -4px;
 }
 
-#new-chat {
+#chat-tools button {
   width: 20px;
   height: 20px;
   display: flex;
@@ -416,12 +469,12 @@ body[data-anchor-v="bottom"] #opanel {
   transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
-#opanel:hover #new-chat,
-#new-chat:focus-visible {
+#opanel:hover #chat-tools button,
+#chat-tools button:focus-visible {
   opacity: var(--chrome);
 }
 
-#new-chat:hover {
+#chat-tools button:hover {
   background: rgba(201, 207, 221, 0.08);
   opacity: 1;
 }
@@ -564,6 +617,23 @@ body[data-more="1"] #opanel::after {
   opacity: 1;
 }
 
+/* Copy is a hover affordance because it is optional. Stop is not: while an
+   answer is on its way it is the only control that matters, so the row it
+   lives in stops hiding, and Copy stands aside until there is something
+   finished to copy. */
+.msg.assistant.busy .msg-meta {
+  opacity: 1;
+}
+
+.msg.assistant.busy .copy-msg {
+  display: none;
+}
+
+.stop-btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .copy-msg {
   font-size: 12px;
   color: rgba(201, 207, 221, 0.85);
@@ -590,6 +660,25 @@ body[data-more="1"] #opanel::after {
   font-size: 12px;
   font-style: italic;
   color: rgba(201, 207, 221, 0.7);
+}
+
+/* Free models are queued: the wait is routinely tens of seconds, and until
+   now there was no way out of one except closing the panel and losing the
+   turn. The control belongs next to the thing you are waiting on. */
+.stop-btn {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.7);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease,
+    border-color var(--d-fast) ease;
+}
+
+.stop-btn:hover {
+  background: rgba(201, 207, 221, 0.08);
+  border-color: rgba(201, 207, 221, 0.22);
+  color: var(--slate);
 }
 
 .think-dots i {
@@ -641,6 +730,29 @@ body[data-more="1"] #opanel::after {
 
 .error-row svg {
   flex: 0 0 auto;
+}
+
+.error-row .error-text {
+  flex: 1;
+}
+
+/* The five error messages used to end in "press Enter to retry", which sent
+   the default question because the input clears on send. This sends the one
+   that failed. */
+.retry-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--slate);
+  background: rgba(48, 61, 106, 0.45);
+  padding: 3px 10px;
+  border-radius: 6px;
+  transition: background var(--d-fast) ease;
+}
+
+.retry-btn:hover {
+  background: rgba(48, 61, 106, 0.75);
 }
 
 /* A height the user dragged to: the panel fills the window and the

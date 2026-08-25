@@ -9,6 +9,8 @@ const keyStatus = document.getElementById('key-status');
 const appVersion = document.getElementById('app-version');
 const showPaid = document.getElementById('show-paid');
 const brainEnabled = document.getElementById('brain-enabled');
+const saveHistory = document.getElementById('save-history');
+const launchAtLogin = document.getElementById('launch-at-login');
 const brainComboEl = document.getElementById('brain-combo');
 const brainNoteEl = document.getElementById('brain-note');
 const skillList = document.getElementById('skill-list');
@@ -375,12 +377,98 @@ skillList.addEventListener('click', (e) => {
   });
 });
 
+// ------------------------------------------------------- history and startup
+
+const historyStatus = makeStatus(document.getElementById('history-status'));
+
+function renderHistory() {
+  const n = data.historyCount || 0;
+  setSummary(
+    'history-summary',
+    data.saveHistory
+      ? n
+        ? `${n} saved`
+        : 'On'
+      : 'Off'
+  );
+  const clear = document.getElementById('clear-history');
+  if (clear) clear.hidden = !n;
+}
+
+function renderStartup() {
+  setSummary('startup-summary', data.launchAtLogin ? 'On' : 'Off');
+  const note = document.getElementById('startup-note');
+  if (!note) return;
+  // Unpackaged, the Run key would point at the Electron binary rather than at
+  // AevalBuddy, so the preference is remembered and not applied. Saying so
+  // beats a switch that silently does nothing.
+  note.textContent = data.launchAtLoginLive
+    ? ''
+    : 'Remembered, but only applied in an installed build.';
+  note.hidden = !note.textContent;
+}
+
+saveHistory.addEventListener('change', () => {
+  window.aeval
+    .invoke('settings:set-save-history', { on: saveHistory.checked })
+    .then((r) => {
+      data.saveHistory = r.saveHistory;
+      data.historyCount = r.historyCount;
+      renderHistory();
+      historyStatus(
+        r.saveHistory ? 'New conversations will be kept.' : 'Nothing new will be saved.'
+      );
+    });
+});
+
+launchAtLogin.addEventListener('change', () => {
+  window.aeval
+    .invoke('settings:set-launch-at-login', { on: launchAtLogin.checked })
+    .then((r) => {
+      data.launchAtLogin = r.launchAtLogin;
+      renderStartup();
+    });
+});
+
+document.getElementById('open-history').addEventListener('click', () => {
+  window.aeval.invoke('overlay:open-history');
+});
+
+document.getElementById('clear-history').addEventListener('click', (e) => {
+  const button = e.currentTarget;
+  // Two presses, no dialog: the second one is the confirmation, and the label
+  // says exactly what it will do.
+  if (button.dataset.armed !== '1') {
+    button.dataset.armed = '1';
+    button.textContent = 'Delete everything?';
+    setTimeout(() => {
+      if (button.dataset.armed !== '1') return;
+      button.dataset.armed = '';
+      button.textContent = 'Delete all';
+    }, 4000);
+    return;
+  }
+  button.dataset.armed = '';
+  button.textContent = 'Delete all';
+  window.aeval.invoke('settings:clear-history').then((r) => {
+    data.historyCount = r.historyCount;
+    renderHistory();
+    historyStatus('History deleted.');
+  });
+});
+
 // -------------------------------------------------------------- shortcuts
 
 function renderShortcuts() {
   setSummary(
     'shortcut-summary',
-    [data.shortcuts.captureQuery, data.shortcuts.toggleVisibility].filter(Boolean).join(' · ')
+    [
+      data.shortcuts.captureQuery,
+      data.shortcuts.captureRegion,
+      data.shortcuts.toggleVisibility,
+    ]
+      .filter(Boolean)
+      .join(' · ')
   );
   for (const row of shortcutList.querySelectorAll('.sc-row[data-action]')) {
     const action = row.dataset.action;
@@ -570,6 +658,10 @@ window.aeval.invoke('settings:get').then((d) => {
   showPaid.checked = !!d.showPaid;
   brainEnabled.checked = !!d.brainEnabled;
   showBrainPicker(!!d.brainEnabled);
+  saveHistory.checked = d.saveHistory !== false;
+  launchAtLogin.checked = !!d.launchAtLogin;
+  renderHistory();
+  renderStartup();
   renderKeyState(!!d.hasKey);
   renderSkills(d.skills || [], d.skill);
   renderShortcuts();

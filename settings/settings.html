@@ -133,6 +133,43 @@
         </div>
       </section>
 
+      <section id="sec-history" aria-labelledby="history-heading">
+        <div class="row-head">
+          <h2 id="history-heading">History</h2>
+          <span id="history-summary" class="summary">On</span>
+          <button class="edit" type="button" data-edit="sec-history">Edit</button>
+        </div>
+        <div class="body">
+          <label class="switch">
+            <input id="save-history" type="checkbox" />
+            <span>Keep past conversations so you can find an answer again</span>
+          </label>
+          <p class="note">
+            Text only, on this machine. Screenshots are never written to disk.
+          </p>
+          <div class="row subtle">
+            <button id="open-history" type="button" class="link">Open history</button>
+            <button id="clear-history" type="button" class="link">Delete all</button>
+          </div>
+          <p id="history-status" class="status" role="status" hidden></p>
+        </div>
+      </section>
+
+      <section id="sec-startup" aria-labelledby="startup-heading">
+        <div class="row-head">
+          <h2 id="startup-heading">Startup</h2>
+          <span id="startup-summary" class="summary">Off</span>
+          <button class="edit" type="button" data-edit="sec-startup">Edit</button>
+        </div>
+        <div class="body">
+          <label class="switch">
+            <input id="launch-at-login" type="checkbox" />
+            <span>Start AevalBuddy when I sign in to Windows</span>
+          </label>
+          <p id="startup-note" class="note"></p>
+        </div>
+      </section>
+
       <section id="sec-shortcuts" aria-labelledby="shortcut-heading">
         <div class="row-head">
           <h2 id="shortcut-heading">Shortcuts</h2>
@@ -143,6 +180,12 @@
           <ul id="shortcut-list">
             <li class="sc-row" data-action="captureQuery">
               <span class="sc-label">Ask</span>
+              <kbd class="sc-current"></kbd>
+              <button class="sc-change" type="button">Change</button>
+              <span class="sc-warn" hidden>Taken by another app</span>
+            </li>
+            <li class="sc-row" data-action="captureRegion">
+              <span class="sc-label">Ask about an area</span>
               <kbd class="sc-current"></kbd>
               <button class="sc-change" type="button">Change</button>
               <span class="sc-warn" hidden>Taken by another app</span>

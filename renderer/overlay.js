@@ -10,6 +10,10 @@ const noticeText = document.getElementById('notice-text');
 const noticeSettings = document.getElementById('notice-settings');
 const hud = document.getElementById('hud');
 const hudDone = document.getElementById('hud-done');
+const regionBtn = document.getElementById('region-btn');
+const regionChip = document.getElementById('region-chip');
+const regionSize = document.getElementById('region-size');
+const regionClear = document.getElementById('region-clear');
 
 let state = { mode: 'pill', hasKey: false, captureOk: true };
 let watchSelector = null;
@@ -41,6 +45,7 @@ function render(prevMode) {
     document.documentElement.style.setProperty('--panel-w', state.inputWidth + 'px');
   }
   applyAnchor();
+  renderRegion();
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel';
   hud.hidden = state.mode !== 'hud';
@@ -56,6 +61,15 @@ function render(prevMode) {
   if (state.mode === 'pill' && prevMode !== 'pill') {
     replayAnim(pill, 'in');
   }
+}
+
+// The chip is the only thing telling the user that "what about now?" is
+// about a rectangle rather than the desktop.
+function renderRegion() {
+  const r = state.region;
+  document.body.dataset.region = r ? '1' : '0';
+  regionChip.hidden = !r;
+  if (r) regionSize.textContent = `Asking about a ${r.width} × ${r.height} area`;
 }
 
 function renderNotice() {
@@ -128,6 +142,12 @@ pill.addEventListener('keydown', (e) => {
   }
 });
 
+regionBtn.addEventListener('click', () => {
+  window.aeval.invoke('region:pick');
+});
+regionClear.addEventListener('click', () => {
+  window.aeval.invoke('region:clear');
+});
 settingsBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:open-settings');
 });

@@ -23,12 +23,60 @@ On the very first launch a pointer appears and walks you to the settings panel, 
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+Shift+Space` | Capture the screen and open the query panel |
+| `Ctrl+Shift+A` | Draw a box around part of the screen and ask about that |
 | `Ctrl+Shift+H` | Hide or show the overlay |
-| `Esc` | Collapse the panel, close settings, exit the layout editor, or dismiss the walkthrough |
+| `Esc` | Collapse the panel, close settings, cancel an area selection, exit the layout editor, or dismiss the walkthrough |
+
+There is a tray icon too: left-click it to ask, right-click for the same
+actions plus History, Settings and Quit. It is the way back in if you hide the
+overlay and forget the shortcut, because none of these windows appear in the
+taskbar or in Alt-Tab.
 
 Type a question and press Enter, or press Enter on an empty box to send the default prompt ("What's on my screen and what should I do?"). Clicking the idle pill does the same thing as the capture shortcut.
 
-It works like a messaging app, without looking like one. Your question appears as a small chip on the right, the answer streams in underneath as prose rather than in a coloured bubble, and typing again sends a follow-up in the same conversation (each message captures the screen fresh, so "what about now?" means now). The transcript scrolls inside the answer window instead of bouncing its size around. Hover an answer for its Copy button, select text for partial copies, right-click for copy and paste menus, and use the + at the top of the answer window to start over. Collapsing with Esc keeps the conversation; it comes back with the next capture. Nothing is saved to disk; quitting clears it.
+It works like a messaging app, without looking like one. Your question appears as a small chip on the right, the answer streams in underneath as prose rather than in a coloured bubble, and typing again sends a follow-up in the same conversation (each message captures the screen fresh, so "what about now?" means now). The transcript scrolls inside the answer window instead of bouncing its size around. Hover an answer for its Copy button, select text for partial copies, right-click for copy and paste menus, and use the + at the top of the answer window to start over. Collapsing with Esc keeps the conversation; it comes back with the next capture.
+
+While an answer is on its way there is a Stop beside it, which matters because
+the default models are free and therefore queued: waits of half a minute are
+ordinary. If a request fails, the error says what happened and offers Retry,
+which re-sends the question that failed rather than starting a new one.
+
+Most failures never reach you. Free models are rate limited by design, so a
+429, a 404 on a retired model, or a provider hiccup moves the request to the
+next free model automatically and says which one in the status line. Only a
+rejected key, no credit, or a genuinely malformed request stops the request,
+because no other model would answer those differently.
+
+### Asking about part of the screen
+
+`Ctrl+Shift+A`, or the crop button in the panel. The screen dims, you drag a
+box, and the question is about what is inside it.
+
+This is the single biggest thing you can do for answer quality. A whole 2560px
+desktop has to be squeezed into the app's 1600px budget before it is sent, so
+12px interface text arrives at about seven pixels and the model is guessing at
+glyphs. A 600x300 selection fits inside the same budget untouched, so it goes
+at full resolution and small text is simply legible. It is also faster and
+cheaper: a small image is a fraction of the tokens.
+
+The selection sticks to the conversation, not to the one message, so a
+follow-up looks at the same box. The panel shows a chip saying which area is in
+force; "Whole screen" on that chip, or New chat, clears it. When the assistant
+points at something it points inside the area, not at the equivalent spot on
+the whole screen.
+
+### Finding an answer again
+
+Conversations are kept so you can come back to them. Press the clock icon at
+the top of the answer window, or pick History from the tray, and you get a
+searchable list: the question, the opening of the answer, and when it was.
+Search reaches the whole conversation, not just the titles. Click one to load
+it back into the transcript, or delete rows individually.
+
+Text only, on this machine, in your user profile. Screenshots are never
+written to disk and neither is the reader's description of one. Settings has a
+switch to stop saving and a Delete all beside it; turning saving off stops new
+writes and leaves what is already there until you delete it deliberately.
 
 Answers render markdown: headings, lists, bold, inline code, fenced code blocks, and links that open in your browser. And when an answer involves a specific place on your screen, the assistant sends the pointer there: an arrow glides to the exact pixel and a speech bubble types out what to do, with the tail pointing back at the arrow.
 
@@ -36,7 +84,7 @@ The bubble is the control. Click it once to finish the typing, click again for t
 
 The input bar and the answer are separate windows. By default the answer docks under the input bar; the layout editor can split them apart (see Layout).
 
-The first two shortcuts are rebindable in settings: press Change, then press the new combo. New combos must include Ctrl, Alt, or Win. If another app already owns the combo, settings shows an inline error and keeps listening for a different one. Changes apply immediately, no restart. `Esc` is fixed. Shortcuts are listed in settings only; the query panel stays clean.
+The first three shortcuts are rebindable in settings: press Change, then press the new combo. New combos must include Ctrl, Alt, or Win. If another app already owns the combo, settings shows an inline error and keeps listening for a different one. Changes apply immediately, no restart. `Esc` is fixed. Shortcuts are listed in settings only; the query panel stays clean.
 
 ### Model
 
@@ -116,7 +164,7 @@ Settings has "Edit layout". It turns both windows into draggable layout ghosts, 
 
 To separate the answer from the input bar, drag the answer ghost clear of the dock zone, or just press its Detach button; press Dock to input (or drop it back near the input bar) to reattach, shown by a "Docked to input" badge. A docked answer follows the input bar and grows away from it (downward from a top anchor, upward from a bottom one). Press Done or Esc to keep the layout. The pill, the input bar, the answer, and future launches all use the saved positions.
 
-Quit from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the hotkeys and the pill are the whole interface. The settings footer shows the app version, which is the quick way to confirm which build is running.
+Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. Settings can also start AevalBuddy when you sign in to Windows; it is off until you ask for it. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ## Develop it (the live-reload loop)
 
@@ -134,7 +182,7 @@ Two rules that save confusion. Only one copy of the app can run at a time (a sec
 npm run shots
 ```
 
-This boots the app, drives every surface into a representative state, and writes a PNG of each one to `shots/`: the pill, the query panel with and without a key, a frame caught part way through the opening glide, the conversation, the thinking state, both layout ghosts, settings top and bottom, both model lists, the pointer with its bubble, and one shot of the real overlay composited over the desktop.
+This boots the app, drives every surface into a representative state, and writes a PNG of each one to `shots/`: the pill, the query panel with and without a key, a frame caught part way through the opening glide, the conversation, the thinking state, both layout ghosts, settings top and bottom, both model lists, the panel with an area chip, an error with its Retry, a request in flight with its Stop, the history list, the area selector mid-drag, the pointer with its bubble, and one shot of the real overlay composited over the desktop.
 
 That last one matters: `capturePage` renders the page in isolation, so it can never show the acrylic backdrop or the system shadow, because neither belongs to the page. The live shot goes through `desktopCapturer` with content protection off for a single frame (and straight back on), cropped to the overlay plus a margin, so what lands on disk is what a person actually sees and nothing else from the desktop.
 
@@ -167,12 +215,17 @@ Below Windows 10 build 19041 the call does nothing at all, so the app checks the
 - One surface per window: the query bar has no field inside it, because a bordered input inside a bordered panel is the loudest tell that a UI was assembled rather than designed. Focus is the caret plus the panel border lifting, never a ring.
 - An answer is a document, so it renders as prose directly on the surface. Only the question keeps a container, a quiet chip, which is what preserves the sense of a conversation without the app looking like a toy chat client.
 - Opening animates the OS window, not just its contents. CSS can only move pixels inside a window, so a CSS scale played after Electron paints the window at full size reads as a snap followed by a wobble; that was the flash. `lib/motion.js` glides the window bounds themselves on the same curve, and the stylesheets pin each panel to the edge the window grows away from, so the growth uncovers a finished layout instead of reflowing one. Under `prefers-reduced-motion`, read once from the renderer at boot, every window transition collapses to a single setBounds.
-- The pointer's arrow has its tip at its own element origin, so the transform is the target pixel with no centring maths in between. Coordinates map from image pixels to screen position by ratio, which sidesteps DPI scaling.
+- The pointer's arrow has its tip on its own element origin, so the transform is the target pixel with no centring maths in between. The stylesheet pulls the svg back by the offset between the path's apex and its box, because the apex is at (3.38, 0.29) and assuming it was at the origin put every point three pixels to the right.
+- One coordinate system end to end: every model, whether it reads the screen or answers from a reading, gives positions on a 0 to 1000 grid, and the app maps that to the display by ratio, which sidesteps DPI scaling. Asking a vision model for pixels instead was the single largest source of misplaced pointers; it is never told how large the view it received is, so it answered on the grid it was trained on and the app divided those numbers by the image size.
 - The conversation is held in memory only. The model sees up to the last 12 turns as text; only the newest message carries the screen image, so request size stays flat.
-- The pointer directive is plain text in the stream (`[[point x=.. y=.. | label]]`), stripped before display. Models vary in how reliably they emit it; a garbled one renders as ordinary text rather than crashing anything.
+- The pointer directive is plain text in the stream (`[[point x=.. y=.. | label]]`), stripped before display. It is read loosely, because models drift: a bare pair, parentheses, a decimal, a dash before the label all resolve. One that drifts too far to read is swallowed rather than printed, since showing the user raw brackets loses the pointer and shows the machinery as well.
 - Skills are read from disk once at boot and appended to the system prompt as a procedure, keeping their line breaks. A skill file that disappears between versions falls back to the default rather than silently sending nothing.
-- The screen view covers the primary display only and is downscaled to at most 1280px wide, then JPEG-compressed to stay under ~1MB per request.
+- The screen view covers the display the mouse pointer is on, and the pointer window opens on that same display. Both used to be the primary one unconditionally, which on a two-monitor desk meant reading one screen and pointing at it while the user was looking at the other. The view is downscaled to at most 1600px on its long edge, then JPEG-compressed to stay under ~1.6MB per request.
 - Screen capture, the API key, and all model calls live in the Electron main process. Renderers talk to it through a small allowlisted IPC bridge and never see the key.
+- An area is captured differently from the whole screen. The whole screen is asked of `desktopCapturer` at the long-edge budget directly, because decoding a 4K desktop at full size to shrink it is wasted work. An area is grabbed at the display's native resolution and cropped, so the selection keeps every pixel it had; only a selection larger than the budget is shrunk at all. The shot carries the rectangle it covers, and pointer coordinates map into that rectangle rather than onto the display.
+- Model failover is one request's business only. It never writes the substitute to settings, and it never applies to a paid model: silently moving a billed request onto a different billed model is not the app's decision. It stops after three attempts, and it stops immediately once any answer text has reached the screen, because half an answer cannot be replaced by another model's half.
+- History is a single JSON file rewritten whole, written through a temp file and a rename so a crash mid-write cannot leave half of one. Two hundred conversations of prose is a few megabytes; there is no case for a database, and the write is debounced so a ten-turn conversation does not rewrite the file ten times.
+- The tray exists because every window here sets `skipTaskbar` and the Windows `toolbar` type, which is right for an overlay and wrong for the only copy of an application: hidden with its shortcut and with the shortcut forgotten, the app had no surface left to click. Its icon is the pointer's own arrow, rasterised from the same polygon and carried as base64, so the repository stays text-only.
 - The pointer glides on a requestAnimationFrame interpolation loop, so it moves continuously instead of stepping. Its window is click-through everywhere except over the bubble, so it never blocks your work; hit-testing also stays on for the whole of a drag, otherwise letting the cursor slip off the bubble would drop it mid-gesture.
 - Markdown rendering is a small built-in renderer: model text is HTML-escaped before any transform, so answers cannot inject markup, and links only open http or https URLs through the system browser.
 - The answer window is sized to the transcript exactly, with an 8px deadband so it does not twitch. It refuses to shrink while an answer is streaming, so the bottom edge does not chase the text as it arrives.

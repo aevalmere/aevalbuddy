@@ -8,6 +8,7 @@
 const opanel = document.getElementById('opanel');
 const chatEl = document.getElementById('chat');
 const newChatBtn = document.getElementById('new-chat');
+const historyBtn = document.getElementById('history-btn');
 const hud = document.getElementById('hud');
 const hudDone = document.getElementById('hud-done');
 const dockToggle = document.getElementById('dock-toggle');
@@ -93,6 +94,24 @@ function addAssistantMsg() {
 
   const meta = document.createElement('div');
   meta.className = 'msg-meta';
+
+  // The default models are free, which means queued: a wait of half a minute
+  // is ordinary and there was no way out of one except collapsing the panel
+  // and losing the turn. Stop lives beside the answer it is stopping, and
+  // stays there through the stream rather than only during the dots.
+  const stop = document.createElement('button');
+  stop.type = 'button';
+  stop.className = 'stop-btn';
+  stop.textContent = 'Stop';
+  stop.hidden = true;
+  stop.setAttribute('aria-label', 'Stop this answer');
+  stop.addEventListener('click', () => {
+    stop.disabled = true;
+    stop.textContent = 'Stopping';
+    window.aeval.invoke('query:cancel');
+  });
+  meta.appendChild(stop);
+
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.className = 'copy-msg';
@@ -102,7 +121,7 @@ function addAssistantMsg() {
   msg.appendChild(meta);
 
   chatEl.appendChild(msg);
-  const entry = { el: msg, body, raw: '' };
+  const entry = { el: msg, body, raw: '', stop };
   copy.addEventListener('click', () => {
     if (!entry.raw) return;
     window.aeval.invoke('clipboard:write', { text: entry.raw }).then(() => {
@@ -113,6 +132,18 @@ function addAssistantMsg() {
     });
   });
   return entry;
+}
+
+// While this is on, the answer is still coming and the row shows Stop
+// instead of Copy.
+function setBusy(entry, on) {
+  if (!entry) return;
+  entry.el.classList.toggle('busy', on);
+  entry.stop.hidden = !on;
+  if (!on) {
+    entry.stop.disabled = false;
+    entry.stop.textContent = 'Stop';
+  }
 }
 
 function setThinking(entry, on, label) {
@@ -133,7 +164,7 @@ function setThinking(entry, on, label) {
   entry.el.classList.toggle('thinking', on);
 }
 
-function addErrorRow(message) {
+function addErrorRow(message, question) {
   const row = document.createElement('div');
   row.className = 'msg error-row';
   row.setAttribute('role', 'alert');
@@ -144,8 +175,22 @@ function addErrorRow(message) {
     '<line x1="15" y1="9" x2="9" y2="15"></line>' +
     '<line x1="9" y1="9" x2="15" y2="15"></line></svg>';
   const span = document.createElement('span');
+  span.className = 'error-text';
   span.textContent = message;
   row.appendChild(span);
+  if (question) {
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'retry-btn';
+    retry.textContent = 'Retry';
+    retry.title = `Ask "${question}" again`;
+    retry.addEventListener('click', () => {
+      row.remove();
+      requestResize();
+      window.aeval.invoke('query:retry');
+    });
+    row.appendChild(retry);
+  }
   chatEl.appendChild(row);
   scrollToBottom(true);
 }
@@ -269,6 +314,7 @@ window.aeval.on('query:start', ({ gen }) => {
   }
   liveMsg = addAssistantMsg();
   setThinking(liveMsg, true);
+  setBusy(liveMsg, true);
   scrollToBottom(true);
   requestResize();
 });
@@ -292,6 +338,7 @@ window.aeval.on('query:delta', ({ gen, text }) => {
 window.aeval.on('query:done', ({ gen }) => {
   if (gen < lastGen) return;
   if (liveMsg) {
+    setBusy(liveMsg, false);
     if (!liveMsg.raw) {
       // Nothing streamed (for example an abort before the first token);
       // an empty bubble is noise.
@@ -305,14 +352,15 @@ window.aeval.on('query:done', ({ gen }) => {
   requestResize();
 });
 
-window.aeval.on('query:error', ({ gen, message }) => {
+window.aeval.on('query:error', ({ gen, message, question }) => {
   if (gen < lastGen) return;
   if (liveMsg) {
+    setBusy(liveMsg, false);
     if (!liveMsg.raw) liveMsg.el.remove();
     else setThinking(liveMsg, false);
     liveMsg = null;
   }
-  addErrorRow(message);
+  addErrorRow(message, question);
   requestResize();
 });
 
@@ -346,6 +394,10 @@ window.aeval.on('chat:sync', ({ messages }) => {
 
 newChatBtn.addEventListener('click', () => {
   window.aeval.invoke('chat:new');
+});
+
+historyBtn.addEventListener('click', () => {
+  window.aeval.invoke('overlay:open-history');
 });
 
 // Links from model answers open in the default browser, main-process

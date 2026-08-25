@@ -1,10 +1,14 @@
 /* The pointer and its speech bubble. Own transparent window covering the
-   primary display, click-through except while the cursor is over the bubble.
+   display the points were read off, click-through except while the cursor is
+   over the bubble.
 
-   Two rules matter here. The arrow's tip is at its own (0,0), so the element
-   translate is the target pixel with no centring maths anywhere. And there
-   is no glow: a soft drop shadow reads as a real cursor sitting above the
-   desktop, a coloured halo reads as a game reticle.
+   Two rules matter here. The arrow's tip sits on the element's own (0,0), so
+   the element translate is the target pixel with no centring maths anywhere.
+   That is arranged by --tip-x / --tip-y below rather than assumed: the apex
+   of the path is at (3.38, 0.29) in its own viewBox, and leaving it there put
+   every point three pixels right of where the model meant. And there is no glow: a
+   soft drop shadow reads as a real cursor sitting above the desktop, a
+   coloured halo reads as a game reticle.
 
    Palette as everywhere else: black, space indigo, shadow grey, grape soda,
    pale slate, twilight indigo. */
@@ -47,10 +51,17 @@ body {
   transition: opacity 360ms ease;
 }
 
+/* Where the apex of the arrow path falls inside its own viewBox. Pulling the
+   svg back by exactly that much is what puts the tip on the element origin. */
+:root {
+  --tip-x: 3.38px;
+  --tip-y: 0.29px;
+}
+
 .arrow {
   position: absolute;
-  left: 0;
-  top: 0;
+  left: calc(-1 * var(--tip-x));
+  top: calc(-1 * var(--tip-y));
   overflow: visible;
   /* Depth, not glow: the same offset shadow Windows draws under its own
      cursor, so the arrow sits on the desktop instead of hovering over it. */
@@ -66,9 +77,11 @@ body {
 }
 
 /* Every arrow animation pivots on the tip, so the tip never leaves the pixel
-   it is pointing at no matter what the rest of it is doing. */
+   it is pointing at no matter what the rest of it is doing. transform-origin
+   is measured inside the element, so it is the tip's own coordinates and not
+   the offset above. */
 .arrow {
-  transform-origin: 3px 2px;
+  transform-origin: var(--tip-x) var(--tip-y);
 }
 
 /* Resting: an occasional small tap, so it reads as a companion standing

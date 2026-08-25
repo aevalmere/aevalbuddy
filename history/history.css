@@ -1,0 +1,335 @@
+/* Same surface tokens and the same restraint as settings: hairlines between
+   things, no cards, no icons standing in for words.
+
+   One rule specific to this window. A history list is read by scanning, so the
+   question is the only thing set at full strength; the answer preview and the
+   timestamp sit back a step, and the row's own frame appears only under the
+   cursor. Fifty rows of equally loud text is a wall, not a list. */
+
+:root {
+  --black: #000000;
+  --indigo: #10254F;
+  --grey: #2B2C33;
+  --accent: #823A80;
+  --slate: #C9CFDD;
+  --twilight: #303D6A;
+  --danger: #E4818C;
+  --scroll-thumb: rgba(201, 207, 221, 0.26);
+  --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --d-fast: 150ms;
+  --gutter: 16px;
+  --hairline: rgba(201, 207, 221, 0.10);
+  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  color: var(--slate);
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
+  border: 1px solid rgba(201, 207, 221, 0.17);
+  border-radius: 12px;
+  box-shadow: var(--bevel);
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------- titlebar */
+
+#titlebar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 10px var(--gutter);
+  -webkit-app-region: drag;
+}
+
+#titlebar .title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(201, 207, 221, 0.75);
+}
+
+#titlebar button {
+  -webkit-app-region: no-drag;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: rgba(201, 207, 221, 0.6);
+  transition: background var(--d-fast), color var(--d-fast);
+}
+
+#titlebar button:hover {
+  background: rgba(201, 207, 221, 0.09);
+  color: var(--slate);
+}
+
+/* ------------------------------------------------------------------ search */
+
+#searchbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--gutter) 10px;
+  padding: 0 10px;
+  height: 32px;
+  border: 1px solid rgba(201, 207, 221, 0.14);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(201, 207, 221, 0.45);
+  transition: border-color var(--d-fast);
+}
+
+#searchbar:focus-within {
+  border-color: rgba(130, 58, 128, 0.75);
+  color: rgba(201, 207, 221, 0.7);
+}
+
+#search {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--slate);
+  background: none;
+  border: none;
+  outline: none;
+  user-select: text;
+}
+
+#search::placeholder {
+  color: rgba(201, 207, 221, 0.38);
+}
+
+/* The platform's own clear affordance draws a second, differently-styled X
+   next to ours. */
+#search::-webkit-search-cancel-button {
+  display: none;
+}
+
+#clear-search {
+  flex: none;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.55);
+}
+
+#clear-search:hover {
+  color: var(--slate);
+}
+
+/* -------------------------------------------------------------------- list */
+
+#list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 8px 4px;
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+#list::-webkit-scrollbar {
+  width: 10px;
+}
+
+#list::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 5px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+#list::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: content-box;
+}
+
+.item {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 34px 10px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: background var(--d-fast), border-color var(--d-fast);
+}
+
+.item + .item {
+  box-shadow: 0 -1px 0 var(--hairline);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: rgba(201, 207, 221, 0.055);
+  border-color: rgba(201, 207, 221, 0.12);
+  box-shadow: none;
+}
+
+/* The hairline belongs to the row below; a hovered row lifts out of the list,
+   so the one after it must not keep drawing a line into its rounded corner. */
+.item:hover + .item,
+.item:focus-visible + .item {
+  box-shadow: none;
+}
+
+.item .q {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--slate);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item .a {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: rgba(201, 207, 221, 0.5);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item .meta {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: rgba(201, 207, 221, 0.36);
+  font-variant-numeric: tabular-nums;
+}
+
+.item mark {
+  background: rgba(130, 58, 128, 0.42);
+  color: #F3E9F2;
+  border-radius: 2px;
+}
+
+.del {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  color: rgba(201, 207, 221, 0.4);
+  opacity: 0;
+  transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast);
+}
+
+.item:hover .del,
+.del:focus-visible {
+  opacity: 1;
+}
+
+.del:hover {
+  background: rgba(228, 129, 140, 0.14);
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------- empty */
+
+#empty {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 0 32px 24px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(201, 207, 221, 0.42);
+}
+
+#empty[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ footer */
+
+#foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--gutter);
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+#foot .spacer {
+  flex: 1 1 auto;
+}
+
+.link {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.62);
+  text-decoration: underline;
+  text-decoration-color: rgba(201, 207, 221, 0.28);
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--slate);
+  text-decoration-color: rgba(201, 207, 221, 0.6);
+}
+
+.link.danger:hover {
+  color: var(--danger);
+  text-decoration-color: rgba(228, 129, 140, 0.6);
+}
+
+#confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#confirm[hidden] {
+  display: none;
+}

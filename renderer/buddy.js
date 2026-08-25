@@ -5,10 +5,10 @@
 // remaining distance toward the target, so updates arriving from the main
 // process at any cadence still render as one continuous motion.
 //
-// Positioning is deliberately literal. The arrow's tip is at its element
-// origin, so the transform IS the target pixel; there is no centring offset
-// anywhere in this file, which is what makes it land on the exact spot the
-// model named.
+// Positioning is deliberately literal. The transform IS the target pixel;
+// there is no centring offset anywhere in this file. The one offset that has
+// to exist, between the arrow path's apex and its element origin, lives in
+// the stylesheet next to the path it belongs to.
 
 const buddy = document.getElementById('buddy');
 const callout = document.getElementById('callout');

@@ -10,9 +10,11 @@
 <body>
   <!-- A soft, rounded pointer rather than a copy of the Windows arrow: same
        job, but plumper, with rounded joins and the app's own accent, so it
-       reads as the buddy's hand and not as a stray system cursor. The tip
-       still sits at the element's own origin, so translating the element to
-       a coordinate lands the tip on that exact pixel. -->
+       reads as the buddy's hand and not as a stray system cursor. The apex of
+       the path is at (3.38, 0.29) in this viewBox; the stylesheet pulls the
+       svg back by that much, so translating the element to a coordinate lands
+       the tip on that exact pixel. Move the path and the offset moves with
+       it. -->
   <div id="buddy" aria-hidden="true">
     <svg class="arrow" viewBox="0 0 26 30" width="26" height="30">
       <path class="arrow-body"

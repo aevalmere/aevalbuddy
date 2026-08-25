@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'" />
+  <title>AevalBuddy area</title>
+  <link rel="stylesheet" href="region.css" />
+</head>
+<body>
+  <!-- Four scrim panels rather than one with a hole cut in it: a box-shadow
+       spread large enough to darken a 4K desktop is a very large blur surface
+       to repaint on every mousemove, and four rectangles are four cheap
+       compositor layers that move instead of redraw. -->
+  <div class="scrim" id="scrim-top"></div>
+  <div class="scrim" id="scrim-bottom"></div>
+  <div class="scrim" id="scrim-left"></div>
+  <div class="scrim" id="scrim-right"></div>
+
+  <div id="sel" hidden>
+    <span class="edge edge-t"></span>
+    <span class="edge edge-b"></span>
+    <span class="edge edge-l"></span>
+    <span class="edge edge-r"></span>
+    <span class="corner c-tl"></span>
+    <span class="corner c-tr"></span>
+    <span class="corner c-bl"></span>
+    <span class="corner c-br"></span>
+  </div>
+
+  <div id="size" hidden></div>
+
+  <div id="hint">
+    <span class="face" aria-hidden="true"><span class="eye"></span><span class="eye"></span></span>
+    <span>Drag the part of the screen you want to ask about</span>
+    <kbd>Esc</kbd>
+  </div>
+
+  <script src="region.js"></script>
+</body>
+</html>
