@@ -1,10 +1,32 @@
-/* The area selector. Same palette as everything else: black, space indigo,
-   shadow grey, grape soda, pale slate, twilight indigo.
+/* The area selector.
 
    The one rule here is that the selection must read as a hole in the scrim
    rather than a box drawn on top of it. Nothing tints the inside, the border
    sits entirely outside the chosen pixels, and the corner ticks point inward,
-   so what the user sees framed is exactly what the model receives. */
+   so what the user sees framed is exactly what the model receives.
+
+   This is the only surface with no surface of its own: every other window in
+   the app supplies its own background and can therefore use the palette
+   directly, while this one is a sheet of glass laid over a white document or
+   a black editor, whichever the user happens to be pointing at. Two values
+   are brighter than the palette for that reason and no other, and both are
+   named here rather than written inline, so the exception is countable. The
+   rest of the file is the palette. See DESIGN.md. */
+
+:root {
+  --accent: #823A80;
+  --slate: #C9CFDD;
+  --twilight: #303D6A;
+  /* Grape soda at the palette value is a dark violet, which is what it is
+     meant to be on the app's own dark surfaces. On a black editor, 3px of it
+     is a smudge. The ticks are the one mark that says which pixels are being
+     sent, so they take the lifted accent. */
+  --accent-bright: #C56FC3;
+  /* An error cannot be signalled with the accent, because the accent means
+     "this is the action". Shared with the history window's Delete all. */
+  --danger: #E4818C;
+  --danger-edge: #6B2E38;
+}
 
 * {
   box-sizing: border-box;
@@ -63,7 +85,7 @@ body:not([data-dragging]) #scrim-right {
    whatever the user is pointing it at. */
 .edge {
   position: absolute;
-  background: #E8EBF2;
+  background: var(--slate);
   box-shadow: 0 0 0 1px rgba(11, 12, 16, 0.55);
 }
 
@@ -91,7 +113,7 @@ body:not([data-dragging]) #scrim-right {
   position: absolute;
   width: 15px;
   height: 15px;
-  border: 3px solid #C56FC3;
+  border: 3px solid var(--accent-bright);
   /* Same reasoning as the edges: a dark rim keeps the accent readable on a
      pale background without turning the corner into a block of colour. */
   filter: drop-shadow(0 0 1px rgba(11, 12, 16, 0.85));
@@ -111,9 +133,9 @@ body:not([data-dragging]) #scrim-right {
   font-weight: 600;
   letter-spacing: .02em;
   font-variant-numeric: tabular-nums;
-  color: #E8EBF2;
+  color: var(--slate);
   background: rgba(18, 20, 28, 0.92);
-  border: 1px solid #303D6A;
+  border: 1px solid var(--twilight);
   border-radius: 4px;
   padding: 4px 8px;
   white-space: nowrap;
@@ -124,8 +146,8 @@ body:not([data-dragging]) #scrim-right {
 }
 
 #size.too-small {
-  color: #E4818C;
-  border-color: #6B2E38;
+  color: var(--danger);
+  border-color: var(--danger-edge);
 }
 
 /* ------------------------------------------------------------------ hint */
@@ -139,9 +161,9 @@ body:not([data-dragging]) #scrim-right {
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: #E8EBF2;
+  color: var(--slate);
   background: rgba(18, 20, 28, 0.92);
-  border: 1px solid #303D6A;
+  border: 1px solid var(--twilight);
   border-radius: 999px;
   padding: 8px 16px 8px 12px;
   box-shadow: 0 8px 28px -14px rgba(0, 0, 0, .9);
@@ -169,7 +191,7 @@ body[data-dragging] #hint {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #823A80;
+  background: var(--accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -181,15 +203,15 @@ body[data-dragging] #hint {
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: #F1E7F0;
+  background: var(--slate);
 }
 
 kbd {
   font: inherit;
   font-size: 11px;
   font-weight: 600;
-  color: #A9B0C2;
-  border: 1px solid #3A4260;
+  color: rgba(201, 207, 221, 0.72);
+  border: 1px solid var(--twilight);
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 1px 5px;

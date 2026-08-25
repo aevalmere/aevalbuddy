@@ -38,6 +38,24 @@ and cards (~30%), grape soda is reserved for the primary action, focus, and the 
 Secondary text is slate at 0.70 alpha minimum (measured 4.5:1 or better on every surface it sits on);
 never lower for text under 14px.
 
+### The three values that are not in it
+
+"Nothing else" held until the app grew a surface with no surface of its own. Every window here supplies
+its own background, so the palette is always measured against a known dark grey. The area selector is
+not a window with a background; it is a sheet of glass over whatever the user happens to be pointing at,
+which is as often a white document as a black editor.
+
+| Token | Value | Where | Why the palette value does not work |
+| --- | --- | --- | --- |
+| `--accent-bright` | `#C56FC3` | the selection's corner ticks | grape soda is a dark violet by design, which is right on the app's own dark surfaces and a smudge on a black editor. The ticks are the one mark saying which pixels get sent |
+| `--danger` | `#E4818C` | the too-small warning, Delete all | the accent means "this is the action". An error that borrows it says the opposite of what it means |
+| `--danger-edge` | `#6B2E38` | that warning's border | the rim that keeps `--danger` legible against a pale background |
+
+So the rule that replaces "nothing else": a value outside the six is named as a token where it is
+defined, carries its reason there, and is listed here. An unnamed hex sitting inline in a stylesheet is
+still a defect, because it is a decision nobody can count. `renderer/region.css` had seven of them
+under a header comment claiming it used the palette.
+
 ## Type
 
 Two families: Segoe UI (system) for UI, Consolas for code. Scale: 15 input text, 14 body, 13 secondary,

@@ -20,6 +20,7 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --d-fast: 150ms;
   --gutter: 16px;
+  --control: 32px;
   --hairline: rgba(201, 207, 221, 0.10);
   --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
 }
@@ -109,16 +110,22 @@ button {
   gap: 8px;
   margin: 0 var(--gutter) 10px;
   padding: 0 10px;
-  height: 32px;
-  border: 1px solid rgba(201, 207, 221, 0.14);
-  border-radius: 7px;
-  background: rgba(0, 0, 0, 0.22);
+  height: var(--control);
+  /* Borderless at rest and separated by a background shift, because a
+     bordered field inside a bordered window is the one tell v0.4 was spent
+     removing from the query bar. Focus lifts the frame to slate at the same
+     0.3 the panel and the settings fields use; the accent is not spent on a
+     search box, it belongs to the primary action. */
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(201, 207, 221, 0.07);
   color: rgba(201, 207, 221, 0.45);
-  transition: border-color var(--d-fast);
+  transition: border-color var(--d-fast), background-color var(--d-fast);
 }
 
 #searchbar:focus-within {
-  border-color: rgba(130, 58, 128, 0.75);
+  border-color: rgba(201, 207, 221, 0.3);
+  background: rgba(201, 207, 221, 0.1);
   color: rgba(201, 207, 221, 0.7);
 }
 
