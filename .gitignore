@@ -1,5 +1,6 @@
 node_modules/
 dist/
+build/
 shots/
 npm-debug.log*
 Thumbs.db

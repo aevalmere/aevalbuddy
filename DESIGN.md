@@ -50,6 +50,7 @@ which is as often a white document as a black editor.
 | `--accent-bright` | `#C56FC3` | the selection's corner ticks | grape soda is a dark violet by design, which is right on the app's own dark surfaces and a smudge on a black editor. The ticks are the one mark saying which pixels get sent |
 | `--danger` | `#E4818C` | the too-small warning, Delete all | the accent means "this is the action". An error that borrows it says the opposite of what it means |
 | `--danger-edge` | `#6B2E38` | that warning's border | the rim that keeps `--danger` legible against a pale background |
+| `--skin` | `#3E404A` to `#262930` | every window's background | the material that replaced acrylic. A top-lit gradient reads as dimensional; a flat palette grey reads as a sticker. Defined in `renderer/overlay.css` |
 
 So the rule that replaces "nothing else": a value outside the six is named as a token where it is
 defined, carries its reason there, and is listed here. An unnamed hex sitting inline in a stylesheet is
@@ -385,3 +386,74 @@ rather than level with them.
 
 Content protection is guarded on the Windows build. Below 19041 the call does nothing, and settings says
 so rather than letting the user believe the overlay is hidden when it is not.
+
+## v1: three things that were true, and unverified
+
+Each of these survived every previous round for the same reason: nothing in the
+project was watching for it. Two of the three were even being measured.
+
+### The default model had been retired out from under the app
+
+`npm run shots` photographed the model picker every time it ran, and the
+picker labelled the app's own shipped default "Custom model id". The smoke run
+printed `modelDefaultOffered=false` on every launch. Both were correct, and
+both went past unread, because a photograph nobody opens and a value in a
+column of ninety are the same as no check at all.
+
+`nvidia/nemotron-nano-12b-v2-vl:free` is not in OpenRouter's catalogue any
+more — not retired to paid, not renamed, absent from all 418 entries. So every
+fresh install asked its first question of a model that does not exist, took a
+404, and failed over. The app recovered, which is exactly why nobody noticed:
+the failover built to hide this class of problem hid it.
+
+The replacement is chosen for the same reason the original was.
+`nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` describes itself as a
+perception sub-agent for a larger agent system, which is the job this app
+gives it: look at the screen, report what is there, and let the brain act on
+the report. 3B of its 30B parameters are active per token, so it does not pay
+for that in latency.
+
+The fix that matters is not the id. A suite that only reports is a suite that
+watches things break, so the run now separates observations from invariants:
+`must()` fails the run and takes the exit code with it. Four to begin with —
+the windows exist, the tray came up, and both defaults are offered by the live
+catalogue. The last one is the check that was already there, wired to a
+consequence.
+
+### An application wearing someone else's logo
+
+The `.exe`, the installer, the Start Menu shortcut and the Add/Remove Programs
+entry all showed Electron's default icon, and `electron-builder` said so on
+every single build: `default Electron icon is used`. It is invisible to the
+visual self-check because it is not a surface the app draws.
+
+It is generated rather than committed, for the same reason the tray icon is
+carried as base64: the repository stays text-only and there is no build step
+to install. `tools/make-icon.js` reads the pointer's path out of
+`renderer/buddy.html` and its colours out of `renderer/cursor-buddy.css`,
+flattens the quadratics, rasterises with a supersampled distance test and
+writes seven sizes into an ICO. No dependencies, because the app has none.
+
+So the icon *is* the pointer, not a picture of it. Move the path and the icon
+moves too; there is no second drawing to keep in sync, which is the failure
+mode every hand-exported icon eventually has.
+
+### A process that could end without leaving a trace
+
+Every window sets `skipTaskbar` and the Windows tool-window style. That is
+right for an overlay, and it means an unhandled error had no way to announce
+itself: no taskbar button to go dark, no window left on screen holding the
+message. The app was simply not there any more, and the shortcut did nothing.
+That is the same failure the tray icon exists to fix, arriving by another
+route.
+
+Unhandled exceptions and rejections are now written to `errors.log` beside the
+settings, announced once as a notification, and survived rather than fatal.
+Node is right that a process is in an undefined state after an uncaught
+exception; for this app the alternative is not a clean restart, it is
+vanishing. A renderer that dies is reloaded, because an always-on-top blank
+rectangle is worse than no window.
+
+And it is tested by throwing one: the smoke run emits a deliberate unhandled
+rejection and asserts it reached the log. A safety net nobody has fallen into
+is not known to be a net.

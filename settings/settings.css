@@ -429,7 +429,7 @@ input[type="text"]:focus {
   right: 0;
   z-index: 10;
   list-style: none;
-  background: #141418;
+  background: var(--black);
   border: 1px solid rgba(201, 207, 221, 0.16);
   border-radius: 8px;
   padding: 4px;

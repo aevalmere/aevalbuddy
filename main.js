@@ -21,6 +21,9 @@ if (process.env.AEVAL_USERDATA) {
   app.setPath('userData', process.env.AEVAL_USERDATA);
 }
 
+const crash = require('./lib/crash');
+crash.install();
+
 const store = require('./lib/store');
 const ai = require('./lib/openrouter');
 const skills = require('./lib/skills');
@@ -1956,6 +1959,9 @@ if (!gotLock) {
     }
   });
 
+  // Every window, including the ones the lib modules create.
+  app.on('browser-window-created', (event, win) => crash.guard(win));
+
   app.on('window-all-closed', () => {
     app.quit();
   });
@@ -2146,14 +2152,22 @@ async function runShots() {
 // editor round trip, prints machine-readable lines, then exits.
 async function runSmoke() {
   const log = (label, value) => console.log(`[SMOKE] ${label}=${value}`);
+  // An invariant, not an observation. These are the things that cannot be
+  // false in a build worth shipping, so they end the run rather than
+  // printing a `false` nobody reads.
+  const failures = [];
+  const must = (label, ok, detail) => {
+    log(label, ok ? 'ok' : `FAIL${detail ? `:${detail}` : ''}`);
+    if (!ok) failures.push(label);
+  };
   try {
-    log('windows', overlayWin && outputWin ? 'overlay+output-ok' : 'missing');
+    must('windows', !!(overlayWin && outputWin), 'overlay or output missing');
     log('version', app.getVersion());
     log('shortcut.captureQuery', lastRegisterResults.captureQuery);
     log('shortcut.captureRegion', lastRegisterResults.captureRegion);
     // Nothing else in the app is reachable once the overlay is hidden, so the
     // tray coming up is not a nicety.
-    log('tray', tray.isReady());
+    must('tray', tray.isReady(), 'no way back in once the overlay is hidden');
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
     const modelList = await ai.listModels();
@@ -2163,17 +2177,19 @@ async function runSmoke() {
     // be one of the free ones.
     log('modelListPaidHidden', modelList.groups.every((g) => g.tier === 'free'));
     const freeGroup = modelList.groups.find((g) => g.tier === 'free');
-    log(
+    must(
       'modelDefaultOffered',
-      !!(freeGroup && freeGroup.models.some((m) => m.id === ai.DEFAULT_MODEL))
+      !!(freeGroup && freeGroup.models.some((m) => m.id === ai.DEFAULT_MODEL)),
+      `${ai.DEFAULT_MODEL} is not in the live free list`
     );
     const paidList = await ai.listModels({ includePaid: true });
     log('modelListWithPaid', paidList.groups.map((g) => `${g.tier}${g.models.length}`).join(','));
     const brainList = await ai.listModels({ kind: 'text' });
     const brainFree = brainList.groups.find((g) => g.tier === 'free');
-    log(
+    must(
       'brainListDefault',
-      !!(brainFree && brainFree.models.some((m) => m.id === ai.DEFAULT_BRAIN))
+      !!(brainFree && brainFree.models.some((m) => m.id === ai.DEFAULT_BRAIN)),
+      `${ai.DEFAULT_BRAIN} is not in the live free list`
     );
     // The brain never sees an image, so its prompt must describe a reading
     // and still teach the point directive.
@@ -2650,7 +2666,23 @@ async function runSmoke() {
     log('buddyPointsDone', !cursorBuddy.isActive());
     startWalkthrough();
     log('walkthrough', cursorBuddy.isActive());
+    // The overlay has no taskbar button to go dark, so an unhandled error
+    // has to leave a trace somewhere the user can be pointed at.
+    const marker = 'smoke: deliberate unhandled rejection';
+    process.emit('unhandledRejection', new Error(marker));
+    let logged = false;
+    try {
+      logged = require('fs').readFileSync(crash.file(), 'utf8').includes(marker);
+    } catch (err) {
+      logged = false;
+    }
+    must('crashLogged', logged, 'an unhandled rejection never reached errors.log');
     setTimeout(() => {
+      if (failures.length) {
+        console.error(`[SMOKE] failed: ${failures.join(', ')}`);
+        app.exit(1);
+        return;
+      }
       console.log('[SMOKE] done');
       app.exit(0);
     }, 1200);

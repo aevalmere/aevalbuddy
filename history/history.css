@@ -250,7 +250,7 @@ button {
 
 .item mark {
   background: rgba(130, 58, 128, 0.42);
-  color: #F3E9F2;
+  color: var(--slate);
   border-radius: 2px;
 }
 

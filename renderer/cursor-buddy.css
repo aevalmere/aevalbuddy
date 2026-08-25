@@ -147,7 +147,10 @@ body {
 }
 
 .bubble-body:hover {
-  background: #12295a;
+  background-image: linear-gradient(
+    rgba(201, 207, 221, 0.06),
+    rgba(201, 207, 221, 0.06)
+  );
 }
 
 /* A press that lands reads back: the bubble gives a little. */

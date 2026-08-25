@@ -90,10 +90,13 @@ The first three shortcuts are rebindable in settings: press Change, then press t
 
 Everything in the picker is free by default. The list is the free vision
 models OpenRouter currently offers, with live context sizes, and the default
-is `nvidia/nemotron-nano-12b-v2-vl:free`, which is built for reading images
-and is the best of the free ones at small text and dense interfaces. This
-model's only job may be reading the screen for the brain, and a wrong answer
-built on a misread variable name is not a fast answer. `google/gemma-4-26b-a4b-it:free`
+is `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, which describes
+itself as a perception sub-agent: a model whose job is to look at something
+and report what is there, for a stronger model to act on. That is exactly the
+job here. This model's only work may be reading the screen for the brain, and
+a wrong answer built on a misread variable name is not a fast answer; only 3B
+of its 30B parameters are active per token, so accuracy does not cost the wait
+it looks like it should. `google/gemma-4-26b-a4b-it:free`
 is still there if you want speed over accuracy. Free models are queued and
 rate limited, so they are slower to start than paid ones; that is the trade.
 
@@ -164,6 +167,15 @@ Settings has "Edit layout". It turns both windows into draggable layout ghosts, 
 
 To separate the answer from the input bar, drag the answer ghost clear of the dock zone, or just press its Detach button; press Dock to input (or drop it back near the input bar) to reattach, shown by a "Docked to input" badge. A docked answer follows the input bar and grows away from it (downward from a top anchor, upward from a bottom one). Press Done or Esc to keep the layout. The pill, the input bar, the answer, and future launches all use the saved positions.
 
+### When something goes wrong
+
+An app with no taskbar button cannot go dark to tell you it died, so it tries
+not to. An unhandled error is written to `errors.log` in the settings folder,
+announced once as a Windows notification, and the app keeps running rather
+than disappearing. A window whose renderer dies is reloaded, because an
+always-on-top blank rectangle is worse than no window. None of this should
+ever fire; if it does, `errors.log` is what to send.
+
 Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. Settings can also start AevalBuddy when you sign in to Windows; it is off until you ask for it. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ## Develop it (the live-reload loop)
@@ -196,7 +208,9 @@ Because that is a page render rather than a screen read, the run does not need t
 npm run build
 ```
 
-This produces `dist/AevalBuddy Setup 0.7.0.exe` (NSIS, per-user install, no admin prompt).
+This produces `dist/AevalBuddy Setup 1.0.0.exe` (NSIS, per-user install, no admin prompt).
+
+The application icon is generated, not committed. `npm run build` runs `tools/make-icon.js` first, which reads the pointer arrow straight out of `renderer/buddy.html` and `renderer/cursor-buddy.css`, rasterises it at seven sizes and writes `build/icon.ico`. So the icon is the pointer: move the path and the icon moves with it, there is no second drawing to keep in sync, and the repository stays text-only. Without it electron-builder falls back to Electron's own logo and says so on every run.
 
 The installer is unsigned, so Windows SmartScreen shows "Windows protected your PC" on first run. That is expected for an unsigned app, not a defect. Click "More info", then "Run anyway". Code signing needs a paid certificate and is out of scope for this MVP.
 
@@ -252,9 +266,11 @@ lib/cursor-buddy.js        pointer state machine: walkthrough steps and model-di
 lib/region.js              area selection: the scrim window and the rectangle it returns
 lib/tray.js                tray icon and menu; the way back in when the overlay is hidden
 lib/history.js             conversation store: one JSON file, atomic write, debounced
+lib/crash.js               catches what would otherwise end the process without a trace
 lib/shots.js               visual self-check: photographs every surface (npm run shots)
 skills/*.md                answering procedures; drop a file in to add one
 tools/shots-run.js         runner for npm run shots (scratch profile, output in shots/)
+tools/make-icon.js         generates build/icon.ico from the pointer arrow (npm prebuild)
 renderer/index.html        the input window: pill, query bar, input layout ghost
 renderer/overlay.js|css    input window logic and the shared stylesheet
 renderer/output.html|js    the answer window: conversation transcript, answer layout ghost
