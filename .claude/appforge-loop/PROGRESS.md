@@ -173,3 +173,32 @@ output showed a clean exit 1. The check is sound and does not stall.
 
 Changed: lib/region.js, main.js.
 Result: D12 closed, and it is the most valuable find of the run.
+
+## Iteration 9 - D13: the pointer handover
+Goal: finish the last unread file, lib/cursor-buddy.js.
+
+`complete()` leaves the pointer window alive for 700ms so it can play its exit,
+and nothing held that timer. A sequence starting inside the gap reuses the same
+window and then has it destroyed underneath it by the previous sequence's
+timer, so the pointer appears and vanishes. Reachable when an answer carrying a
+point directive lands just as the user finishes the last one.
+
+The timer is held now and cleared by anything that takes ownership of the
+window: createWindow, destroyWindow, and complete itself.
+
+GATE: check | EXIT: 0
+GATE: smoke | EXIT: 0 | buddySurvivesTheHandover=ok
+
+The new check shows a second sequence and then waits 900ms - past the old
+deadline - because the window still being there afterwards is the entire claim.
+Unlike D12 I did not reinstate this defect to watch the check fail: it holds by
+construction, since without cancelPendingDestroy the 700ms timer fires inside
+the 900ms wait and debugWindow() returns null. Stating that rather than
+implying it was measured.
+
+Note on the harness, twice bitten: `$out = & npx electron .` in PowerShell
+buffers, and a run that writes to stderr looks like a hang. Streaming through
+Tee-Object shows the truth. Both "hangs" in this session were that, not the app.
+
+Changed: lib/cursor-buddy.js, main.js.
+Result: D13 closed. Every file in the repository has now been read.

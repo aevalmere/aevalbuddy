@@ -19,9 +19,13 @@ about how much code moves.
 | D11 | `lib/openrouter.js` `streamQuery()` | Every exit from the SSE loop except a clean `[DONE]` abandons the reader without releasing it, holding the socket until GC. On a free tier that rate limits per connection that is not a detail. | MINOR | resource | FIXED (iter 6) |
 | D12 | `lib/region.js` `finish()` | **Area selection never worked.** `finish()` calls `close()` before `settle()`. `close()` calls `destroy()`, and `destroy()` emits `closed` *synchronously* (probed), and the `closed` handler settles the promise with `null` as its safety net. So every completed drag resolved as a cancel and the rectangle was discarded by a no-op `settle`. `Ctrl+Shift+A`, drag a box, release: nothing happens. This is the feature `lib/region.js` calls "the largest single lever on answer quality in the app". Survived because all three region assertions in the smoke run test *cancelling* -- the one path the feature exists for was the one nothing asked about. | BLOCKER | correctness | FIXED (iter 8) |
 
+| D13 | `lib/cursor-buddy.js` `complete()` | The pointer window outlives `complete()` by 700ms so it can play its exit, and that `setTimeout(destroyWindow, 700)` was held by nobody. A sequence starting inside the gap reuses the same window and then has it destroyed underneath by the previous sequence's timer: the pointer appears and vanishes. Reachable when an answer carrying a point directive lands just as the user finishes the last one. | MINOR | correctness | FIXED (iter 9) |
+
 ## Closed with no change
 
-None.
+`settings/settings.js` (675 lines) and `history/history.js` (206 lines) were
+read in full in iteration 8 and produced nothing I could defend as a defect.
+Recorded so the next person knows they were looked at rather than skipped.
 
 ## Corrected during the run
 

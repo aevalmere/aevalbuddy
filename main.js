@@ -2937,6 +2937,20 @@ async function runSmoke() {
     log('buddyPoints', cursorBuddy.isActive());
     cursorBuddy.advance();
     log('buddyPointsDone', !cursorBuddy.isActive());
+    // Finishing a sequence leaves the window alive for 700ms so it can play its
+    // exit, and a sequence starting inside that gap reused the same window and
+    // then had it destroyed underneath by the previous one's timer -- the
+    // pointer appeared and vanished. Reachable when an answer carrying a point
+    // lands just as the user finishes the last one. Held past the old deadline
+    // here, because the window surviving 700ms is the entire claim.
+    cursorBuddy.showPoints([{ x: 120, y: 120, label: 'second sequence' }]);
+    await new Promise((r) => setTimeout(r, 900));
+    must(
+      'buddySurvivesTheHandover',
+      cursorBuddy.isActive() && !!cursorBuddy.debugWindow(),
+      'a new pointer sequence was destroyed by the previous one’s exit timer'
+    );
+    cursorBuddy.cancel();
     startWalkthrough();
     log('walkthrough', cursorBuddy.isActive());
     // The overlay has no taskbar button to go dark, so an unhandled error
