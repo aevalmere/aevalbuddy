@@ -153,7 +153,11 @@ function checkIpc() {
   const invoked = collect(rendererFiles, /invoke\(\s*'([^']+)'/);
   const listened = collect(rendererFiles, /\.on\(\s*'([^']+)'\s*,/);
   const handled = collect(mainFiles, /ipcMain\.handle\(\s*'([^']+)'/);
-  const sent = collect(mainFiles, /webContents\.send\(\s*'([^']+)'/);
+  // Any `send('channel'`, not only `webContents.send`: main.js routes the
+  // streaming channels through a local `send` helper that closes over the
+  // window and the generation counter, and matching only the qualified form
+  // reported every one of them as dead.
+  const sent = collect(mainFiles, /\bsend\(\s*'([^']+)'/);
 
   for (const [channel, where] of invoked) {
     if (!invokeAllow.has(channel)) {
@@ -181,9 +185,17 @@ function checkIpc() {
       );
     }
   }
+  // The mirror of the same defect, and how buddy:move and settings:data were
+  // found: allowlisted to be received, sent by nobody, listened for by nobody,
+  // present in the repository only here. Dead widening of the one surface that
+  // exists to be narrow.
   for (const channel of listenAllow) {
     if (!sent.has(channel)) {
-      notes.push(`'${channel}' is listenable but nothing in main sends it`);
+      fail(
+        'ipc',
+        `'${channel}' is on the listen allowlist and nothing in main sends it. ` +
+          'Take it off, or wire it up.'
+      );
     }
   }
   return { invoked: invoked.size, listened: listened.size };

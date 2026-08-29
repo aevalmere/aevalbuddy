@@ -155,7 +155,9 @@ let outputDropTimer = null;
 // The conversation, newest last: { role: 'user'|'assistant', text }. Held in
 // memory only; New chat or quitting clears it.
 let chat = [];
-const lastRegisterResults = { captureQuery: false, toggleVisibility: false };
+// Every action in ACTION_LABELS, so `settings:get` never reports an `active`
+// map missing a key the panel draws a row for.
+const lastRegisterResults = { captureQuery: false, captureRegion: false, toggleVisibility: false };
 
 const WALKTHROUGH = [
   {

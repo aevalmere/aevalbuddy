@@ -73,8 +73,6 @@ const LISTEN_CHANNELS = new Set([
   'buddy:show',
   'buddy:hide',
   'buddy:done',
-  'buddy:move',
-  'settings:data',
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {
