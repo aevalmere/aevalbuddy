@@ -1,0 +1,54 @@
+{
+  "task": "Refinement loop on AevalBuddy: find and fix real defects, add missing features, polish surfaces against DESIGN.md.",
+  "scope": [
+    "main.js",
+    "preload.js",
+    "lib/**",
+    "renderer/**",
+    "settings/**",
+    "tools/**",
+    "skills/**",
+    "package.json",
+    "DESIGN.md",
+    "README.md",
+    ".gitignore"
+  ],
+  "non_goals": [
+    "do not add any runtime dependency: the app ships electron-store only and promises no build step",
+    "do not touch node_modules/, dist/, build/, shots/, forge.zip",
+    "do not introduce a bundler, TypeScript, or a test framework the repo has no room for",
+    "do not change the six-value palette without recording the new token and its reason in DESIGN.md",
+    "do not weaken or delete a smoke assertion to make a gate pass"
+  ],
+  "iteration": 0,
+  "max_iterations": 25,
+  "started_at": "2026-08-29T00:00:00Z",
+  "gate_policy": "syntax and smoke every iteration; shots when a visual surface changed; build at the final iteration only (electron-builder is minutes long and must never overlap a shots run)",
+  "gates": {
+    "syntax": {
+      "cmd": "node tools/check.js",
+      "last_exit": 0,
+      "last_run_iteration": 0
+    },
+    "smoke": {
+      "cmd": "AEVAL_SMOKE=1 npx electron .",
+      "last_exit": 0,
+      "last_run_iteration": 0
+    },
+    "shots": {
+      "cmd": "AEVAL_SHOT_OFFSCREEN=1 npm run shots",
+      "last_exit": null,
+      "last_run_iteration": null
+    },
+    "build": {
+      "cmd": "npm run build",
+      "last_exit": null,
+      "last_run_iteration": null
+    }
+  },
+  "progress_history": [
+    { "iteration": 0, "gates_newly_passing": ["syntax", "smoke"], "defects_closed": 0, "defects_opened": 0 }
+  ],
+  "no_progress_streak": 0,
+  "status": "running"
+}

@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electronmon .",
+    "check": "node tools/check.js",
     "shots": "node tools/shots-run.js",
     "prebuild": "node tools/make-icon.js",
     "build": "electron-builder --win"

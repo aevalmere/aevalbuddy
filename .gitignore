@@ -5,3 +5,4 @@ shots/
 npm-debug.log*
 Thumbs.db
 .DS_Store
+.claude/worktrees/
