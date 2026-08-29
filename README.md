@@ -4,6 +4,35 @@ A small always-on-top overlay for Windows that talks about whatever is on your s
 
 Built with Electron and plain JS/HTML/CSS. No build step beyond `npm install`, and no AI SDK: requests go straight to OpenRouter's OpenAI-compatible endpoint.
 
+## What it does
+
+**Asking**
+- Global hotkey, or the tray, or click the pill: capture the screen and ask about it.
+- Multi-line question box. `Enter` sends, `Shift+Enter` starts a new line, so a pasted stack trace keeps its shape.
+- Follow-ups continue one conversation, and every message re-captures, so "what about now?" means now.
+- Drag a box around part of the screen (`Ctrl+Shift+A`) to ask about that instead. The selection sticks to the conversation until you clear it.
+- Answers stream in as rendered markdown, with Copy on each one and Stop while it is arriving.
+- Retry on a failure re-sends the question that failed, not an empty box.
+
+**Answering**
+- Free models by default, with live price and context labels. Paid models are one toggle away and never selected for you.
+- Optional separate brain: a vision model reads the screen into a structured report, a stronger text-only model answers from it.
+- Answer style routed per request (Debug, Explain, Improve writing, or general), driven by markdown procedures in `skills/` you can add to.
+- Automatic failover across free models on a 429, a 404 or a provider hiccup, naming the substitute in the status line. Never for a paid model, never once text has reached the screen.
+
+**Pointing**
+- When the location is the answer, an arrow glides to the exact pixel with a speech bubble that types out what to do.
+- One 0-1000 coordinate grid end to end, mapped to the display by ratio, so it survives DPI scaling.
+- A target that cannot be resolved unambiguously points at nothing, on purpose.
+
+**Living on the desktop**
+- Excluded from screen capture, so it stays out of shares and recordings.
+- No taskbar button and nothing in Alt-Tab; the tray icon is the way back in.
+- Follows the monitor your mouse is on: it captures, answers about, points at and opens on the same screen.
+- Every window drag-resizable and repositionable through a game-style layout editor, with the answer docked to the input bar or detached.
+- Searchable history of past conversations, text only, with a switch to stop saving and a Delete all.
+- Rebindable shortcuts, optional launch at sign-in, and an `errors.log` so a crash leaves a trace instead of vanishing.
+
 ## Run it
 
 Requirements: Windows 10/11, Node.js 18+ and npm.
@@ -82,11 +111,21 @@ written to disk and neither is the reader's description of one. Settings has a
 switch to stop saving and a Delete all beside it; turning saving off stops new
 writes and leaves what is already there until you delete it deliberately.
 
+### Pointing at things
+
 Answers render markdown: headings, lists, bold, inline code, fenced code blocks, and links that open in your browser. And when an answer involves a specific place on your screen, the assistant sends the pointer there: an arrow glides to the exact pixel and a speech bubble types out what to do, with the tail pointing back at the arrow.
 
 The bubble is the control. Click it once to finish the typing, click again for the next spot, and click the last one to dismiss; the line under the message says which. Drag it anywhere if it is covering something, or close it with its X or Esc.
 
 The input bar and the answer are separate windows. By default the answer docks under the input bar; the layout editor can split them apart (see Layout).
+
+### More than one monitor
+
+The app works out which screen you are on from where your mouse is, and then everything agrees with that answer: the screenshot comes from that display, the answer is about it, the pointer appears on it, and the overlay itself opens there.
+
+The screen is chosen when you summon the overlay, not continuously, so reaching for your mouse mid-answer does not walk the panel to another monitor. Unplug a display and the windows re-place themselves on one that still exists rather than stranding themselves on a rectangle nobody has.
+
+### Shortcuts
 
 The first three shortcuts are rebindable in settings: press Change, then press the new combo. New combos must include Ctrl, Alt, or Win. If another app already owns the combo, settings shows an inline error and keeps listening for a different one. Changes apply immediately, no restart. `Esc` is fixed. Shortcuts are listed in settings only; the query panel stays clean.
 
@@ -161,9 +200,10 @@ while there is more below.
 ### Resizing and layout
 
 Drag any window edge. The input bar and the answer window resize from 320 to 900 wide and remember it;
-the input bar's height stays pinned to its content, because a one-line field has nothing to gain from
-being taller. Drag the answer window's height and it stops sizing itself to the transcript and holds
-what you set, until New chat hands that back. Settings resizes freely and reopens where you left it.
+the input bar's height is not yours to drag, because it belongs to the question — it is one row for a
+one-line question and grows a row at a time as you write, up to seven before the field scrolls. Drag the
+answer window's height and it stops sizing itself to the transcript and holds what you set, until New
+chat hands that back. Settings resizes freely and reopens where you left it.
 
 ### Layout
 
@@ -260,10 +300,10 @@ Below Windows 10 build 19041 the call does nothing at all, so the app checks the
 - The conversation is held in memory only. The model sees up to the last 12 turns as text; only the newest message carries the screen image, so request size stays flat.
 - The pointer directive is plain text in the stream (`[[point x=.. y=.. | label]]`), stripped before display. It is read loosely, because models drift: a bare pair, parentheses, a decimal, a dash before the label all resolve. One that drifts too far to read is swallowed rather than printed, since showing the user raw brackets loses the pointer and shows the machinery as well.
 - Skills are read from disk once at boot and appended to the system prompt as a procedure, keeping their line breaks. A skill file that disappears between versions falls back to the default rather than silently sending nothing.
-- The screen view covers the display the mouse pointer is on, and the pointer window opens on that same display. Both used to be the primary one unconditionally, which on a two-monitor desk meant reading one screen and pointing at it while the user was looking at the other. The view is downscaled to at most 1600px on its long edge, then JPEG-compressed to stay under ~1.6MB per request.
+- The screen view covers the display the mouse pointer is on, and so does everything else: the pointer window, and the overlay windows themselves. All three used to read the primary display unconditionally, which on a two-monitor desk meant reading one screen and pointing at it while the user looked at the other. The windows were the last to be fixed, so for a while the app answered about the right screen and opened the panel on the wrong one. The display is latched when the overlay is summoned rather than read on every call, because every bounds calculation runs during a glide and reading the cursor live would walk the panel to another monitor mid-answer. The view is downscaled to at most 1600px on its long edge, then JPEG-compressed to stay under ~1.6MB per request.
 - Screen capture, the API key, and all model calls live in the Electron main process. Renderers talk to it through a small allowlisted IPC bridge and never see the key.
 - An area is captured differently from the whole screen. The whole screen is asked of `desktopCapturer` at the long-edge budget directly, because decoding a 4K desktop at full size to shrink it is wasted work. An area is grabbed at the display's native resolution and cropped, so the selection keeps every pixel it had; only a selection larger than the budget is shrunk at all. The shot carries the rectangle it covers, and pointer coordinates map into that rectangle rather than onto the display.
-- Model failover is one request's business only. It never writes the substitute to settings, and it never applies to a paid model: silently moving a billed request onto a different billed model is not the app's decision. It stops after three attempts, and it stops immediately once any answer text has reached the screen, because half an answer cannot be replaced by another model's half.
+- Model failover is one request's business only. It never writes the substitute to settings, and it never applies to a paid model: silently moving a billed request onto a different billed model is not the app's decision. It stops after three attempts, and it stops immediately once any answer text has reached the screen, because half an answer cannot be replaced by another model's half. The substitute is chosen from the live catalogue rather than from the curated order alone, so a retired id cannot eat one of the three attempts; the catalogue is fetched once at launch so the first failover of a session already knows what exists.
 - History is a single JSON file rewritten whole, written through a temp file and a rename so a crash mid-write cannot leave half of one. Two hundred conversations of prose is a few megabytes; there is no case for a database, and the write is debounced so a ten-turn conversation does not rewrite the file ten times.
 - The tray exists because every window here sets `skipTaskbar` and the Windows `toolbar` type, which is right for an overlay and wrong for the only copy of an application: hidden with its shortcut and with the shortcut forgotten, the app had no surface left to click. Its icon is the pointer's own arrow, rasterised from the same polygon and carried as base64, so the repository stays text-only.
 - The pointer glides on a requestAnimationFrame interpolation loop, so it moves continuously instead of stepping. Its window is click-through everywhere except over the bubble, so it never blocks your work; hit-testing also stays on for the whole of a drag, otherwise letting the cursor slip off the bubble would drop it mid-gesture.
