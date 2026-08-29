@@ -176,8 +176,46 @@ const WALKTHROUGH = [
 
 // ---------------------------------------------------------------- positioning
 
+// The display the overlay lives on.
+//
+// Capture and the pointer were moved onto the cursor's display in v0.6,
+// because on a two-monitor desk reading the primary is a coin flip. Every
+// window was left behind on getPrimaryDisplay(), so the app answered about the
+// screen the user was working on and opened the panel on the other one -- the
+// same defect, in the half that the user can actually see.
+//
+// Latched rather than read live. Reading the cursor's display on every bounds
+// calculation would walk the panel to another monitor mid-answer because the
+// user reached for their mouse, and every one of these functions runs during a
+// glide. It is re-latched where the user summons the overlay, which is the
+// moment their intent is known.
+let latchedDisplayId = null;
+
+function overlayDisplay() {
+  if (latchedDisplayId !== null) {
+    const held = screen.getAllDisplays().find((d) => d.id === latchedDisplayId);
+    // Gone means unplugged: fall through rather than position against a
+    // rectangle that is no longer on anybody's desk.
+    if (held) return held;
+  }
+  return activeDisplay();
+}
+
+/**
+ * Points the overlay at the screen the user is on.
+ *
+ * @returns {boolean} whether that changed the answer, so the caller can move
+ *          the windows before animating them: a glide from a stale rect is a
+ *          window flying across two monitors.
+ */
+function latchDisplay() {
+  const before = latchedDisplayId;
+  latchedDisplayId = activeDisplay().id;
+  return before !== null && before !== latchedDisplayId;
+}
+
 function workArea() {
-  return screen.getPrimaryDisplay().workArea;
+  return overlayDisplay().workArea;
 }
 
 function clampNum(n, min, max) {
@@ -1049,9 +1087,26 @@ async function captureScreen(opts) {
   }
 }
 
+// A latched display change leaves every window sitting on the old screen.
+// Move them before anything animates: a glide interpolates rectangles, so
+// growing the panel out of a pill on another monitor is a window flying across
+// the desk rather than a surface opening.
+function rehomeWindows() {
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    motion.stop(overlayWin);
+    setInputBounds(overlayMode === 'panel' ? inputBounds(currentInputHeight) : pillBounds());
+  }
+  if (outputActive && outputWin && !outputWin.isDestroyed()) {
+    motion.stop(outputWin);
+    markApp(outputWin);
+    outputWin.setBounds(outputBounds(currentOutputHeight));
+  }
+}
+
 async function triggerCapture() {
   if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
+  if (latchDisplay()) rehomeWindows();
   pendingShot = await captureScreen({ region: activeRegion });
   lastCaptureOk = !!pendingShot;
   expandPanel();
@@ -1068,7 +1123,8 @@ async function triggerCapture() {
  */
 async function triggerRegionCapture() {
   if (!overlayWin || overlayMode === 'hud' || region.isActive()) return;
-  const pick = region.select(activeDisplay());
+  if (latchDisplay()) rehomeWindows();
+  const pick = region.select(overlayDisplay());
   // Claim Escape for the selector now that one is open, and hand it back
   // however the selection ends.
   applyRegistrations();
@@ -1116,6 +1172,10 @@ function onToggleHotkey() {
     overlayWin.hide();
     if (outputWin && !outputWin.isDestroyed()) outputWin.hide();
   } else {
+    // Coming back from hidden is a summon like any other, so it lands on the
+    // screen the user is on now rather than the one they were on when they
+    // hid it.
+    if (latchDisplay()) rehomeWindows();
     if (overlayMode === 'panel') {
       overlayWin.show();
       overlayWin.focus();
@@ -1968,6 +2028,21 @@ if (!gotLock) {
     if (process.env.AEVAL_SHOT) {
       setTimeout(runShots, 1200);
     }
+    // Unplugging the monitor the overlay is latched to would otherwise strand
+    // every window on a rectangle that is no longer on anybody's desk, and the
+    // one control that could move them lives in the window that vanished with
+    // it. A resolution or DPI change moves the work area under them for the
+    // same result. Both re-latch and re-place.
+    const onDisplaysChanged = () => {
+      if (overlayMode === 'hud') return;
+      latchedDisplayId = null;
+      latchDisplay();
+      rehomeWindows();
+      keepOnTop();
+    };
+    screen.on('display-removed', onDisplaysChanged);
+    screen.on('display-added', onDisplaysChanged);
+    screen.on('display-metrics-changed', onDisplaysChanged);
     if (!process.env.AEVAL_SMOKE && !process.env.AEVAL_SHOT) {
       setInterval(keepOnTop, 4000);
     }
@@ -2292,6 +2367,34 @@ async function runSmoke() {
     );
     const shot = await captureScreen();
     log('capture', shot ? `ok:${shot.bytes}bytes:${shot.width}x${shot.height}` : 'failed');
+    // The window and the screenshot have to be talking about the same monitor.
+    // Capture moved onto the cursor's display in v0.6 and every window was
+    // left on getPrimaryDisplay(), so the app answered about one screen and
+    // opened the panel on another. On a one-monitor machine this is trivially
+    // true, which is the point: it is the two-monitor desk that cannot be
+    // asked, so the invariant has to be the one that holds on both.
+    latchDisplay();
+    const wa = workArea();
+    const inside = (r) =>
+      r.x >= wa.x && r.y >= wa.y && r.x + r.width <= wa.x + wa.width && r.y + r.height <= wa.y + wa.height;
+    log('displays', screen.getAllDisplays().length);
+    must(
+      'windowsOnCaptureDisplay',
+      overlayDisplay().id === latchedDisplayId &&
+        overlayDisplay().id === activeDisplay().id &&
+        inside(pillBounds()) &&
+        inside(inputBounds(DEFAULT_INPUT_HEIGHT)),
+      `overlay positions against display ${overlayDisplay().id}, capture reads ${activeDisplay().id}`
+    );
+    // An unplugged monitor must not leave the windows on a rectangle nobody
+    // has. A latch pointing at an id that is gone falls back to the live one.
+    latchedDisplayId = -1;
+    must(
+      'staleDisplayFallsBack',
+      overlayDisplay().id === activeDisplay().id,
+      'a latched display that no longer exists did not fall back'
+    );
+    latchDisplay();
     // Markdown renders inside the real answer window, not a simulation.
     const mdHtml = await outputWin.webContents.executeJavaScript(
       `(() => { const d = document.createElement('div');` +
