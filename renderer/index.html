@@ -22,14 +22,19 @@
 
   <section id="panel" hidden aria-label="AevalBuddy query panel">
     <div class="panel-top">
-      <input
+      <!-- A textarea, not a text input. The questions this app exists for
+           arrive as a pasted stack trace or a two-line "this is what I tried,
+           this is what happened", and a one-line field silently swallowed
+           every newline in them. It grows with its content up to seven rows
+           and then scrolls; Enter sends, Shift+Enter is a newline. -->
+      <textarea
         id="query-input"
-        type="text"
+        rows="1"
         placeholder="Ask about your screen..."
-        aria-label="Ask about your screen. Press Enter to send."
+        aria-label="Ask about your screen. Enter to send, Shift and Enter for a new line."
         autocomplete="off"
         spellcheck="false"
-      />
+      ></textarea>
       <button id="region-btn" type="button" aria-label="Ask about an area of the screen"
               title="Ask about an area">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"

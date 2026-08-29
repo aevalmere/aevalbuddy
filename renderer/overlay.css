@@ -270,9 +270,11 @@ body[data-anchor-v="bottom"] #opanel {
 
 .panel-top {
   display: flex;
-  align-items: center;
+  /* The field grows downwards; the chrome stays on the first line rather than
+     drifting to the middle of a seven-line question. */
+  align-items: flex-start;
   gap: 4px;
-  height: var(--control);
+  min-height: var(--control);
 }
 
 /* No box: the text sits directly on the surface. Focus is shown by the
@@ -280,14 +282,22 @@ body[data-anchor-v="bottom"] #opanel {
 #query-input {
   flex: 1;
   min-width: 0;
-  height: 100%;
   font-family: inherit;
   font-size: 15px;
-  line-height: var(--control);
+  /* One row occupies exactly the 32px control height: 21px of text plus the
+     padding either side, so a single-line question sits on the same rhythm as
+     the buttons beside it and a second line adds exactly one line of panel. */
+  line-height: 21px;
+  padding: 6px 0 5px;
+  /* Seven rows, then it scrolls. The panel's own ceiling is INPUT_MAX_HEIGHT
+     in main.js; this stays under it with room for the area chip and the
+     notice, which share the panel. */
+  max-height: 147px;
+  resize: none;
+  overflow-y: auto;
   color: var(--slate);
   background: none;
   border: none;
-  padding: 0;
   user-select: text;
   caret-color: var(--accent);
 }

@@ -56,7 +56,9 @@ function render(prevMode) {
       input.focus();
       input.select();
     }
-    requestResize();
+    // Reopening with a half-written multi-line question has to come back at
+    // the height that question needs, not at one row.
+    autoGrow();
   }
   if (state.mode === 'pill' && prevMode !== 'pill') {
     replayAnim(pill, 'in');
@@ -103,17 +105,33 @@ new ResizeObserver(requestResize).observe(panel);
 
 // ------------------------------------------------------------------ query
 
+// The field is a textarea, so its height is its content's. Reset to auto
+// first: scrollHeight only ever reports the larger of content and current
+// height, so growing without the reset is a one-way ratchet that never comes
+// back down after the text is sent.
+function autoGrow() {
+  input.style.height = 'auto';
+  input.style.height = `${input.scrollHeight}px`;
+  requestResize();
+}
+
 function submit() {
   const question = input.value;
   // Clear immediately, like a messaging app; the transcript echoes the
   // message. Without a key the text stays put so nothing typed is lost.
-  if (state.hasKey) input.value = '';
+  if (state.hasKey) {
+    input.value = '';
+    autoGrow();
+  }
   window.aeval.invoke('query:submit', { question }).then((result) => {
     if (result && result.status === 'walkthrough') {
       input.value = '';
+      autoGrow();
     }
   });
 }
+
+input.addEventListener('input', autoGrow);
 
 // ------------------------------------------------------------------ state
 
@@ -162,7 +180,10 @@ hudDone.addEventListener('click', () => {
 });
 
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
+  // Enter sends, Shift+Enter is a newline: the messaging-app convention the
+  // rest of this surface is built on. Without the modifier there was no way to
+  // write the second line of a question at all.
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     submit();
   }

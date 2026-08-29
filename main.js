@@ -2101,6 +2101,15 @@ async function runShots() {
           expandPanel();
         },
         collapse: () => collapsePanel(),
+        // Puts real text in the query field. The field grows with its content
+        // now, so its photograph is no longer one fixed rectangle.
+        typeQuery: (text) =>
+          evalIn(
+            overlayWin,
+            `(() => { const el = document.getElementById('query-input');` +
+              ` el.value = ${JSON.stringify(String(text))};` +
+              ` el.dispatchEvent(new Event('input')); return true; })()`
+          ),
         seedChat: (messages) => {
           chat = messages.slice();
           showOutput();
@@ -2364,6 +2373,41 @@ async function runSmoke() {
     log('panelWidthHeld', overlayWin.getBounds().width);
     log('widthAfterCycle', store.getInputWidth());
     log('outputAutoHeight', store.getOutputHeight() === 0);
+    // The query field takes more than one line. The questions this app is for
+    // arrive as a pasted stack trace, and a text input silently dropped every
+    // newline in one. Driven through the real element, because "it is a
+    // textarea now" is a fact about the markup and this is a fact about what
+    // the user gets: three lines in, three lines out, and a taller panel.
+    const oneRow = await overlayWin.webContents.executeJavaScript(
+      `(() => { const el = document.getElementById('query-input');` +
+        ` el.value = ''; el.dispatchEvent(new Event('input'));` +
+        ` return Math.round(el.getBoundingClientRect().height); })()`
+    );
+    const multi = await overlayWin.webContents.executeJavaScript(
+      `(() => { const el = document.getElementById('query-input');` +
+        ` el.value = 'line one\\nline two\\nline three';` +
+        ` el.dispatchEvent(new Event('input'));` +
+        ` return { tag: el.tagName, h: Math.round(el.getBoundingClientRect().height),` +
+        ` lines: el.value.split('\\n').length }; })()`
+    );
+    await new Promise((r) => setTimeout(r, 120));
+    log('queryFieldRows', `${oneRow}px->${multi.h}px`);
+    must(
+      'queryFieldTakesMultipleLines',
+      multi.tag === 'TEXTAREA' && multi.lines === 3 && multi.h > oneRow,
+      `${multi.tag} kept ${multi.lines} line(s) at ${multi.h}px against ${oneRow}px for one`
+    );
+    // And the panel followed it, rather than growing a field behind a window
+    // that stayed one row tall.
+    must(
+      'panelFollowsTheField',
+      overlayWin.getBounds().height > DEFAULT_INPUT_HEIGHT,
+      `panel is ${overlayWin.getBounds().height}px for a three-line question`
+    );
+    await overlayWin.webContents.executeJavaScript(
+      `(() => { const el = document.getElementById('query-input');` +
+        ` el.value = ''; el.dispatchEvent(new Event('input')); return true; })()`
+    );
     // Window motion resolves its curve and its anchored start rectangles.
     const rect = { x: 100, y: 40, width: 420, height: 200 };
     const grown = motion.shrunkFrom(rect, 'top', 'right');
