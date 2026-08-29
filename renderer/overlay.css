@@ -23,13 +23,46 @@
   --gutter: 12px;
   --control: 32px;
   --hairline: rgba(201, 207, 221, 0.10);
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.11);
-  --lift: 0 1px 2px rgba(0, 0, 0, 0.45), 0 18px 44px rgba(0, 0, 0, 0.55);
-  /* Opaque. At 97% a bright terminal behind the panel still showed through
-     enough to read, which fights the text on top of it. The depth comes from
-     the gradient, the edge and the shadow, not from translucency. */
-  --skin: linear-gradient(#3E404A, #262930);
-  --edge: rgba(201, 207, 221, 0.17);
+
+  /* ---------------------------------------------------------------- glass
+
+     Liquid glass, painted. It is not a compositor effect and cannot be one:
+     `backdrop-filter` has nothing to blur behind a transparent window, and
+     Windows acrylic shipped once and was reverted (v0.5). So the material is
+     drawn, in four parts that together read as a sheet with thickness:
+
+       fill      a top-lit gradient from shadow grey down to --glass-deep
+       sheen     a slate bloom over the top 18px, the light entering the edge
+       specular  a hairline on that edge, brightest mid-span, dead at the
+                 corners, because that is where a real edge stops facing the
+                 light
+       floor     a dark line and a soft contact darkening along the bottom,
+                 which is the underside of the sheet
+
+     Opaque, for the reason v0.5 records: at 97% a bright terminal behind the
+     panel was still legible through the text on top of it. */
+  --glass-deep: #191A1F;
+  --skin:
+    linear-gradient(rgba(201, 207, 221, 0.085), rgba(201, 207, 221, 0) 18px),
+    linear-gradient(var(--grey), var(--glass-deep));
+  --bevel:
+    inset 0 1px 0 rgba(201, 207, 221, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 -18px 22px -20px rgba(0, 0, 0, 0.55);
+  /* The cast shadow, and the only two surfaces that have anywhere to cast it.
+     #pill sits at inset 3px in a 104x40 window, so three pixels of it land;
+     the speech bubble owns a whole display. #panel and #opanel are inset 0 in
+     windows sized exactly to the surface (lib/shots.js asserts it and calls
+     any gap a dead band), so an outer shadow on those is rasterised, clipped
+     by the window frame, and shows nobody anything. It used to be on all
+     three. Depth on the clipped surfaces comes from the edge instead. */
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px rgba(0, 0, 0, 0.5);
+  --edge: rgba(201, 207, 221, 0.16);
+  /* A raised control catches the light on its top lip; a well catches it on
+     the bottom one. One pixel each, which is all the difference needs to be
+     and all the contrast budget allows on the accent. */
+  --rim: inset 0 1px 0 rgba(201, 207, 221, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+  --well: inset 0 1px 2px rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(201, 207, 221, 0.06);
   --chrome: 0.55;
   /* A scrollbar has to be visible to count as one. The thumb used to be
      twilight, which against this panel is roughly the same value as the
@@ -78,6 +111,39 @@ button {
 #opanel[hidden],
 #hud[hidden] {
   display: none;
+}
+
+/* ------------------------------------------------------------- the specular
+
+   The one part of the glass a box-shadow cannot draw. `inset 0 1px 0` runs
+   the full width at one strength, which is a bevel: the same line all the way
+   into the corners, where the sheet has turned away from the light and should
+   be dark. This is the same hairline with the ends taken off, sitting just
+   inside the border because that is where the top face of the material is.
+   The dim uniform line stays underneath it, in --bevel, so the corners are
+   soft rather than cut. */
+#pill::before,
+#panel::before,
+#opanel::before,
+#hud::before {
+  content: '';
+  position: absolute;
+  /* Against the padding box, so this is the first row inside the border,
+     which is where the top face of the material is. The 7px inset is where
+     a 12px corner has finished curving away at that row; without it the line
+     overhangs the round and draws outside the surface. */
+  top: 0;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(201, 207, 221, 0),
+    rgba(201, 207, 221, 0.3) 12px,
+    rgba(201, 207, 221, 0.3) calc(100% - 12px),
+    rgba(201, 207, 221, 0)
+  );
+  pointer-events: none;
 }
 
 /* ------------------------------------------------------------------- pill */
@@ -238,7 +304,7 @@ body[data-anchor-v="bottom"] #opanel {
   display: flex;
   flex-direction: column;
   gap: var(--gutter);
-  box-shadow: var(--bevel), var(--lift);
+  box-shadow: var(--bevel);
 }
 
 /* The surface only fades; its contents arrive a beat later, staggered, so
@@ -419,6 +485,11 @@ body[data-region="1"] #region-btn {
   flex: 1;
 }
 
+/* Slate on grape soda measures 4.69:1, which is 0.19 of headroom over the
+   body-text floor. A sheen down the face of this button spends all of it and
+   more (3.47:1 at the top edge), so the accent gets the rim and nothing else:
+   one lit pixel along the top lip, one dark one along the bottom, both above
+   and below every glyph. */
 .accent-btn {
   flex: 0 0 auto;
   background: var(--accent);
@@ -427,6 +498,7 @@ body[data-region="1"] #region-btn {
   font-weight: 600;
   padding: 5px 12px;
   border-radius: 6px;
+  box-shadow: var(--rim);
   transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
 }
 
@@ -448,7 +520,7 @@ body[data-region="1"] #region-btn {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: var(--bevel), var(--lift);
+  box-shadow: var(--bevel);
 }
 
 /* The window glides open around it; the surface only fades. */
@@ -542,7 +614,11 @@ body[data-region="1"] #region-btn {
 }
 
 /* There is more below. Only shown while the transcript is scrolled away from
-   the bottom, so it never sits under the last line of a short answer. */
+   the bottom, so it never sits under the last line of a short answer.
+
+   The colour below is --glass-deep written out, because a gradient stop
+   cannot fade a variable to transparent. If that token moves and this does
+   not, the answer window grows a visible seam along its bottom edge. */
 #opanel::after {
   content: '';
   position: absolute;
@@ -551,7 +627,7 @@ body[data-region="1"] #region-btn {
   bottom: 1px;
   height: 28px;
   border-radius: 0 0 11px 11px;
-  background: linear-gradient(rgba(38, 41, 48, 0), rgba(38, 41, 48, 0.92));
+  background: linear-gradient(rgba(25, 26, 31, 0), rgba(25, 26, 31, 0.94));
   opacity: 0;
   transition: opacity var(--d-fast) ease;
   pointer-events: none;
@@ -597,6 +673,7 @@ body[data-more="1"] #opanel::after {
   font-size: 13px;
   color: rgba(201, 207, 221, 0.9);
   white-space: pre-wrap;
+  box-shadow: var(--rim);
 }
 
 .msg.assistant .bubble {
@@ -758,6 +835,7 @@ body[data-more="1"] #opanel::after {
   background: rgba(48, 61, 106, 0.45);
   padding: 3px 10px;
   border-radius: 6px;
+  box-shadow: var(--rim);
   transition: background var(--d-fast) ease;
 }
 
@@ -829,6 +907,9 @@ body[data-fixed-height="1"] #chat {
   padding: 0 5px;
 }
 
+/* A code block is a well cut into the surface rather than a card lying on
+   it, so the light lands on the bottom lip: dark along the top inside edge,
+   one pale pixel along the bottom. */
 .md-body pre {
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 13px;
@@ -840,6 +921,7 @@ body[data-fixed-height="1"] #chat {
   margin: 6px 0;
   overflow-x: auto;
   white-space: pre;
+  box-shadow: var(--well);
 }
 
 /* Kept narrower than the page scrollbar: a code block is a small box, and a
@@ -884,12 +966,16 @@ body[data-fixed-height="1"] #chat {
 
 /* -------------------------------------------------------------- HUD edit */
 
+/* The ghost is the same material as the window it stands in for, so what the
+   user drags around reads as the panel itself rather than as a placeholder
+   for it. The dashed accent is the only thing that says it is being moved. */
 #hud {
   position: fixed;
   inset: 0;
-  background: rgba(43, 44, 51, 0.94);
+  background: var(--skin);
   border: 2px dashed var(--accent);
   border-radius: 12px;
+  box-shadow: var(--bevel);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -939,6 +1025,7 @@ body[data-fixed-height="1"] #chat {
   padding: 5px 12px;
   border-radius: 6px;
   background: rgba(48, 61, 106, 0.4);
+  box-shadow: var(--rim);
   transition: background var(--d-fast) ease;
 }
 
