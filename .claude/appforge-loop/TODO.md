@@ -14,6 +14,9 @@
 - [x] tools/check.js, wired as `npm run check`
 - [x] DESIGN.md v1.1 records every departure with its reason
 - [x] README covers the new gate and the multi-line field
+- [x] D12 area selection actually returns an area (BLOCKER)
+- [x] D13 a finished pointer no longer destroys the next one
+- [x] every file in the repository read
 - [x] build gate
 
 ## Worth doing next, not done here
