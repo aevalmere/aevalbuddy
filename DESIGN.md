@@ -457,3 +457,125 @@ rectangle is worse than no window.
 And it is tested by throwing one: the smoke run emits a deliberate unhandled
 rejection and asserts it reached the log. A safety net nobody has fallen into
 is not known to be a net.
+
+## v1.1: the checks the project kept describing and never wrote
+
+v1 ended on a rule: a suite that only reports is a suite that watches things
+break, so `must()` fails the run and takes the exit code with it. That rule was
+applied to the smoke run and stopped there. Everything true of the *source*
+rather than of a running app still had no way to fail, and three of the defects
+below were sitting in plain sight inside comments that described a guard nobody
+had written.
+
+### A gate for the things that need no app
+
+`npm run check` (`tools/check.js`). It exits non-zero, which is the only
+property that separates a check from an observation. Four of them, each a class
+this repository has actually shipped rather than a style opinion:
+
+| Check | Why this one |
+| --- | --- |
+| syntax | No build step and no typechecker. A stray bracket in a branch nobody takes reaches a user before it reaches anyone else |
+| palette | The rule above already says an unnamed inline hex "is still a defect, because it is a decision nobody can count", and `region.css` once carried seven of them under a header comment claiming it used the palette. A comment cannot enforce that |
+| ipc | The preload allowlist drifts both ways. A renderer invoking an unlisted channel fails only at runtime, in a frameless window with no devtools open; a listed channel nothing invokes is the `query:cancel` defect exactly, every layer present except the one that calls it |
+| line endings | The tree is CRLF. One LF file turns its next edit into a whole-file diff with the real change lost inside it |
+
+It found `buddy:move` and `settings:data` on the listen allowlist on its first
+run, present nowhere else in the repository. Nothing sent them, nothing listened
+for them.
+
+### The failover had the same blind spot it was built to cover
+
+`listModels` refuses to offer an id the live catalogue does not have — that is
+the v1 fix. `nextFreeModel`, twenty lines down, read its next id straight out of
+the curated array and never looked. So the machinery written to survive a
+retired model could hand the next attempt another retired one, and burn one of
+only three tries on a guaranteed 404.
+
+It prefers a live id now, and for vision one that still accepts an image, since
+a model that lost image input answers a screenshot with a 400 and failover does
+not retry those. The catalogue is consulted only when already in hand: fetching
+inside a retry would put a round trip on the slow path, and a cold cache has to
+mean "no opinion" rather than "nothing to try".
+
+Which exposed why it was blind. The cache was only ever warmed by opening
+Settings, so the ordinary path — launch, ask, hit a queued free model — was
+precisely the one running without it. It is warmed once at boot.
+
+### Three sentences the app could not have known were true
+
+| The copy said | What had happened |
+| --- | --- |
+| 404: "and the free model tried after it was not either" | On a paid model no stand-in is ever tried |
+| 429: "every free model this app knows about was busy too" | The cap is three attempts, which is never "every" |
+| 5xx: "on this model and on the fallback" | Same: asserted whether or not one ran |
+
+`withFailover` stamps the attempt count on the error, and the sentence follows
+the count or is absent. This is the same rule as the pointer: dropping is the
+important half, because something confidently wrong that the user cannot check
+is worse than nothing.
+
+### The windows were left on the primary display
+
+v0.6 moved capture and the pointer onto the cursor's display, and recorded why:
+on a two-monitor desk the primary is a coin flip. Every window kept positioning
+against `getPrimaryDisplay()`, so the defect survived in the half the user can
+see — the app answered about the screen they were working on and opened the
+panel on the other one.
+
+`workArea()` follows a latched display, and pill, panel, answer, both ghosts and
+the answer window's height ceiling all position through it. Latched rather than
+read live: those functions run during a glide, and reading the cursor's display
+on every call would walk the panel to another monitor because the user reached
+for their mouse. It re-latches where the overlay is summoned, and a latch that
+changes moves the windows before anything animates, because a glide interpolates
+rectangles and growing a panel out of a pill on another monitor is a window
+flying across the desk. `display-removed`, `display-added` and
+`display-metrics-changed` re-place everything, since an unplugged monitor would
+otherwise strand every window on a rectangle nobody has, with the only control
+that could move them living in the window that went away.
+
+### The field could not hold the question
+
+The query field was `<input type="text">`. The questions this app exists for
+arrive as a pasted stack trace, or as "this is what I tried, this is what
+happened", and a text input silently swallows every newline in one. There was no
+way to write the second line of a question at all.
+
+Everything around it already assumed otherwise: `INPUT_MIN_HEIGHT` 62,
+`INPUT_MAX_HEIGHT` 280, a window height pinned to its content, and a resize
+handler that only ever refused to change the width. The whole apparatus for a
+field that grows, wrapped around one that could not.
+
+It is a textarea. Enter sends, Shift+Enter is a newline, which is the messaging
+convention the surface was already built on. The type scale is unchanged and the
+rhythm is kept exactly: one row is 32px, being 21px of line plus the padding
+either side, so a one-line question sits on the same control height as the
+buttons beside it and each further line adds exactly one line of panel. Seven
+rows, then it scrolls, which stays under `INPUT_MAX_HEIGHT` with room for the
+area chip and the notice that share the panel. The chrome aligns to the top
+rather than the middle, so the gear and the close button stay on the first line
+instead of drifting down the side of a long question.
+
+Photographed as `03c-panel-multiline`, because the panel is no longer one fixed
+rectangle and a surface that changes shape has to be looked at in both.
+
+### A comment that cost 400 milliseconds an answer
+
+`history.trim()` said: "only measure when the count alone could plausibly exceed
+the budget; stringifying the whole list after every answer is not free." There
+was no such guard. `JSON.stringify` ran over the entire history after every
+answer, on the process that draws the UI, and again on every pop — at the 4MB
+cap, a multi-megabyte serialise to discover that nothing needed dropping.
+
+Sizes are summed instead. Measured on the same input, 60 saves of a 120KB
+conversation: 428ms before, 1ms after, keeping the same 34 entries. An estimate
+that read low would let the file grow past its cap, which is worse than the cost
+it replaced, so the estimator reads high and the self-check measures the real
+serialised length rather than trusting the estimate that produced it.
+
+This is the third time a comment in this repository has described something the
+code did not do — after the arrow tip and the "uses the palette" header. The
+pattern is worth naming: the comments that lie are the ones stating a
+*performance* or *geometry* property, because nothing ever fails when they stop
+being true.

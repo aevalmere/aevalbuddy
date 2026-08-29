@@ -34,6 +34,10 @@ taskbar or in Alt-Tab.
 
 Type a question and press Enter, or press Enter on an empty box to send the default prompt ("What's on my screen and what should I do?"). Clicking the idle pill does the same thing as the capture shortcut.
 
+The box takes more than one line. `Shift+Enter` starts a new line and the panel
+grows with it, up to seven rows before it scrolls, so you can paste a stack
+trace under your question instead of losing its line breaks.
+
 It works like a messaging app, without looking like one. Your question appears as a small chip on the right, the answer streams in underneath as prose rather than in a coloured bubble, and typing again sends a follow-up in the same conversation (each message captures the screen fresh, so "what about now?" means now). The transcript scrolls inside the answer window instead of bouncing its size around. Hover an answer for its Copy button, select text for partial copies, right-click for copy and paste menus, and use the + at the top of the answer window to start over. Collapsing with Esc keeps the conversation; it comes back with the next capture.
 
 While an answer is on its way there is a Stop beside it, which matters because
@@ -188,6 +192,26 @@ This runs the app under a file watcher. Edit any source file (or have an AI assi
 
 Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. And the packaged installer in `dist/` is a frozen snapshot from whenever `npm run build` last ran; it never updates itself, so rebuild it when you want the installable version to catch up.
 
+### Checking it without running it
+
+```bash
+npm run check
+```
+
+Fast, needs no Electron, and exits non-zero, which is the only thing separating
+a check from an observation. It verifies four things, each one a mistake this
+project has actually made rather than a style rule: every `.js` file parses;
+every colour in a stylesheet is one of the six palette values or a named token
+declared on its own line; the preload allowlist matches what the renderers
+actually invoke and what main actually sends, in both directions; and every text
+file is CRLF like the rest of the tree.
+
+The IPC check is the one that earns its keep. A renderer invoking a channel that
+is not on the allowlist fails only at runtime, inside a frameless window with no
+devtools open, and a channel on the allowlist that nothing invokes is a control
+that is lying — the app once shipped a `query:cancel` handler, allowlisted and
+implemented, that no Stop button ever called.
+
 ### Looking at the UI
 
 ```bash
@@ -269,6 +293,7 @@ lib/history.js             conversation store: one JSON file, atomic write, debo
 lib/crash.js               catches what would otherwise end the process without a trace
 lib/shots.js               visual self-check: photographs every surface (npm run shots)
 skills/*.md                answering procedures; drop a file in to add one
+tools/check.js             static gate: syntax, palette, IPC allowlist, line endings (npm run check)
 tools/shots-run.js         runner for npm run shots (scratch profile, output in shots/)
 tools/make-icon.js         generates build/icon.ico from the pointer arrow (npm prebuild)
 renderer/index.html        the input window: pill, query bar, input layout ghost

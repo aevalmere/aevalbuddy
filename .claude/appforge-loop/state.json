@@ -20,35 +20,47 @@
     "do not change the six-value palette without recording the new token and its reason in DESIGN.md",
     "do not weaken or delete a smoke assertion to make a gate pass"
   ],
-  "iteration": 0,
+  "iteration": 7,
   "max_iterations": 25,
   "started_at": "2026-08-29T00:00:00Z",
-  "gate_policy": "syntax and smoke every iteration; shots when a visual surface changed; build at the final iteration only (electron-builder is minutes long and must never overlap a shots run)",
+  "gate_policy": "check and smoke every iteration; shots when a visual surface changed; build once at the end, never overlapping a shots run",
   "gates": {
-    "syntax": {
+    "check": {
       "cmd": "node tools/check.js",
       "last_exit": 0,
-      "last_run_iteration": 0
+      "last_run_iteration": 7,
+      "detail": "syntax=22 files, palette=47 hex values, ipc=47 invoked / 17 listened, lineEndings=42 files, zero notes"
     },
     "smoke": {
       "cmd": "AEVAL_SMOKE=1 npx electron .",
       "last_exit": 0,
-      "last_run_iteration": 0
+      "last_run_iteration": 7,
+      "detail": "103 [SMOKE] lines, 0 failures; 14 must() invariants, 8 of them added this run"
     },
     "shots": {
       "cmd": "AEVAL_SHOT_OFFSCREEN=1 npm run shots",
-      "last_exit": null,
-      "last_run_iteration": null
+      "last_exit": 0,
+      "last_run_iteration": 5,
+      "detail": "22 surfaces; 03c-panel-multiline added, window 121 = surface 121"
     },
     "build": {
       "cmd": "npm run build",
-      "last_exit": null,
-      "last_run_iteration": null
+      "last_exit": 0,
+      "last_run_iteration": 7,
+      "detail": "electron-builder 26.15.3, nsis installer produced, icon generated from the pointer path, no default-icon warning"
     }
   },
   "progress_history": [
-    { "iteration": 0, "gates_newly_passing": ["syntax", "smoke"], "defects_closed": 0, "defects_opened": 0 }
+    { "iteration": 0, "gates_newly_passing": ["syntax", "smoke"], "defects_closed": 0, "defects_opened": 0 },
+    { "iteration": 1, "gates_newly_passing": ["check"], "defects_closed": 0, "defects_opened": 1 },
+    { "iteration": 2, "gates_newly_passing": [], "defects_closed": 2, "defects_opened": 0 },
+    { "iteration": 3, "gates_newly_passing": [], "defects_closed": 1, "defects_opened": 0 },
+    { "iteration": 4, "gates_newly_passing": [], "defects_closed": 2, "defects_opened": 0 },
+    { "iteration": 5, "gates_newly_passing": ["shots"], "defects_closed": 1, "defects_opened": 0 },
+    { "iteration": 6, "gates_newly_passing": [], "defects_closed": 5, "defects_opened": 0 },
+    { "iteration": 7, "gates_newly_passing": ["build"], "defects_closed": 0, "defects_opened": 0 }
   ],
   "no_progress_streak": 0,
-  "status": "running"
+  "status": "stopped",
+  "stop_condition": "a - clean pass: every registered gate exited 0 in iteration 7, and DEFECTS.md has no open row"
 }
