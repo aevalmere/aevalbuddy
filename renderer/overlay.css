@@ -49,14 +49,16 @@
     inset 0 1px 0 rgba(201, 207, 221, 0.12),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5),
     inset 0 -18px 22px -20px rgba(0, 0, 0, 0.55);
-  /* The cast shadow, and the only two surfaces that have anywhere to cast it.
-     #pill sits at inset 3px in a 104x40 window, so three pixels of it land;
-     the speech bubble owns a whole display. #panel and #opanel are inset 0 in
-     windows sized exactly to the surface (lib/shots.js asserts it and calls
-     any gap a dead band), so an outer shadow on those is rasterised, clipped
-     by the window frame, and shows nobody anything. It used to be on all
-     three. Depth on the clipped surfaces comes from the edge instead. */
-  --lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 14px 30px rgba(0, 0, 0, 0.5);
+  /* The cast shadow, and the only surface in this file with anywhere to cast
+     it. #pill sits at inset 3px in a 104x40 window, so it has three pixels of
+     margin and this is sized to exactly that. #panel and #opanel are inset 0
+     in windows sized exactly to the surface (lib/shots.js asserts it and
+     calls any gap a dead band), so an outer shadow on those is rasterised,
+     clipped by the window frame, and shows nobody anything. It used to be
+     `0 18px 44px` on all three: a 44px blur drawing 3px on one of them and
+     nothing at all on the other two. Depth on the clipped surfaces comes from
+     the edge instead. */
+  --lift: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 7px rgba(0, 0, 0, 0.55);
   --edge: rgba(201, 207, 221, 0.16);
   /* A raised control catches the light on its top lip; a well catches it on
      the bottom one. One pixel each, which is all the difference needs to be

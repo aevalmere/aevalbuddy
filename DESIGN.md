@@ -38,7 +38,7 @@ and cards (~30%), grape soda is reserved for the primary action, focus, and the 
 Secondary text is slate at 0.70 alpha minimum (measured 4.5:1 or better on every surface it sits on);
 never lower for text under 14px.
 
-### The three values that are not in it
+### The values that are not in it
 
 "Nothing else" held until the app grew a surface with no surface of its own. Every window here supplies
 its own background, so the palette is always measured against a known dark grey. The area selector is
@@ -50,7 +50,9 @@ which is as often a white document as a black editor.
 | `--accent-bright` | `#C56FC3` | the selection's corner ticks | grape soda is a dark violet by design, which is right on the app's own dark surfaces and a smudge on a black editor. The ticks are the one mark saying which pixels get sent |
 | `--danger` | `#E4818C` | the too-small warning, Delete all | the accent means "this is the action". An error that borrows it says the opposite of what it means |
 | `--danger-edge` | `#6B2E38` | that warning's border | the rim that keeps `--danger` legible against a pale background |
-| `--skin` | `#3E404A` to `#262930` | every window's background | the material that replaced acrylic. A top-lit gradient reads as dimensional; a flat palette grey reads as a sticker. Defined in `renderer/overlay.css` |
+| `--glass-deep` | `#191A1F` | the bottom of a floating surface, the top of a document window | the deep end of the painted glass. Shadow grey is the top of the ramp, which is what the palette always said carried the surfaces; this is where it goes. Defined in `renderer/overlay.css` |
+| `--glass-floor` | `#101116` | the bottom of Settings and History, and the selector's chips | the deep end of the thick material. See v1.2 |
+| `--bubble-deep` | `#0C1B3B` | the bottom of the pointer's speech bubble | space indigo carried down its own hue, so the bubble is top-lit like everything else. The shared neutral floor would drain the colour out of the one surface whose colour is its identity. Defined in `renderer/cursor-buddy.css` |
 
 So the rule that replaces "nothing else": a value outside the six is named as a token where it is
 defined, carries its reason there, and is listed here. An unnamed hex sitting inline in a stylesheet is
@@ -608,3 +610,181 @@ That is the same shape as the v1 finding, and it is worth stating as a rule
 rather than as a third anecdote: **test the path the feature exists for first,
 and the failure paths second.** The failure paths are easier to write, which is
 exactly why they accumulate.
+
+## v1.2: the surfaces were coloured in, not lit
+
+"A very very light liquid glass, to make it feel premium Apple." Photographed
+at four times life size, the reason the surfaces did not was specific rather
+than a matter of taste. Every one of them was a flat two-stop gradient with a
+uniform 1px bevel across the top, which is a slab with a line drawn on it. The
+one part that would have read as a material -- a large soft shadow separating
+it from the desktop -- was pointed at a wall.
+
+The material is painted. That is not a preference; v0.4 and v0.5 already
+settled it, and nothing has changed:
+
+- `backdrop-filter` cannot see past a window boundary. These are transparent
+  windows over the desktop, so there is nothing behind them for CSS to blur
+  and the property silently does nothing.
+- `backgroundMaterial` acrylic is incompatible with `transparent: true`. It
+  shipped once and cost the overlay its topmost behaviour, its collapsed
+  click target, and the desktop's repaints.
+- Depth is a material, not a compositor feature. This section is that sentence
+  taken further than a flat gradient took it.
+
+### The material, in four parts
+
+| Part | What it is | Why it is that and not something else |
+| --- | --- | --- |
+| fill | `linear-gradient(var(--grey), var(--glass-deep))` | shadow grey is the palette value the distribution rule always assigned to surfaces; `--skin` used an unnamed `#3E404A` instead. The deeper ramp also buys contrast: slate at 0.70 on the old top stop measured 4.14:1, under this file's own floor for text at 12px, and 4.55:1 on the new one |
+| sheen | slate at 0.085, fading out over the top **18px** | anchored to the edge in pixels, not as a percentage of height. Edge-lighting is a property of the edge; a percentage would give a 62px query bar a 20px bloom and a 780px transcript a 250px one, which is a spotlight and not a material |
+| specular | a 1px pseudo-element on the top edge, slate at 0.3, fading out over the 12px corner radius at each end | `box-shadow: inset 0 1px 0` runs at one strength all the way into the corners, where the sheet has turned away from the light. That is a bevel. A gradient can fade along the span; a shadow cannot, which is why this is the one part that needs an element of its own |
+| floor | `inset 0 -1px 0` black at 0.5, plus a soft `inset 0 -18px 22px -20px` | the underside of the sheet. Measured on the render, the answer window ends `#141519`, then `#090A0C` at the contact line, then the border |
+
+Two thicknesses of the same material, which is the only thing about it that is
+not uniform. The floating surfaces -- pill, query bar, answer, both layout
+ghosts -- run shadow grey to `--glass-deep`. Settings and History run
+`--glass-deep` to `--glass-floor`, so the thick material starts exactly where
+the thin one ends. Every edge is identical. Apple ships regular and thick glass
+for the same reason: a floating control and a scrolling document want different
+amounts of light through them, and these two windows carry a type ladder down
+to 11px that a brighter surface would cost.
+
+That claim is measured, not asserted. Twelve labels in those two windows,
+before against after: title 6.43 -> 6.79, h2 6.95 -> 7.30, summary 4.91 ->
+5.08, Edit 4.16 -> 4.27, note 5.02 -> 5.14, status 8.29 -> 8.61, history
+preview 3.69 -> 3.77, history timestamp 2.56 -> 2.57. Ten improve, two are
+unchanged to two decimals, none regress.
+
+Six of those are under 4.5:1 both before and after. That is a real violation of
+this file's "0.70 alpha minimum, never lower for text under 14px", it predates
+this work, and it is not a glass problem: fixing it means rebuilding the
+hierarchy those two windows are scanned by, which is its own change and should
+not be smuggled in behind a lighting one.
+
+### Raised and cut, instead of another border
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--rim` | `inset 0 1px 0` slate 0.13, `inset 0 -1px 0` black 0.22 | anything raised out of the surface: buttons, keycaps, the model dropdown, the question chip, a switch that is on, a hovered history row |
+| `--well` | `inset 0 1px 2px` black 0.22, `inset 0 -1px 0` slate 0.06 | anything cut into it: text fields, the search box, a code block, a switch that is off |
+
+A raised control catches the light on its top lip and a well catches it on the
+bottom one. That is two pixels doing the work a border would have done, and it
+keeps the rule this design has held since v0.4: default borderless, separate
+with whitespace and then a background shift.
+
+The accent gets the rim and nothing else. Slate on grape soda measures 4.69:1,
+which is 0.19 above the body-text floor; a sheen down the face of the button
+takes the text midline to 4.05:1 and the top of the button to 3.47:1. There is
+no budget there for a gradient, and one lit pixel above every glyph costs
+nothing, because no glyph reaches it.
+
+### A shadow aimed at a wall
+
+`--lift` was `0 1px 2px, 0 18px 44px` and it was on the pill, the query bar and
+the answer window. `#panel` and `#opanel` sit at `inset: 0` in windows sized
+exactly to the surface -- `lib/shots.js` asserts that on every run and calls
+any difference a dead band -- so a 44px blur on either of them was rasterised,
+clipped by the window frame, and shown to nobody. It is off both.
+
+`#pill` keeps a shadow, because it has somewhere to put one: `inset: 3px` in a
+104x40 window, so three pixels of margin. It is now sized to that three pixels
+rather than to forty-four. Photographed against the shot backdrop, the visible
+result is the same to within two levels at the outer pixel -- `#181A1E`,
+`#23252C`, `#2B2E36` under the pill against `#181A1E`, `#202228`, `#25272E`
+before -- for a seventh of the blur area.
+
+The speech bubble keeps a real cast shadow, because it is the one surface that
+floats in a window the size of a whole display.
+
+### Not laggy, with a number
+
+Frame timing on the surface that repaints continuously. The answer window's
+transcript streams and the window grows as it does, so the worst honest case is
+`#opanel`'s whole background invalidated on every animation frame: two gradient
+layers, three inset shadows and the specular, re-rastered sixty times a second.
+
+A/B in one process, counterbalanced, the "before" arm being the flat skin and
+the 44px shadow restored through `insertCSS`. Counterbalancing matters, and the
+first run proved it: running glass first in every pair made it look 30% more
+expensive, and the giveaway was `ScriptDuration` -- the benchmark's own
+JavaScript, byte for byte identical in both arms, came out 20 to 40% higher in
+whichever arm ran first.
+
+| Surface | | fps | frames over 20ms | main thread, per 3000ms |
+| --- | --- | --- | --- | --- |
+| 420x620 | glass | 60.0 | 0.0 | 429ms |
+| 420x620 | flat | 60.0 | 0.3 | 320ms |
+| 900x900 | glass | 60.1 | 0.0 | 486ms |
+| 900x900 | flat | 59.8 | 1.0 | 498ms |
+
+900x900 is the largest surface the app allows: widths are capped at 900 and a
+docked answer window can fill the work area's height. At that size the two are
+indistinguishable. At 420x620 the glass costs about 110ms of main thread per
+three seconds of continuous full-surface invalidation -- roughly 0.6ms of a
+16.7ms frame -- and it is spent on style and layout rather than raster, because
+the specular is an extra box to lay out whenever the surface changes size.
+Neither arm dropped a frame that mattered, and the glass arm dropped none at
+all.
+
+Rejected on cost rather than on looks: a radial specular in the top-left corner
+(a third gradient layer on every surface, and it reads as a blob before it
+reads as light); a 1px inner ring down the left and right edges (uniform, so it
+draws a second border immediately inside the first, which is the tell it was
+supposed to avoid); anything using `filter` or generated noise on a surface
+that repaints or moves. The area selector's size chip is moved with
+`translate3d` on every mousemove of a drag across the whole desktop, so its
+glass is non-blurred insets only.
+
+### Three things the photographs caught that reading the CSS would not
+
+`#opanel::after`, the fade that says there is more transcript below, had
+`--skin`'s base stop written out as a literal `rgba(38, 41, 48, ...)`. Moving
+the token without it would have put a visible seam across the bottom edge of
+the answer window. It follows `--glass-deep` now, with a note saying why it
+cannot be a variable.
+
+`.bubble-body` needed `position: relative` to be a containing block for its
+specular. That moved it into the positioned paint layer, above its sibling
+`.bubble-tail`, and the bubble's own left border then drew straight across the
+join: the tail read as a separate arrow floating beside a card instead of part
+of one shape. Invisible at life size and obvious at ten times it. The tail
+carries `z-index: 1` now, with the reason beside it.
+
+`#callout-hint` was slate at 0.55 alpha, 12px, on space indigo: 3.91:1. Under
+the 4.5 floor, and under this file's own rule that slate never goes below 0.70
+for text under 14px. It is the line telling you the bubble can be clicked away,
+and it sits over whatever happens to be on the user's desktop. At 0.70 it
+measures 5.44:1 and it is still the quietest thing in the bubble, because it is
+small and italic and nothing above it is either.
+
+### A fourth comment that described something the code did not do
+
+`settings/settings.css` and `history/history.css` both open by claiming "the
+same surface tokens as the overlay". Neither used them: both drew their own
+background out of two unnamed values at an alpha nothing else in the app has,
+and their `--bevel` was a different number from the overlay's. After the arrow
+tip, the "uses the palette" header, and the `history.trim()` guard, that is the
+fourth. The pattern named in v1.1 holds -- the comments that lie are the ones
+stating a property nothing ever fails on -- and "same tokens as X" belongs on
+that list beside performance and geometry.
+
+### What deliberately did not change
+
+The radius scale. 4 for keycaps, 6 for controls, 8 for cards, 12 for floating
+windows, and the pill's 11 against the panel's 12, which is what makes the
+expand glide read as the pill becoming the panel. Rounder corners are the
+obvious move towards this look, and they would have spent a documented piece of
+continuity on a stylistic one.
+
+Nothing about motion. Every animation is still transform and opacity, entrances
+still scale from 0.9 to 0.95, and `prefers-reduced-motion` still kills all of
+it. Glass is a static material here: it does not shimmer, travel, or respond to
+a cursor it cannot see.
+
+And the border. Every floating window keeps its 1px slate edge even though
+stacking a hairline with a shadow is a known tell, because the reason recorded
+under "Spacing and radius" still holds -- these windows sit over arbitrary
+desktop content, a shadow alone disappears against a dark one, and the 3:1
+boundary requirement is not negotiable for an overlay.
