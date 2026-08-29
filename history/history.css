@@ -22,7 +22,23 @@
   --gutter: 16px;
   --control: 32px;
   --hairline: rgba(201, 207, 221, 0.10);
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
+
+  /* The same painted material as the overlay (renderer/overlay.css carries
+     the full note), at the same thickness as Settings: --glass-deep to
+     --glass-floor, because both are large scrolling documents rather than
+     floating controls. Same sheen depth, same specular, same rim and well. */
+  --glass-deep: #191A1F;
+  --glass-floor: #101116;
+  --skin:
+    linear-gradient(rgba(201, 207, 221, 0.085), rgba(201, 207, 221, 0) 18px),
+    linear-gradient(var(--glass-deep), var(--glass-floor));
+  --bevel:
+    inset 0 1px 0 rgba(201, 207, 221, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 -18px 22px -20px rgba(0, 0, 0, 0.55);
+  --edge: rgba(201, 207, 221, 0.16);
+  --rim: inset 0 1px 0 rgba(201, 207, 221, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+  --well: inset 0 1px 2px rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(201, 207, 221, 0.06);
 }
 
 * {
@@ -42,15 +58,37 @@ body {
 }
 
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
-  border: 1px solid rgba(201, 207, 221, 0.17);
+  background: var(--skin);
+  border: 1px solid var(--edge);
   border-radius: 12px;
   box-shadow: var(--bevel);
   overflow: hidden;
+}
+
+/* The specular: the top-edge hairline with its ends taken off, because a
+   corner has turned away from the light. --bevel keeps a dim uniform line
+   under it so the corners stay soft rather than cut. */
+#app::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(201, 207, 221, 0),
+    rgba(201, 207, 221, 0.3) 12px,
+    rgba(201, 207, 221, 0.3) calc(100% - 12px),
+    rgba(201, 207, 221, 0)
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 
 button {
@@ -120,6 +158,7 @@ button {
   border-radius: 6px;
   background: rgba(201, 207, 221, 0.07);
   color: rgba(201, 207, 221, 0.45);
+  box-shadow: var(--well);
   transition: border-color var(--d-fast), background-color var(--d-fast);
 }
 
@@ -207,7 +246,7 @@ button {
 .item:focus-visible {
   background: rgba(201, 207, 221, 0.055);
   border-color: rgba(201, 207, 221, 0.12);
-  box-shadow: none;
+  box-shadow: var(--rim);
 }
 
 /* The hairline belongs to the row below; a hovered row lifts out of the list,

@@ -22,8 +22,29 @@
   --gutter: 16px;
   --control: 32px;
   --hairline: rgba(201, 207, 221, 0.10);
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
   --chrome: 0.6;
+
+  /* ---------------------------------------------------------------- glass
+
+     The same painted material as the overlay (renderer/overlay.css carries
+     the full note), one step deeper. Settings and History are large scrolling
+     documents rather than floating controls, and they carry a denser type
+     ladder down to 11px, so their fill starts where the overlay's ends:
+     --glass-deep to --glass-floor. Every edge is identical -- the same sheen
+     depth, the same specular, the same rim and well -- so the two read as one
+     material at two thicknesses rather than as two materials. */
+  --glass-deep: #191A1F;
+  --glass-floor: #101116;
+  --skin:
+    linear-gradient(rgba(201, 207, 221, 0.085), rgba(201, 207, 221, 0) 18px),
+    linear-gradient(var(--glass-deep), var(--glass-floor));
+  --bevel:
+    inset 0 1px 0 rgba(201, 207, 221, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 -18px 22px -20px rgba(0, 0, 0, 0.55);
+  --edge: rgba(201, 207, 221, 0.16);
+  --rim: inset 0 1px 0 rgba(201, 207, 221, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+  --well: inset 0 1px 2px rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(201, 207, 221, 0.06);
 }
 
 * {
@@ -43,15 +64,38 @@ body {
 }
 
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
-  border: 1px solid rgba(201, 207, 221, 0.17);
+  background: var(--skin);
+  border: 1px solid var(--edge);
   border-radius: 12px;
   box-shadow: var(--bevel);
   overflow: hidden;
+}
+
+/* The specular. A box-shadow hairline runs at one strength all the way into
+   the corners, where the sheet has turned away from the light; this is the
+   same line with its ends taken off. --bevel keeps a dim uniform line under
+   it so the corners are soft rather than cut. */
+#app::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(201, 207, 221, 0),
+    rgba(201, 207, 221, 0.3) 12px,
+    rgba(201, 207, 221, 0.3) calc(100% - 12px),
+    rgba(201, 207, 221, 0)
+  );
+  pointer-events: none;
+  z-index: 1;
 }
 
 button {
@@ -302,6 +346,7 @@ h2 {
   background: rgba(201, 207, 221, 0.16);
   position: relative;
   cursor: pointer;
+  box-shadow: var(--well);
   transition: background var(--d-fast) ease;
 }
 
@@ -314,11 +359,13 @@ h2 {
   height: 12px;
   border-radius: 50%;
   background: var(--slate);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   transition: transform var(--d-fast) var(--ease-out);
 }
 
 .switch input:checked {
   background: var(--accent);
+  box-shadow: var(--rim);
 }
 
 .switch input:checked::after {
@@ -331,6 +378,10 @@ h2 {
 
 /* ----------------------------------------------------------------- inputs */
 
+/* A field is cut into the surface, so it is lit on its bottom lip and shaded
+   along the top inside edge. A button is raised out of it and lit the other
+   way round. That is the whole difference between --well and --rim, and it is
+   what tells the two apart without either of them growing a border. */
 input[type="password"],
 input[type="text"] {
   flex: 1;
@@ -343,6 +394,7 @@ input[type="text"] {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 0 10px;
+  box-shadow: var(--well);
   user-select: text;
 }
 
@@ -381,6 +433,7 @@ input[type="text"]:focus {
   border-radius: 6px;
   padding: 6px 10px;
   text-align: left;
+  box-shadow: var(--rim);
   transition: background var(--d-fast) ease;
 }
 
@@ -436,7 +489,7 @@ input[type="text"]:focus {
   max-height: 320px;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--rim), 0 16px 40px rgba(0, 0, 0, 0.55);
   animation: combo-open 140ms var(--ease-out);
 }
 
@@ -555,6 +608,7 @@ input[type="text"]:focus {
   border-radius: 6px;
   font-size: 13px;
   background: rgba(201, 207, 221, 0.07);
+  box-shadow: var(--rim);
   transition: background var(--d-fast) ease;
 }
 
@@ -583,6 +637,9 @@ input[type="text"]:focus {
   display: none;
 }
 
+/* Slate on grape soda measures 4.69:1. A sheen down the face of this button
+   spends every bit of that headroom, so the accent gets the rim and nothing
+   else: one lit pixel above every glyph, one dark one below. */
 .primary {
   flex: 0 0 auto;
   height: var(--control);
@@ -592,6 +649,7 @@ input[type="text"]:focus {
   font-size: 13px;
   font-weight: 600;
   border-radius: 6px;
+  box-shadow: var(--rim);
   transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
 }
 
@@ -648,6 +706,7 @@ kbd {
   padding: 3px 8px;
   white-space: nowrap;
   justify-self: end;
+  box-shadow: var(--rim);
 }
 
 .sc-row.capturing kbd {
