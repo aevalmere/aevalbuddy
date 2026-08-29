@@ -1644,8 +1644,16 @@ function openHistory() {
   historyWin.once('ready-to-show', () => {
     if (historyWin && !historyWin.isDestroyed()) historyWin.show();
   });
+  // Windows emits 'resize' continuously through a drag, and every store.set is
+  // a synchronous write of the whole settings file. Settings, twenty lines
+  // above, settles first for exactly this reason; this one wrote hundreds of
+  // times per drag.
+  let historyResizeTimer = null;
   historyWin.on('resize', () => {
-    if (historyWin && !historyWin.isDestroyed()) store.setHistorySize(historyWin.getBounds());
+    clearTimeout(historyResizeTimer);
+    historyResizeTimer = setTimeout(() => {
+      if (historyWin && !historyWin.isDestroyed()) store.setHistorySize(historyWin.getBounds());
+    }, DROP_SETTLE_MS);
   });
   historyWin.on('closed', () => {
     historyWin = null;
@@ -2787,6 +2795,33 @@ async function runSmoke() {
     history.setEnabled(store.getSaveHistory());
     history.clear();
     log('historyCleared', history.count());
+    // The byte cap, and the cost of enforcing it. trim() used to JSON.stringify
+    // the whole history after every answer to find out whether anything needed
+    // dropping; it now sums estimated sizes. An estimate that read low would
+    // let the file grow past its cap, so the check measures the real
+    // serialised length rather than trusting the estimator that produced it.
+    const bulk = 'x'.repeat(60 * 1024);
+    const trimStart = Date.now();
+    for (let i = 0; i < 60; i += 1) {
+      history.save({
+        id: `budget-${i}`,
+        model: 'test',
+        messages: [
+          { role: 'user', text: bulk },
+          { role: 'assistant', text: bulk },
+        ],
+      });
+    }
+    const trimMs = Date.now() - trimStart;
+    const measured = history.measuredBytes();
+    log('historyTrimMs', trimMs);
+    log('historyBytes', `${measured}<=${history.MAX_BYTES}`);
+    must(
+      'historyRespectsByteCap',
+      measured <= history.MAX_BYTES && history.count() > 0,
+      `${measured} bytes against a ${history.MAX_BYTES} cap, ${history.count()} entries`
+    );
+    history.clear();
     log('historyRetryGuard', lastQuestion === '' ? 'nothing-to-retry' : 'has-question');
     const submitResult = await handleQuerySubmit('smoke question');
     log('queryWithoutKey', `${submitResult.status}:chat${chat.length}`);
