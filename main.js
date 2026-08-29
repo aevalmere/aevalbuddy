@@ -1244,6 +1244,13 @@ async function withFailover(o) {
   const tried = [];
   let attempt = o.model;
   let lastErr = null;
+  // How many models this request actually burned, stamped on whatever error
+  // escapes. The user-facing copy used to assert that a stand-in had been
+  // tried whether or not one ever was; now the sentence follows the count.
+  const stamp = (err) => {
+    if (err && typeof err === 'object') err.attempts = tried.length;
+    return err;
+  };
   while (attempt) {
     tried.push(attempt);
     if (tried.length > 1 && o.onSwitch) o.onSwitch(attempt);
@@ -1253,12 +1260,12 @@ async function withFailover(o) {
       lastErr = err;
       if (err.name === 'AbortError') throw err;
       // Half an answer on screen cannot be replaced by another model's half.
-      if (o.canRetry && !o.canRetry()) throw err;
-      if (!ai.shouldFailover(err) || !/:free$/.test(attempt)) throw err;
+      if (o.canRetry && !o.canRetry()) throw stamp(err);
+      if (!ai.shouldFailover(err) || !/:free$/.test(attempt)) throw stamp(err);
       attempt = tried.length >= MAX_MODEL_ATTEMPTS ? null : ai.nextFreeModel(o.kind, tried);
     }
   }
-  throw lastErr;
+  throw stamp(lastErr);
 }
 
 function abortCurrentQuery() {
@@ -1444,7 +1451,7 @@ async function handleQuerySubmit(question, opts) {
       chat.push({ role: 'assistant', text: extractor.text });
       rememberChat(answering);
     }
-    const message = ai.friendlyError(err, err.stage === 'reader' ? model : answering);
+    const message = ai.friendlyError(err, err.stage === 'reader' ? model : answering, err.attempts);
     if (message) {
       // The error row offers Retry, which re-sends this exact question rather
       // than whatever the cleared input box would have sent.
@@ -1927,6 +1934,13 @@ if (!gotLock) {
       shortcuts: () => store.getShortcuts(),
     });
     applyRegistrations();
+    // Warms the model catalogue in the background. Failover picks the next
+    // free model from the curated order, and the curated order is a
+    // preference, not evidence that a model still exists; without this the
+    // cache was only ever filled by opening Settings, so the ordinary path -
+    // launch, ask, hit a queued free model - was the one running blind. No
+    // key needed, and a failure is silent.
+    ai.warmCatalogue();
     if (
       !lastRegisterResults.captureQuery ||
       !lastRegisterResults.captureRegion ||
@@ -2591,6 +2605,36 @@ async function runSmoke() {
       // Expected: every attempt failed.
     }
     log('failoverCapped', `${capped}<=${MAX_MODEL_ATTEMPTS}:${capped <= MAX_MODEL_ATTEMPTS}`);
+    // The stand-in has to exist. Failover reading its next id straight out of
+    // the curated array is how the machinery built to survive a retired model
+    // could hand the next attempt another retired one; the catalogue has been
+    // warmed by listModels above, so every id it offers is one the live list
+    // has. An invariant, because a 404 chasing a 404 is invisible from the
+    // outside: the app recovers on the third try and nobody sees the waste.
+    const catalogue = new Set((modelList.groups.find((g) => g.tier === 'free') || { models: [] }).models.map((m) => m.id));
+    const standIn = ai.nextFreeModel('vision', [ai.DEFAULT_MODEL]);
+    must(
+      'failoverPicksLiveModel',
+      !!standIn && catalogue.has(standIn),
+      `${standIn} is not in the live free vision list`
+    );
+    const brainStandIn = ai.nextFreeModel('text', [ai.DEFAULT_BRAIN]);
+    const brainCatalogue = new Set((brainFree || { models: [] }).models.map((m) => m.id));
+    must(
+      'failoverPicksLiveBrain',
+      !!brainStandIn && brainCatalogue.has(brainStandIn),
+      `${brainStandIn} is not in the live free text list`
+    );
+    // The error copy may not assert a stand-in that was never tried. One
+    // attempt means one model, and the sentence about the others has to be
+    // absent rather than merely wrong.
+    const oneTry = ai.friendlyError(Object.assign(new Error('busy'), { status: 429 }), 'x/y:free', 1);
+    const threeTries = ai.friendlyError(Object.assign(new Error('busy'), { status: 429 }), 'x/y:free', 3);
+    must(
+      'errorCopyCountsAttempts',
+      !/stand-in/.test(oneTry) && /2 free stand-ins/.test(threeTries),
+      'the rate-limit copy does not follow the attempt count'
+    );
 
     // ------------------------------------------------------------- history
     history.setEnabled(true);
