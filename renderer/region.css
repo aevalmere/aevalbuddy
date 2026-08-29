@@ -26,6 +26,13 @@
      "this is the action". Shared with the history window's Delete all. */
   --danger: #E4818C;
   --danger-edge: #6B2E38;
+  /* The chips are the only surfaces this window owns, and they are the same
+     painted material as every other surface in the app: the glass floor as
+     their fill, a lit top lip, a dark underside. Non-blurred insets only --
+     the size chip is moved with translate3d on every mousemove of a drag and
+     nothing here may cost a frame. */
+  --glass-floor: #101116;
+  --rim: inset 0 1px 0 rgba(201, 207, 221, 0.13), inset 0 -1px 0 rgba(0, 0, 0, 0.22);
 }
 
 * {
@@ -134,11 +141,12 @@ body:not([data-dragging]) #scrim-right {
   letter-spacing: .02em;
   font-variant-numeric: tabular-nums;
   color: var(--slate);
-  background: rgba(18, 20, 28, 0.92);
+  background: rgba(16, 17, 22, 0.92);
   border: 1px solid var(--twilight);
   border-radius: 4px;
   padding: 4px 8px;
   white-space: nowrap;
+  box-shadow: var(--rim);
 }
 
 #size[hidden] {
@@ -162,11 +170,11 @@ body:not([data-dragging]) #scrim-right {
   gap: 10px;
   font-size: 13px;
   color: var(--slate);
-  background: rgba(18, 20, 28, 0.92);
+  background: rgba(16, 17, 22, 0.92);
   border: 1px solid var(--twilight);
   border-radius: 999px;
   padding: 8px 16px 8px 12px;
-  box-shadow: 0 8px 28px -14px rgba(0, 0, 0, .9);
+  box-shadow: var(--rim), 0 8px 28px -14px rgba(0, 0, 0, .9);
   animation: hint-in 240ms cubic-bezier(.32, .72, 0, 1) both;
 }
 
@@ -215,6 +223,7 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 1px 5px;
+  box-shadow: var(--rim);
 }
 
 @media (prefers-reduced-motion: reduce) {

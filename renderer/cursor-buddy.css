@@ -56,6 +56,12 @@ body {
 :root {
   --tip-x: 3.38px;
   --tip-y: 0.29px;
+  /* Space indigo carried down its own hue, so the bubble is top-lit like
+     every other surface in the app rather than a flat card. It is the same
+     operation --glass-deep performs on shadow grey; a shared neutral floor
+     would drain the colour out of the bottom of the bubble, and the bubble is
+     the one surface whose colour is its identity. Listed in DESIGN.md. */
+  --bubble-deep: #0C1B3B;
 }
 
 .arrow {
@@ -128,18 +134,50 @@ body {
   opacity: 1;
 }
 
+/* The same painted glass as every other surface, on space indigo instead of
+   the grey: a slate bloom over the top 18px, a lit hairline on the top edge,
+   a dark underside, and one soft cast shadow -- which this surface, unlike
+   the panel, actually has room for, because it floats in a window the size of
+   the whole display. */
 .bubble-body {
+  position: relative;
   max-width: 280px;
   min-width: 168px;
-  background: #10254F;
+  background:
+    linear-gradient(rgba(201, 207, 221, 0.085), rgba(201, 207, 221, 0) 18px),
+    linear-gradient(#10254F, var(--bubble-deep));
   border: 1px solid #303D6A;
   border-radius: 12px;
   color: #C9CFDD;
   font-size: 14px;
   line-height: 1.45;
   padding: 8px 12px 10px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(201, 207, 221, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 5px rgba(0, 0, 0, 0.4),
+    0 12px 28px rgba(0, 0, 0, 0.42);
   cursor: grab;
+}
+
+/* The specular, with its ends taken off at the corner radius. It is a child
+   of #callout, so the click-through hit test in renderer/buddy.js still finds
+   the bubble under the cursor; pointer-events is off regardless. */
+.bubble-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 7px;
+  right: 7px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(201, 207, 221, 0),
+    rgba(201, 207, 221, 0.3) 12px,
+    rgba(201, 207, 221, 0.3) calc(100% - 12px),
+    rgba(201, 207, 221, 0)
+  );
+  pointer-events: none;
 }
 
 #callout.dragging .bubble-body {
@@ -175,12 +213,24 @@ body {
   }
 }
 
-/* The tail points back at the arrow. Its side flips with the bubble. */
+/* The tail points back at the arrow. Its side flips with the bubble.
+
+   The z-index is load-bearing and was found in a photograph. The tail and the
+   bubble are siblings; while the bubble was statically positioned the tail
+   painted over it and the two read as one shape. Giving .bubble-body
+   position: relative -- which the specular needs as a containing block --
+   moved the bubble into the positioned layer and, being later in the DOM, on
+   top: the bubble's own left border then drew straight across the join and
+   the tail read as a separate arrow floating beside a card. This puts the
+   tail back over it. */
 .bubble-tail {
   position: absolute;
+  z-index: 1;
   top: 18px;
   width: 10px;
   height: 10px;
+  /* The fill the bubble has at y=18, where the tail meets it: the sheen has
+     just run out, so the palette value on its own is the match. */
   background: #10254F;
   border-left: 1px solid #303D6A;
   border-bottom: 1px solid #303D6A;
@@ -211,6 +261,7 @@ body {
   height: 18px;
   border-radius: 50%;
   background: #823A80;
+  box-shadow: inset 0 1px 0 rgba(201, 207, 221, 0.2), 0 1px 2px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,11 +324,16 @@ body {
 
 /* The whole bubble is the button, so the action is a hint rather than a
    control competing with the message: small, italic, under the text. */
+/* 0.55 on space indigo measures 3.91:1, under the 4.5 floor and under this
+   project's own rule that slate never goes below 0.70 for text at 12px. It
+   read as styling in a page render and as unreadable over a desktop. 0.70
+   measures 5.44:1 and it is still the quietest thing in the bubble, because
+   it is 12px and italic and everything above it is not. */
 #callout-hint {
   margin-top: 6px;
   font-size: 12px;
   font-style: italic;
-  color: rgba(201, 207, 221, 0.55);
+  color: rgba(201, 207, 221, 0.7);
   transition: color 150ms ease;
 }
 
@@ -286,7 +342,7 @@ body {
 }
 
 .bubble-body:hover #callout-hint {
-  color: rgba(201, 207, 221, 0.85);
+  color: #C9CFDD;
 }
 
 #callout-close {
