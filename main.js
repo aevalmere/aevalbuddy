@@ -2700,6 +2700,51 @@ async function runSmoke() {
         }
       : null;
     log('regionPointTarget', JSON.stringify(areaCentre));
+    // A completed drag has to come back as a rectangle. Everything else in
+    // this block asks whether the selector *cancels* cleanly -- three separate
+    // ways -- and nothing ever asked whether it succeeds, so the one path the
+    // feature exists for was the one nothing watched. It did not work: finish()
+    // closed the window before settling, destroy() emits 'closed'
+    // synchronously, and that handler resolved every completed selection as a
+    // cancel. Drawn through the real renderer, because the bug lived in the
+    // seam between the window and the promise and a direct call would have
+    // stepped straight over it.
+    const donePick = region.select(disp);
+    await new Promise((r) => setTimeout(r, 700));
+    const selWin = region.debugWindow();
+    if (selWin) {
+      // Deliberately not awaited. The mouseup dispatched here ends with the
+      // main process destroying this very window, which is the window that
+      // would have delivered executeJavaScript's reply, so awaiting one is a
+      // race with nothing to gain. The outcome that matters is the promise
+      // below, and it carries its own timeout so a future regression of this
+      // defect fails the run rather than stalling it.
+      selWin.webContents
+        .executeJavaScript(
+          `(() => { const at = (t, x, y) => document.dispatchEvent(` +
+            `new MouseEvent(t, { clientX: x, clientY: y, button: 0, bubbles: true }));` +
+            ` at('mousedown', 40, 40); at('mousemove', 360, 240); at('mouseup', 360, 240);` +
+            ` return true; })()`
+        )
+        .catch(() => {});
+    }
+    // Never let a broken selector hang the whole run.
+    const dragged = await Promise.race([
+      donePick,
+      new Promise((r) => setTimeout(() => r('timeout'), 5000)),
+    ]);
+    if (dragged === 'timeout') region.cancel();
+    log('regionDrag', dragged && dragged !== 'timeout' ? `${dragged.width}x${dragged.height}` : String(dragged));
+    must(
+      'regionDragReturnsTheBox',
+      !!dragged &&
+        dragged !== 'timeout' &&
+        dragged.width === 320 &&
+        dragged.height === 200 &&
+        dragged.x === disp.bounds.x + 40 &&
+        dragged.y === disp.bounds.y + 40,
+      `a completed drag resolved as ${JSON.stringify(dragged)}`
+    );
     // The selector opens and cancels without stranding a full-screen scrim.
     const pick = region.select(disp);
     region.cancel();

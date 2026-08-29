@@ -579,3 +579,32 @@ code did not do — after the arrow tip and the "uses the palette" header. The
 pattern is worth naming: the comments that lie are the ones stating a
 *performance* or *geometry* property, because nothing ever fails when they stop
 being true.
+
+### The area selector never returned an area
+
+Choosing an area is described in this file as the largest single lever on answer
+quality, and `lib/region.js` opens with the arithmetic: a 600x300 selection goes
+over the wire at 1:1 instead of 0.62x, and small text is simply legible.
+
+It never worked. `finish()` closed the selector window before settling its
+promise. `close()` calls `destroy()`, `destroy()` emits `closed`, and the
+`closed` handler settles with `null` — the right safety net for a window that
+goes away by some route nobody planned. Whether that mattered turned on one
+question nobody had asked, so it was asked directly, with a 25-line probe:
+`closed` fires *synchronously*, during `destroy()`. The net therefore caught
+every successful selection as well. The promise resolved null, `pending` was
+cleared, and the call carrying the actual rectangle was a no-op. `Ctrl+Shift+A`,
+drag a box, release, and the app treated it as a cancel.
+
+The fix is the order: settle, then close.
+
+The interesting part is why it lasted. There were three assertions about the
+selector and all three were about cancelling — it cancels on demand, Escape
+dismisses it without taking the panel, and no scrim is left stranded. Every one
+of them passed, on a feature that could not succeed. A suite can be detailed,
+green, and still be describing only the ways a thing fails to happen.
+
+That is the same shape as the v1 finding, and it is worth stating as a rule
+rather than as a third anecdote: **test the path the feature exists for first,
+and the failure paths second.** The failure paths are easier to write, which is
+exactly why they accumulate.

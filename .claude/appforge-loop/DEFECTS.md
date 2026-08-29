@@ -17,6 +17,7 @@ about how much code moves.
 | D9 | `main.js:158` | The `lastRegisterResults` initialiser omits `captureRegion`, so `settings:get` can report an `active` map missing a key the panel draws a row for. | MINOR | tidiness | FIXED (iter 6) |
 | D10 | `lib/tray.js` `init()` | `click` and `double-click` both call `capture()`. Windows emits both clicks plus the double-click event, so one double click fires three screen captures and three panel expansions. | MINOR | correctness | FIXED (iter 6) |
 | D11 | `lib/openrouter.js` `streamQuery()` | Every exit from the SSE loop except a clean `[DONE]` abandons the reader without releasing it, holding the socket until GC. On a free tier that rate limits per connection that is not a detail. | MINOR | resource | FIXED (iter 6) |
+| D12 | `lib/region.js` `finish()` | **Area selection never worked.** `finish()` calls `close()` before `settle()`. `close()` calls `destroy()`, and `destroy()` emits `closed` *synchronously* (probed), and the `closed` handler settles the promise with `null` as its safety net. So every completed drag resolved as a cancel and the rectangle was discarded by a no-op `settle`. `Ctrl+Shift+A`, drag a box, release: nothing happens. This is the feature `lib/region.js` calls "the largest single lever on answer quality in the app". Survived because all three region assertions in the smoke run test *cancelling* -- the one path the feature exists for was the one nothing asked about. | BLOCKER | correctness | FIXED (iter 8) |
 
 ## Closed with no change
 

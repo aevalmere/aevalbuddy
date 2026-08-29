@@ -132,3 +132,44 @@ with its reason. Then the expensive gate.
 
 Changed: DESIGN.md (v1.1 section), README.md (npm run check, the multi-line
 field, tools/check.js in the file list), ledger.
+
+## Iteration 8 - D12: area selection never worked
+Goal: finish the defect hunt properly. The first pass reviewed main.js, the
+libs and two renderers, and skipped roughly 1400 lines: settings/settings.js,
+history/history.js, lib/region.js, lib/cursor-buddy.js. Claiming the app had
+been reviewed while a quarter of it had not been read is its own defect.
+
+settings.js and history/history.js came back clean - nothing I could defend as
+a defect. lib/region.js did not.
+
+`finish()` calls `close()` before `settle()`. `close()` calls `destroy()`,
+`destroy()` emits 'closed', and the 'closed' handler settles the promise with
+null as a safety net for a window that goes away unexpectedly. Whether that
+mattered turned entirely on whether 'closed' is synchronous.
+
+PROBE: a 25-line Electron script, the exact shape region.js uses ->
+  closed fired during destroy() = true
+  promise resolved with null
+So the safety net caught every *successful* selection. Draw a box, release,
+and the app treated it as a cancel. That is the feature region.js's own header
+calls "the largest single lever on answer quality in the app".
+
+Why it survived: all three region assertions in the smoke run are about
+cancelling - selector cancels, Escape cancels, the scrim is not stranded. The
+one path the feature exists for was the one nothing ever asked about.
+
+Fix: settle first, close second. The 'closed' handler stays as the safety net
+it was meant to be.
+
+GATE: check | EXIT: 0
+GATE: smoke, defect deliberately reinstated | EXIT: 1 | failed: regionDragReturnsTheBox
+GATE: smoke, fix restored | EXIT: 0 | regionDrag=320x200  regionDragReturnsTheBox=ok
+  and all three cancel paths still pass
+
+Recorded because I got it wrong twice on the way. First I reported the
+reinstated-defect run as hanging; it was PowerShell buffering the process
+output into a variable while it wrote to stderr, not the app. Streaming the
+output showed a clean exit 1. The check is sound and does not stall.
+
+Changed: lib/region.js, main.js.
+Result: D12 closed, and it is the most valuable find of the run.
