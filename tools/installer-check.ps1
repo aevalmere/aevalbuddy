@@ -40,6 +40,14 @@ function Annotate([string]$level, [string]$title, [string]$message) {
   Write-Host "::${level} title=${t}::$m"
 }
 
+# Without this an exception ends the run with an exit code and nothing else
+# readable from outside the log.
+trap {
+  $at = $_.InvocationInfo
+  Annotate 'error' 'installer-check.ps1' "line $($at.ScriptLineNumber): $($_.Exception.Message)`n$($at.Line.Trim())"
+  exit 1
+}
+
 function Find-Uninstall {
   $keys = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
   Get-ItemProperty $keys -ErrorAction SilentlyContinue |
@@ -86,8 +94,10 @@ if (-not $entry) {
 }
 Check 'install.version' ($entry.DisplayVersion -eq $Version) "registered=$($entry.DisplayVersion) expected=$Version"
 
-$dir = $entry.InstallLocation
-$exe = Join-Path $dir 'AevalBuddy.exe'
+# electron-builder leaves InstallLocation out of this entry, so the folder
+# comes from the uninstaller's path, which sits beside the exe.
+$uninstaller = [regex]::Match($entry.UninstallString, '^"([^"]+)"').Groups[1].Value
+$exe = Join-Path (Split-Path $uninstaller) 'AevalBuddy.exe'
 Check 'install.exe' (Test-Path $exe) $exe
 $fileVersion = (Get-Item $exe).VersionInfo.ProductVersion
 Check 'install.exeVersion' ($fileVersion -eq $Version) "exe=$fileVersion"
@@ -131,8 +141,8 @@ Annotate 'notice' "shots (installed exe): $($pngs.Count) png" $(if ($shotLines) 
 # ------------------------------------------------------------------ uninstall
 
 $cmd = if ($entry.QuietUninstallString) { $entry.QuietUninstallString } else { "$($entry.UninstallString) /S" }
-$m = [regex]::Match($cmd, '^"([^"]+)"\s*(.*)$')
-Start-Process -FilePath $m.Groups[1].Value -ArgumentList $m.Groups[2].Value -Wait
+$parts = [regex]::Match($cmd, '^"([^"]+)"\s*(.*)$')
+Start-Process -FilePath $parts.Groups[1].Value -ArgumentList $parts.Groups[2].Value -Wait
 # The NSIS uninstaller copies itself to %TEMP% and returns at once, so the
 # only reliable signal that it finished is the files going away.
 $deadline = (Get-Date).AddSeconds(90)
