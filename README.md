@@ -207,7 +207,7 @@ npm run dev
 
 This runs the app under a file watcher. Edit any source file (or have an AI assistant edit it) and the running app updates itself: changes to renderer HTML, CSS, or JS reload the windows in place; changes to main-process files restart the app in about a second. Leave it running while iterating; there is no manual quit-and-relaunch step.
 
-Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. And the packaged installer in `dist/` is a snapshot from whenever `npm run build` last ran; a local build never updates itself, so rebuild it when you want the installable version to catch up.
+Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. An installed copy counts: it uses the same `%APPDATA%\aevalbuddy` folder as the source tree, so it shares the API key, settings, layout and history with `npm run dev`, and if it is running a dev launch quits at once and opens a capture in the installed copy instead. Quit it from the tray before developing. And the packaged installer in `dist/` is a snapshot from whenever `npm run build` last ran; a local build never updates itself, so rebuild it when you want the installable version to catch up.
 
 ### Shipping a release
 
@@ -219,6 +219,12 @@ git push --follow-tags
 The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first.
 
 The workflow creates the release as a draft before the build starts, and publishes it only after checking that all three files are attached. Creating it first matters: electron-builder uploads with more than one publisher at once, and each one that finds no release creates its own, which once split v1.1.0 into two releases with the installer in one and the blockmap in the other. Publishing at the end matters too, because a draft is invisible to installed copies and to the Download link at the top of this file. That link is `releases/latest/download/AevalBuddy-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
+
+### Testing the real installer
+
+`.github/workflows/installer.yml` installs `AevalBuddy-Setup.exe` on a clean Windows machine in GitHub's cloud and runs the app from where it landed, not from the source tree. It checks the install (exit code, Add/Remove Programs entry and version, both shortcuts, that a silent install does not launch the app), runs the smoke test and the screenshot run against the installed exe, then uninstalls and checks the files, the registry entry and the shortcuts are gone. Every push to main tests a fresh build of that commit. Every finished release tests the file the Download link serves, after checking it against `latest.yml`.
+
+Results are on the run's summary page, with the screenshots attached as an `installer-check` artifact. The script is `tools/installer-check.ps1`. Do not run it on your own machine: it installs over and then uninstalls whatever copy is there.
 
 ### Looking at the UI
 
@@ -304,6 +310,7 @@ lib/shots.js               visual self-check: photographs every surface (npm run
 skills/*.md                answering procedures; drop a file in to add one
 tools/shots-run.js         runner for npm run shots (scratch profile, output in shots/)
 tools/make-icon.js         generates build/icon.ico from the pointer arrow (npm prebuild)
+tools/installer-check.ps1  installs the real installer, runs the installed app, uninstalls (cloud only)
 renderer/index.html        the input window: pill, query bar, input layout ghost
 renderer/overlay.js|css    input window logic and the shared stylesheet
 renderer/output.html|js    the answer window: conversation transcript, answer layout ghost

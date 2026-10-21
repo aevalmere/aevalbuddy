@@ -1,0 +1,61 @@
+# Installs the real installer on a clean Windows machine in GitHub's cloud and
+# runs the app from where it landed: the smoke test, the visual self-check,
+# then an uninstall. Nothing runs on anyone's desktop. A push to main tests a
+# fresh build of that commit; a finished release tests the file the README's
+# download link serves, so a broken deliverable shows up here first. See
+# tools/installer-check.ps1 for what is checked.
+name: installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+
+jobs:
+  check:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        if: github.event_name != 'workflow_run'
+        with:
+          node-version: 20
+          cache: npm
+      - name: Build the installer from this commit
+        if: github.event_name != 'workflow_run'
+        run: |
+          npm ci
+          npm run build -- --publish never
+          "INSTALLER=$PWD\dist\AevalBuddy-Setup.exe" >> $env:GITHUB_ENV
+          "VERSION=$(node -p "require('./package.json').version")" >> $env:GITHUB_ENV
+      - name: Download the installer the README links to
+        if: github.event_name == 'workflow_run'
+        run: |
+          $base = 'https://github.com/${{ github.repository }}/releases/latest/download'
+          New-Item -ItemType Directory -Force dl | Out-Null
+          Invoke-WebRequest "$base/AevalBuddy-Setup.exe" -OutFile dl\AevalBuddy-Setup.exe
+          Invoke-WebRequest "$base/latest.yml" -OutFile dl\latest.yml
+          $yml = Get-Content dl\latest.yml -Raw
+          $want = [regex]::Match($yml, '(?m)^sha512: (\S+)').Groups[1].Value
+          $bytes = [IO.File]::ReadAllBytes("$PWD\dl\AevalBuddy-Setup.exe")
+          $got = [Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash($bytes))
+          if ($got -ne $want) {
+            "::error title=download::the file behind the README link does not match latest.yml"
+            exit 1
+          }
+          "INSTALLER=$PWD\dl\AevalBuddy-Setup.exe" >> $env:GITHUB_ENV
+          "VERSION=$([regex]::Match($yml, '(?m)^version: (\S+)').Groups[1].Value)" >> $env:GITHUB_ENV
+      - name: Install, run, uninstall
+        run: ./tools/installer-check.ps1 -Installer $env:INSTALLER -Version $env:VERSION -Out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-check
+          path: out/
