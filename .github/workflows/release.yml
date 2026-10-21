@@ -1,8 +1,8 @@
 # Cuts a release. Push a tag like v1.1.0 and this builds the Windows
-# installer, attaches it to a GitHub release of the same name together with
-# its blockmap and latest.yml, and every installed copy picks it up on its
-# next check. The tag must match the version in package.json, or
-# electron-builder refuses to publish; bump the version first.
+# installer and publishes a GitHub release of the same name holding three
+# files: AevalBuddy-Setup.exe, its blockmap, and latest.yml. Installed copies
+# read latest.yml on their next check, and the README's download link serves
+# the exe. Bump the version in package.json first; the tag has to match it.
 name: release
 
 on:
@@ -16,13 +16,50 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      # electron-builder names the release after package.json, not the tag,
+      # so a mismatch would publish somewhere this run is not looking.
+      - name: Tag matches package.json
+        run: |
+          want="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$want" ]; then
+            echo "::error::tag $TAG does not match package.json ($want)"
+            exit 1
+          fi
       - run: npm ci
-      - run: npm run build -- --publish always
+      # electron-builder uploads with more than one publisher at once, and
+      # each one that finds no release for the tag creates its own. Left to
+      # itself it made two v1.1.0 releases, the exe in one and the blockmap
+      # in the other, and the download link 404'd. A draft made first is
+      # found by every publisher, and nobody sees it until it is complete.
+      - name: Create the release as a draft
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: |
+            **Download `AevalBuddy-Setup.exe` below and run it.** It installs in a few seconds, with no admin prompt, and opens the app.
+
+            If Windows says "Windows protected your PC", click **More info**, then **Run anyway**. The installer is not code-signed; this is not a virus warning.
+
+            On first launch a pointer walks you to Settings to paste an OpenRouter key, free at https://openrouter.ai/keys. Already installed? It updates itself.
+        run: gh release create "$TAG" --draft --verify-tag --title "AevalBuddy ${TAG#v}" --notes "$NOTES"
+      - run: npm run build -- --publish always
+      - name: Publish once every file is attached
+        run: |
+          names=$(gh release view "$TAG" --json assets -q '.assets[].name')
+          for f in AevalBuddy-Setup.exe AevalBuddy-Setup.exe.blockmap latest.yml; do
+            if ! echo "$names" | grep -qx "$f"; then
+              echo "::error::$f is missing from the $TAG release"
+              exit 1
+            fi
+          done
+          gh release edit "$TAG" --draft=false --latest

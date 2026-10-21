@@ -31,6 +31,3 @@ publish:
   provider: github
   owner: aevalmere
   repo: aevalbuddy
-  # electron-builder defaults to a draft, which neither the README's download
-  # link nor installed copies can see until someone publishes it by hand.
-  releaseType: release

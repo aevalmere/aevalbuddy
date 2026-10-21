@@ -218,7 +218,7 @@ git push --follow-tags
 
 The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first.
 
-The release is published as soon as the build finishes, not left as a draft, because a draft is invisible to everything that matters: installed copies cannot see it, and neither can the Download link at the top of this file. That link is `releases/latest/download/AevalBuddy-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
+The workflow creates the release as a draft before the build starts, and publishes it only after checking that all three files are attached. Creating it first matters: electron-builder uploads with more than one publisher at once, and each one that finds no release creates its own, which once split v1.1.0 into two releases with the installer in one and the blockmap in the other. Publishing at the end matters too, because a draft is invisible to installed copies and to the Download link at the top of this file. That link is `releases/latest/download/AevalBuddy-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
 
 ### Looking at the UI
 
