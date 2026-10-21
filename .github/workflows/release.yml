@@ -1,0 +1,28 @@
+# Cuts a release. Push a tag like v1.1.0 and this builds the Windows
+# installer, attaches it to a GitHub release of the same name together with
+# its blockmap and latest.yml, and every installed copy picks it up on its
+# next check. The tag must match the version in package.json, or
+# electron-builder refuses to publish; bump the version first.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

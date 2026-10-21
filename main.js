@@ -32,6 +32,7 @@ const cursorBuddy = require('./lib/cursor-buddy');
 const tray = require('./lib/tray');
 const region = require('./lib/region');
 const history = require('./lib/history');
+const updater = require('./lib/updater');
 
 const IS_WINDOWS = process.platform === 'win32';
 
@@ -1741,6 +1742,7 @@ function registerIpc() {
     active: { ...lastRegisterResults },
     defaults: { ...store.DEFAULT_SHORTCUTS },
     version: app.getVersion(),
+    update: updater.get(),
     // Below Windows 10 build 19041 the call that hides these windows from a
     // screen share does nothing at all. Believing the overlay is hidden when
     // it is not is the worst way to find out.
@@ -1754,6 +1756,9 @@ function registerIpc() {
   }));
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
+
+  ipcMain.handle('update:check', () => updater.check());
+  ipcMain.handle('update:restart', () => ({ ok: updater.restart() }));
 
   ipcMain.handle('settings:save-skill', (_e, { skill }) => ({
     ok: true,
@@ -1925,8 +1930,19 @@ if (!gotLock) {
       openSettings: () => openSettings(),
       quit: () => app.quit(),
       shortcuts: () => store.getShortcuts(),
+      updateReady: () => (updater.isReady() ? updater.get().version : ''),
+      restartToUpdate: () => updater.restart(),
     });
     applyRegistrations();
+    updater.init({
+      restart: () => updater.restart(),
+      onChange: (state) => {
+        tray.refresh();
+        if (settingsWin && !settingsWin.isDestroyed()) {
+          settingsWin.webContents.send('update:state', state);
+        }
+      },
+    });
     if (
       !lastRegisterResults.captureQuery ||
       !lastRegisterResults.captureRegion ||
@@ -1970,6 +1986,7 @@ if (!gotLock) {
     globalShortcut.unregisterAll();
     // The last conversation is usually still inside the debounce.
     history.flushNow();
+    updater.destroy();
     tray.destroy();
   });
 }
@@ -2027,7 +2044,7 @@ async function runShots() {
           history.clear();
           history.save({
             id: 'shot-1',
-            model: 'z-ai/glm-5.2:free',
+            model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
             messages: [
               { role: 'user', text: 'what is this error and how do I fix it?' },
               {
@@ -2038,7 +2055,7 @@ async function runShots() {
           });
           history.save({
             id: 'shot-2',
-            model: 'z-ai/glm-5.2:free',
+            model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
             messages: [
               { role: 'user', text: 'make this paragraph shorter and less formal' },
               { role: 'assistant', text: 'Here is a tighter version that keeps the ask up front.' },

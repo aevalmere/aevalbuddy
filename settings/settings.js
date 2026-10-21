@@ -7,6 +7,7 @@ const testKeyBtn = document.getElementById('test-key');
 const removeKeyBtn = document.getElementById('remove-key');
 const keyStatus = document.getElementById('key-status');
 const appVersion = document.getElementById('app-version');
+const updateBtn = document.getElementById('update-btn');
 const showPaid = document.getElementById('show-paid');
 const brainEnabled = document.getElementById('brain-enabled');
 const saveHistory = document.getElementById('save-history');
@@ -408,6 +409,47 @@ function renderStartup() {
   note.hidden = !note.textContent;
 }
 
+// ------------------------------------------------------------------ updates
+
+// One link in the footer carries the whole update story: it reads as a
+// status while something is happening and as an action when there is one to
+// take. Unpackaged there is nothing to update, so it is not shown at all.
+function renderUpdate(u) {
+  if (!u || u.status === 'dev') {
+    updateBtn.hidden = true;
+    return;
+  }
+  const text = {
+    idle: 'Check for updates',
+    checking: 'Checking…',
+    current: 'Up to date',
+    downloading: `Downloading ${u.version}…`,
+    ready: `Restart to update to ${u.version}`,
+    error: 'Update check failed. Try again',
+  }[u.status];
+  updateBtn.textContent = text || 'Check for updates';
+  updateBtn.disabled = u.status === 'checking' || u.status === 'downloading';
+  updateBtn.title = u.status === 'error' ? u.error || '' : '';
+  updateBtn.hidden = false;
+}
+
+updateBtn.addEventListener('click', () => {
+  const u = data.update || {};
+  const call = u.status === 'ready' ? 'update:restart' : 'update:check';
+  renderUpdate({ ...u, status: u.status === 'ready' ? 'ready' : 'checking' });
+  window.aeval.invoke(call).then((r) => {
+    if (r && r.status) {
+      data.update = r;
+      renderUpdate(r);
+    }
+  });
+});
+
+window.aeval.on('update:state', (u) => {
+  data.update = u;
+  renderUpdate(u);
+});
+
 saveHistory.addEventListener('change', () => {
   window.aeval
     .invoke('settings:set-save-history', { on: saveHistory.checked })
@@ -653,6 +695,7 @@ document.addEventListener('click', (e) => {
 window.aeval.invoke('settings:get').then((d) => {
   data = d;
   appVersion.textContent = d.version || '';
+  renderUpdate(d.update);
   const captureWarning = document.getElementById('capture-warning');
   if (captureWarning) captureWarning.hidden = d.canHide !== false;
   showPaid.checked = !!d.showPaid;

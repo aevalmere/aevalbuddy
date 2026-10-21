@@ -39,6 +39,8 @@ const INVOKE_CHANNELS = new Set([
   'settings:clear-history',
   'settings:set-launch-at-login',
   'settings:test-key',
+  'update:check',
+  'update:restart',
   'settings:close',
   'models:list',
   'clipboard:write',
@@ -75,6 +77,7 @@ const LISTEN_CHANNELS = new Set([
   'buddy:done',
   'buddy:move',
   'settings:data',
+  'update:state',
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {

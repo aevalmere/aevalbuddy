@@ -19,3 +19,10 @@ nsis:
   oneClick: true
   perMachine: false
   deleteAppDataOnUninstall: false
+# Updates. The installed app reads latest.yml from the newest GitHub release
+# of this repository and swaps itself for the installer attached there; see
+# lib/updater.js and .github/workflows/release.yml.
+publish:
+  provider: github
+  owner: aevalmere
+  repo: aevalbuddy

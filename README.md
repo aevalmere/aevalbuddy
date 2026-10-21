@@ -93,7 +93,7 @@ models OpenRouter currently offers, with live context sizes, and the default
 is `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, which describes
 itself as a perception sub-agent: a model whose job is to look at something
 and report what is there, for a stronger model to act on. That is exactly the
-job here. This model's only work may be reading the screen for the brain, and
+job here: it reads the screen and answers in one call, and
 a wrong answer built on a misread variable name is not a fast answer; only 3B
 of its 30B parameters are active per token, so accuracy does not cost the wait
 it looks like it should. `google/gemma-4-26b-a4b-it:free`
@@ -106,33 +106,36 @@ and nothing paid is ever selected for you. Every id is checked against the
 live list before it is offered, so a retired model disappears from the picker
 rather than failing mid-question.
 
-### Separate brain
+### Second model
 
-The strongest free models on OpenRouter are text only. GLM 5.2 cannot see an
-image, so the only way to put it behind a screen assistant is to give it a
-reading of the screen instead. That is what this switch does: the model above
-reads the screen into a short structured report, and a second model answers
-from that report.
+Off by default. One vision model reads the screen and answers, which is one
+call, one wait, and one thing to pick. Turning an image into text needs a
+vision model either way, so this is the simple path and the one the app ships
+on.
+
+The switch exists because the strongest free models on OpenRouter are text
+only. Nemotron Super and Ultra cannot see an image, so the only way to put
+one behind a screen assistant is to give it a reading of the screen instead. Turn on "Second
+model" and the model above reads the screen into a short structured report,
+and the second model answers from that report.
 
 The report is not prose. It names the app, the state, what has focus, the text
 that matters copied character for character, and a list of controls with their
 positions on a 0 to 1000 grid.
 
-The brain never sees those numbers. It cannot check a coordinate it did not
-observe, and when it was allowed to write one it copied the wrong row or made
-one up, which is what put the pointer in the wrong place. It names a target
-instead, and the app looks the name up in the reader's list. A name that
-matches nothing points at nothing, on purpose: a pointer in the wrong place is
-worse than none.
+The second model never sees those numbers. It cannot check a coordinate it did
+not observe, and when it was allowed to write one it copied the wrong row or
+made one up, which is what put the pointer in the wrong place. It names a
+target instead, and the app looks the name up in the reader's list. A name
+that matches nothing points at nothing, on purpose: a pointer in the wrong
+place is worse than none.
 
 What it costs is worth knowing. Two calls run in sequence, so the wait is the
-reader's full reply plus the brain's first token, and the answer window says
-which stage it is on rather than sitting on an unexplained pause. The brain
-also only knows what the reader wrote down: a detail the reader skipped is a
-detail the brain cannot use. On by default, because the difference between a
-12B model's answer and GLM 5.2's is most of the difference in answer quality;
-turn it off for one fast call instead of two. The default brain is
-`z-ai/glm-5.2:free`.
+reader's full reply plus the second model's first token, and the answer window
+says which stage it is on rather than sitting on an unexplained pause. The
+second model also only knows what the reader wrote down: a detail the reader
+skipped is a detail it cannot use. The default second model is
+`nvidia/nemotron-3-super-120b-a12b:free`; GLM 5.3 is in the paid group.
 
 ### Answer style
 
@@ -178,6 +181,10 @@ ever fire; if it does, `errors.log` is what to send.
 
 Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. Settings can also start AevalBuddy when you sign in to Windows; it is off until you ask for it. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
+### Updates
+
+An installed copy updates itself. Twenty seconds after launch, and every few hours after that, it asks GitHub for the newest release of this repository; if there is one, the installer downloads in the background. When it has arrived the tray menu grows a "Restart to update" item and one notification says so. Restart when you like, or never: the update is applied on the next quit either way. The link beside the version in the settings footer checks on demand and shows where things are. Nothing happens under `npm start`, because there is no installed copy to replace.
+
 ## Develop it (the live-reload loop)
 
 ```bash
@@ -186,7 +193,16 @@ npm run dev
 
 This runs the app under a file watcher. Edit any source file (or have an AI assistant edit it) and the running app updates itself: changes to renderer HTML, CSS, or JS reload the windows in place; changes to main-process files restart the app in about a second. Leave it running while iterating; there is no manual quit-and-relaunch step.
 
-Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. And the packaged installer in `dist/` is a frozen snapshot from whenever `npm run build` last ran; it never updates itself, so rebuild it when you want the installable version to catch up.
+Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. And the packaged installer in `dist/` is a snapshot from whenever `npm run build` last ran; a local build never updates itself, so rebuild it when you want the installable version to catch up.
+
+### Shipping a release
+
+```bash
+npm version minor
+git push --follow-tags
+```
+
+The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first. Draft releases are not seen by installed copies until published.
 
 ### Looking at the UI
 
@@ -259,7 +275,8 @@ DESIGN.md                  design constraints: palette usage, motion, scales, st
 main.js                    windows, hotkeys, capture, chat state, HUD editor, docking, IPC
 preload.js                 allowlisted contextBridge between main and renderers
 lib/openrouter.js          OpenRouter client: SSE streaming, the reader stage, history, point directives, models
-lib/store.js               electron-store wrapper: key encryption, model, brain, skill, shortcuts, positions
+lib/store.js               electron-store wrapper: key encryption, model, second model, skill, shortcuts, positions
+lib/updater.js             GitHub release auto-update: background download, tray item, applied on quit
 lib/skills.js              loads skills/*.md and appends the chosen one to the system prompt
 lib/motion.js              window-bounds animation: the glide curve, anchored start rects
 lib/cursor-buddy.js        pointer state machine: walkthrough steps and model-directed points
