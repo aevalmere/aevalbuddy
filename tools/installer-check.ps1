@@ -100,7 +100,8 @@ $uninstaller = [regex]::Match($entry.UninstallString, '^"([^"]+)"').Groups[1].Va
 $exe = Join-Path (Split-Path $uninstaller) 'AevalBuddy.exe'
 Check 'install.exe' (Test-Path $exe) $exe
 $fileVersion = (Get-Item $exe).VersionInfo.ProductVersion
-Check 'install.exeVersion' ($fileVersion -eq $Version) "exe=$fileVersion"
+# Windows keeps four parts, so 1.1.1 is stamped as 1.1.1.0.
+Check 'install.exeVersion' ($fileVersion -in $Version, "$Version.0") "exe=$fileVersion"
 
 $startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\AevalBuddy.lnk'
 $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'AevalBuddy.lnk'
