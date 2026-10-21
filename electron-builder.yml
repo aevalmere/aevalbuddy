@@ -19,6 +19,11 @@ nsis:
   oneClick: true
   perMachine: false
   deleteAppDataOnUninstall: false
+  # No version in the name, so the README can link to
+  # releases/latest/download/AevalBuddy-Setup.exe and that link always
+  # serves the newest installer. The updater still finds old blockmaps by
+  # the version in the tag, so differential downloads keep working.
+  artifactName: ${productName}-Setup.${ext}
 # Updates. The installed app reads latest.yml from the newest GitHub release
 # of this repository and swaps itself for the installer attached there; see
 # lib/updater.js and .github/workflows/release.yml.
@@ -26,3 +31,6 @@ publish:
   provider: github
   owner: aevalmere
   repo: aevalbuddy
+  # electron-builder defaults to a draft, which neither the README's download
+  # link nor installed copies can see until someone publishes it by hand.
+  releaseType: release

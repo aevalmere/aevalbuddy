@@ -2,19 +2,19 @@
 
 A small always-on-top overlay for Windows that talks about whatever is on your screen. Press a hotkey, type a question, and the answer streams into a floating conversation window; follow-ups continue the same conversation, and every message sees the screen as it is right then. The assistant can even point: when an answer involves a specific spot on screen, an animated pointer glides there with a label. The overlay is excluded from screen capture, so it stays invisible in screen shares and recordings.
 
-Built with Electron and plain JS/HTML/CSS. No build step beyond `npm install`, and no AI SDK: requests go straight to OpenRouter's OpenAI-compatible endpoint.
+## Download
 
-## Run it
+[![Download AevalBuddy for Windows](https://img.shields.io/badge/Download-AevalBuddy%20for%20Windows-0a84ff?style=for-the-badge)](https://github.com/aevalmere/aevalbuddy/releases/latest/download/AevalBuddy-Setup.exe)
 
-Requirements: Windows 10/11, Node.js 18+ and npm.
+**[AevalBuddy-Setup.exe](https://github.com/aevalmere/aevalbuddy/releases/latest/download/AevalBuddy-Setup.exe)**, Windows 10 or 11, about 90 MB. That link is always the newest version. Older versions are on the [releases page](https://github.com/aevalmere/aevalbuddy/releases).
 
-```bash
-npm install
-```
+1. **Run it.** It installs in a few seconds and opens the app. No admin prompt, no wizard, nothing to choose.
+2. **If Windows says "Windows protected your PC"**, click **More info**, then **Run anyway**. That screen appears for any installer that has not paid for a code-signing certificate; it is not a virus warning. Your browser may also say the file is not commonly downloaded: choose **Keep**.
+3. **Paste an API key.** A pointer walks you to the settings panel. Get a key free at [openrouter.ai/keys](https://openrouter.ai/keys); the default models cost nothing, so you do not need to add credit.
 
-```bash
-npm start
-```
+Then press `Ctrl+Shift+Space` and ask a question. There is no window in the taskbar; the tray icon by the clock is how you find AevalBuddy again.
+
+It updates itself from then on. To remove it: Windows Settings, Apps, Installed apps, AevalBuddy, Uninstall.
 
 On the very first launch a pointer appears and walks you to the settings panel, where you paste an OpenRouter API key (create one free at openrouter.ai/keys). The walkthrough auto-runs only that once; dismiss it any time with its close button, Esc, or a click elsewhere, and replay it by typing `help me` in the query box. The key is stored on this machine only, encrypted through Windows credential storage when available; if encryption is unavailable it falls back to plain JSON in your user profile.
 
@@ -185,6 +185,20 @@ Quit from the tray icon, or from the settings panel (gear icon in the query pane
 
 An installed copy updates itself. Twenty seconds after launch, and every few hours after that, it asks GitHub for the newest release of this repository; if there is one, the installer downloads in the background. When it has arrived the tray menu grows a "Restart to update" item and one notification says so. Restart when you like, or never: the update is applied on the next quit either way. The link beside the version in the settings footer checks on demand and shows where things are. Nothing happens under `npm start`, because there is no installed copy to replace.
 
+## Run from source
+
+Built with Electron and plain JS/HTML/CSS. No build step beyond `npm install`, and no AI SDK: requests go straight to OpenRouter's OpenAI-compatible endpoint.
+
+Requirements: Windows 10/11, Node.js 18+ and npm.
+
+```bash
+npm install
+```
+
+```bash
+npm start
+```
+
 ## Develop it (the live-reload loop)
 
 ```bash
@@ -202,7 +216,9 @@ npm version minor
 git push --follow-tags
 ```
 
-The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first. Draft releases are not seen by installed copies until published.
+The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first.
+
+The release is published as soon as the build finishes, not left as a draft, because a draft is invisible to everything that matters: installed copies cannot see it, and neither can the Download link at the top of this file. That link is `releases/latest/download/AevalBuddy-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
 
 ### Looking at the UI
 
@@ -224,7 +240,7 @@ Because that is a page render rather than a screen read, the run does not need t
 npm run build
 ```
 
-This produces `dist/AevalBuddy Setup 1.0.0.exe` (NSIS, per-user install, no admin prompt).
+This produces `dist/AevalBuddy-Setup.exe` (NSIS, one-click, per-user install, no admin prompt). The version is in the installer's metadata and in `dist/latest.yml`, not in the file name; see Shipping a release for why.
 
 The application icon is generated, not committed. `npm run build` runs `tools/make-icon.js` first, which reads the pointer arrow straight out of `renderer/buddy.html` and `renderer/cursor-buddy.css`, rasterises it at seven sizes and writes `build/icon.ico`. So the icon is the pointer: move the path and the icon moves with it, there is no second drawing to keep in sync, and the repository stays text-only. Without it electron-builder falls back to Electron's own logo and says so on every run.
 
