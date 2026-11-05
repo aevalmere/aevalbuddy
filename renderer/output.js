@@ -71,7 +71,14 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// The question an answer was for, so "Do it" can hand both to the agent.
+let lastUserText = '';
+
+// An answer that reads as steps to take gets a Do it button.
+const STEPS_RE = /(^|\n)\s*(\d+[.)]|[-*])\s|\b(click|press|open|type|select|choose|go to|drag|enter)\b/i;
+
 function addUserMsg(text) {
+  lastUserText = text;
   const msg = document.createElement('div');
   msg.className = 'msg user';
   const bubble = document.createElement('div');
@@ -118,10 +125,31 @@ function addAssistantMsg() {
   copy.textContent = 'Copy';
   copy.setAttribute('aria-label', 'Copy this answer');
   meta.appendChild(copy);
+
+  const doIt = document.createElement('button');
+  doIt.type = 'button';
+  doIt.className = 'copy-msg do-it';
+  doIt.textContent = 'Do it';
+  doIt.hidden = true;
+  doIt.setAttribute('aria-label', 'Have the agent do what this answer describes');
+  meta.appendChild(doIt);
   msg.appendChild(meta);
 
   chatEl.appendChild(msg);
-  const entry = { el: msg, body, raw: '', stop };
+  const entry = { el: msg, body, raw: '', stop, doIt, question: lastUserText };
+  doIt.addEventListener('click', () => {
+    window.aeval.invoke('agent:do-it', { question: entry.question, answer: entry.raw });
+  });
+  msg.addEventListener('contextmenu', (e) => {
+    if (!entry.raw) return;
+    e.preventDefault();
+    window.aeval.invoke('ui:context-menu', {
+      kind: 'answer',
+      text: entry.raw,
+      question: entry.question,
+      selection: String(window.getSelection() || ''),
+    });
+  });
   copy.addEventListener('click', () => {
     if (!entry.raw) return;
     window.aeval.invoke('clipboard:write', { text: entry.raw }).then(() => {
@@ -140,6 +168,7 @@ function setBusy(entry, on) {
   if (!entry) return;
   entry.el.classList.toggle('busy', on);
   entry.stop.hidden = !on;
+  if (entry.doIt) entry.doIt.hidden = on || !STEPS_RE.test(entry.raw);
   if (!on) {
     entry.stop.disabled = false;
     entry.stop.textContent = 'Stop';
@@ -338,6 +367,8 @@ window.aeval.on('query:delta', ({ gen, text }) => {
 window.aeval.on('query:done', ({ gen }) => {
   if (gen < lastGen) return;
   if (liveMsg) {
+    const done = liveMsg;
+    setTimeout(() => setBusy(done, false), 0);
     setBusy(liveMsg, false);
     if (!liveMsg.raw) {
       // Nothing streamed (for example an abort before the first token);
@@ -379,10 +410,13 @@ window.aeval.on('chat:sync', ({ messages }) => {
   for (const m of messages || []) {
     if (m.role === 'user') {
       addUserMsg(m.text);
+    } else if (m.kind === 'trail') {
+      window.addStoredTrail(m.text);
     } else {
       const entry = addAssistantMsg();
       entry.raw = m.text;
       window.renderMarkdownInto(entry.body, entry.raw);
+      setBusy(entry, false);
     }
   }
   if (messages && messages.length) {

@@ -1,0 +1,3 @@
+{"purpose":"find-expand","query":"payment","lines":[{"t":"invoice","k":"related","why":"an invoice is a request for payment"},{"t":"amount due","k":"related","why":"what the payment covers"}]}
+{"purpose":"find-expand","query":"how much do I owe","lines":[]}
+{"purpose":"find-correlate","query":"how much do I owe","match":"total due 42.00","score":0.9,"why":"the total due is what you owe"}

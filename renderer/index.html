@@ -22,10 +22,15 @@
 
   <section id="panel" hidden aria-label="AevalBuddy query panel">
     <div class="panel-top">
+      <!-- The mode is a word where the text starts, not a segmented control:
+           one surface per window. Click it, Tab on an empty bar, or
+           Ctrl+1/2/3 to switch. -->
+      <button id="mode-label" type="button" aria-label="Mode: Ask. Click to switch."
+              title="Tab or Ctrl+1/2/3 to switch">Ask</button>
       <input
         id="query-input"
         type="text"
-        placeholder="Ask about your screen..."
+        placeholder="Ask about your screen"
         aria-label="Ask about your screen. Press Enter to send."
         autocomplete="off"
         spellcheck="false"
@@ -66,6 +71,13 @@
       </svg>
       <span id="region-size"></span>
       <button id="region-clear" type="button">Whole screen</button>
+    </div>
+
+    <!-- Find's count and Agent's hints live under the bar, as one line. -->
+    <div id="bar-status" role="status" hidden>
+      <span id="bar-status-text"></span>
+      <button id="bar-status-action" type="button" class="link-btn" hidden></button>
+      <button id="find-scope" type="button" class="link-btn" hidden title="Tab with text in the bar">This window</button>
     </div>
 
     <div id="notice" role="status" hidden>

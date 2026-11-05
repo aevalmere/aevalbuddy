@@ -323,3 +323,59 @@ body {
     animation: none !important;
   }
 }
+
+/* ------------------------------------------------------------ tour actions */
+
+/* Skip on a tour step, the two choices on the last card. Skip is a link,
+   the card's first choice is the primary action in grape soda. */
+#callout-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#callout-actions[hidden] {
+  display: none;
+}
+
+#callout-actions .act {
+  font: inherit;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.75);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+#callout-actions .act:hover {
+  color: #C9CFDD;
+  background: rgba(48, 61, 106, 0.6);
+}
+
+#callout-actions .act.primary {
+  background: #823A80;
+  color: #C9CFDD;
+  font-weight: 600;
+  padding: 4px 12px;
+}
+
+#callout-actions .act.primary:hover {
+  opacity: 0.88;
+}
+
+#callout-actions .act:focus-visible {
+  outline: 2px solid #823A80;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px #C9CFDD;
+}
+
+/* A card has no arrow beside it, so no tail. The agent's bubble narrates and
+   carries no close button: Esc and the trail's Stop are how a run ends. */
+#callout[data-side="none"] .bubble-tail,
+body[data-kind="agent"] #callout-close {
+  display: none;
+}

@@ -38,6 +38,12 @@
      reads at a glance and still recedes. */
   --scroll-thumb: rgba(201, 207, 221, 0.26);
   --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
+  /* From DESIGN.md: an error must not borrow the accent, which means "this
+     is the action". The edge keeps it legible on pale backgrounds. */
+  --danger: #E4818C;
+  --danger-edge: #6B2E38;
+  /* Agent trail rows that are finished recede. */
+  --step-done: rgba(201, 207, 221, 0.7);
 }
 
 * {
@@ -76,7 +82,8 @@ button {
 #pill[hidden],
 #panel[hidden],
 #opanel[hidden],
-#hud[hidden] {
+#hud[hidden],
+#bar-status[hidden] {
   display: none;
 }
 
@@ -159,6 +166,24 @@ body[data-pill="busy"] .pill-dot {
 
 body[data-pill="busy"] .pill-label {
   color: rgba(201, 207, 221, 0.6);
+}
+
+/* The agent has the computer: the pill counts its steps instead of idling. */
+body[data-pill="agent"] .pill-dot {
+  background: var(--accent);
+}
+
+body[data-pill="agent"] .pill-label {
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The last run failed, or the connection is gone: one small dot in
+   --danger, cleared the next time the bar opens. */
+body[data-pill-error="1"] .pill-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger-edge);
+  animation: none;
 }
 
 @keyframes pill-breathe {
@@ -328,6 +353,77 @@ body[data-anchor-v="bottom"] #opanel {
 .panel-top button:hover {
   background: rgba(201, 207, 221, 0.08);
   opacity: 1;
+}
+
+/* ------------------------------------------------------------ mode label */
+
+/* Text, not a control with a box: slate at 0.70, the size of secondary text,
+   and it cross-fades with the placeholder when the mode changes. The bar
+   itself never resizes for it. */
+.panel-top #mode-label {
+  width: auto;
+  min-width: 44px;
+  padding: 0 8px 0 2px;
+  justify-content: flex-start;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.7);
+  opacity: 1;
+  transition: color var(--d-fast) ease;
+}
+
+.panel-top #mode-label:hover {
+  background: none;
+  color: var(--slate);
+}
+
+#mode-label.swap,
+#query-input.swap::placeholder {
+  animation: label-swap var(--d-fast) ease;
+}
+
+@keyframes label-swap {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------ bar status */
+
+#bar-status {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  color: rgba(201, 207, 221, 0.72);
+}
+
+#bar-status-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-line;
+  font-variant-numeric: tabular-nums;
+}
+
+.link-btn {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.72);
+  padding: 2px 7px;
+  border-radius: 5px;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.link-btn:hover {
+  background: rgba(201, 207, 221, 0.08);
+  color: var(--slate);
+}
+
+.link-btn[hidden] {
+  display: none;
 }
 
 /* ------------------------------------------------------------ region chip */
@@ -955,4 +1051,329 @@ body[data-fixed-height="1"] #chat {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* ===================================================================== v2 */
+
+#chat[hidden],
+#find-view[hidden],
+#chat-tools[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------- find view */
+
+/* Rows separated by hairlines, nothing filled except the current one. The
+   mark says what kind of match it is: a filled dot is the word itself, a
+   ring is something related. Same distinction the lens draws. */
+#find-view {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--chat-max, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.find-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 8px;
+  border-radius: 6px;
+  transition: background var(--d-fast) ease;
+}
+
+.find-row + .find-row {
+  border-top: 1px solid var(--hairline);
+}
+
+.find-row:hover {
+  background: rgba(201, 207, 221, 0.06);
+}
+
+.find-row.current {
+  background: rgba(130, 58, 128, 0.22);
+}
+
+.find-row.offscreen .find-snippet {
+  color: rgba(201, 207, 221, 0.7);
+}
+
+.kind-mark {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+
+.kind-mark.related,
+.kind-mark.concept {
+  background: none;
+  border: 1.5px solid var(--slate);
+}
+
+.find-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.find-snippet {
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.find-snippet b {
+  font-weight: 600;
+}
+
+.find-why {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(201, 207, 221, 0.7);
+}
+
+.find-empty {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(201, 207, 221, 0.75);
+  padding: 4px 2px;
+  white-space: pre-line;
+}
+
+/* ----------------------------------------------------------------- trail */
+
+.msg.trail {
+  width: 100%;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.msg.user + .msg.trail {
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+}
+
+.trail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.trail-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trail-status {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.trail-rows {
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+
+.trow {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 14px;
+  line-height: 1.45;
+  animation: msg-in var(--d-med) var(--ease-out);
+}
+
+/* Done steps recede; the running one is full slate. Reads are quieter
+   still: they are how the agent looks, not what it does. */
+.trow.done,
+.trow.skipped {
+  color: var(--step-done);
+}
+
+.trow.read,
+.trow.note {
+  font-size: 12px;
+  color: var(--step-done);
+}
+
+.trow-mark {
+  width: 6px;
+  height: 6px;
+  margin: 7px 3px 0;
+  border-radius: 50%;
+  background: rgba(201, 207, 221, 0.35);
+}
+
+.trow.running .trow-mark {
+  background: var(--accent);
+}
+
+.trow.failed .trow-mark {
+  background: var(--danger);
+}
+
+.trow.skipped .trow-mark {
+  background: none;
+  border: 1px solid rgba(201, 207, 221, 0.5);
+}
+
+.trow-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.trow-note {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.75);
+}
+
+.trow-side {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-steps {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.8);
+}
+
+.think-dots.small {
+  padding: 0;
+}
+
+.think-dots.small i {
+  width: 4px;
+  height: 4px;
+}
+
+.ask-input {
+  margin-top: 4px;
+  height: var(--control);
+  font: inherit;
+  font-size: 14px;
+  color: var(--slate);
+  background: rgba(201, 207, 221, 0.07);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 10px;
+  user-select: text;
+}
+
+.ask-input:focus {
+  outline: none;
+  border-color: rgba(201, 207, 221, 0.3);
+}
+
+.trail-meta {
+  opacity: 1;
+}
+
+.trail-banner,
+.note-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: rgba(201, 207, 221, 0.85);
+}
+
+.trail-banner span {
+  flex: 1;
+}
+
+.note-row {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  color: rgba(201, 207, 221, 0.75);
+}
+
+/* The confirm card: the one card in the trail. Twilight fill because cards
+   carry the ~30% band; Allow is the primary; the risky verb in the sentence
+   is not coloured, the card already means caution. */
+.confirm-card,
+.msg.consent {
+  width: 100%;
+  background: var(--twilight);
+  border-radius: 8px;
+  padding: var(--gutter);
+  display: grid;
+  gap: 8px;
+  animation: msg-in var(--d-med) var(--ease-out);
+}
+
+.confirm-text,
+.consent-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confirm-reason {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.8);
+}
+
+.consent-list {
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  display: grid;
+  gap: 2px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.keycap {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  padding: 1px 5px;
+  margin-left: 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(201, 207, 221, 0.85);
+}
+
+.trail-stored summary {
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.75);
+  cursor: pointer;
+}
+
+.trail-text {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: rgba(201, 207, 221, 0.75);
+  margin-top: 4px;
+}
+
+.do-it {
+  margin-left: 4px;
+}
+
+.copy-msg[hidden] {
+  display: none;
 }

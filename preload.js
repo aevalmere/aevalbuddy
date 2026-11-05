@@ -55,6 +55,28 @@ const INVOKE_CHANNELS = new Set([
   'buddy:advance',
   'buddy:set-ignore',
   'app:quit',
+  // v2: the command bar's modes, Find, the agent, and the tour.
+  'bar:mode',
+  'find:open',
+  'find:query',
+  'find:step',
+  'find:scope',
+  'find:to-ask',
+  'find:close',
+  'agent:start',
+  'agent:stop',
+  'agent:confirm',
+  'agent:continue',
+  'agent:consent',
+  'agent:do-it',
+  'ui:context-menu',
+  'settings:save-find-model',
+  'settings:save-agent-model',
+  'settings:set-find',
+  'settings:set-agent',
+  'tour:replay',
+  'buddy:card',
+  'buddy:skip',
 ]);
 
 const LISTEN_CHANNELS = new Set([
@@ -78,6 +100,18 @@ const LISTEN_CHANNELS = new Set([
   'buddy:move',
   'settings:data',
   'update:state',
+  'find:hits',
+  'find:state',
+  'agent:begin',
+  'agent:step',
+  'agent:state',
+  'agent:confirm-request',
+  'agent:done',
+  'agent:consent-request',
+  'lens:draw',
+  'view:set',
+  'bar:prefill',
+  'settings:section',
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {

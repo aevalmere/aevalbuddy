@@ -10,8 +10,16 @@ const {
   clipboard,
   shell,
   Menu,
+  net,
 } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
+const { EventEmitter } = require('events');
+
+// When the process started, for the boot-time check: the pill showing is
+// what "booted" means to a person.
+const PROCESS_START = Date.now() - Math.round(process.uptime() * 1000);
+let bootMs = 0;
 
 // Automated checks point this at a scratch directory so they get their own
 // settings store and single-instance lock, never colliding with a real
@@ -35,6 +43,14 @@ const history = require('./lib/history');
 const updater = require('./lib/updater');
 // Lazy: requiring it spawns nothing; the helper starts on the first call.
 const desktop = require('./lib/desktop');
+const find = require('./lib/find');
+const agent = require('./lib/agent');
+const lens = require('./lib/lens');
+
+// Everything the agent and Find emit also goes here, so the smoke run can
+// wait on the same events the windows render.
+const bus = new EventEmitter();
+bus.setMaxListeners(50);
 
 const IS_WINDOWS = process.platform === 'win32';
 
@@ -98,8 +114,10 @@ const DOCK_DISTANCE = 150;
 const DEFAULT_PROMPT = "What's on my screen and what should I do?";
 
 const ACTION_LABELS = {
-  captureQuery: 'Capture and ask',
+  captureQuery: 'Ask about my screen',
   captureRegion: 'Ask about an area',
+  findOnScreen: 'Find on screen',
+  agentTask: 'Agent',
   toggleVisibility: 'Show or hide overlay',
 };
 
@@ -158,24 +176,80 @@ let outputDropTimer = null;
 // The conversation, newest last: { role: 'user'|'assistant', text }. Held in
 // memory only; New chat or quitting clears it.
 let chat = [];
-const lastRegisterResults = { captureQuery: false, toggleVisibility: false };
+const lastRegisterResults = {
+  captureQuery: false,
+  captureRegion: false,
+  findOnScreen: false,
+  agentTask: false,
+  toggleVisibility: false,
+};
 
-const WALKTHROUGH = [
-  {
-    win: 'overlay',
-    targetSelector: '#settings-btn',
-    clickScope: '#settings-btn, #notice-settings',
-    message: 'Click here to add your API key',
-    advanceOn: 'settings-opened',
-  },
-  {
-    win: 'settings',
-    targetSelector: '#api-key-input',
-    clickScope: 'section[aria-labelledby="key-heading"]',
-    message: 'Paste your OpenRouter API key, then press Save key',
-    advanceOn: 'key-saved',
-  },
-];
+// v2 state. The bar has three verbs over one conversation; which one is
+// showing survives a restart.
+let barMode = 'ask';
+// A run that failed leaves a dot on the pill until the bar is next opened.
+let pillError = false;
+let agentModelNow = '';
+let pendingAgent = null;
+let enterRegistered = false;
+// While the engine sends a synthetic Escape, the global Escape (Stop) is
+// dropped, because RegisterHotKey fires on injected input too.
+let escapeSuspended = false;
+// The window an Ask read its exact text from, for pointing by name.
+let lastExact = null;
+let outputView = 'chat';
+const protectedWindows = new WeakSet();
+
+function online() {
+  if (process.env.AEVAL_OFFLINE) return false;
+  try {
+    return net.isOnline();
+  } catch (err) {
+    return true;
+  }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// The first-run tour (SPEC-v2 4.7): four steps, each skippable, each moving
+// on when the thing it asks for actually happens.
+function walkthrough() {
+  const k = store.getShortcuts();
+  return [
+    {
+      win: 'settings',
+      needs: 'settings-key',
+      targetSelector: '#api-key-input',
+      clickScope: '#sec-key',
+      message: 'Paste an OpenRouter API key here and press Save. A free key works.',
+      advanceOn: 'key-saved',
+    },
+    {
+      win: 'overlay',
+      targetSelector: '#pill, #query-input',
+      clickScope: '#pill, #panel',
+      message: `Press ${k.captureQuery} and ask anything about your screen.`,
+      advanceOn: 'first-answer',
+    },
+    {
+      win: 'overlay',
+      targetSelector: '#pill, #query-input',
+      clickScope: '#pill, #panel',
+      message: `Press ${k.findOnScreen} and type a word you can see.`,
+      advanceOn: 'find-hit',
+    },
+    {
+      card: true,
+      message: 'Agent can use your computer for you. It asks before anything risky, and Esc stops it.',
+      buttons: [
+        { id: 'try', label: 'Try it', primary: true },
+        { id: 'later', label: 'Later' },
+      ],
+    },
+  ];
+}
 
 // ---------------------------------------------------------------- positioning
 
@@ -364,6 +438,7 @@ function createOverlay() {
   overlayWin.once('ready-to-show', () => {
     // showInactive keeps focus in whatever app the user was using.
     overlayWin.showInactive();
+    if (!bootMs) bootMs = Date.now() - PROCESS_START;
   });
   overlayWin.webContents.on('did-finish-load', () => {
     sendOverlayState();
@@ -408,10 +483,12 @@ function createOutput() {
   outputLimits();
 }
 
-function openSettings() {
+function openSettings(opts) {
+  const section = opts && opts.section;
   if (settingsWin && !settingsWin.isDestroyed()) {
     settingsWin.show();
     settingsWin.focus();
+    if (section) settingsWin.webContents.send('settings:section', { id: section });
     cursorBuddy.notify('settings-opened');
     return;
   }
@@ -450,6 +527,11 @@ function openSettings() {
   pinOnTop(settingsWin);
   attachContextMenu(settingsWin);
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
+  if (section) {
+    settingsWin.webContents.once('did-finish-load', () => {
+      if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('settings:section', { id: section });
+    });
+  }
   settingsWin.once('ready-to-show', () => {
     settingsWin.show();
     cursorBuddy.notify('settings-opened');
@@ -505,10 +587,14 @@ function expandPanel() {
   applyRegistrations();
 }
 
-function collapsePanel() {
+function collapsePanel(opts) {
   if (!overlayWin) return;
-  abortCurrentQuery();
-  hideOutput();
+  const keepOutput = !!(opts && opts.keepOutput);
+  if (!keepOutput) {
+    abortCurrentQuery();
+    hideOutput();
+  }
+  if (find.isOpen()) closeFind(true);
   const wasPanel = overlayMode === 'panel';
   overlayMode = 'pill';
   currentInputHeight = DEFAULT_INPUT_HEIGHT;
@@ -564,7 +650,7 @@ function showOutput() {
 
 // Applies a height the renderer reported while a glide was in flight.
 function keepOnTop() {
-  for (const win of [overlayWin, outputWin, settingsWin]) {
+  for (const win of [overlayWin, outputWin, settingsWin, ...lens.windows()]) {
     if (win && !win.isDestroyed() && win.isVisible()) pinOnTop(win);
   }
 }
@@ -659,7 +745,16 @@ function sendOverlayState() {
       ? { width: activeRegion.width, height: activeRegion.height }
       : null,
     busy: queryBusy,
+    barMode,
+    agent: agent.isRunning()
+      ? { running: true, step: agent.current().turns, state: agent.current().state }
+      : { running: false },
+    pillError,
+    offline: !online(),
+    findOpen: find.isOpen(),
+    shortcuts: store.getShortcuts(),
   };
+  if (agent.isRunning()) payload.pillState = 'agent';
   for (const win of [overlayWin, outputWin]) {
     if (win && !win.isDestroyed()) {
       win.webContents.send('overlay:state', payload);
@@ -1102,7 +1197,20 @@ function clearRegion() {
 // ------------------------------------------------------------------- hotkeys
 
 function onCaptureHotkey() {
-  triggerCapture();
+  openBar('ask');
+}
+
+function onFindHotkey() {
+  openBar('find');
+}
+
+function onAgentHotkey() {
+  // While a run is going the bar is not needed; the shortcut shows the trail.
+  if (agent.isRunning()) {
+    showTrail(false);
+    return;
+  }
+  openBar('agent');
 }
 
 function onRegionHotkey() {
@@ -1136,6 +1244,16 @@ function onToggleHotkey() {
 }
 
 function onEscapePressed() {
+  // Stop wins over everything: it is the one key that must always work
+  // while the agent has the computer.
+  if (agent.isRunning()) {
+    agent.stop();
+    return;
+  }
+  if (find.isOpen()) {
+    closeFind();
+    return;
+  }
   // First claim, above everything: choosing an area is a modal gesture with a
   // full-screen scrim over the desktop.
   //
@@ -1189,14 +1307,26 @@ function applyRegistrations() {
     shortcuts.captureRegion,
     onRegionHotkey
   );
+  lastRegisterResults.findOnScreen = globalShortcut.register(shortcuts.findOnScreen, onFindHotkey);
+  lastRegisterResults.agentTask = globalShortcut.register(shortcuts.agentTask, onAgentHotkey);
   lastRegisterResults.toggleVisibility = globalShortcut.register(
     shortcuts.toggleVisibility,
     onToggleHotkey
   );
   // The tray menu prints the current combos beside each item.
   tray.refresh({ hidden: overlayHidden });
-  if (overlayMode !== 'pill' || cursorBuddy.isActive() || region.isActive()) {
+  if (
+    !escapeSuspended &&
+    (overlayMode !== 'pill' || cursorBuddy.isActive() || region.isActive() || agent.isRunning() || find.isOpen())
+  ) {
     escapeRegistered = globalShortcut.register('Escape', onEscapePressed);
+  }
+  // Paused by a takeover, or waiting on the plan: Enter carries on. Held only
+  // for as long as that wait lasts.
+  enterRegistered = false;
+  const st = agent.isRunning() ? agent.current().state : '';
+  if (st === 'paused' || st === 'plan') {
+    enterRegistered = globalShortcut.register('Enter', () => agent.resume());
   }
 }
 
@@ -1349,10 +1479,12 @@ async function handleQuerySubmit(question, opts) {
   // is on screen now, not what was there at the first hotkey press.
   // The catalogue check rides under the capture, so a warm cache costs
   // nothing and a cold one overlaps the screenshot instead of adding to it.
-  const [shotTaken, live] = await Promise.all([
+  const [shotTaken, live, exact] = await Promise.all([
     captureScreen({ region: activeRegion }),
     liveModels(),
+    readExactText(activeRegion),
   ]);
+  lastExact = exact;
   const model = live.model;
   pendingShot = shotTaken;
   lastCaptureOk = !!pendingShot;
@@ -1396,6 +1528,7 @@ async function handleQuerySubmit(question, opts) {
               imageHeight: shot.height,
               question: text,
               region: viaRegion,
+              exactText: exact,
               signal,
             }),
         });
@@ -1425,6 +1558,7 @@ async function handleQuerySubmit(question, opts) {
       // The answering procedure travels with every request, which is what
       // holds a small fast model to a useful answer shape.
       skill,
+      exactText: exact,
       signal,
       onDelta: (t) => extractor.push(t),
     };
@@ -1471,7 +1605,9 @@ async function handleQuerySubmit(question, opts) {
     chat.push({ role: 'assistant', text: extractor.text });
     send('query:done', {});
     rememberChat(answering);
-    showModelPoints(
+    pillError = false;
+    cursorBuddy.notify('first-answer');
+    await showModelPoints(
       extractor.points,
       shot,
       ai.parseElements(screenReport, shot ? { width: shot.width, height: shot.height } : null)
@@ -1538,7 +1674,7 @@ function pointFraction(p, shot) {
 // name that matches nothing, or that matches two rows equally well, is
 // dropped: a pointer at the wrong place is worse than no pointer, and it was
 // the blind model's invented digits that put it there.
-function showModelPoints(points, shot, elements) {
+async function showModelPoints(points, shot, elements) {
   if (!points || !points.length || !shot || !shot.width || !shot.height) return;
   if (overlayMode === 'hud') return;
   // The rectangle the model was actually looking at. For an area that is the
@@ -1555,6 +1691,13 @@ function showModelPoints(points, shot, elements) {
   const mapped = [];
   for (const p of points) {
     if (p.x === null || p.x === undefined) {
+      // A name is looked up in the app's own UI first: an exact rect from UI
+      // Automation beats a position a reader estimated from pixels.
+      const ui = lastExact ? await resolveUiaPoint(p.label, lastExact.handle) : null;
+      if (ui) {
+        mapped.push({ x: ui.x, y: ui.y, label: p.label || ui.node.name });
+        continue;
+      }
       const el = ai.matchElement(p.label, elements);
       if (el) mapped.push(toScreen(el.x / 1000, el.y / 1000, p.label || el.label));
       continue;
@@ -1568,6 +1711,57 @@ function showModelPoints(points, shot, elements) {
   // whichever one Windows calls primary.
   cursorBuddy.showPoints(mapped.slice(0, 3), screen.getDisplayMatching(b));
   applyRegistrations();
+}
+
+/**
+ * The window in front's own text, read through UI Automation, for the
+ * reader and the answer. Never waits long: the first use starts the desktop
+ * helper, and an answer is worth more than a perfect context.
+ */
+async function readExactText(regionDip) {
+  if (!IS_WINDOWS || process.env.AEVAL_NO_UIA) return null;
+  const work = (async () => {
+    const fg = await desktop.foregroundWindow();
+    if (!fg) return null;
+    const rect = regionDip ? screen.dipToScreenRect(null, regionDip) : undefined;
+    const g = await desktop.getText({ windowHandle: fg.handle, rect, ocrFallback: false, maxChars: 16000 });
+    if (!g.text || !g.text.trim()) return { handle: fg.handle, title: fg.title, text: '' };
+    return { handle: fg.handle, title: fg.title, text: g.text };
+  })().catch(() => null);
+  const limit = desktop.isReady() ? 1500 : 4000;
+  return Promise.race([work, sleep(limit).then(() => null)]);
+}
+
+function normName(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * [[point Save]] against the real control. The best match wins only if it
+ * is clearly the best: an exact name nothing else shares, or a score well
+ * ahead of the runner-up. A pointer in the wrong place is worse than none.
+ *
+ * @returns {Promise<{x, y, node}|null>} DIP screen point
+ */
+async function resolveUiaPoint(label, windowHandle) {
+  if (!label || !windowHandle || !IS_WINDOWS) return null;
+  try {
+    const f = await desktop.find({ query: label, windowHandle, limit: 4, minScore: 55 });
+    const [a, b] = f.nodes;
+    if (!a || !a.rect || a.score < 70) return null;
+    const want = normName(label.replace(/\b(button|link|field|tab|menu|checkbox)\b/gi, ''));
+    const exact = normName(a.name) === want;
+    const tie = b && normName(b.name) === normName(a.name);
+    if (!(exact && !tie) && b && a.score - b.score < 8) return null;
+    const c = screen.screenToDipPoint({ x: a.rect.x + a.rect.width / 2, y: a.rect.y + a.rect.height / 2 });
+    return { x: Math.round(c.x), y: Math.round(c.y), node: a };
+  } catch (err) {
+    return null;
+  }
 }
 
 // Saved after every answer rather than at the end of the conversation: a
@@ -1641,7 +1835,7 @@ function openConversation(id) {
   if (!entry) return { ok: false };
   abortCurrentQuery();
   chatId = entry.id;
-  chat = entry.messages.map((m) => ({ role: m.role, text: m.text }));
+  chat = entry.messages.map((m) => (m.kind ? { role: m.role, kind: m.kind, text: m.text } : { role: m.role, text: m.text }));
   // Reopened from text alone: the screen it was about is long gone, so the
   // next message starts from the whole screen again.
   activeRegion = null;
@@ -1699,23 +1893,362 @@ function resetChat() {
 
 function startWalkthrough() {
   if (overlayMode === 'hud') return;
-  cursorBuddy.start(WALKTHROUGH);
+  cursorBuddy.start(walkthrough());
   applyRegistrations();
 }
 
 cursorBuddy.init({
   getWindowFor: (name) => (name === 'overlay' ? overlayWin : settingsWin),
   ensureStepPrereq: (step) => {
-    if (step.win === 'overlay' && overlayMode !== 'panel') expandPanel();
+    if (step.needs === 'settings-key') openSettings({ section: 'sec-key' });
+    else if (step.win === 'overlay' && overlayMode === 'hud') exitHudEditor();
   },
   onDone: applyRegistrations,
   onCancel: applyRegistrations,
 });
 
+// ------------------------------------------------------------- command bar
+
+// One bar, three verbs: Ask, Find, Agent. Each verb's shortcut opens the bar
+// straight into it; Tab and Ctrl+1..3 switch inside it, and the typed text
+// survives the switch (the renderer keeps it).
+async function openBar(mode, opts) {
+  if (!overlayWin || overlayMode === 'hud') return;
+  const o = opts || {};
+  pillError = false;
+  setBarMode(mode);
+  if (mode === 'ask') {
+    await triggerCapture();
+  } else {
+    overlayHidden = false;
+    expandPanel();
+    if (mode === 'agent' && chat.length) showOutput();
+  }
+  if (o.prefill !== undefined && overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.webContents.send('bar:prefill', { text: o.prefill, mode });
+  }
+}
+
+function setBarMode(mode) {
+  const next = mode === 'find' || mode === 'agent' ? mode : 'ask';
+  const prev = barMode;
+  barMode = next;
+  store.setLastMode(next);
+  if (prev === 'find' && next !== 'find') closeFind(true);
+  if (next === 'find' && !find.isOpen()) openFind();
+  sendOverlayState();
+  applyRegistrations();
+}
+
+function setOutputView(view) {
+  outputView = view;
+  if (outputWin && !outputWin.isDestroyed()) outputWin.webContents.send('view:set', { view });
+}
+
+// ------------------------------------------------------------------- find
+
+function openFind() {
+  if (!IS_WINDOWS) return;
+  const region = activeRegion ? screen.dipToScreenRect(null, activeRegion) : null;
+  setOutputView('find');
+  find.open({ scope: store.getFindSettings().scope, region }).catch(() => {});
+  applyRegistrations();
+}
+
+function closeFind(keepMode) {
+  if (find.isOpen()) find.close();
+  lens.clear();
+  setOutputView('chat');
+  if (!chat.length && !agent.isRunning()) hideOutput();
+  if (!keepMode && barMode === 'find') {
+    barMode = 'ask';
+    store.setLastMode('ask');
+  }
+  sendOverlayState();
+  applyRegistrations();
+}
+
+function findEmit(channel, payload) {
+  bus.emit(channel, payload);
+  for (const win of [outputWin, overlayWin]) {
+    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+  // The results list appears once there is something to say.
+  if (channel === 'find:state' && payload.open && (payload.status || (payload.lines || []).length)) {
+    if (outputView !== 'find') setOutputView('find');
+    showOutput();
+  }
+}
+
+function findToLens(hits, current) {
+  const list = hits
+    .filter((h) => h.rect)
+    .map((h) => {
+      let rect = null;
+      try {
+        rect = screen.screenToDipRect(null, h.rect);
+      } catch (err) {
+        rect = null;
+      }
+      return { ...h, rect };
+    })
+    .filter((h) => h.rect);
+  lens.setHits(list, current);
+}
+
+/** A hit becomes an Ask: "explain this". */
+async function findToAsk(index) {
+  const all = find.state().hits;
+  const h = Number.isFinite(index) ? all[index] : find.currentHit();
+  if (!h) return { status: 'no-hit' };
+  closeFind();
+  setBarMode('ask');
+  return handleQuerySubmit(`Explain this from my screen: "${h.match}"`);
+}
+
+// ------------------------------------------------------------------ agent
+
+function agentEmit(channel, payload) {
+  bus.emit(channel, payload);
+  if (outputWin && !outputWin.isDestroyed()) outputWin.webContents.send(channel, payload);
+  if (channel === 'agent:state' || channel === 'agent:done') {
+    sendOverlayState();
+    tray.refresh();
+  }
+}
+
+function onAgentState(state) {
+  applyRegistrations();
+  if (state === 'confirm' || state === 'asking') showTrail(true);
+}
+
+function showTrail(focus) {
+  if (!outputWin || outputWin.isDestroyed()) return;
+  if (outputView !== 'chat') setOutputView('chat');
+  showOutput();
+  if (focus) {
+    outputWin.show();
+    outputWin.focus();
+  } else if (outputWin.isFocused()) {
+    outputWin.blur();
+  }
+}
+
+function setControlFrame(on) {
+  if (!on) {
+    lens.setFrame(null);
+    return;
+  }
+  const k = store.getShortcuts();
+  desktop
+    .foregroundWindow()
+    .then((w) => {
+      const rect = w && w.rect ? screen.screenToDipRect(null, w.rect) : null;
+      const display = rect ? screen.getDisplayMatching(rect) : activeDisplay();
+      if (agent.isRunning()) lens.setFrame(display, 'AevalBuddy is using your computer \u00b7 Esc to stop');
+      void k;
+    })
+    .catch(() => {
+      if (agent.isRunning()) lens.setFrame(activeDisplay(), 'AevalBuddy is using your computer \u00b7 Esc to stop');
+    });
+}
+
+async function agentPointAt(phys, label) {
+  const p = screen.screenToDipPoint(phys);
+  const display = screen.getDisplayNearestPoint(p);
+  await cursorBuddy.agentPoint(p, label, display);
+}
+
+// The answer window steps aside if the agent is about to act under it.
+async function dodgeAnswer(phys) {
+  if (!outputActive || !outputWin || outputWin.isDestroyed()) return;
+  const p = screen.screenToDipPoint(phys);
+  const b = outputWin.getBounds();
+  if (p.x < b.x || p.x > b.x + b.width || p.y < b.y || p.y > b.y + b.height) return;
+  const wa = screen.getDisplayMatching(b).workArea;
+  const onLeft = b.x + b.width / 2 < wa.x + wa.width / 2;
+  const x = onLeft ? wa.x + wa.width - b.width - SNAP_MARGIN : wa.x + SNAP_MARGIN;
+  markApp(outputWin);
+  motion.animate(outputWin, { to: { ...b, x }, duration: T_OUT_GROW });
+  await sleep(T_OUT_GROW + 30);
+}
+
+// The agent's open tool: links through the browser, apps by name through
+// the shell. The name has already been held to letters, digits, spaces,
+// dots, dashes and underscores, and every open is confirmed first.
+function openTarget(target) {
+  const t = String(target || '').trim();
+  if (/^(https?:\/\/|mailto:)/i.test(t)) {
+    return shell.openExternal(t).then(
+      () => ({ ok: true }),
+      (err) => ({ ok: false, error: err.message })
+    );
+  }
+  if (!/^[\p{L}\p{N} ._-]{1,40}$/u.test(t)) return Promise.resolve({ ok: false, error: 'not an app name' });
+  try {
+    spawn('cmd.exe', ['/d', '/c', 'start', '""', t], { windowsHide: true, detached: true, stdio: 'ignore' }).unref();
+    return Promise.resolve({ ok: true });
+  } catch (err) {
+    return Promise.resolve({ ok: false, error: err.message });
+  }
+}
+
+const MARK = { done: '', skipped: ' (skipped)', failed: ' (failed)', paused: '' };
+
+function trailText(rows) {
+  return rows
+    .filter((r) => r.kind !== 'remove' && r.kind !== 'thinking')
+    .map((r) => {
+      if (r.kind === 'plan') return `Plan: ${(r.steps || []).join('; ')}`;
+      if (r.kind === 'message') return null;
+      return `${r.text}${MARK[r.state] || ''}${r.error ? `: ${r.error}` : ''}`;
+    })
+    .filter(Boolean)
+    .map((t, i) => `${i + 1}. ${t}`)
+    .join('\n');
+}
+
+function finishAgentRun(run) {
+  cursorBuddy.agentClear();
+  lens.setFrame(null);
+  const trail = trailText(run.rows);
+  if (trail) chat.push({ role: 'assistant', kind: 'trail', text: trail });
+  if (run.final) chat.push({ role: 'assistant', text: run.final });
+  rememberChat(run.model);
+  pillError = ['error', 'limit', 'offline'].includes(run.endState);
+  setImmediate(() => {
+    applyRegistrations();
+    sendOverlayState();
+    tray.refresh();
+    updater.idle();
+  });
+}
+
+/**
+ * Starts the agent on a task, asking for consent the first time.
+ *
+ * @param {object} o {task, context, jsonMode, maxSteps}
+ */
+async function startAgentRun(o) {
+  const task = String((o && o.task) || '').trim();
+  const send = (ch, p) => outputWin && !outputWin.isDestroyed() && outputWin.webContents.send(ch, p || {});
+  if (!task) return { status: 'empty' };
+  if (!store.hasApiKey()) {
+    sendOverlayState();
+    return { status: 'needs-key' };
+  }
+  if (!IS_WINDOWS) return { status: 'unsupported' };
+  if (agent.isRunning()) return { status: 'busy' };
+  if (!store.getAgentSettings().consent) {
+    pendingAgent = o;
+    setOutputView('chat');
+    showOutput();
+    send('agent:consent-request', { task });
+    outputWin.focus();
+    return { status: 'consent' };
+  }
+  if (find.isOpen()) closeFind();
+  chat.push({ role: 'user', text: task });
+  send('chat:user', { gen: ++queryGen, text: task });
+  send('agent:begin', { task });
+  setOutputView('chat');
+  if (!online()) {
+    send('agent:done', { state: 'offline', text: 'No connection. The agent did not start; nothing was done.', rows: [] });
+    return { status: 'offline' };
+  }
+  await ai.fetchCatalogue();
+  agentModelNow = await ai.resolveLive('agent', store.getAgentModel());
+  store.healAgentModel(agentModelNow);
+  // The bar is not needed while the agent works: back to the pill, which
+  // counts the steps, with the trail beside it, shown without focus.
+  collapsePanel({ keepOutput: true });
+  showOutput();
+  const r = agent.start({ task, context: o.context, jsonMode: o.jsonMode, maxSteps: o.maxSteps, region: activeRegion ? screen.dipToScreenRect(null, activeRegion) : null });
+  sendOverlayState();
+  applyRegistrations();
+  tray.refresh();
+  return r.ok ? { status: 'started', runId: r.runId } : { status: 'busy' };
+}
+
+// Right-click menus inside the windows (SPEC-v2 4.5).
+function contextMenu(sender, p) {
+  const win = BrowserWindow.fromWebContents(sender);
+  const items = [];
+  const copy = (t) => clipboard.writeText(String(t || ''));
+  if (p.kind === 'answer') {
+    items.push({ label: 'Copy', click: () => copy(p.text) });
+    items.push({ label: 'Find this on screen', click: () => openBar('find', { prefill: String(p.selection || p.text || '').split('\n')[0].slice(0, 60) }) });
+    items.push({ label: 'Do it', click: () => startAgentRun({ task: p.question || 'Do what this answer describes', context: `Earlier answer:\n${p.text}` }) });
+  } else if (p.kind === 'hit') {
+    items.push({ label: 'Go to', click: () => find.step({ index: p.index }) });
+    items.push({ label: 'Copy text', click: () => copy(p.text) });
+    items.push({ label: 'Ask about this', click: () => findToAsk(p.index) });
+  } else if (p.kind === 'row') {
+    items.push({ label: 'Copy step', click: () => copy(p.text) });
+    if (p.ended && p.task) {
+      items.push({
+        label: 'Retry from here',
+        click: () => startAgentRun({ task: p.task, context: `An earlier attempt got as far as: ${p.text}. Continue from that step.` }),
+      });
+    }
+  }
+  if (items.length && win) Menu.buildFromTemplate(items).popup({ window: win });
+  return { ok: true };
+}
+
 // ------------------------------------------------------------------------ IPC
 
 function registerIpc() {
-  ipcMain.handle('overlay:trigger', () => triggerCapture());
+  // The pill: the trail while the agent works, else the bar in the last mode.
+  ipcMain.handle('overlay:trigger', () => {
+    if (agent.isRunning()) {
+      showTrail(false);
+      return;
+    }
+    openBar(store.getLastMode());
+  });
+  ipcMain.handle('bar:mode', (_e, { mode }) => {
+    setBarMode(mode);
+    return { mode: barMode };
+  });
+  ipcMain.handle('find:open', () => {
+    setBarMode('find');
+    return find.state();
+  });
+  ipcMain.handle('find:query', (_e, { query }) => find.query(query));
+  ipcMain.handle('find:step', (_e, { by }) => find.step(by));
+  ipcMain.handle('find:scope', (_e, { scope }) => {
+    const s = scope || (find.state().scope === 'screen' ? 'window' : 'screen');
+    store.setFindSettings({ scope: s });
+    return { scope: find.setScope(s) };
+  });
+  ipcMain.handle('find:to-ask', (_e, p) => findToAsk(p && Number.isFinite(p.index) ? p.index : undefined));
+  ipcMain.handle('find:close', () => closeFind());
+  ipcMain.handle('agent:start', (_e, p) => startAgentRun({ task: p && p.task }));
+  ipcMain.handle('agent:stop', () => ({ ok: agent.stop() }));
+  ipcMain.handle('agent:confirm', (_e, { id, allow }) => ({ ok: agent.confirm(id, allow) }));
+  ipcMain.handle('agent:continue', (_e, p) => ({ ok: agent.resume(p && p.text) }));
+  ipcMain.handle('agent:consent', (_e, { allow }) => {
+    const o = pendingAgent;
+    pendingAgent = null;
+    if (!allow) return { ok: true, started: false };
+    store.setAgentSettings({ consent: true });
+    if (o) startAgentRun(o);
+    return { ok: true, started: !!o };
+  });
+  ipcMain.handle('agent:do-it', (_e, { question, answer }) =>
+    startAgentRun({ task: question || 'Do what the answer describes', context: `Your earlier answer, which the user wants carried out:\n${answer || ''}` })
+  );
+  ipcMain.handle('ui:context-menu', (e, p) => contextMenu(e.sender, p || {}));
+  ipcMain.handle('tour:replay', () => {
+    if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+    startWalkthrough();
+  });
+  ipcMain.handle('buddy:skip', () => cursorBuddy.skip());
+  ipcMain.handle('buddy:card', (_e, { id }) => {
+    cursorBuddy.skip();
+    if (id === 'try') openBar('agent', { prefill: 'open Notepad and write a haiku' });
+  });
   ipcMain.handle('overlay:collapse', () => {
     if (overlayMode === 'hud') exitHudEditor();
     else collapsePanel();
@@ -1776,6 +2309,13 @@ function registerIpc() {
   ipcMain.handle('settings:get', async () => {
     const live = await liveModels(false);
     return {
+      findModel: ai.resolveKnown('find', store.getFindModel()),
+      defaultFindModel: ai.DEFAULT_FIND,
+      agentModel: ai.resolveKnown('agent', store.getAgentModel()),
+      defaultAgentModel: ai.DEFAULT_AGENT,
+      find: store.getFindSettings(),
+      agent: store.getAgentSettings(),
+      winBuild: WIN_BUILD,
       hasKey: store.hasApiKey(),
       model: live.model,
       defaultModel: ai.DEFAULT_MODEL,
@@ -1820,7 +2360,19 @@ function registerIpc() {
     }
     store.setApiKey(value);
     sendOverlayState();
-    cursorBuddy.notify('key-saved');
+    // The tour's first step moves on once the key is saved and tested. A
+    // key the server rejects keeps the step open and says so; a key that
+    // could not be tested offline is saved anyway, and the tour says that.
+    const touring = cursorBuddy.stepIndex() === 0;
+    ai.testKey(value).then((t) => {
+      if (!touring || cursorBuddy.stepIndex() !== 0) return;
+      if (t.ok) cursorBuddy.notify('key-saved');
+      else if (/reach/i.test(t.message)) {
+        cursorBuddy.notify('key-saved');
+        cursorBuddy.setMessage(`Saved; it could not be tested offline. ${walkthrough()[1].message}`);
+      } else cursorBuddy.setMessage(t.message);
+    });
+    if (!touring) cursorBuddy.notify('key-saved');
     return { ok: true };
   });
 
@@ -1836,15 +2388,24 @@ function registerIpc() {
   });
 
   ipcMain.handle('models:list', async (_e, payload) => {
-    const kind = payload && payload.kind === 'text' ? 'text' : 'vision';
+    const k = payload && payload.kind;
+    const kind = ['text', 'find', 'agent'].includes(k) ? k : 'vision';
     const result = await ai.listModels({ kind, includePaid: store.getShowPaidModels() });
     const live = await liveModels();
-    return {
-      ...result,
-      kind,
-      current: kind === 'text' ? live.brain : live.model,
-    };
+    const current =
+      kind === 'text'
+        ? live.brain
+        : kind === 'find'
+          ? await ai.resolveLive('find', store.getFindModel())
+          : kind === 'agent'
+            ? await ai.resolveLive('agent', store.getAgentModel())
+            : live.model;
+    return { ...result, kind, current };
   });
+  ipcMain.handle('settings:save-find-model', (_e, { model }) => ({ ok: true, model: store.setFindModel(model) }));
+  ipcMain.handle('settings:save-agent-model', (_e, { model }) => ({ ok: true, model: store.setAgentModel(model) }));
+  ipcMain.handle('settings:set-find', (_e, p) => ({ ok: true, find: store.setFindSettings(p) }));
+  ipcMain.handle('settings:set-agent', (_e, p) => ({ ok: true, agent: store.setAgentSettings(p) }));
 
   ipcMain.handle('settings:save-brain', (_e, { model }) => ({
     ok: true,
@@ -1967,9 +2528,63 @@ if (!gotLock) {
     // the same id here the update and crash notifications can show under a
     // generic name, or be dropped, and a click on them never reaches the app.
     if (IS_WINDOWS) app.setAppUserModelId('com.aevalbuddy.app');
-    // The desktop engine never reads or acts on these.
+    barMode = store.getLastMode();
+    // The desktop engine never reads or acts on these. The lens and the
+    // pointer are click-through sheets over the whole display, so they are
+    // ours without blocking a click that lands under them.
     desktop.init({
-      ownHandles: () => BrowserWindow.getAllWindows().map((w) => w.getNativeWindowHandle()),
+      ownHandles: () =>
+        BrowserWindow.getAllWindows().map((w) =>
+          w.aevalLens || w === cursorBuddy.debugWindow()
+            ? { handle: w.getNativeWindowHandle(), block: false }
+            : w.getNativeWindowHandle()
+        ),
+      wantInput: () => agent.isRunning() || find.isOpen(),
+      onUserInput: (ev) => {
+        agent.onUserInput(ev);
+        if (ev.kind === 'wheel' && find.isOpen()) find.nudge();
+      },
+      beforeSyntheticKey: async () => {
+        escapeSuspended = true;
+        if (escapeRegistered) {
+          globalShortcut.unregister('Escape');
+          escapeRegistered = false;
+        }
+      },
+      afterSyntheticKey: async () => {
+        // Let the injected key clear the hook before Stop is held again.
+        await sleep(60);
+        escapeSuspended = false;
+        applyRegistrations();
+      },
+    });
+    find.init({
+      desktop,
+      ai,
+      apiKey: () => store.getApiKey(),
+      model: () => ai.resolveKnown('find', store.getFindModel()),
+      settings: () => store.getFindSettings(),
+      online,
+      emit: findEmit,
+      onLens: findToLens,
+      notify: (ev) => cursorBuddy.notify(ev),
+    });
+    agent.init({
+      desktop,
+      ai,
+      apiKey: () => store.getApiKey(),
+      model: () => agentModelNow || ai.resolveKnown('agent', store.getAgentModel()),
+      settings: () => store.getAgentSettings(),
+      emit: agentEmit,
+      pointAt: agentPointAt,
+      frame: setControlFrame,
+      showTrail,
+      dodge: dodgeAnswer,
+      openTarget,
+      ownFocused: () => !!BrowserWindow.getFocusedWindow(),
+      online,
+      onFinish: finishAgentRun,
+      onState: onAgentState,
     });
     registerIpc();
     region.registerIpc();
@@ -1980,8 +2595,14 @@ if (!gotLock) {
     // Before applyRegistrations, which refreshes the tray labels with the
     // accelerators it has just registered.
     tray.init({
-      capture: () => triggerCapture(),
+      capture: () => openBar('ask'),
       captureRegion: () => triggerRegionCapture(),
+      find: () => openBar('find'),
+      agent: () => openBar('agent'),
+      stopAgent: () => agent.stop(),
+      agentRunning: () => agent.isRunning(),
+      openLast: () => (agent.isRunning() ? showTrail(false) : openBar(store.getLastMode())),
+      checkUpdates: () => updater.check(),
       toggleVisibility: () => onToggleHotkey(),
       newChat: () => resetChat(),
       openHistory: () => openHistory(),
@@ -2002,11 +2623,7 @@ if (!gotLock) {
         }
       },
     });
-    if (
-      !lastRegisterResults.captureQuery ||
-      !lastRegisterResults.captureRegion ||
-      !lastRegisterResults.toggleVisibility
-    ) {
+    if (Object.values(lastRegisterResults).some((ok) => !ok)) {
       console.warn(
         '[aevalbuddy] some shortcuts failed to register:',
         JSON.stringify(lastRegisterResults)
@@ -2038,8 +2655,14 @@ if (!gotLock) {
     }
   });
 
-  // Every window, including the ones the lib modules create.
-  app.on('browser-window-created', (event, win) => crash.guard(win));
+  // Every window, including the ones the lib modules create, is guarded and
+  // kept out of screen capture: the overlay's promise covers new surfaces
+  // without each one having to remember it.
+  app.on('browser-window-created', (event, win) => {
+    crash.guard(win);
+    hideFromCapture(win);
+    protectedWindows.add(win);
+  });
 
   app.on('window-all-closed', () => {
     app.quit();
@@ -2047,7 +2670,11 @@ if (!gotLock) {
 
   // before-quit as well as will-quit: an update's quitAndInstall must not
   // find the powershell helper still running under the install folder.
-  app.on('before-quit', () => desktop.stop());
+  app.on('before-quit', () => {
+    if (agent.isRunning()) agent.stop('Stopped because AevalBuddy quit.');
+    find.close();
+    desktop.stop();
+  });
 
   app.on('will-quit', () => {
     desktop.stop();

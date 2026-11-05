@@ -1,0 +1,7 @@
+{"purpose":"agent","task":"smoke notepad","turns":[{"call":{"name":"update_plan","args":{"steps":["Switch to the Notepad window","Type the line"]}}},{"call":{"name":"focus_window","args":{"handle":"{{notepad}}"}}},{"call":{"name":"type","args":{"text":"{{agentText}}","consequential":false,"reason":"write the line"}}},{"text":"Wrote the line in Notepad."}]}
+{"purpose":"agent","task":"smoke confirm gate","turns":[{"call":{"name":"read_page","args":{"filter":"all"}}},{"call":{"name":"left_click","args":{"ref":"{{sendRef}}","consequential":false,"reason":"press the button"}}},{"text":"Left it unsent."}]}
+{"purpose":"agent","task":"smoke stop","turns":[{"delayMs":8000,"text":"Too late."}]}
+{"purpose":"agent","task":"smoke takeover","turns":[{"delayMs":1500,"call":{"name":"wait","args":{"duration":1}}}],"after":{"call":{"name":"wait","args":{"duration":1}}}}
+{"purpose":"agent","task":"smoke limit","turns":[],"after":{"call":{"name":"wait","args":{"duration":0}}}}
+{"purpose":"agent","task":"open notepad and write a haiku","turns":[{"call":{"name":"update_plan","args":{"steps":["Open Notepad","Write a haiku"]}}},{"call":{"name":"open","args":{"target":"notepad","consequential":true,"reason":"start Notepad"}}},{"text":"Opened Notepad."}]}
+{"purpose":"answer","text":"Press **Save** in the toolbar, then name the file.\n\n1. Click Save\n2. Type a name\n3. Press Enter"}

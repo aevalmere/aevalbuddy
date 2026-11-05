@@ -79,7 +79,7 @@ const setShortcutError = makeStatus(shortcutError);
 // --------------------------------------------------------------- API key
 
 function renderKeyState(saved) {
-  setSummary('key-summary', saved ? 'Saved' : 'Not set');
+  setSummary('key-summary', saved ? 'Connected' : 'No key yet');
   removeKeyBtn.hidden = !saved;
   testKeyBtn.hidden = !saved;
 }
@@ -138,7 +138,7 @@ function makeCombo(config) {
   const state = { index: new Map(), offline: '', current: '' };
 
   function optionDetail(m) {
-    return [m.note, m.detail].filter(Boolean).join(' ');
+    return [m.tag ? `${m.tag}.` : '', m.note, m.detail].filter(Boolean).join(' ');
   }
 
   function sync() {
@@ -155,7 +155,11 @@ function makeCombo(config) {
     // The collapsed control shows price and context only: it is one line, and
     // a description worth reading gets cut off there. The description goes
     // underneath, where it has room to wrap.
-    detail.textContent = known ? known.detail : state.current ? 'Custom model id' : '';
+    detail.textContent = known
+      ? [known.tag, known.detail].filter(Boolean).join(' · ')
+      : state.current
+        ? 'Custom model id'
+        : '';
     if (note) {
       note.textContent = [known ? known.note : '', state.offline].filter(Boolean).join(' ');
     }
@@ -302,6 +306,131 @@ const brainCombo = makeCombo({
   save: (id) => window.aeval.invoke('settings:save-brain', { model: id }),
 });
 
+const findCombo = makeCombo({
+  rootId: 'find-combo',
+  button: document.getElementById('find-combo-btn'),
+  label: document.getElementById('find-combo-label'),
+  detail: document.getElementById('find-combo-detail'),
+  list: document.getElementById('find-combo-list'),
+  note: document.getElementById('find-model-note'),
+  kind: 'find',
+  summaryId: 'find-model-summary',
+  save: (id) => window.aeval.invoke('settings:save-find-model', { model: id }),
+});
+
+const agentCombo = makeCombo({
+  rootId: 'agent-combo',
+  button: document.getElementById('agent-combo-btn'),
+  label: document.getElementById('agent-combo-label'),
+  detail: document.getElementById('agent-combo-detail'),
+  list: document.getElementById('agent-combo-list'),
+  note: document.getElementById('agent-model-note'),
+  kind: 'agent',
+  summaryId: 'agent-model-summary',
+  save: (id) => window.aeval.invoke('settings:save-agent-model', { model: id }),
+});
+
+// ------------------------------------------------------------- find, agent
+
+const findRelated = document.getElementById('find-related');
+const findOcr = document.getElementById('find-ocr');
+const agentSteps = document.getElementById('agent-steps');
+const agentStepsValue = document.getElementById('agent-steps-value');
+const agentShots = document.getElementById('agent-screenshots');
+const agentCursor = document.getElementById('agent-cursor');
+const agentStatus = makeStatus(document.getElementById('agent-status'));
+
+function renderFindSettings(f) {
+  data.find = f;
+  for (const b of document.querySelectorAll('[data-find-scope]')) {
+    b.setAttribute('aria-checked', String(b.dataset.findScope === f.scope));
+  }
+  findRelated.checked = !!f.related;
+  findOcr.checked = !!f.ocr;
+  setSummary(
+    'find-summary',
+    `${f.scope === 'screen' ? 'Whole screen' : 'This window'}${f.related ? ' · related on' : ''}`
+  );
+}
+
+function renderAgentSettings(a) {
+  data.agent = a;
+  for (const b of document.querySelectorAll('[data-permission]')) {
+    b.setAttribute('aria-checked', String(b.dataset.permission === a.permission));
+  }
+  agentSteps.value = String(a.maxSteps);
+  agentStepsValue.textContent = String(a.maxSteps);
+  agentShots.checked = !!a.screenshots;
+  agentCursor.checked = !!a.returnCursor;
+  document.getElementById('agent-revoke').hidden = !a.consent;
+  setSummary(
+    'agent-summary',
+    `${a.permission === 'every' ? 'Asks before every action' : 'Asks for risky steps'} · up to ${a.maxSteps} steps`
+  );
+}
+
+const setFind = (patch) => window.aeval.invoke('settings:set-find', patch).then((r) => renderFindSettings(r.find));
+const setAgent = (patch) => window.aeval.invoke('settings:set-agent', patch).then((r) => renderAgentSettings(r.agent));
+
+document.addEventListener('click', (e) => {
+  const scope = e.target.closest('[data-find-scope]');
+  if (scope) setFind({ scope: scope.dataset.findScope });
+  const perm = e.target.closest('[data-permission]');
+  if (perm) setAgent({ permission: perm.dataset.permission });
+});
+findRelated.addEventListener('change', () => setFind({ related: findRelated.checked }));
+findOcr.addEventListener('change', () => setFind({ ocr: findOcr.checked }));
+agentSteps.addEventListener('input', () => {
+  agentStepsValue.textContent = agentSteps.value;
+});
+agentSteps.addEventListener('change', () => setAgent({ maxSteps: Number(agentSteps.value) }));
+agentShots.addEventListener('change', () => setAgent({ screenshots: agentShots.checked }));
+agentCursor.addEventListener('change', () => setAgent({ returnCursor: agentCursor.checked }));
+document.getElementById('agent-revoke').addEventListener('click', () => {
+  setAgent({ consent: false }).then(() => agentStatus('The agent will ask again before its next task.'));
+});
+document.getElementById('replay-tour').addEventListener('click', () => window.aeval.invoke('tour:replay'));
+
+// -------------------------------------------------------------------- rail
+
+// The rail scrolls the column to a page, and the page in view lights up its
+// name. One column underneath, so narrow windows lose nothing but the rail.
+const mainEl = document.querySelector('main');
+const railButtons = [...document.querySelectorAll('#rail [data-page]')];
+
+function markRail() {
+  const top = mainEl.scrollTop + 24;
+  let current = railButtons[0] && railButtons[0].dataset.page;
+  for (const b of railButtons) {
+    const page = document.getElementById(b.dataset.page);
+    if (page && page.offsetTop - mainEl.offsetTop <= top) current = b.dataset.page;
+  }
+  if (mainEl.scrollTop + mainEl.clientHeight >= mainEl.scrollHeight - 4 && railButtons.length) {
+    current = railButtons[railButtons.length - 1].dataset.page;
+  }
+  for (const b of railButtons) b.setAttribute('aria-current', String(b.dataset.page === current));
+}
+
+function showPage(id) {
+  const page = document.getElementById(id);
+  if (!page) return;
+  mainEl.scrollTo({ top: page.offsetTop - mainEl.offsetTop, behavior: 'smooth' });
+}
+
+for (const b of railButtons) b.addEventListener('click', () => showPage(b.dataset.page));
+mainEl.addEventListener('scroll', markRail, { passive: true });
+
+window.aeval.on('settings:section', ({ id }) => {
+  const sec = document.getElementById(id);
+  if (!sec) return;
+  if (sec.classList.contains('page')) showPage(id);
+  else {
+    openSection(id);
+    const page = sec.closest('.page');
+    if (page) showPage(page.id);
+  }
+});
+
 function showBrainPicker(on) {
   brainComboEl.hidden = !on;
   brainNoteEl.hidden = !on;
@@ -317,7 +446,7 @@ function brainName() {
 showPaid.addEventListener('change', () => {
   window.aeval
     .invoke('settings:set-show-paid', { on: showPaid.checked })
-    .then(() => Promise.all([modelCombo.load(), brainCombo.load()]));
+    .then(() => Promise.all([modelCombo.load(), brainCombo.load(), findCombo.load(), agentCombo.load()]));
 });
 
 brainEnabled.addEventListener('change', () => {
@@ -584,8 +713,8 @@ function renderShortcuts() {
     'shortcut-summary',
     [
       data.shortcuts.captureQuery,
-      data.shortcuts.captureRegion,
-      data.shortcuts.toggleVisibility,
+      data.shortcuts.findOnScreen,
+      data.shortcuts.agentTask,
     ]
       .filter(Boolean)
       .join(' · ')
@@ -732,6 +861,12 @@ window.addEventListener('keydown', (e) => {
     brainCombo.close(true);
     return;
   }
+  for (const c of [findCombo, agentCombo]) {
+    if (c.isOpen()) {
+      c.close(true);
+      return;
+    }
+  }
   if (document.querySelector('main section[data-open="1"]')) {
     closeSections();
     return;
@@ -774,8 +909,15 @@ window.aeval.invoke('settings:get').then((d) => {
   data = d;
   appVersion.textContent = d.version || '';
   renderUpdate(d.update);
-  const captureWarning = document.getElementById('capture-warning');
-  if (captureWarning) captureWarning.hidden = d.canHide !== false;
+  // Below Windows 10 build 19041 the call that hides these windows from a
+  // screen share does nothing. Saying so beats letting someone believe it.
+  setSummary('share-summary', d.canHide !== false ? 'Hidden' : 'Visible');
+  document.getElementById('share-line').textContent =
+    d.canHide !== false
+      ? `Every AevalBuddy window, the highlights and the pointer included, is left out of screen shares and recordings (Windows build ${d.winBuild || 'unknown'}).`
+      : `Windows build ${d.winBuild} cannot hide windows from a screen share; that needs build 19041 or later. People watching your screen can see AevalBuddy.`;
+  renderFindSettings(d.find || { scope: 'window', related: true, ocr: true });
+  renderAgentSettings(d.agent || { permission: 'risky', maxSteps: 25, screenshots: true, returnCursor: true });
   showPaid.checked = !!d.showPaid;
   brainEnabled.checked = !!d.brainEnabled;
   showBrainPicker(!!d.brainEnabled);
@@ -788,8 +930,13 @@ window.aeval.invoke('settings:get').then((d) => {
   renderShortcuts();
   modelCombo.setCurrent(d.model || '');
   brainCombo.setCurrent(d.brain || '');
+  findCombo.setCurrent(d.findModel || '');
+  agentCombo.setCurrent(d.agentModel || '');
   modelCombo.load();
   brainCombo.load().then(() => showBrainPicker(!!d.brainEnabled));
+  findCombo.load();
+  agentCombo.load();
+  markRail();
   // Nothing saved yet means the key field should be in front of the user
   // rather than one click behind an Edit link.
   openSection(d.hasKey ? null : 'sec-key');

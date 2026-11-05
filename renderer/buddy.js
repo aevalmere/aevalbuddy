@@ -16,6 +16,7 @@ const calloutMessage = document.getElementById('callout-message');
 const calloutClose = document.getElementById('callout-close');
 const calloutCount = document.getElementById('callout-count');
 const calloutHint = document.getElementById('callout-hint');
+const calloutActions = document.getElementById('callout-actions');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EASE = reduceMotion ? 1 : 0.16;
@@ -40,6 +41,33 @@ let typeTimer = null;
 // the app action they describe, so a click there only dismisses.
 let advanceOnClick = false;
 let lastOfSequence = false;
+// The agent's cursor glides on the glide curve over a fixed time rather than
+// easing in by fractions, so "the action fires on arrival" is a promise the
+// main process can keep by waiting that long.
+let glide = null; // { from, start, ms }
+let cardMode = false;
+
+function bezier(x1, y1, x2, y2) {
+  const ax = 3 * x1 - 3 * x2 + 1;
+  const bx = 3 * x2 - 6 * x1;
+  const cx = 3 * x1;
+  const ay = 3 * y1 - 3 * y2 + 1;
+  const by = 3 * y2 - 6 * y1;
+  const cy = 3 * y1;
+  return (x) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 6; i += 1) {
+      const dx = ((ax * t + bx) * t + cx) * t - x;
+      const d = (3 * ax * t + 2 * bx) * t + cx;
+      if (Math.abs(dx) < 1e-4 || Math.abs(d) < 1e-6) break;
+      t -= dx / d;
+    }
+    return ((ay * t + by) * t + cy) * t;
+  };
+}
+const GLIDE = bezier(0.32, 0.72, 0, 1);
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -48,8 +76,15 @@ function clamp(value, min, max) {
 function tick() {
   rafId = null;
   if (!target) return;
-  cur.x += (target.x - cur.x) * EASE;
-  cur.y += (target.y - cur.y) * EASE;
+  if (glide) {
+    const p = reduceMotion ? 1 : GLIDE(Math.min(1, (performance.now() - glide.start) / glide.ms));
+    cur.x = glide.from.x + (target.x - glide.from.x) * p;
+    cur.y = glide.from.y + (target.y - glide.from.y) * p;
+    if (p >= 1) glide = null;
+  } else {
+    cur.x += (target.x - cur.x) * EASE;
+    cur.y += (target.y - cur.y) * EASE;
+  }
   if (Math.abs(target.x - cur.x) < 0.5 && Math.abs(target.y - cur.y) < 0.5) {
     cur.x = target.x;
     cur.y = target.y;
@@ -71,6 +106,14 @@ function schedule() {
 function positionCallout() {
   const w = calloutSize.w || callout.offsetWidth;
   const h = calloutSize.h || callout.offsetHeight;
+  if (cardMode) {
+    // A card sits where it was put; there is no arrow to stand beside.
+    const left = clamp(target.x + dragBy.x, EDGE, Math.max(EDGE, window.innerWidth - w - EDGE));
+    const top = clamp(target.y + dragBy.y, EDGE, Math.max(EDGE, window.innerHeight - h - EDGE));
+    callout.dataset.side = 'none';
+    callout.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+    return;
+  }
   let side = 'right';
   let left = cur.x + ARROW_W + GAP;
   if (left + w > window.innerWidth - EDGE) {
@@ -136,18 +179,51 @@ function replay(el, cls) {
   el.classList.add(cls);
 }
 
-window.aeval.on('buddy:show', ({ x, y, message: msg, kind, stepIndex, stepCount }) => {
+function actionButton(label, primary, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  b.className = primary ? 'act primary' : 'act';
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onClick();
+  });
+  return b;
+}
+
+window.aeval.on('buddy:show', (payload) => {
+  const { x, y, message: msg, kind, stepIndex, stepCount } = payload;
   // Model-directed points are stepped through by clicking the bubble;
   // walkthrough steps advance on the app action they describe.
   const isPoint = kind === 'point';
+  cardMode = kind === 'card';
+  document.body.dataset.kind = kind || 'step';
   advanceOnClick = isPoint;
   lastOfSequence = isPoint && stepIndex + 1 >= stepCount;
   calloutHint.hidden = !isPoint;
   if (isPoint) {
     calloutHint.textContent = lastOfSequence ? 'click to close' : 'click for the next one';
     calloutCount.textContent = stepCount > 1 ? `${stepIndex + 1} of ${stepCount}` : '';
+  } else if ((kind === 'step' || kind === 'card') && stepCount > 1) {
+    calloutCount.textContent = `${stepIndex + 1} of ${stepCount}`;
   } else {
     calloutCount.textContent = '';
+  }
+  // The tour's buttons: Skip on a pointer step, the card's own choices on a
+  // card. The agent's cursor has none; it is narration, not a dialog.
+  calloutActions.innerHTML = '';
+  if (kind === 'card') {
+    for (const b of payload.buttons || []) {
+      calloutActions.appendChild(actionButton(b.label, b.primary, () => window.aeval.invoke('buddy:card', { id: b.id })));
+    }
+  } else if (payload.skippable) {
+    calloutActions.appendChild(actionButton('Skip', false, () => window.aeval.invoke('buddy:skip')));
+  }
+  calloutActions.hidden = !calloutActions.childElementCount;
+  if (kind === 'agent' && payload.glideMs && shown) {
+    glide = { from: { x: cur.x, y: cur.y }, start: performance.now(), ms: payload.glideMs };
+  } else {
+    glide = null;
   }
 
   const newMessage = msg !== message || isPoint;
@@ -164,10 +240,12 @@ window.aeval.on('buddy:show', ({ x, y, message: msg, kind, stepIndex, stepCount 
     cur = { x, y };
     shown = true;
   }
-  if (newMessage) replay(buddy, 'land');
+  if (newMessage && kind !== 'agent') replay(buddy, 'land');
   buddy.classList.remove('done');
   callout.classList.remove('done');
-  buddy.classList.add('visible');
+  buddy.classList.toggle('visible', !cardMode);
+  if (cardMode) buddy.classList.remove('visible');
+  else buddy.classList.add('visible');
   callout.classList.add('visible');
   schedule();
   positionCallout();
