@@ -15,8 +15,13 @@ on:
     workflows: [release]
     types: [completed]
 
+permissions:
+  contents: read
+
 jobs:
   check:
+    permissions:
+      contents: write
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     defaults:
@@ -83,3 +88,41 @@ jobs:
         with:
           name: installer-check
           path: out/
+      # Artifacts need gh auth to download; a branch does not. Each push to
+      # main publishes its screenshots to the orphan branch `shots`, one folder
+      # per commit plus latest/, readable at
+      # raw.githubusercontent.com/<repo>/shots/latest/<name>.png. The branch is
+      # rewritten as one commit each time and keeps the 15 newest folders.
+      - name: Publish the screenshots to the shots branch
+        if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $src = Join-Path $PWD 'out\shots'
+          if (-not (Test-Path $src) -or -not (Get-ChildItem $src -Filter *.png)) { "no screenshots to publish"; exit 0 }
+          $remote = "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git"
+          $dir = Join-Path $env:RUNNER_TEMP 'shots-branch'
+          git clone --quiet --depth 1 --branch shots $remote $dir 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            New-Item -ItemType Directory -Force $dir | Out-Null
+            git -C $dir init --quiet
+            git -C $dir remote add origin $remote
+          }
+          Remove-Item -Recurse -Force (Join-Path $dir '.git')
+          git -C $dir init --quiet
+          git -C $dir checkout --quiet --orphan shots
+          $sha = '${{ github.sha }}'
+          foreach ($d in @($sha, 'latest')) {
+            $t = Join-Path $dir $d
+            if (Test-Path $t) { Remove-Item -Recurse -Force $t }
+            New-Item -ItemType Directory -Force $t | Out-Null
+            Copy-Item (Join-Path $src '*.png') $t
+          }
+          # order.txt lists the commit folders newest first; a clone's mtimes cannot.
+          $orderFile = Join-Path $dir 'order.txt'
+          $order = @($sha) + @(if (Test-Path $orderFile) { Get-Content $orderFile | Where-Object { $_ -and $_ -ne $sha } })
+          $order | Select-Object -Skip 15 | ForEach-Object { $o = Join-Path $dir $_; if (Test-Path $o) { Remove-Item -Recurse -Force $o } }
+          $order | Select-Object -First 15 | Set-Content $orderFile
+          git -C $dir add -A
+          git -C $dir -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit --quiet -m "Screenshots for $sha"
+          git -C $dir push --quiet --force $remote shots
