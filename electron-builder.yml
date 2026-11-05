@@ -27,7 +27,17 @@ nsis:
 # Updates. The installed app reads latest.yml from the newest GitHub release
 # of this repository and swaps itself for the installer attached there; see
 # lib/updater.js and .github/workflows/release.yml.
+#
+# Both of these are electron-builder's defaults, written out because the
+# release depends on them. releaseType: draft is what lets the workflow make
+# the draft first and have every uploader find it; release.yml publishes it
+# once all three files are attached, because electron-updater never sees a
+# draft. private: false keeps installed copies on the public feed even on a
+# machine with GH_TOKEN set, where the private provider would go through the
+# rate-limited API with somebody else's token.
 publish:
   provider: github
   owner: aevalmere
   repo: aevalbuddy
+  releaseType: draft
+  private: false

@@ -217,11 +217,32 @@
           <button id="edit-position" type="button" class="edit">Move</button>
         </div>
       </section>
+
+      <!-- Updates live here and nowhere louder. The summary line carries the
+           state; the body has the detail, the one action that matters right
+           now, and a few words of what changed. -->
+      <section id="sec-about" aria-labelledby="about-heading">
+        <div class="row-head">
+          <h2 id="about-heading">About</h2>
+          <span id="about-summary" class="summary"></span>
+          <button class="edit" type="button" data-edit="sec-about" data-label="Details">Details</button>
+        </div>
+        <div class="body">
+          <p id="update-line" class="status" role="status"></p>
+          <div id="update-progress" class="progress" hidden><span></span></div>
+          <p id="update-notes" class="note" hidden></p>
+          <div class="row subtle">
+            <button id="update-restart" type="button" class="primary" hidden>Restart now</button>
+            <button id="update-check" type="button" class="link">Check now</button>
+            <a id="update-release" class="link" href="#" hidden>Release notes</a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
       <span id="about">AevalBuddy <span id="app-version"></span>
-        <button id="update-btn" type="button" class="link" hidden></button>
+        <button id="update-btn" type="button" class="link" hidden>Restart to update</button>
       </span>
       <span id="capture-warning" hidden>Screen shares can see this window on your Windows build</span>
       <button id="quit-app" type="button" class="link">Quit</button>

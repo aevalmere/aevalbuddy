@@ -36,7 +36,7 @@ function openSection(id) {
     const open = sec.id === id;
     sec.dataset.open = open ? '1' : '0';
     const edit = sec.querySelector('.edit[data-edit]');
-    if (edit) edit.textContent = open ? 'Done' : 'Edit';
+    if (edit) edit.textContent = open ? 'Done' : edit.dataset.label || 'Edit';
   }
 }
 
@@ -411,33 +411,108 @@ function renderStartup() {
 
 // ------------------------------------------------------------------ updates
 
-// One link in the footer carries the whole update story: it reads as a
-// status while something is happening and as an action when there is one to
-// take. Unpackaged there is nothing to update, so it is not shown at all.
-function renderUpdate(u) {
-  if (!u || u.status === 'dev') {
-    updateBtn.hidden = true;
-    return;
-  }
-  const text = {
-    idle: 'Check for updates',
-    checking: 'Checking…',
-    current: 'Up to date',
-    downloading: `Downloading ${u.version}…`,
-    ready: `Restart to update to ${u.version}`,
-    error: 'Update check failed. Try again',
-  }[u.status];
-  updateBtn.textContent = text || 'Check for updates';
-  updateBtn.disabled = u.status === 'checking' || u.status === 'downloading';
-  updateBtn.title = u.status === 'error' ? u.error || '' : '';
-  updateBtn.hidden = false;
+// Settings > About carries the update story: a summary that says where
+// things stand, a sentence of detail, the one action that matters now, and a
+// few words of what changed. A failed check never reads as an error here; it
+// says when the next try is. The footer only speaks up when a restart is
+// waiting, so the always-visible part of this window stays quiet.
+const aboutSummary = document.getElementById('about-summary');
+const updateLine = document.getElementById('update-line');
+const updateProgress = document.getElementById('update-progress');
+const updateNotes = document.getElementById('update-notes');
+const updateRestart = document.getElementById('update-restart');
+const updateCheck = document.getElementById('update-check');
+const updateRelease = document.getElementById('update-release');
+
+function ago(ms) {
+  if (!ms) return '';
+  const min = Math.round((Date.now() - ms) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === new Date().toDateString()) return `at ${time}`;
+  return `on ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
-updateBtn.addEventListener('click', () => {
-  const u = data.update || {};
-  const call = u.status === 'ready' ? 'update:restart' : 'update:check';
-  renderUpdate({ ...u, status: u.status === 'ready' ? 'ready' : 'checking' });
-  window.aeval.invoke(call).then((r) => {
+function megabytes(n) {
+  return `${(n / 1048576).toFixed(n > 10485760 ? 0 : 1)} MB`;
+}
+
+function renderUpdate(u) {
+  u = u || {};
+  const v = u.current || data.version || '';
+  const checked = u.lastChecked ? `Checked ${ago(u.lastChecked)}.` : '';
+  let summary = v;
+  let line = '';
+  switch (u.status) {
+    case 'dev':
+      summary = `${v} · development build`;
+      line = 'Updates are checked by the installed app, not by npm start.';
+      break;
+    case 'checking':
+      summary = `${v} · checking`;
+      line = 'Checking for a newer version…';
+      break;
+    case 'downloading': {
+      const pct = Math.floor((u.progress || 0) * 100);
+      summary = `${v} · downloading ${u.version}`;
+      line = u.total
+        ? `Downloading ${u.version}: ${megabytes(u.transferred)} of ${megabytes(u.total)}, ${pct}%.`
+        : `Downloading ${u.version}…`;
+      break;
+    }
+    case 'ready':
+      summary = `${v} · ${u.version} ready`;
+      line = u.restartPending
+        ? `${u.version} installs as soon as the current answer finishes.`
+        : `${u.version} is downloaded and verified. It installs when you quit, or now.`;
+      break;
+    case 'offline':
+    case 'retrying':
+      line = `${u.problem || ''} ${checked}`.trim();
+      break;
+    case 'current':
+      summary = `${v} · up to date`;
+      line = `You have the latest version. ${checked}`.trim();
+      break;
+    default:
+      line = checked || 'Checks for updates in the background.';
+  }
+  if (u.updatedFrom && u.status !== 'ready' && u.status !== 'downloading') {
+    line = `Updated from ${u.updatedFrom}. ${line}`;
+  }
+  aboutSummary.textContent = summary;
+  updateLine.textContent = line;
+
+  updateProgress.hidden = u.status !== 'downloading';
+  updateProgress.firstElementChild.style.transform = `scaleX(${u.progress || 0})`;
+
+  const showNotes = !!u.notes && (u.status === 'downloading' || u.status === 'ready');
+  updateNotes.hidden = !showNotes;
+  updateNotes.textContent = showNotes ? `New in ${u.version}: ${u.notes}` : '';
+
+  updateRelease.hidden = !u.releaseUrl;
+  updateRelease.dataset.external = u.releaseUrl || '';
+  updateRelease.textContent = u.updatedFrom && u.status !== 'ready' ? "What's new" : 'Release notes';
+
+  updateRestart.hidden = !(u.status === 'ready' && !u.restartPending);
+  updateCheck.hidden = u.status === 'dev' || u.status === 'ready' || u.status === 'downloading';
+  updateCheck.disabled = u.status === 'checking';
+
+  updateBtn.hidden = !(u.status === 'ready' && !u.restartPending);
+}
+
+function restartToUpdate() {
+  window.aeval.invoke('update:restart');
+}
+
+updateRestart.addEventListener('click', restartToUpdate);
+updateBtn.addEventListener('click', restartToUpdate);
+
+updateCheck.addEventListener('click', () => {
+  renderUpdate({ ...(data.update || {}), status: 'checking' });
+  window.aeval.invoke('update:check').then((r) => {
     if (r && r.status) {
       data.update = r;
       renderUpdate(r);
@@ -449,6 +524,9 @@ window.aeval.on('update:state', (u) => {
   data.update = u;
   renderUpdate(u);
 });
+
+// "Checked 3 min ago" has to keep being true while the window stays open.
+setInterval(() => renderUpdate(data.update), 30000);
 
 saveHistory.addEventListener('change', () => {
   window.aeval
