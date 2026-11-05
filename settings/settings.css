@@ -686,9 +686,43 @@ footer {
   font-size: 12px;
 }
 
-#update-btn:disabled {
+/* ------------------------------------------------------------------ about */
+
+/* Download progress. Slate, not the accent: the accent is for the action,
+   and a bar filling is not one. The fill moves by transform, never width,
+   per the motion rules. */
+.progress {
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(201, 207, 221, 0.10);
+  overflow: hidden;
+}
+
+.progress[hidden] {
+  display: none;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: rgba(201, 207, 221, 0.62);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 240ms var(--ease-out);
+}
+
+#update-notes {
+  user-select: text;
+}
+
+#update-check:disabled {
   cursor: default;
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+.primary[hidden] {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

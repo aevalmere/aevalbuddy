@@ -457,3 +457,75 @@ rectangle is worse than no window.
 And it is tested by throwing one: the smoke run emits a deliberate unhandled
 rejection and asserts it reached the log. A safety net nobody has fallen into
 is not known to be a net.
+
+## Updates: an installed copy that keeps itself current
+
+The updater existed and had never been watched doing its job. Nothing
+installed an old version and saw it become the new one, its log went to a
+console a packaged app does not have, and a download that dropped half way
+rejected a promise nobody held, which crash.js correctly reported as
+"AevalBuddy hit an error". For a dropped Wi-Fi connection.
+
+### When it looks
+
+20 seconds after launch, every four hours, 15 seconds after the machine wakes
+(if the last good check is over half an hour old), and the moment the network
+returns after a check found it gone. Never while an answer is streaming: a due
+check waits a minute and asks again.
+
+### What failure looks like
+
+Nothing alarming, because none of it is the user's problem. Offline, a 429
+from GitHub, a 5xx, a refused connection, a download whose sha512 did not
+match: each is retried on 2, 5, 15, 30, 60, then 120 minutes (with 10% jitter)
+and then the usual four hours. Settings says one plain sentence ("You're
+offline. AevalBuddy checks again once you're connected." / "The update server
+did not answer. Trying again at 3:05 PM."). The tray says nothing. The raw
+error goes to `updater.log` beside `errors.log`. This follows the rule the
+free models taught the app: a 429 is the everyday state, not an exception.
+
+### What success looks like
+
+| Surface | Downloading | Ready |
+| --- | --- | --- |
+| Tray menu, top | disabled `Downloading 1.2.0… 42%` | `Restart to update to 1.2.0` |
+| Tray tooltip | unchanged | `AevalBuddy — 1.2.0 is ready, restart to update` |
+| Settings > About | summary, a sentence with MB and %, a 4px progress bar, "New in 1.2.0:" and the first lines of the release notes | the same plus a primary `Restart now` |
+| Settings footer | nothing | `Restart to update` link |
+| Notification | none | one, silent, held back until no answer is streaming |
+
+Restart while an answer streams does not cut it off: the tray reads
+`Restarting after this answer…` and the restart happens when it finishes. If
+the user never restarts, the installer runs when the app quits. The first
+launch after an update says `Updated to 1.2.0` once, as a silent notification
+that opens the release page, and in About for that session.
+
+About follows the settings pattern: one line (name, `1.1.1 · up to date`,
+Details), the body only while open. The progress bar is slate on a hairline
+track, not the accent: the accent is for the action, and a bar filling is not
+one. It moves by `transform: scaleX`, never width.
+
+### Release notes are UI now
+
+The first list items of a release's notes are what an installed copy shows
+under "New in 1.2.0", so `release.yml` writes "What's new" from the commit
+subjects since the previous tag first and the install instructions second.
+
+### Departures, with reasons
+
+| Departure | Reason |
+| --- | --- |
+| A second notification type besides the crash notice | the tray is often behind the overflow chevron; a downloaded update nobody hears of is applied only at a quit that may be weeks away. One per version, silent, never mid-answer |
+| `app.setAppUserModelId('com.aevalbuddy.app')` at startup | Windows attributes a toast to the Start Menu shortcut's AUMID; without the same id, the notification can show under a generic name or its click never reaches the app |
+
+### How it is proven
+
+`.github/workflows/update-check.yml` installs the release the README links to,
+rewrites only its `app-update.yml` to point at a local feed laid out like
+GitHub's, and waits for that untouched old version to download build A of
+the commit and leave it, sha512-matched, in the updater's `pending` folder.
+Build A then updates to build B through `AEVAL_UPDATE_FEED`, quits by itself
+(`AEVAL_UPDATE_QUIT=1`), and B must be the registered version afterwards. The
+smoke run asserts the shipped feed points at the public repository and that a
+check against it settles; against a refused port it must read as a retry.
+Both variables do nothing unless set.

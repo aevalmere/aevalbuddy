@@ -1456,8 +1456,15 @@ async function handleQuerySubmit(question, opts) {
     return { status: 'error' };
   } finally {
     if (currentAbort && currentAbort.signal === signal) currentAbort = null;
-    queryBusy = false;
-    sendOverlayState();
+    // A question superseded by a newer one finishes here too, while the newer
+    // one is still streaming; only the newest may say the app is idle, or a
+    // held-back update restart would cut that answer off.
+    if (gen === queryGen) {
+      queryBusy = false;
+      sendOverlayState();
+      // A restart or notification held back while this answer streamed.
+      updater.idle();
+    }
   }
 }
 
@@ -1913,6 +1920,11 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    // Windows ties a toast to the AppUserModelID of the Start Menu shortcut
+    // the installer made, which electron-builder sets to the appId. Without
+    // the same id here the update and crash notifications can show under a
+    // generic name, or be dropped, and a click on them never reaches the app.
+    if (IS_WINDOWS) app.setAppUserModelId('com.aevalbuddy.app');
     registerIpc();
     region.registerIpc();
     history.setEnabled(store.getSaveHistory());
@@ -1930,12 +1942,13 @@ if (!gotLock) {
       openSettings: () => openSettings(),
       quit: () => app.quit(),
       shortcuts: () => store.getShortcuts(),
-      updateReady: () => (updater.isReady() ? updater.get().version : ''),
+      update: () => updater.get(),
       restartToUpdate: () => updater.restart(),
     });
     applyRegistrations();
     updater.init({
-      restart: () => updater.restart(),
+      // A check, a notification, or a restart never lands mid-answer.
+      isBusy: () => queryBusy,
       onChange: (state) => {
         tray.refresh();
         if (settingsWin && !settingsWin.isDestroyed()) {
@@ -2185,6 +2198,61 @@ async function runSmoke() {
     // Nothing else in the app is reachable once the overlay is hidden, so the
     // tray coming up is not a nicety.
     must('tray', tray.isReady(), 'no way back in once the overlay is hidden');
+    // The packaged app has to point at the public GitHub feed this repository
+    // releases to. Anything else and no installed copy ever hears of a new
+    // version, which nothing else in the app would notice.
+    if (app.isPackaged) {
+      let yml = '';
+      try {
+        yml = require('fs').readFileSync(path.join(process.resourcesPath, 'app-update.yml'), 'utf8');
+      } catch (err) {
+        // Reported by the check below.
+      }
+      must(
+        'updateConfig',
+        /^provider:\s*github\s*$/m.test(yml) &&
+          /^owner:\s*aevalmere\s*$/m.test(yml) &&
+          /^repo:\s*aevalbuddy\s*$/m.test(yml) &&
+          !/^private:\s*true/m.test(yml),
+        yml.replace(/\s+/g, ' ').trim() || 'app-update.yml missing'
+      );
+    }
+    // Offline and rate-limited are everyday states; each has to be recognised
+    // so it is retried quietly rather than shown as a failure.
+    must(
+      'updateClassify',
+      updater.classify(new Error('net::ERR_INTERNET_DISCONNECTED')) === 'offline' &&
+        updater.classify(Object.assign(new Error('429 Too Many Requests'), { statusCode: 429 })) ===
+          'limited' &&
+        updater.classify(new Error('sha512 checksum mismatch, expected a, got b')) === 'corrupt' &&
+        updater.classify(new Error('HttpError: 502 Bad Gateway')) === 'server',
+      'an error kind was misread'
+    );
+    const notes = updater.notesSnippet(
+      '<h2>What&#39;s new</h2><ul><li>Faster <b>area</b> capture</li><li>Fix &amp; tidy</li></ul><p>Install</p>'
+    );
+    must('updateNotes', notes === 'Faster area capture · Fix & tidy', notes);
+    // A real check against the feed every installed copy reads (or the test
+    // feed, when one is named). On a runner the network is up, so anything
+    // but a settled answer means no installed user is hearing of updates.
+    // AEVAL_UPDATE_EXPECT names the result a test wants instead; 'any' only
+    // asks that whatever happened is worded quietly.
+    if (app.isPackaged) {
+      const u = await Promise.race([
+        updater.check(),
+        new Promise((r) => setTimeout(() => r({ status: 'timeout', problem: '' }), 45000)),
+      ]);
+      log('update.status', u.status);
+      log('update.version', u.version || '-');
+      log('update.problem', u.problem || '-');
+      const expect = process.env.AEVAL_UPDATE_EXPECT || 'current,downloading,ready';
+      must(
+        'updateFeed',
+        expect === 'any' || expect.split(',').includes(u.status),
+        `${u.status}: ${u.problem || 'no problem text'}`
+      );
+      must('updateQuiet', !/error|exception|stack|http/i.test(u.problem || ''), u.problem);
+    }
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
     const modelList = await ai.listModels();

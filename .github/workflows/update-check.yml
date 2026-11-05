@@ -1,0 +1,53 @@
+# Proves that an installed copy updates itself. Installs the release the
+# README links to today, points it at a local feed holding two builds of
+# this commit stamped with newer versions, and watches the old copy find,
+# download, verify, and install the first, then the first do the same for
+# the second. Everything runs on a GitHub runner; nothing touches anyone's
+# desktop. See tools/update-check.ps1 for the checks.
+name: update-check
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+
+jobs:
+  update:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Two patch versions above package.json, so both are newer than any
+      # release cut from it. The version is set through extraMetadata, which
+      # stamps the packaged package.json, latest.yml, and the exe alike
+      # without editing anything in the checkout.
+      - name: Build two newer versions of this commit
+        run: |
+          npm ci
+          node tools/make-icon.js
+          $v = [version](node -p "require('./package.json').version")
+          $a = "$($v.Major).$($v.Minor).$($v.Build + 1)"
+          $b = "$($v.Major).$($v.Minor).$($v.Build + 2)"
+          npx electron-builder --win --publish never "-c.extraMetadata.version=$a" "-c.directories.output=dist-a"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          npx electron-builder --win --publish never "-c.extraMetadata.version=$b" "-c.directories.output=dist-b"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "VERSION_A=$a" >> $env:GITHUB_ENV
+          "VERSION_B=$b" >> $env:GITHUB_ENV
+      - name: Old release updates to A, A updates to B
+        run: ./tools/update-check.ps1 -FeedA dist-a -VersionA $env:VERSION_A -FeedB dist-b -VersionB $env:VERSION_B -Out out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: update-check
+          path: out/
