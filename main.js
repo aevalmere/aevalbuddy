@@ -2224,7 +2224,7 @@ function registerIpc() {
   });
   ipcMain.handle('find:to-ask', (_e, p) => findToAsk(p && Number.isFinite(p.index) ? p.index : undefined));
   ipcMain.handle('find:close', () => closeFind());
-  ipcMain.handle('agent:start', (_e, p) => startAgentRun({ task: p && p.task }));
+  ipcMain.handle('agent:start', (_e, p) => startAgentRun({ task: p && p.task, context: p && p.context }));
   ipcMain.handle('agent:stop', () => ({ ok: agent.stop() }));
   ipcMain.handle('agent:confirm', (_e, { id, allow }) => ({ ok: agent.confirm(id, allow) }));
   ipcMain.handle('agent:continue', (_e, p) => ({ ok: agent.resume(p && p.text) }));

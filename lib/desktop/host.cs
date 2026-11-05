@@ -1372,7 +1372,54 @@ namespace AevalDesktop
                     if (line.Move(TextUnit.Line, 1) == 0) break;
                 }
             }
+            got += MissedLines(el, tp, r, clip, spans, ref chars, maxChars);
             return got > 0;
+        }
+
+        // Some providers (classic Win32 edits through the MSAA proxy) report
+        // stale visible ranges, so a line typed a moment ago is missing from
+        // the walk above. The whole document is compared against it, and a
+        // missing line is added with a rectangle estimated from the lines
+        // that were found, as long as it falls inside the control.
+        static int MissedLines(AutomationElement el, TextPattern tp, int r, int[] clip, List<Dictionary<string, object>> spans, ref int chars, int maxChars)
+        {
+            string doc;
+            try { doc = tp.DocumentRange.GetText(20001); }
+            catch (Exception) { return 0; }
+            if (doc == null || doc.Length > 20000) return 0;
+            int[] box = ToRect(Get(el, AutomationElement.BoundingRectangleProperty, false));
+            if (box == null) return 0;
+            string want = r > 0 ? RefStr(r) : null;
+            var have = new HashSet<string>();
+            int[] first = null;
+            string firstText = null;
+            foreach (var s in spans)
+            {
+                if ((s["ref"] as string) != want) continue;
+                have.Add(((string)s["text"]).Trim());
+                if (first == null) { first = s["rect"] as int[]; firstText = ((string)s["text"]).Trim(); }
+            }
+            string[] lines = doc.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            int lineH = first != null && first[3] > 0 ? first[3] : 16;
+            int firstIdx = 0;
+            if (firstText != null)
+                for (int k = 0; k < lines.Length; k++)
+                    if (lines[k].Trim() == firstText) { firstIdx = k; break; }
+            int top = first != null ? first[1] - firstIdx * lineH : box[1];
+            int added = 0;
+            for (int i = 0; i < lines.Length && chars < maxChars; i++)
+            {
+                string t = lines[i].TrimEnd();
+                if (t.Trim().Length == 0 || have.Contains(t.Trim())) continue;
+                int y = top + i * lineH;
+                if (y < box[1] || y + lineH > box[1] + box[3]) continue;
+                int[] rect = new int[] { box[0] + 4, y, Math.Max(8, box[2] - 8), lineH };
+                if (clip != null && !Intersects(rect, clip)) continue;
+                spans.Add(Span(t, rect, r, "uia"));
+                chars += t.Length + 1;
+                added++;
+            }
+            return added;
         }
 
         static object GetText(Dictionary<string, object> a)
