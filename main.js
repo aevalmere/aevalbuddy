@@ -2581,7 +2581,19 @@ if (!gotLock) {
       showTrail,
       dodge: dodgeAnswer,
       openTarget,
-      ownFocused: () => !!BrowserWindow.getFocusedWindow(),
+      // The OS's word, not Electron's: a window Electron still believes is
+      // focused after a blur does not count unless no other app is in front.
+      ownFocused: async () => {
+        const fw = BrowserWindow.getFocusedWindow();
+        if (!fw) return false;
+        try {
+          const list = await desktop.listWindows();
+          if (list.some((w) => w.isForeground)) return false;
+        } catch (err) {
+          // Unknown: report what Electron says.
+        }
+        return fw.webContents.getURL().split('/').pop() || 'window';
+      },
       online,
       onFinish: finishAgentRun,
       onState: onAgentState,
