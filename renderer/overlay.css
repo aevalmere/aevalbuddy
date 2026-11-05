@@ -173,7 +173,7 @@ body[data-pill="busy"] .pill-dot {
 }
 
 body[data-pill="busy"] .pill-label {
-  color: rgba(201, 207, 221, 0.6);
+  color: rgba(201, 207, 221, 0.7);
 }
 
 /* The agent has the computer: the pill counts its steps instead of idling. */
@@ -420,8 +420,8 @@ body[data-anchor-v="bottom"] #opanel {
   flex: 0 0 auto;
   font-size: 12px;
   color: rgba(201, 207, 221, 0.72);
-  padding: 2px 7px;
-  border-radius: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
@@ -468,9 +468,9 @@ body[data-anchor-v="bottom"] #opanel {
 #region-clear {
   flex: 0 0 auto;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
-  padding: 2px 7px;
-  border-radius: 5px;
+  color: rgba(201, 207, 221, 0.7);
+  padding: 2px 8px;
+  border-radius: 6px;
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
@@ -685,7 +685,7 @@ body[data-more="1"] #opanel::after {
    it in a coloured bubble is what made this look like a toy chat app. */
 .msg.user .bubble {
   background: rgba(201, 207, 221, 0.09);
-  border-radius: 10px;
+  border-radius: 8px;
   border-bottom-right-radius: 4px;
   padding: 6px 10px;
   font-size: 13px;
@@ -771,17 +771,16 @@ body[data-more="1"] #opanel::after {
    turn. The control belongs next to the thing you are waiting on. */
 .stop-btn {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
-  padding: 2px 8px;
+  font-weight: 600;
+  color: rgba(201, 207, 221, 0.85);
+  background: rgba(48, 61, 106, 0.45);
+  padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid var(--hairline);
-  transition: background var(--d-fast) ease, color var(--d-fast) ease,
-    border-color var(--d-fast) ease;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
 .stop-btn:hover {
-  background: rgba(201, 207, 221, 0.08);
-  border-color: rgba(201, 207, 221, 0.22);
+  background: rgba(48, 61, 106, 0.75);
   color: var(--slate);
 }
 
@@ -850,7 +849,7 @@ body[data-more="1"] #opanel::after {
   font-weight: 600;
   color: var(--slate);
   background: rgba(48, 61, 106, 0.45);
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 6px;
   transition: background var(--d-fast) ease;
 }
@@ -1354,9 +1353,9 @@ body[data-fixed-height="1"] #chat {
 
 .keycap {
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
-  padding: 1px 5px;
+  padding: 0 4px;
   margin-left: 4px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.25);

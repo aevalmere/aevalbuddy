@@ -2881,6 +2881,25 @@ async function runShots() {
         // closing it drops that work (its gen moves on) so the fixture events
         // sent next are the last word, in the results and on the lens.
         stopFind: () => find.close(),
+        // What the lens page actually holds when it is photographed: the
+        // frame came out as an empty backdrop, and a PNG cannot say whether
+        // nothing arrived or something arrived and never became visible.
+        lensProbe: async () => {
+          const all = lens.windows();
+          const win = all.find((x) => x.isVisible());
+          if (!win) return `windows=${all.length} visible=0`;
+          const inner = await evalIn(
+            win,
+            `(() => { const h = document.querySelector('.hit');` +
+              ` const f = document.getElementById('frame');` +
+              ` return 'hits=' + (document.body.dataset.hits || '-') +` +
+              ` ' hitEls=' + document.querySelectorAll('.hit').length +` +
+              ` ' hitOpacity=' + (h ? getComputedStyle(h).opacity : '-') +` +
+              ` ' frameOn=' + f.classList.contains('on') + ' frameOpacity=' + getComputedStyle(f).opacity +` +
+              ` ' vis=' + document.visibilityState; })()`
+          );
+          return `windows=${all.length} bounds=${JSON.stringify(win.getBounds())} ${inner}`;
+        },
         lensSample: () => {
           const d = screen.getPrimaryDisplay().bounds;
           const at = (x, y, w, h) => ({ x: d.x + x, y: d.y + y, width: w, height: h });

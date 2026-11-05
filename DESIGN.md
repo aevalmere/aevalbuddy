@@ -659,3 +659,22 @@ where you are, not what a click does.
 Selected text uses grape soda at 60% with pale slate text. Without a
 `::selection` rule Chromium paints the Windows highlight blue, which was the
 brightest colour in the bar whenever a prefilled task was selected.
+
+### Held to the scales, after the first look
+
+- Secondary text was at 0.36 to 0.62 alpha in twenty places (history's
+  meta line, settings summaries, Edit links, switch labels, the callout
+  hint) against the 0.70 floor above. All of it is at 0.70 now. Icon chrome
+  (0.55 idle) and input placeholders are not text you have to read and stay
+  where they were.
+- 11px type in four places (keycaps, the model list's group label, the
+  capture warning, the area selector's key hint) moved to the 12px floor.
+  The group label also lost its uppercase tracking and its 0.45 alpha.
+- Radius 5 and 10 became 6 and 8. Padding 7 and 10 became 8 and 12.
+- Stop and Retry are the same control in two moments, so they share one
+  look: the filled twilight chip, 12px semibold. Stop used to be an
+  outlined box, the only bordered button inside a window.
+- The capture warning was drawn in the accent; it is a warning, so it uses
+  `--danger`.
+- `Show paid models` filters every picker on the Models page, so it sits on
+  that page's title line instead of between the title and the first row.

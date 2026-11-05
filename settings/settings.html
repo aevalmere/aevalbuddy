@@ -73,11 +73,16 @@
         </div>
 
         <div class="page" id="pg-models">
-          <h1>Models</h1>
-          <label class="switch page-switch">
-            <input id="show-paid" type="checkbox" />
-            <span>Show paid models</span>
-          </label>
+          <!-- The paid filter applies to every picker on this page, so it
+               sits on the page's title line rather than between the title
+               and the first row, where it read as a row of its own. -->
+          <div class="page-head">
+            <h1>Models</h1>
+            <label class="switch page-switch">
+              <input id="show-paid" type="checkbox" />
+              <span>Show paid models</span>
+            </label>
+          </div>
 
           <section id="sec-model" aria-labelledby="model-heading">
             <div class="row-head">

@@ -208,7 +208,7 @@ body[data-dragging] #hint {
 
 kbd {
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(201, 207, 221, 0.72);
   border: 1px solid var(--twilight);

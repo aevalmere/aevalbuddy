@@ -240,7 +240,7 @@ button {
   display: block;
   margin-top: 3px;
   font-size: 12.5px;
-  color: rgba(201, 207, 221, 0.5);
+  color: rgba(201, 207, 221, 0.7);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,7 +252,7 @@ button {
   margin-top: 5px;
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: rgba(201, 207, 221, 0.36);
+  color: rgba(201, 207, 221, 0.7);
   font-variant-numeric: tabular-nums;
 }
 
@@ -296,7 +296,7 @@ button {
   text-align: center;
   font-size: 13px;
   line-height: 1.55;
-  color: rgba(201, 207, 221, 0.42);
+  color: rgba(201, 207, 221, 0.7);
 }
 
 #empty[hidden] {
@@ -313,7 +313,7 @@ button {
   padding: 10px var(--gutter);
   border-top: 1px solid var(--hairline);
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.45);
+  color: rgba(201, 207, 221, 0.7);
   font-variant-numeric: tabular-nums;
 }
 
@@ -323,7 +323,7 @@ button {
 
 .link {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   text-decoration: underline;
   text-decoration-color: rgba(201, 207, 221, 0.28);
   text-underline-offset: 3px;

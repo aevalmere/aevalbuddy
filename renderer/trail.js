@@ -25,6 +25,8 @@ function setView(next) {
   findView.hidden = view !== 'find';
   chatEl.hidden = view === 'find';
   chatTools.hidden = view === 'find';
+  // Hits that arrived while the chat was showing were stored, not drawn.
+  if (view === 'find') renderFind();
   if (view === 'find' && opanel.hidden) {
     opanel.hidden = false;
     playEntrance();

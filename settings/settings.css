@@ -169,7 +169,7 @@ section + section {
   flex: 1;
   min-width: 0;
   font-size: 13px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -179,7 +179,7 @@ section + section {
 .edit {
   flex: 0 0 auto;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.55);
+  color: rgba(201, 207, 221, 0.7);
   padding: 2px 0;
   min-width: 30px;
   text-align: right;
@@ -236,7 +236,7 @@ h2 {
 .note {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
 }
 
 .note:empty {
@@ -272,7 +272,7 @@ h2 {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   white-space: nowrap;
 }
 
@@ -295,9 +295,9 @@ h2 {
 .switch {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -420,7 +420,7 @@ input[type="text"]:focus {
 
 .combo-detail {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -460,12 +460,10 @@ input[type="text"]:focus {
 }
 
 .combo-group {
-  padding: 8px 9px 4px;
-  font-size: 11px;
+  padding: 8px 8px 4px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(201, 207, 221, 0.45);
+  color: rgba(201, 207, 221, 0.7);
   cursor: default;
 }
 
@@ -486,7 +484,7 @@ input[type="text"]:focus {
 
 .combo-option .opt-detail {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   line-height: 1.4;
 }
 
@@ -550,7 +548,7 @@ input[type="text"]:focus {
   grid-column: 2;
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
 }
 
 /* ---------------------------------------------------------------- buttons */
@@ -574,7 +572,7 @@ input[type="text"]:focus {
 /* Secondary actions read as text, not as more boxes. */
 .link {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   text-decoration: none;
   padding: 2px 0;
   border-radius: 4px;
@@ -639,7 +637,7 @@ input[type="text"]:focus {
 .sc-warn {
   grid-column: 1 / -1;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.62);
+  color: rgba(201, 207, 221, 0.7);
   line-height: 1.4;
 }
 
@@ -664,7 +662,7 @@ kbd {
 
 .sc-fixed {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.45);
+  color: rgba(201, 207, 221, 0.7);
   min-width: 62px;
   text-align: center;
 }
@@ -683,7 +681,7 @@ footer {
 
 #about {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.45);
+  color: rgba(201, 207, 221, 0.7);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -747,8 +745,8 @@ footer {
 #capture-warning {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
-  color: var(--accent);
+  font-size: 12px;
+  color: var(--danger);
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -825,8 +823,15 @@ h1 {
   padding: 8px 0 4px;
 }
 
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .page-switch {
-  margin: 4px 0 4px;
+  padding-top: 4px;
 }
 
 /* A two-way choice: radio rows, the chosen one tinted like a chosen skill. */
