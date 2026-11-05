@@ -33,6 +33,8 @@ const tray = require('./lib/tray');
 const region = require('./lib/region');
 const history = require('./lib/history');
 const updater = require('./lib/updater');
+// Lazy: requiring it spawns nothing; the helper starts on the first call.
+const desktop = require('./lib/desktop');
 
 const IS_WINDOWS = process.platform === 'win32';
 
@@ -1965,6 +1967,10 @@ if (!gotLock) {
     // the same id here the update and crash notifications can show under a
     // generic name, or be dropped, and a click on them never reaches the app.
     if (IS_WINDOWS) app.setAppUserModelId('com.aevalbuddy.app');
+    // The desktop engine never reads or acts on these.
+    desktop.init({
+      ownHandles: () => BrowserWindow.getAllWindows().map((w) => w.getNativeWindowHandle()),
+    });
     registerIpc();
     region.registerIpc();
     history.setEnabled(store.getSaveHistory());
@@ -2039,7 +2045,12 @@ if (!gotLock) {
     app.quit();
   });
 
+  // before-quit as well as will-quit: an update's quitAndInstall must not
+  // find the powershell helper still running under the install folder.
+  app.on('before-quit', () => desktop.stop());
+
   app.on('will-quit', () => {
+    desktop.stop();
     globalShortcut.unregisterAll();
     // The last conversation is usually still inside the debounce.
     history.flushNow();
@@ -2804,6 +2815,21 @@ async function runSmoke() {
     log('hudExitMode', overlayMode);
     log('storedPos', JSON.stringify(store.getOverlayPos()));
     log('storedOutputPos', JSON.stringify(store.getOutputPos()));
+    // Desktop engine (lib/desktop, SPEC-v2 B2 to B6): the helper starts,
+    // lists windows without ours, and refuses a click on the pill. The half
+    // that opens Notepad runs on CI only, never on someone's own desktop.
+    const pill = overlayWin.isVisible() ? overlayWin.getBounds() : null;
+    await require('./lib/desktop/selfcheck').run({
+      desktop,
+      log,
+      must,
+      notepad: !!(process.env.GITHUB_ACTIONS || process.env.AEVAL_DESKTOP_NOTEPAD),
+      ownPoint: pill
+        ? screen.dipToScreenPoint({ x: pill.x + Math.round(pill.width / 2), y: pill.y + Math.round(pill.height / 2) })
+        : null,
+      ownHandles: BrowserWindow.getAllWindows().map((w) => desktop.handleStr(w.getNativeWindowHandle())),
+    });
+    desktop.stop();
     cursorBuddy.showPoints([{ x: 80, y: 80, label: 'smoke point' }]);
     log('buddyPoints', cursorBuddy.isActive());
     cursorBuddy.advance();

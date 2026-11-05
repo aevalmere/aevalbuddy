@@ -3,7 +3,8 @@
 # then an uninstall. Nothing runs on anyone's desktop. A push to main tests a
 # fresh build of that commit; a finished release tests the file the README's
 # download link serves, so a broken deliverable shows up here first. See
-# tools/installer-check.ps1 for what is checked.
+# tools/installer-check.ps1 for what is checked, and tools/desktop-check.js
+# for the desktop engine, which drives a Notepad of its own on this machine.
 name: installer
 
 on:
@@ -52,7 +53,30 @@ jobs:
           }
           "INSTALLER=$PWD\dl\AevalBuddy-Setup.exe" >> $env:GITHUB_ENV
           "VERSION=$([regex]::Match($yml, '(?m)^version: (\S+)').Groups[1].Value)" >> $env:GITHUB_ENV
+      # Windows.Media.Ocr needs a recogniser language; runner images do not
+      # always ship one. Best effort: ocrWords says so if this did not take.
+      - name: Make sure Windows OCR has a language
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          $cap = Get-WindowsCapability -Online -Name 'Language.OCR~~~en-US*'
+          $cap | Format-Table Name, State
+          if ($cap -and $cap.State -ne 'Installed') { $cap | Add-WindowsCapability -Online | Format-Table }
+      # The desktop engine from source, outside Electron: opens a Notepad of
+      # its own, reads, OCRs, types, sets and reads back, closes it unsaved.
+      # The installed exe runs the same checks again in its smoke test, with
+      # the helper loaded out of app.asar.
+      - name: Desktop engine check
+        run: |
+          node tools/desktop-check.js 2>&1 | Tee-Object -FilePath desktop-check.log
+          $code = $LASTEXITCODE
+          Get-Content desktop-check.log | Where-Object { $_ -match '=FAIL' } | ForEach-Object { "::error title=desktop-check::$_" }
+          "::notice title=desktop-check::$((Get-Content desktop-check.log | Where-Object { $_ -match '^\[DESKTOP\]' }) -join '%0A')"
+          exit $code
+      # Runs even when the desktop check failed, so one bad engine run does
+      # not hide the installer results.
       - name: Install, run, uninstall
+        if: ${{ !cancelled() && env.INSTALLER != '' }}
         run: ./tools/installer-check.ps1 -Installer $env:INSTALLER -Version $env:VERSION -Out out
       - uses: actions/upload-artifact@v4
         if: always()
