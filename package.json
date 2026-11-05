@@ -9,7 +9,7 @@
     "start": "electron .",
     "dev": "electronmon .",
     "shots": "node tools/shots-run.js",
-    "prebuild": "node tools/make-icon.js",
+    "prebuild": "node tools/make-icon.js && node tools/build-desktop.js",
     "build": "electron-builder --win"
   },
   "electronmon": {

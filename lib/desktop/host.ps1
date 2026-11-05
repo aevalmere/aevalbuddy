@@ -27,7 +27,17 @@ try {
   $sha = [Security.Cryptography.SHA256]::Create()
   $hash = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($AevalCs))[0..7] | ForEach-Object { $_.ToString('x2') })
   $loaded = $false
-  if ($AevalCache) {
+  # A copy compiled at build time ships beside app.asar; same hash, no
+  # compiler on first use.
+  if ($AevalPrebuilt) {
+    foreach ($dir in ($AevalPrebuilt -split ';')) {
+      $pre = Join-Path $dir "desktop-$hash.dll"
+      if (-not $loaded -and (Test-Path -LiteralPath $pre)) {
+        try { Add-Type -Path $pre; $loaded = $true } catch { $loaded = $false }
+      }
+    }
+  }
+  if (-not $loaded -and $AevalCache) {
     $dll = Join-Path $AevalCache "desktop-$hash.dll"
     if (Test-Path $dll) {
       try { Add-Type -Path $dll; $loaded = $true } catch { $loaded = $false }
@@ -51,5 +61,6 @@ try {
   [Console]::Out.WriteLine($msg)
   exit 2
 }
+if ($AevalCompileOnly) { exit 0 }
 [AevalDesktop.Host]::Run($AevalVersion)
 exit 0
