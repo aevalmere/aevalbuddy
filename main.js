@@ -2702,6 +2702,7 @@ async function runShots() {
         history: historyWin,
         region: region.debugWindow(),
         buddy: cursorBuddy.debugWindow(),
+        lens: lens.windows().find((w) => w.isVisible()) || null,
       }),
       actions: {
         clearKey: () => {
@@ -2846,6 +2847,44 @@ async function runShots() {
         closeSettings: () => {
           if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
         },
+        // v2 surfaces, driven by the same events the real flows send.
+        toOutput: (channel, payload) => {
+          if (outputWin && !outputWin.isDestroyed()) outputWin.webContents.send(channel, payload);
+        },
+        toOverlay: (channel, payload) => {
+          if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send(channel, payload);
+        },
+        setBar: async (mode) => {
+          barMode = mode;
+          store.setLastMode(mode);
+          expandPanel();
+          sendOverlayState();
+        },
+        showOutput: () => showOutput(),
+        resetChat: () => resetChat(),
+        lensSample: () => {
+          const d = screen.getPrimaryDisplay().bounds;
+          const at = (x, y, w, h) => ({ x: d.x + x, y: d.y + y, width: w, height: h });
+          lens.setHits(
+            [
+              { i: 0, kind: 'literal', rect: at(140, 120, 64, 18) },
+              { i: 1, kind: 'literal', rect: at(260, 168, 64, 18) },
+              { i: 2, kind: 'related', rect: at(140, 216, 92, 18), why: '"Invoice" relates to "payment": an invoice is a request for payment' },
+              { i: 3, kind: 'concept', rect: at(140, 264, 150, 18), why: 'the total due is what you owe' },
+            ],
+            2
+          );
+          lens.setFrame(screen.getPrimaryDisplay(), 'AevalBuddy is using your computer · Esc to stop');
+        },
+        lensClear: () => {
+          lens.clear();
+          lens.setFrame(null);
+        },
+        startTour: () => startWalkthrough(),
+        tourEvent: (ev) => cursorBuddy.notify(ev),
+        tourSkip: () => cursorBuddy.skip(),
+        endTour: () => cursorBuddy.cancel(),
+        settingsJs: (code) => evalIn(settingsWin, code),
         showPoint: () =>
           cursorBuddy.showPoints([
             { x: 420, y: 230, label: 'Press Save to apply the change' },

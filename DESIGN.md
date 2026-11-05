@@ -554,3 +554,81 @@ Build A then updates to build B through `AEVAL_UPDATE_FEED`, quits by itself
 smoke run asserts the shipped feed points at the public repository and that a
 check against it settles; against a refused port it must read as a retry.
 Both variables do nothing unless set.
+
+## v2: Find, Agent, and the command bar
+
+The pill opens one bar with three verbs over one conversation: Ask about the
+screen, Find on it, or have the Agent do something. All three share one
+perception engine (`lib/desktop`) that reads an app's own UI Automation text
+before it ever looks at pixels. SPEC-v2.md is the plan; this section is what
+was built and the values it uses.
+
+### New tokens
+
+| Token | Value | Where | Why |
+| --- | --- | --- | --- |
+| `--hit-fill` | `rgba(197, 111, 195, 0.22)` | literal Find hits | the lens sits over arbitrary content like the area selector, so it uses `--accent-bright`; at 22% black text under it stays readable on white and it still shows on a dark editor |
+| `--hit-ring` | `--accent-bright`, 1.5px | related and concept hits | outline versus fill is the whole literal/related distinction, so no second hue |
+| `--hit-current` | `--accent-bright`, 2px, plus `--hit-rim` | the current hit's ring | the one mark that says "you are here" |
+| `--hit-rim` | `rgba(0, 0, 0, 0.55)` | outside every lens mark | legibility on pale content, the job `--danger-edge` does for the warning |
+| `--control-frame` | `#823A80`, 2px solid | display edge while the agent runs | the pointer's colour already means "the app is acting here"; solid, never glowing or pulsing |
+| `--step-done` | slate at 0.70 | finished trail rows, reads | done steps recede; the running row is full slate |
+
+`--danger` and `--danger-edge` are reused for the pill's failed-run dot and
+the failed trail row's mark. No new hues.
+
+### New surfaces
+
+| Surface | Window | Rules |
+| --- | --- | --- |
+| Mode label | overlay | a word where the text starts (`Ask`, `Find`, `Agent`), slate 0.70, 13px, no box; clicking it cycles |
+| Bar status | overlay | Find's count (`3 exact · 5 related`) and stage lines, or Agent's hint; hairline above, no fill, takes no space when empty |
+| Find results | answer window, Find view | snippet 14px with the match in semibold, why 12px slate 0.70, a filled dot for literal and a ring for related, hairlines between rows, the current row tinted grape soda at 22% |
+| Lens | `lib/lens.js`, one per display with something to draw | click-through, never focusable, content-protected; hits, the ring, the why chip in the buddy bubble's material, the control frame and its chip |
+| Agent trail | answer window, inside the transcript | one block per run: plan, one row per step (verb + target), state on the right, rows rise like messages; the running row carries the thinking dots |
+| Confirm card | inside the trail | radius 8, twilight fill, the action as a sentence, the model's reason and the app's reason, Allow primary with a `Ctrl+Enter` keycap, Skip as a link with `Ctrl+Backspace` |
+| Consent sheet | inside the transcript, first run only | same card; what the agent can do, what it asks about, how to stop |
+| Settings rail | settings at 560px and wider | 160px rail, current page full slate with a 2px grape-soda bar; below 560 the rail goes and the column scrolls |
+| Tour card | pointer window | the last tour step has no arrow: a card with `Try it` (primary) and `Later` |
+
+### Motion additions
+
+| Transition | Value |
+| --- | --- |
+| Hit appears | opacity, `--d-fast`, staggered 12ms per hit, capped at 300ms |
+| Current-hit ring moves | translate and size on `--ease-glide`, `--d-med` |
+| Agent cursor before an action | the arrow glides on the glide curve for 240ms; the action fires on arrival |
+| Mode switch | label and placeholder cross-fade over `--d-fast`; the bar never resizes for it |
+| Control frame | opacity in over `--d-fast`; never animates while shown |
+
+Reduced motion: hits appear at once, the ring and the cursor jump, the frame
+still appears because it is information.
+
+### Rules
+
+- Perception order is UIA, then OCR, then vision. Sending pixels when the app
+  offered the string is a capture-fidelity regression.
+- During an agent run no AevalBuddy window takes focus except a confirm card,
+  a question, or the consent sheet, and focus goes back to the target before
+  the next action. The smoke run counts violations (`agentFocusKept`).
+- The safety gate is code in the executor, never a prompt: a control or
+  dialog named with a risky verb, Enter in a compose field, a password field,
+  any `open`, or the model's own flag asks first. Own windows and elevated
+  windows are refused.
+- The lens and the pointer are ours but never block a click: the desktop
+  engine is told they are `block: false`.
+- Every window, including ones a module creates later, gets content
+  protection when it is created (`browser-window-created`), not when someone
+  remembers to.
+
+### Departures from SPEC-v2, with reasons
+
+| Departure | Reason |
+| --- | --- |
+| Settings names the vision model "Screen model" and the optional second one "Answer model", not "Answer model" and "Screen reader" | the spec's names had the roles backwards: the second model is the one that answers from the reading, the first is the one that reads |
+| Tab with text in the bar, in Find, switches This window / Whole screen; Tab on an empty bar cycles modes | the spec gives Tab both jobs; text in the bar is the only signal that tells them apart without a second key |
+| The ring animates width and height as well as transform | a scaled 2px border stops being 2px; it is one element on a static layer, so the layout cost is nothing |
+| UIA line hits are sliced from the line's rectangle in proportion to characters | UIA gives one rectangle per line, not per character; exact for monospace, close for proportional text, and OCR word hits are exact |
+| The tray's download progress moved from a disabled top line into the `Check for updates` item | SPEC 4.4 puts every update state on that item; a ready update still gets the top line. A failed check reads `Update failed, try again` only after the person clicked the item; background failures stay silent, as the Updates section says |
+| `tools/fixtures/llm` ships inside the app | the smoke run tests the installed exe, and the fake model needs its fixtures there; a few KB, inert unless `AEVAL_FAKE_LLM` is set |
+| Boot-time check is a ceiling, not "within 10% of v1.1.1" | no v1.1.1 boot number was ever recorded; the run now logs `bootMs` and asserts the helper is not started at boot, which is the only v2 change that could move it |

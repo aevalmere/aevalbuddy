@@ -22,13 +22,32 @@ On the very first launch a pointer appears and walks you to the settings panel, 
 
 | Shortcut | Action |
 | --- | --- |
-| `Ctrl+Shift+Space` | Capture the screen and open the query panel |
+| `Ctrl+Shift+Space` | Ask about your screen |
 | `Ctrl+Shift+A` | Draw a box around part of the screen and ask about that |
+| `Ctrl+Shift+G` | Find on screen: exact matches light up as you type, related ones and things that mean the same follow a moment later |
+| `Ctrl+Shift+U` | Agent: tell it what to do in any app, and it clicks and types for you |
 | `Ctrl+Shift+H` | Hide or show the overlay |
-| `Esc` | Collapse the panel, close settings, cancel an area selection, exit the layout editor, or dismiss the walkthrough |
+| `Tab`, `Ctrl+1/2/3` | In the bar: switch between Ask, Find and Agent (what you typed stays) |
+| `Enter` / `Shift+Enter` | Send; in Find, next or previous match |
+| `Ctrl+Enter` | In Find, ask about the current match; on a confirm card, Allow |
+| `Esc` | Stop the agent, close Find, collapse the panel, close settings, cancel an area selection, or dismiss the tour |
 
-There is a tray icon too: left-click it to ask, right-click for the same
-actions plus History, Settings and Quit. It is the way back in if you hide the
+**Find** reads the app's own text where it shares it (and recognises text in
+the pixels where it does not), so exact matches work offline and without a
+key. Related matches explain themselves: `"refund" relates to "chargeback":
+both are payment reversals`. The highlights are hidden from screen shares like
+every other AevalBuddy window.
+
+**Agent** works with any OpenRouter model you pick; ones that support tool
+calls use them, others write their actions out as JSON. It shows a plan, then
+each step in the answer window, and the pointer glides to whatever it is
+about to click. Anything that sends, deletes, buys, signs, types a password or
+opens a link waits for you to Allow it. Esc, the Stop button, the tray, or
+simply moving your mouse stops it. It asks for permission once, before its
+first task.
+
+There is a tray icon too: left-click it to open the bar where you left it,
+right-click for every action plus History, Settings and Quit. It is the way back in if you hide the
 overlay and forget the shortcut, because none of these windows appear in the
 taskbar or in Alt-Tab.
 
