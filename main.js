@@ -2868,6 +2868,9 @@ async function runSmoke() {
   // false in a build worth shipping, so they end the run rather than
   // printing a `false` nobody reads.
   const failures = [];
+  // Before anything below touches the desktop engine: it must not have
+  // started at boot.
+  const helperStartedBeforeSmoke = !!desktop.status().pid || desktop.isReady();
   const must = (label, ok, detail) => {
     log(label, ok ? 'ok' : `FAIL${detail ? `:${detail}` : ''}`);
     if (!ok) failures.push(label);
@@ -3456,6 +3459,55 @@ async function runSmoke() {
         : null,
       ownHandles: BrowserWindow.getAllWindows().map((w) => desktop.handleStr(w.getNativeWindowHandle())),
     });
+    // v2 (SPEC-v2 section 6): the bar, the tray, the tour, then Find, Ask
+    // with exact text, and the agent against real windows on CI.
+    const smokeV2 = require('./lib/smoke-v2');
+    const v2 = {
+      log,
+      must,
+      desktop,
+      find,
+      agent,
+      lens,
+      ai,
+      store,
+      tray,
+      cursorBuddy,
+      history,
+      bus,
+      screen,
+      BrowserWindow,
+      protectedWindows,
+      canHide: CAN_HIDE_FROM_CAPTURE,
+      lastRegisterResults,
+      bootMs,
+      helperStartedBeforeSmoke,
+      openBar,
+      startWalkthrough,
+      closeSettings: () => settingsWin && !settingsWin.isDestroyed() && settingsWin.close(),
+      overlayWin: () => overlayWin,
+      closeFind: () => closeFind(),
+      collapse: () => collapsePanel(),
+      handleQuerySubmit,
+      resolveUiaPoint,
+      startAgentRun,
+      chatId: () => chatId,
+    };
+    try {
+      await smokeV2.basics(v2);
+    } catch (err) {
+      must('v2basics', false, err.message);
+    }
+    if (process.env.GITHUB_ACTIONS || process.env.AEVAL_DESKTOP_NOTEPAD) {
+      try {
+        await require('./lib/smoke-v2-desktop').run(v2);
+      } catch (err) {
+        must('v2desktop', false, `${err.code || ''}:${err.message}`);
+      }
+    } else {
+      log('v2desktop', 'skipped (set AEVAL_DESKTOP_NOTEPAD=1, or run on CI)');
+    }
+    collapsePanel();
     desktop.stop();
     cursorBuddy.showPoints([{ x: 80, y: 80, label: 'smoke point' }]);
     log('buddyPoints', cursorBuddy.isActive());
@@ -3474,6 +3526,7 @@ async function runSmoke() {
       logged = false;
     }
     must('crashLogged', logged, 'an unhandled rejection never reached errors.log');
+    smokeV2.contentProtection(v2);
     setTimeout(() => {
       if (failures.length) {
         console.error(`[SMOKE] failed: ${failures.join(', ')}`);

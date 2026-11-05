@@ -10,6 +10,9 @@ files:
   - settings/**
   - history/**
   - skills/**
+  # The fake-model fixtures the smoke run answers from (AEVAL_FAKE_LLM);
+  # a few KB, inert unless that variable is set.
+  - tools/fixtures/**
   - package.json
 win:
   target: nsis
