@@ -999,6 +999,9 @@ namespace AevalDesktop
             if (i.Invoke || i.Toggle || i.Select || i.Range) return true;
             if (i.ValueP && !i.ValueRO) return true;
             if (i.Expand && i.ExpandState != null) return true;
+            // A text editor is the most interactive thing in its window, and
+            // Document is otherwise left out with the other containers.
+            if (i.ControlTypeId == ControlType.Document.Id && i.Focusable && (i.Text || (i.ValueP && !i.ValueRO))) return true;
             if (i.Focusable && !NotFocusTargets.Contains(i.ControlTypeId) && i.Name.Length > 0) return true;
             return false;
         }
@@ -1735,6 +1738,67 @@ namespace AevalDesktop
             Native.CloseDesktop(desk);
         }
 
+        // An element can be the right target and still refuse SetFocus: a
+        // classic Win32 edit exposed through the MSAA proxy reports itself as
+        // a Document that "cannot receive focus" while the HWND underneath
+        // takes the keyboard fine. So focus goes to the element if it takes
+        // it, else to its nearest focusable descendant, else to a focusable
+        // ancestor short of the window, else nowhere: the window is already
+        // in front and its own focus is where keystrokes land.
+        static AutomationElement FocusableNear(AutomationElement el)
+        {
+            if (IsFocusable(el)) return el;
+            var walker = TreeWalker.ControlViewWalker;
+            var queue = new Queue<AutomationElement>();
+            queue.Enqueue(el);
+            int seen = 0;
+            while (queue.Count > 0 && seen < 200)
+            {
+                var cur = queue.Dequeue();
+                AutomationElement c = null;
+                try { c = walker.GetFirstChild(cur); } catch (Exception) { c = null; }
+                while (c != null && seen < 200)
+                {
+                    seen++;
+                    if (IsFocusable(c)) return c;
+                    queue.Enqueue(c);
+                    try { c = walker.GetNextSibling(c); } catch (Exception) { c = null; }
+                }
+            }
+            AutomationElement p = null;
+            try { p = walker.GetParent(el); } catch (Exception) { p = null; }
+            for (int n = 0; p != null && n < 4; n++)
+            {
+                try
+                {
+                    if (p.Current.ControlType == ControlType.Window) break;
+                }
+                catch (Exception) { break; }
+                if (IsFocusable(p)) return p;
+                try { p = walker.GetParent(p); } catch (Exception) { p = null; }
+            }
+            return null;
+        }
+
+        static bool IsFocusable(AutomationElement el)
+        {
+            try
+            {
+                object v = el.GetCurrentPropertyValue(AutomationElement.IsKeyboardFocusableProperty, false);
+                return v is bool && (bool)v;
+            }
+            catch (Exception) { return false; }
+        }
+
+        static string FocusElement(AutomationElement el)
+        {
+            var f = FocusableNear(el);
+            if (f == null) return "window";
+            try { f.SetFocus(); }
+            catch (InvalidOperationException) { return "window"; }
+            return f == el ? "element" : "near";
+        }
+
         static IntPtr KeyboardTarget(IntPtr target)
         {
             RefuseSecureDesktop();
@@ -1938,15 +2002,17 @@ namespace AevalDesktop
                 win = e.Top;
             }
             IntPtr target = KeyboardTarget(win);
+            string focusedVia = "window";
             if (e != null)
             {
-                e.El.SetFocus();
+                focusedVia = FocusElement(e.El);
                 Thread.Sleep(40);
             }
             TypeInto(target, text);
             var r = new Dictionary<string, object>();
             r["ok"] = true;
             r["typed"] = text.Length;
+            r["focus"] = focusedVia;
             r["windowHandle"] = HandleStr(target);
             return r;
         }
@@ -2124,11 +2190,12 @@ namespace AevalDesktop
                 SelectOption(el, i, sval);
                 res["via"] = "selectionitem";
             }
-            else if (i.Focusable)
+            else if (i.Focused || FocusableNear(el) != null)
             {
-                // No pattern: focus it, select everything, type over it.
+                // No pattern: focus it (or the focusable part of it), select
+                // everything, type over it.
                 IntPtr target = KeyboardTarget(e.Top);
-                el.SetFocus();
+                FocusElement(el);
                 Thread.Sleep(40);
                 GuardStill(target, "keys", 0);
                 SendChord(ParseChord("ctrl+a"));
