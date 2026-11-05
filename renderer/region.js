@@ -43,7 +43,7 @@ function draw() {
   sizeChip.hidden = false;
   sizeChip.textContent = ok
     ? `${width} × ${height}`
-    : `${width} × ${height} — too small`;
+    : `${width} × ${height}, too small`;
   sizeChip.classList.toggle('too-small', !ok);
 
   // Under the selection by default, above it when there is no room below, and

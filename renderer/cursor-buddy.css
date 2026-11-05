@@ -251,6 +251,8 @@ body {
 
 #callout-message {
   min-height: 20px;
+  /* No one-word last line: the tour's last card ended on "it." alone. */
+  text-wrap: pretty;
 }
 
 /* The cursor that trails the typed-out text. */

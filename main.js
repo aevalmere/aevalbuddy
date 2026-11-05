@@ -242,7 +242,7 @@ function walkthrough() {
     },
     {
       card: true,
-      message: 'Agent can use your computer for you. It asks before anything risky, and Esc stops it.',
+      message: `Press ${k.agentTask} and say what to do. Agent asks before anything risky, and Esc stops it.`,
       buttons: [
         { id: 'try', label: 'Try it', primary: true },
         { id: 'later', label: 'Later' },
@@ -2896,9 +2896,10 @@ async function runShots() {
               ` ' hitEls=' + document.querySelectorAll('.hit').length +` +
               ` ' hitOpacity=' + (h ? getComputedStyle(h).opacity : '-') +` +
               ` ' frameOn=' + f.classList.contains('on') + ' frameOpacity=' + getComputedStyle(f).opacity +` +
-              ` ' vis=' + document.visibilityState; })()`
+              ` ' vis=' + document.visibilityState + ' bridge=' + typeof window.aeval +` +
+              ` ' script=' + typeof placeRing + ' url=' + location.pathname.split('/').slice(-2).join('/'); })()`
           );
-          return `windows=${all.length} bounds=${JSON.stringify(win.getBounds())} ${inner}`;
+          return `windows=${all.length} loading=${win.webContents.isLoading()} crashed=${win.webContents.isCrashed()} bounds=${JSON.stringify(win.getBounds())} ${inner}`;
         },
         lensSample: () => {
           const d = screen.getPrimaryDisplay().bounds;

@@ -27,10 +27,12 @@ const findScopeBtn = document.getElementById('find-scope');
 // person, not to a mode, so it survives every switch.
 const MODES = ['ask', 'find', 'agent'];
 const MODE_NAME = { ask: 'Ask', find: 'Find', agent: 'Agent' };
+// Each placeholder finishes the sentence the mode word starts ("Ask
+// anything about your screen"); repeating the verb read "Ask  Ask about".
 const PLACEHOLDER = {
-  ask: 'Ask about your screen',
-  find: 'Find on screen',
-  agent: 'Tell it what to do',
+  ask: 'anything about your screen',
+  find: 'a word or an idea on screen',
+  agent: 'describe a task',
 };
 let barMode = 'ask';
 let findState = null;
@@ -45,7 +47,7 @@ function applyMode(mode, tell) {
   modeLabel.textContent = MODE_NAME[next];
   modeLabel.setAttribute('aria-label', `Mode: ${MODE_NAME[next]}. Click to switch.`);
   input.placeholder = PLACEHOLDER[next];
-  input.setAttribute('aria-label', `${PLACEHOLDER[next]}. Press Enter to ${next === 'find' ? 'go to the next match' : next === 'agent' ? 'start' : 'send'}.`);
+  input.setAttribute('aria-label', `${MODE_NAME[next]} ${PLACEHOLDER[next]}. Press Enter to ${next === 'find' ? 'go to the next match' : next === 'agent' ? 'start' : 'send'}.`);
   if (changed) {
     replayAnim(modeLabel, 'swap');
     replayAnim(input, 'swap');

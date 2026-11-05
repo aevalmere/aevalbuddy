@@ -200,9 +200,11 @@ window.aeval.on('buddy:show', (payload) => {
   document.body.dataset.kind = kind || 'step';
   advanceOnClick = isPoint;
   lastOfSequence = isPoint && stepIndex + 1 >= stepCount;
-  calloutHint.hidden = !isPoint;
+  // The last bubble already carries an x; a hint saying "click to close"
+  // under it said the same thing twice.
+  calloutHint.hidden = !isPoint || lastOfSequence;
   if (isPoint) {
-    calloutHint.textContent = lastOfSequence ? 'click to close' : 'click for the next one';
+    calloutHint.textContent = 'Click for the next one';
     calloutCount.textContent = stepCount > 1 ? `${stepIndex + 1} of ${stepCount}` : '';
   } else if ((kind === 'step' || kind === 'card') && stepCount > 1) {
     calloutCount.textContent = `${stepIndex + 1} of ${stepCount}`;
