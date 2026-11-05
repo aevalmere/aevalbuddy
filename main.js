@@ -2662,6 +2662,9 @@ if (!gotLock) {
     crash.guard(win);
     hideFromCapture(win);
     protectedWindows.add(win);
+    // Windows can drop a hidden window's display affinity; it is set again
+    // every time the window is shown, which is when it could be captured.
+    win.on('show', () => hideFromCapture(win));
   });
 
   app.on('window-all-closed', () => {

@@ -125,7 +125,17 @@ Check 'smoke.printed' ([bool]$smokeLines) 'the packaged exe writes [SMOKE] lines
 foreach ($line in ($smokeLines -split "`n" | Where-Object { $_ -match '=FAIL' })) {
   Annotate 'error' 'smoke' $line
 }
-Annotate 'notice' 'smoke (installed exe)' $(if ($smokeLines) { $smokeLines } else { $smoke.Text })
+# One annotation is cut off after a few KB, so the lines go out in parts and
+# every line stays readable through the public API.
+if ($smokeLines) {
+  $all = $smokeLines -split "`n"
+  for ($i = 0; $i -lt $all.Count; $i += 50) {
+    $part = $all[$i..([Math]::Min($i + 49, $all.Count - 1))] -join "`n"
+    Annotate 'notice' "smoke (installed exe) part $([int]($i / 50) + 1)" $part
+  }
+} else {
+  Annotate 'notice' 'smoke (installed exe)' $smoke.Text
+}
 
 $shotDir = Join-Path $Out 'shots'
 New-Item -ItemType Directory -Force $shotDir | Out-Null
