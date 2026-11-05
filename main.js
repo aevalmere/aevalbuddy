@@ -2991,6 +2991,18 @@ async function runSmoke() {
         `${u.status}: ${u.problem || 'no problem text'}`
       );
       must('updateQuiet', !/error|exception|stack|http/i.test(u.problem || ''), u.problem);
+      if (u.status === 'retrying' || u.status === 'error') {
+        // The sentence is for people; the raw cause is in updater.log.
+        try {
+          const lines = require('fs')
+            .readFileSync(path.join(app.getPath('userData'), 'updater.log'), 'utf8')
+            .split('\n')
+            .filter((l) => / warn | error /.test(l));
+          log('update.cause', (lines.pop() || '-').slice(0, 400));
+        } catch (err) {
+          log('update.cause', 'no updater.log');
+        }
+      }
     }
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());
