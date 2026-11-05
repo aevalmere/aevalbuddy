@@ -113,9 +113,9 @@ call, one wait, and one thing to pick. Turning an image into text needs a
 vision model either way, so this is the simple path and the one the app ships
 on.
 
-The switch exists because the strongest free models on OpenRouter are text
-only. Nemotron Super and Ultra cannot see an image, so the only way to put
-one behind a screen assistant is to give it a reading of the screen instead. Turn on "Second
+The switch exists because the strongest free model on OpenRouter is text
+only. Nemotron Ultra cannot see an image, so the only way to put it behind a
+screen assistant is to give it a reading of the screen instead. Turn on "Second
 model" and the model above reads the screen into a short structured report,
 and the second model answers from that report.
 
@@ -135,7 +135,11 @@ reader's full reply plus the second model's first token, and the answer window
 says which stage it is on rather than sitting on an unexplained pause. The
 second model also only knows what the reader wrote down: a detail the reader
 skipped is a detail it cannot use. The default second model is
-`nvidia/nemotron-3-super-120b-a12b:free`; GLM 5.3 is in the paid group.
+`nvidia/nemotron-3.5-super-vl:free`; GLM 5.3 is in the paid group.
+
+If OpenRouter retires the model you picked, the app notices on the next
+question and moves you to the default, or to the first free model in the list
+that is still offered, and settings shows the new choice.
 
 ### Answer style
 

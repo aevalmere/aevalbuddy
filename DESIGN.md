@@ -420,6 +420,31 @@ the windows exist, the tray came up, and both defaults are offered by the live
 catalogue. The last one is the check that was already there, wired to a
 consequence.
 
+### It happened again, so installs now heal themselves
+
+In Nov 2026 `nvidia/nemotron-3-super-120b-a12b:free`, the default brain, left
+the free tier (the paid id is still listed), and `thinkingmachines/inkling:free`
+went with it. The smoke assert caught the default this time, which is the
+assert doing its job and stays. What it cannot do is reach a copy that is
+already installed: a user who saved a retired id kept 404ing into failover on
+every question, and only a release could change that.
+
+So the ids in use are now resolved against the live catalogue (cached five
+minutes, fetched alongside the screen capture) before each question, and once
+at startup. An id that is gone is replaced by the shipped default of its kind,
+or the first curated free model still live. A saved choice is rewritten so
+settings shows what is answering; the shipping default is swapped in memory
+only, so the next release's default still reaches that install. The
+replacement is always free, the same rule as failover: a retired paid choice
+is not moved onto a different bill. Offline, nothing is known to be gone, so
+the id is kept and failover handles it. The smoke run checks the healing
+against the real catalogue with two ids known to be retired (`healRetired`).
+
+The new brain is `nvidia/nemotron-3.5-super-vl:free`, the direct successor at
+the same 120B total and 12B active, so the wait stays where it was. It lists
+tool calling, which the Desktop Agent mode needs. It also reads screenshots,
+so it joins the vision list as the careful, slower option.
+
 ### An application wearing someone else's logo
 
 The `.exe`, the installer, the Start Menu shortcut and the Add/Remove Programs

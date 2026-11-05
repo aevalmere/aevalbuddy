@@ -1262,6 +1262,36 @@ async function withFailover(o) {
   throw lastErr;
 }
 
+/**
+ * The vision model and brain this install should use right now.
+ *
+ * OpenRouter retires free models without notice, and a stored id that has
+ * left the catalogue 404s on every question. Failover rescues each question
+ * but never fixes the setting, so the id is checked against the live
+ * catalogue (cached five minutes) and swapped for the best curated live
+ * replacement. A user's saved choice is rewritten so settings shows the truth;
+ * the shipping default is swapped in memory only.
+ *
+ * @param {boolean} [wait] fetch the catalogue if the cache is cold; false
+ *        answers from whatever is cached and never blocks
+ * @returns {Promise<{model: string, brain: string}>}
+ */
+async function liveModels(wait = true) {
+  const pick = wait ? ai.resolveLive : (k, id) => Promise.resolve(ai.resolveKnown(k, id));
+  const stored = { model: store.getModel(), brain: store.getBrain() };
+  const model = await pick('vision', stored.model);
+  const brain = await pick('text', stored.brain);
+  if (model !== stored.model) {
+    console.warn(`[aevalbuddy] ${stored.model} left the catalogue; using ${model}`);
+    store.healModel(model);
+  }
+  if (brain !== stored.brain) {
+    console.warn(`[aevalbuddy] ${stored.brain} left the catalogue; using ${brain}`);
+    store.healBrain(brain);
+  }
+  return { model, brain };
+}
+
 function abortCurrentQuery() {
   if (currentAbort) {
     currentAbort.abort();
@@ -1300,7 +1330,6 @@ async function handleQuerySubmit(question, opts) {
   const resume = !!o.retry && !!last && last.role === 'user' && last.text === text;
   const priorTurns = (resume ? chat.slice(0, -1) : chat).slice(-CHAT_HISTORY_LIMIT);
   if (!resume) chat.push({ role: 'user', text });
-  const model = store.getModel();
   const useBrain = store.getBrainEnabled();
   const send = (channel, payload) => {
     if (outputWin && !outputWin.isDestroyed()) {
@@ -1316,7 +1345,14 @@ async function handleQuerySubmit(question, opts) {
   showOutput();
   // Every message captures the screen fresh, so follow-ups talk about what
   // is on screen now, not what was there at the first hotkey press.
-  pendingShot = await captureScreen({ region: activeRegion });
+  // The catalogue check rides under the capture, so a warm cache costs
+  // nothing and a cold one overlaps the screenshot instead of adding to it.
+  const [shotTaken, live] = await Promise.all([
+    captureScreen({ region: activeRegion }),
+    liveModels(),
+  ]);
+  const model = live.model;
+  pendingShot = shotTaken;
   lastCaptureOk = !!pendingShot;
   sendOverlayState();
   const shot = pendingShot;
@@ -1392,7 +1428,7 @@ async function handleQuerySubmit(question, opts) {
     };
 
     if (screenReport) {
-      answering = store.getBrain();
+      answering = live.brain;
       send('query:stage', { label: 'Thinking' });
       try {
         const spoke = await withFailover({
@@ -1735,32 +1771,35 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('settings:get', () => ({
-    hasKey: store.hasApiKey(),
-    model: store.getModel(),
-    defaultModel: ai.DEFAULT_MODEL,
-    brain: store.getBrain(),
-    brainEnabled: store.getBrainEnabled(),
-    defaultBrain: ai.DEFAULT_BRAIN,
-    showPaid: store.getShowPaidModels(),
-    skills: skills.list(),
-    skill: store.getSkillId(),
-    shortcuts: store.getShortcuts(),
-    active: { ...lastRegisterResults },
-    defaults: { ...store.DEFAULT_SHORTCUTS },
-    version: app.getVersion(),
-    update: updater.get(),
-    // Below Windows 10 build 19041 the call that hides these windows from a
-    // screen share does nothing at all. Believing the overlay is hidden when
-    // it is not is the worst way to find out.
-    canHide: CAN_HIDE_FROM_CAPTURE,
-    saveHistory: store.getSaveHistory(),
-    historyCount: history.count(),
-    launchAtLogin: store.getLaunchAtLogin(),
-    // Unpackaged, the Run key would point at the Electron binary, so the
-    // switch is shown as remembered-but-inactive rather than silently lying.
-    launchAtLoginLive: app.isPackaged,
-  }));
+  ipcMain.handle('settings:get', async () => {
+    const live = await liveModels(false);
+    return {
+      hasKey: store.hasApiKey(),
+      model: live.model,
+      defaultModel: ai.DEFAULT_MODEL,
+      brain: live.brain,
+      brainEnabled: store.getBrainEnabled(),
+      defaultBrain: ai.DEFAULT_BRAIN,
+      showPaid: store.getShowPaidModels(),
+      skills: skills.list(),
+      skill: store.getSkillId(),
+      shortcuts: store.getShortcuts(),
+      active: { ...lastRegisterResults },
+      defaults: { ...store.DEFAULT_SHORTCUTS },
+      version: app.getVersion(),
+      update: updater.get(),
+      // Below Windows 10 build 19041 the call that hides these windows from a
+      // screen share does nothing at all. Believing the overlay is hidden when
+      // it is not is the worst way to find out.
+      canHide: CAN_HIDE_FROM_CAPTURE,
+      saveHistory: store.getSaveHistory(),
+      historyCount: history.count(),
+      launchAtLogin: store.getLaunchAtLogin(),
+      // Unpackaged, the Run key would point at the Electron binary, so the
+      // switch is shown as remembered-but-inactive rather than silently lying.
+      launchAtLoginLive: app.isPackaged,
+    };
+  });
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
 
@@ -1797,10 +1836,11 @@ function registerIpc() {
   ipcMain.handle('models:list', async (_e, payload) => {
     const kind = payload && payload.kind === 'text' ? 'text' : 'vision';
     const result = await ai.listModels({ kind, includePaid: store.getShowPaidModels() });
+    const live = await liveModels();
     return {
       ...result,
       kind,
-      current: kind === 'text' ? store.getBrain() : store.getModel(),
+      current: kind === 'text' ? live.brain : live.model,
     };
   });
 
@@ -1979,6 +2019,10 @@ if (!gotLock) {
     }
     if (process.env.AEVAL_SMOKE) {
       setTimeout(runSmoke, 800);
+    } else {
+      // Warm the catalogue and fix a retired stored choice before the first
+      // question, so settings opened first already shows the replacement.
+      liveModels().catch(() => {});
     }
     if (process.env.AEVAL_SHOT) {
       setTimeout(runShots, 1200);
@@ -2276,6 +2320,21 @@ async function runSmoke() {
       !!(brainFree && brainFree.models.some((m) => m.id === ai.DEFAULT_BRAIN)),
       `${ai.DEFAULT_BRAIN} is not in the live free list`
     );
+    // A stored id that has left the catalogue must land on a live curated
+    // model, not keep 404ing. Checked against the real catalogue with ids
+    // that are known gone, so it runs even while both defaults are healthy.
+    if (brainList.live && modelList.live) {
+      const healedBrain = await ai.resolveLive('text', 'nvidia/nemotron-3-super-120b-a12b:free');
+      const healedModel = await ai.resolveLive('vision', 'nvidia/nemotron-nano-12b-v2-vl:free');
+      log('healBrain', healedBrain);
+      log('healModel', healedModel);
+      must(
+        'healRetired',
+        brainFree.models.some((m) => m.id === healedBrain) &&
+          freeGroup.models.some((m) => m.id === healedModel),
+        `retired ids resolved to ${healedBrain} / ${healedModel}`
+      );
+    }
     // The brain never sees an image, so its prompt must describe a reading
     // and still teach the point directive.
     const brainPrompt = ai.makeSystemPrompt({
