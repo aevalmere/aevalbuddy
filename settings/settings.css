@@ -32,6 +32,14 @@
   padding: 0;
 }
 
+/* Selected text takes the accent at low alpha, not the Windows blue the
+   engine falls back to: a bright system blue on these surfaces is a colour
+   outside the palette, and it was the loudest thing in the bar. */
+::selection {
+  background: rgba(130, 58, 128, 0.6);
+  color: #C9CFDD;
+}
+
 html,
 body {
   background: transparent;

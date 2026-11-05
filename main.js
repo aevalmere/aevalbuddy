@@ -117,8 +117,8 @@ const ACTION_LABELS = {
   captureQuery: 'Ask about my screen',
   captureRegion: 'Ask about an area',
   findOnScreen: 'Find on screen',
-  agentTask: 'Agent',
-  toggleVisibility: 'Show or hide overlay',
+  agentTask: 'Do a task',
+  toggleVisibility: 'Hide or show the overlay',
 };
 
 // A drag emits 'move' continuously on Windows; snapping runs only after the
@@ -2877,6 +2877,10 @@ async function runShots() {
         },
         showOutput: () => showOutput(),
         resetChat: () => resetChat(),
+        // The bar's prefill starts a real Find over whatever the runner shows;
+        // closing it drops that work (its gen moves on) so the fixture events
+        // sent next are the last word, in the results and on the lens.
+        stopFind: () => find.close(),
         lensSample: () => {
           const d = screen.getPrimaryDisplay().bounds;
           const at = (x, y, w, h) => ({ x: d.x + x, y: d.y + y, width: w, height: h });

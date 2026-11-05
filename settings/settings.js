@@ -110,7 +110,7 @@ function saveKey() {
 saveKeyBtn.addEventListener('click', saveKey);
 
 testKeyBtn.addEventListener('click', () => {
-  setKeyStatus('Checking...', true);
+  setKeyStatus('Checking…', true);
   window.aeval.invoke('settings:test-key').then((r) => setKeyStatus(r.message, !r.ok));
 });
 

@@ -632,3 +632,30 @@ still appears because it is information.
 | The tray's download progress moved from a disabled top line into the `Check for updates` item | SPEC 4.4 puts every update state on that item; a ready update still gets the top line. A failed check reads `Update failed, try again` only after the person clicked the item; background failures stay silent, as the Updates section says |
 | `tools/fixtures/llm` ships inside the app | the smoke run tests the installed exe, and the fake model needs its fixtures there; a few KB, inert unless `AEVAL_FAKE_LLM` is set |
 | Boot-time check is a ceiling, not "within 10% of v1.1.1" | no v1.1.1 boot number was ever recorded; the run now logs `bootMs` and asserts the helper is not started at boot, which is the only v2 change that could move it |
+
+### One name per action
+
+The first look at the installed exe's photographs found the same action
+named three ways across surfaces: the agent was `Do a task…` in the tray,
+`Agent` in the shortcut list, `Doing tasks` in settings; the visibility
+toggle was `Hide the overlay`, `Hide or show`, and `Show or hide overlay`;
+history's wipe was `Delete all` in settings and `Clear all` in its own
+window. The tray's labels are SPEC 4.4's and the smoke run asserts them, so
+everything else follows the tray.
+
+| Action | Name everywhere | Tray adds |
+| --- | --- | --- |
+| captureQuery | Ask about my screen | |
+| captureRegion | Ask about an area | `…` (opens a selector) |
+| findOnScreen | Find on screen | `…` |
+| agentTask | Do a task | `…` |
+| toggleVisibility | Hide or show the overlay | the current verb only: `Hide the overlay` / `Show the overlay` |
+| history wipe | Delete all | |
+| update check | Check for updates | |
+
+Mode names in the bar stay nouns (`Ask`, `Find`, `Agent`), because they name
+where you are, not what a click does.
+
+Selected text uses grape soda at 60% with pale slate text. Without a
+`::selection` rule Chromium paints the Windows highlight blue, which was the
+brightest colour in the bar whenever a prefilled task was selected.
