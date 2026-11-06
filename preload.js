@@ -77,6 +77,13 @@ const INVOKE_CHANNELS = new Set([
   'tour:replay',
   'buddy:card',
   'buddy:skip',
+  // v2.1: the single input, keyboard reach between windows, help.
+  'find:related',
+  'bar:history',
+  'bar:history-push',
+  'ui:focus-answer',
+  'ui:focus-bar',
+  'app:help',
 ]);
 
 const LISTEN_CHANNELS = new Set([
@@ -112,6 +119,8 @@ const LISTEN_CHANNELS = new Set([
   'view:set',
   'bar:prefill',
   'settings:section',
+  'bar:open',
+  'bar:context',
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {

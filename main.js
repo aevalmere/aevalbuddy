@@ -11,6 +11,7 @@ const {
   shell,
   Menu,
   net,
+  Notification,
 } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -45,6 +46,7 @@ const updater = require('./lib/updater');
 const desktop = require('./lib/desktop');
 const find = require('./lib/find');
 const agent = require('./lib/agent');
+const intent = require('./lib/intent');
 const lens = require('./lib/lens');
 
 // Everything the agent and Find emit also goes here, so the smoke run can
@@ -187,11 +189,13 @@ const lastRegisterResults = {
 // v2 state. The bar has three verbs over one conversation; which one is
 // showing survives a restart.
 let barMode = 'ask';
+// Text from the app this long is enough to answer a non-visual question
+// without the screenshot.
+const TEXT_ONLY_CHARS = 800;
 // A run that failed leaves a dot on the pill until the bar is next opened.
 let pillError = false;
 let agentModelNow = '';
 let pendingAgent = null;
-let enterRegistered = false;
 // While the engine sends a synthetic Escape, the global Escape (Stop) is
 // dropped, because RegisterHotKey fires on injected input too.
 let escapeSuspended = false;
@@ -753,6 +757,9 @@ function sendOverlayState() {
     offline: !online(),
     findOpen: find.isOpen(),
     shortcuts: store.getShortcuts(),
+    // The main chord failed to register: the bar says which one and where to
+    // change it, instead of the shortcut silently doing nothing.
+    hotkeyFailed: lastRegisterResults.captureQuery === false ? store.getShortcuts().captureQuery : '',
   };
   if (agent.isRunning()) payload.pillState = 'agent';
   for (const win of [overlayWin, outputWin]) {
@@ -1147,11 +1154,12 @@ async function captureScreen(opts) {
   }
 }
 
+// Opens the bar. The screen is captured when a message is sent, not here:
+// capturing on open as well took a second full screenshot per question and
+// held the bar back by the length of one.
 async function triggerCapture() {
   if (!overlayWin || overlayMode === 'hud') return;
   overlayHidden = false;
-  pendingShot = await captureScreen({ region: activeRegion });
-  lastCaptureOk = !!pendingShot;
   expandPanel();
   // An existing conversation comes back with the panel.
   if (chat.length) showOutput();
@@ -1197,7 +1205,7 @@ function clearRegion() {
 // ------------------------------------------------------------------- hotkeys
 
 function onCaptureHotkey() {
-  openBar('ask');
+  openBar(null);
 }
 
 function onFindHotkey() {
@@ -1299,34 +1307,35 @@ function applyRegistrations() {
   escapeRegistered = false;
   if (captureModeActive) return;
   const shortcuts = store.getShortcuts();
-  lastRegisterResults.captureQuery = globalShortcut.register(
-    shortcuts.captureQuery,
-    onCaptureHotkey
-  );
-  lastRegisterResults.captureRegion = globalShortcut.register(
-    shortcuts.captureRegion,
-    onRegionHotkey
-  );
-  lastRegisterResults.findOnScreen = globalShortcut.register(shortcuts.findOnScreen, onFindHotkey);
-  lastRegisterResults.agentTask = globalShortcut.register(shortcuts.agentTask, onAgentHotkey);
-  lastRegisterResults.toggleVisibility = globalShortcut.register(
-    shortcuts.toggleVisibility,
-    onToggleHotkey
-  );
+  // An empty combo is unbound on purpose, reported as null rather than as a
+  // failure. A combo another app owns is false, and the bar says so.
+  const bind = (acc, fn) => {
+    if (!acc) return null;
+    try {
+      return globalShortcut.register(acc, fn);
+    } catch (err) {
+      // An accelerator Electron cannot parse, from an old settings file.
+      return false;
+    }
+  };
+  lastRegisterResults.captureQuery = bind(shortcuts.captureQuery, onCaptureHotkey);
+  lastRegisterResults.captureRegion = bind(shortcuts.captureRegion, onRegionHotkey);
+  lastRegisterResults.findOnScreen = bind(shortcuts.findOnScreen, onFindHotkey);
+  lastRegisterResults.agentTask = bind(shortcuts.agentTask, onAgentHotkey);
+  lastRegisterResults.toggleVisibility = bind(shortcuts.toggleVisibility, onToggleHotkey);
   // The tray menu prints the current combos beside each item.
   tray.refresh({ hidden: overlayHidden });
+  // A global Escape takes the key from every app, so it is held only while
+  // Escape has to work wherever focus is: the agent has the computer, the
+  // tour or the area selector covers the screen, or the layout editor is
+  // open. The bar, the answer and Settings handle Escape in their own
+  // windows. Enter is never global: a paused or planned run continues from
+  // the Start button in the trail, which takes focus for that.
   if (
     !escapeSuspended &&
-    (overlayMode !== 'pill' || cursorBuddy.isActive() || region.isActive() || agent.isRunning() || find.isOpen())
+    (agent.isRunning() || cursorBuddy.isActive() || region.isActive() || overlayMode === 'hud')
   ) {
     escapeRegistered = globalShortcut.register('Escape', onEscapePressed);
-  }
-  // Paused by a takeover, or waiting on the plan: Enter carries on. Held only
-  // for as long as that wait lasts.
-  enterRegistered = false;
-  const st = agent.isRunning() ? agent.current().state : '';
-  if (st === 'paused' || st === 'plan') {
-    enterRegistered = globalShortcut.register('Enter', () => agent.resume());
   }
 }
 
@@ -1479,17 +1488,25 @@ async function handleQuerySubmit(question, opts) {
   // is on screen now, not what was there at the first hotkey press.
   // The catalogue check rides under the capture, so a warm cache costs
   // nothing and a cold one overlaps the screenshot instead of adding to it.
+  const early = freshBarText();
+  const exactP = early ? early.then((x) => x || readExactText(activeRegion)) : readExactText(activeRegion);
   const [shotTaken, live, exact] = await Promise.all([
     captureScreen({ region: activeRegion }),
     liveModels(),
-    readExactText(activeRegion),
+    exactP,
   ]);
   lastExact = exact;
   const model = live.model;
   pendingShot = shotTaken;
   lastCaptureOk = !!pendingShot;
   sendOverlayState();
-  const shot = pendingShot;
+  // When the app's own text says enough and the question is not about how
+  // something looks, the answer goes out as text alone: no image to upload,
+  // and a free text turn answers much sooner than a vision one.
+  const textOnly =
+    !!shotTaken && !useBrain && !o.withImage && !!exact && (exact.text || '').length >= TEXT_ONLY_CHARS && !intent.VISUAL.test(text);
+  const shot = textOnly ? null : pendingShot;
+  const meter = ai.newMeter();
   const viaRegion = !!(shot && shot.region);
   currentAbort = new AbortController();
   const signal = currentAbort.signal;
@@ -1549,6 +1566,7 @@ async function handleQuerySubmit(question, opts) {
     const skill = skills.get(chosen);
 
     const base = {
+      meter,
       apiKey: store.getApiKey(),
       question: text,
       imageWidth: shot ? shot.width : 0,
@@ -1603,7 +1621,17 @@ async function handleQuerySubmit(question, opts) {
     }
     extractor.flush();
     chat.push({ role: 'assistant', text: extractor.text });
-    send('query:done', {});
+    send('query:done', {
+      usage: {
+        model: shortModel(answering),
+        ttftMs: meter.ttftMs,
+        ms: Date.now() - meter.t0,
+        prompt: meter.prompt,
+        completion: meter.completion,
+        cost: meter.cost,
+        textOnly,
+      },
+    });
     rememberChat(answering);
     pillError = false;
     cursorBuddy.notify('first-answer');
@@ -1912,28 +1940,70 @@ cursorBuddy.init({
 // One bar, three verbs: Ask, Find, Agent. Each verb's shortcut opens the bar
 // straight into it; Tab and Ctrl+1..3 switch inside it, and the typed text
 // survives the switch (the renderer keeps it).
+// mode null is the ordinary open: one input that works out what is meant.
+// A mode locks the bar to it, for the optional per-action shortcuts and for
+// flows that hand over text (Find this on screen, the tour's try card).
 async function openBar(mode, opts) {
   if (!overlayWin || overlayMode === 'hud') return;
   const o = opts || {};
+  const lock = mode === 'ask' || mode === 'find' || mode === 'agent' ? mode : null;
   pillError = false;
-  setBarMode(mode);
-  if (mode === 'ask') {
-    await triggerCapture();
-  } else {
-    overlayHidden = false;
-    expandPanel();
-    if (mode === 'agent' && chat.length) showOutput();
-  }
+  setBarMode(lock === 'find' ? 'find' : 'ask');
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('bar:open', { lock });
+  await triggerCapture();
+  prefetchBarContext();
   if (o.prefill !== undefined && overlayWin && !overlayWin.isDestroyed()) {
-    overlayWin.webContents.send('bar:prefill', { text: o.prefill, mode });
+    overlayWin.webContents.send('bar:prefill', { text: o.prefill, mode: lock || 'ask' });
   }
+}
+
+// What the bar reads while the person types: the foreground window's text,
+// so the input can tell a word that is on screen (Find) from a question
+// (Ask), and so an Ask can answer from that text without waiting for it.
+// The desktop engine and the model list start warming here too, on the
+// first open rather than at boot.
+let barContext = null;
+function prefetchBarContext() {
+  if (!IS_WINDOWS || process.env.AEVAL_NO_UIA) return;
+  desktop.start().catch(() => {});
+  if (store.hasApiKey()) ai.fetchCatalogue().catch(() => {});
+  const at = Date.now();
+  const ctx = { at, region: activeRegion, read: null };
+  ctx.read = (async () => {
+    let fg = null;
+    try {
+      fg = await desktop.foregroundWindow();
+    } catch (err) {
+      // The engine is still starting; the read below waits for it anyway.
+    }
+    const exact = await readExactText(activeRegion);
+    if (overlayWin && !overlayWin.isDestroyed() && barContext === ctx) {
+      const process = (fg && fg.process) || '';
+      const title = (exact && exact.title) || (fg && fg.title) || '';
+      overlayWin.webContents.send('bar:context', {
+        screen: exact && exact.text ? exact.text.slice(0, 16000) : '',
+        title,
+        process,
+        chars: exact && exact.text ? exact.text.length : 0,
+      });
+    }
+    return exact;
+  })().catch(() => null);
+  barContext = ctx;
+}
+
+// The text read when the bar opened, while it is recent and for the same
+// area. Older than that, the screen is read again at send time.
+function freshBarText() {
+  const c = barContext;
+  if (!c || Date.now() - c.at > 8000 || c.region !== activeRegion) return null;
+  return c.read;
 }
 
 function setBarMode(mode) {
   const next = mode === 'find' || mode === 'agent' ? mode : 'ask';
   const prev = barMode;
   barMode = next;
-  store.setLastMode(next);
   if (prev === 'find' && next !== 'find') closeFind(true);
   if (next === 'find' && !find.isOpen()) openFind();
   sendOverlayState();
@@ -1960,10 +2030,7 @@ function closeFind(keepMode) {
   lens.clear();
   setOutputView('chat');
   if (!chat.length && !agent.isRunning()) hideOutput();
-  if (!keepMode && barMode === 'find') {
-    barMode = 'ask';
-    store.setLastMode('ask');
-  }
+  if (!keepMode && barMode === 'find') barMode = 'ask';
   sendOverlayState();
   applyRegistrations();
 }
@@ -2001,9 +2068,18 @@ async function findToAsk(index) {
   const all = find.state().hits;
   const h = Number.isFinite(index) ? all[index] : find.currentHit();
   if (!h) return { status: 'no-hit' };
+  const why = h.why ? ` (it matched because ${String(h.why).slice(0, 120)})` : '';
+  const rect = h.rect && h.rect.width ? h.rect : null;
   closeFind();
   setBarMode('ask');
-  return handleQuerySubmit(`Explain this from my screen: "${h.match}"`);
+  if (rect) {
+    // The answer looks at the hit itself, with some room around it.
+    const pad = 120;
+    const dip = screen.screenToDipRect(null, rect);
+    activeRegion = { x: dip.x - pad, y: dip.y - pad, width: dip.width + pad * 2, height: dip.height + pad * 2 };
+    sendOverlayState();
+  }
+  return handleQuerySubmit(`Explain this from my screen: "${h.match}"${why}`, { withImage: true });
 }
 
 // ------------------------------------------------------------------ agent
@@ -2163,7 +2239,7 @@ async function startAgentRun(o) {
   // counts the steps, with the trail beside it, shown without focus.
   collapsePanel({ keepOutput: true });
   showOutput();
-  const r = agent.start({ task, context: o.context, jsonMode: o.jsonMode, maxSteps: o.maxSteps, region: activeRegion ? screen.dipToScreenRect(null, activeRegion) : null });
+  const r = agent.start({ task, context: o.context, planGate: !!o.context || !!o.planGate, jsonMode: o.jsonMode, maxSteps: o.maxSteps, region: activeRegion ? screen.dipToScreenRect(null, activeRegion) : null });
   sendOverlayState();
   applyRegistrations();
   tray.refresh();
@@ -2198,6 +2274,45 @@ function contextMenu(sender, p) {
 
 // ------------------------------------------------------------------------ IPC
 
+const HELP_URL = 'https://github.com/aevalmere/aevalbuddy/issues/new/choose';
+
+// Settings and the bar sit above other windows. A link they open would land
+// underneath them, so they step down until they are clicked again.
+function lowerForBrowser() {
+  for (const w of [settingsWin, historyWin]) {
+    if (!w || w.isDestroyed()) continue;
+    w.setAlwaysOnTop(false);
+    w.once('focus', () => {
+      if (!w.isDestroyed()) pinOnTop(w);
+    });
+  }
+}
+
+// One toast per fresh install, or whenever the main chord is taken by
+// another app: where the app lives now that it is running.
+function presenceToast() {
+  if (process.env.AEVAL_SMOKE || !Notification.isSupported()) return;
+  const chord = store.getShortcuts().captureQuery;
+  const failed = lastRegisterResults.captureQuery === false;
+  const fresh = store.takePresenceNotice();
+  if (!failed && !fresh) return;
+  const n = new Notification({
+    title: failed ? `${chord} is taken by another app` : 'AevalBuddy is running',
+    body: failed
+      ? 'Open AevalBuddy from the tray icon by the clock, then pick another shortcut in Settings.'
+      : `Press ${chord} anywhere to ask, find, or do. It starts with Windows; turn that off in Settings.`,
+    silent: true,
+  });
+  n.on('click', () => (failed ? openSettings({ section: 'sec-shortcuts' }) : openBar(null)));
+  n.show();
+}
+
+function openHelp() {
+  lowerForBrowser();
+  shell.openExternal(HELP_URL);
+  return { ok: true };
+}
+
 function registerIpc() {
   // The pill: the trail while the agent works, else the bar in the last mode.
   ipcMain.handle('overlay:trigger', () => {
@@ -2205,7 +2320,7 @@ function registerIpc() {
       showTrail(false);
       return;
     }
-    openBar(store.getLastMode());
+    openBar(null);
   });
   ipcMain.handle('bar:mode', (_e, { mode }) => {
     setBarMode(mode);
@@ -2215,7 +2330,8 @@ function registerIpc() {
     setBarMode('find');
     return find.state();
   });
-  ipcMain.handle('find:query', (_e, { query }) => find.query(query));
+  ipcMain.handle('find:query', (_e, { query, literal }) => find.query(query, literal));
+  ipcMain.handle('find:related', () => ({ ok: find.related() }));
   ipcMain.handle('find:step', (_e, { by }) => find.step(by));
   ipcMain.handle('find:scope', (_e, { scope }) => {
     const s = scope || (find.state().scope === 'screen' ? 'window' : 'screen');
@@ -2302,8 +2418,28 @@ function registerIpc() {
 
   ipcMain.handle('open-external', (_e, { url }) => {
     if (/^https?:\/\//i.test(String(url || ''))) {
+      lowerForBrowser();
       shell.openExternal(url);
     }
+  });
+  ipcMain.handle('app:help', () => openHelp());
+  ipcMain.handle('bar:history', () => store.getInputHistory());
+  ipcMain.handle('bar:history-push', (_e, p) => store.pushInputHistory(p && p.text));
+  // F6 moves between the bar and the answer, the way it moves between panes
+  // in Windows apps. Neither window can be reached with Tab from the other.
+  ipcMain.handle('ui:focus-answer', () => {
+    if (!outputWin || outputWin.isDestroyed() || !outputActive) return { ok: false };
+    outputWin.show();
+    outputWin.focus();
+    return { ok: true };
+  });
+  ipcMain.handle('ui:focus-bar', () => {
+    if (!overlayWin || overlayMode !== 'panel') {
+      openBar(null);
+      return { ok: true };
+    }
+    overlayWin.focus();
+    return { ok: true };
   });
 
   ipcMain.handle('settings:get', async () => {
@@ -2528,7 +2664,6 @@ if (!gotLock) {
     // the same id here the update and crash notifications can show under a
     // generic name, or be dropped, and a click on them never reaches the app.
     if (IS_WINDOWS) app.setAppUserModelId('com.aevalbuddy.app');
-    barMode = store.getLastMode();
     // The desktop engine never reads or acts on these. The lens and the
     // pointer are click-through sheets over the whole display, so they are
     // ours without blocking a click that lands under them.
@@ -2604,17 +2739,19 @@ if (!gotLock) {
     history.setEnabled(store.getSaveHistory());
     createOverlay();
     createOutput();
+    store.decidePresence();
     applyLaunchAtLogin();
     // Before applyRegistrations, which refreshes the tray labels with the
     // accelerators it has just registered.
     tray.init({
-      capture: () => openBar('ask'),
+      capture: () => openBar(null),
+      help: () => openHelp(),
       captureRegion: () => triggerRegionCapture(),
       find: () => openBar('find'),
       agent: () => openBar('agent'),
       stopAgent: () => agent.stop(),
       agentRunning: () => agent.isRunning(),
-      openLast: () => (agent.isRunning() ? showTrail(false) : openBar(store.getLastMode())),
+      openLast: () => (agent.isRunning() ? showTrail(false) : openBar(null)),
       checkUpdates: () => updater.check(),
       toggleVisibility: () => onToggleHotkey(),
       newChat: () => resetChat(),
@@ -2636,12 +2773,15 @@ if (!gotLock) {
         }
       },
     });
-    if (Object.values(lastRegisterResults).some((ok) => !ok)) {
+    if (Object.values(lastRegisterResults).some((ok) => ok === false)) {
       console.warn(
         '[aevalbuddy] some shortcuts failed to register:',
         JSON.stringify(lastRegisterResults)
       );
     }
+    // The bar shows a failed main chord; the toast reaches someone who has
+    // not opened it yet and would otherwise think the app never started.
+    presenceToast();
     // The walkthrough auto-runs once, on the very first launch with no key.
     // After that it only appears when asked for (typing "help me").
     if (
@@ -2872,7 +3012,7 @@ async function runShots() {
         },
         setBar: async (mode) => {
           barMode = mode;
-          store.setLastMode(mode);
+          if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.send('bar:open', { lock: mode });
           expandPanel();
           sendOverlayState();
         },
