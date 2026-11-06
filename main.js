@@ -2581,6 +2581,7 @@ if (!gotLock) {
       showTrail,
       dodge: dodgeAnswer,
       openTarget,
+      clipboard: { read: () => clipboard.readText(), write: (t) => clipboard.writeText(t) },
       // The OS's word, not Electron's: a window Electron still believes is
       // focused after a blur does not count unless no other app is in front.
       ownFocused: async () => {
