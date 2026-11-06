@@ -656,6 +656,12 @@ everything else follows the tray.
 Mode names in the bar stay nouns (`Ask`, `Find`, `Agent`), because they name
 where you are, not what a click does.
 
+Settings rows are nouns too. The Agent page's row is `Permissions` (when the
+agent asks, and how many steps it may take); it was still `Doing tasks` after
+the first pass. The answer window's dock control is `Dock` / `Detach` and
+its badge `Docked`: the layout card already says what it docks to, and
+`Docked to input` named the input bar a third way.
+
 Selected text uses grape soda at 60% with pale slate text. Without a
 `::selection` rule Chromium paints the Windows highlight blue, which was the
 brightest colour in the bar whenever a prefilled task was selected.

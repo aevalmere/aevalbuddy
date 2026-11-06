@@ -305,7 +305,7 @@ window.aeval.on('overlay:state', (next) => {
 
 window.aeval.on('hud:docked', ({ docked: d }) => {
   dockBadge.hidden = !d;
-  dockToggle.textContent = d ? 'Detach' : 'Dock to input';
+  dockToggle.textContent = d ? 'Detach' : 'Dock';
 });
 
 let snapFlashTimer = null;
