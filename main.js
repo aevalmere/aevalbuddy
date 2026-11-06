@@ -3001,10 +3001,41 @@ async function runSmoke() {
     // AEVAL_UPDATE_EXPECT names the result a test wants instead; 'any' only
     // asks that whatever happened is worded quietly.
     if (app.isPackaged) {
-      const u = await Promise.race([
-        updater.check(),
-        new Promise((r) => setTimeout(() => r({ status: 'timeout', problem: '' }), 45000)),
-      ]);
+      // The raw cause of the last failed check; the state carries only the
+      // sentence written for people.
+      const lastCause = () => {
+        try {
+          const lines = require('fs')
+            .readFileSync(path.join(app.getPath('userData'), 'updater.log'), 'utf8')
+            .split('\n')
+            .filter((l) => / warn | error /.test(l));
+          return (lines.pop() || '-').slice(0, 400);
+        } catch (err) {
+          return 'no updater.log';
+        }
+      };
+      // GitHub answers the feed with a 5xx now and then (529 and 504 failed
+      // whole runs in Nov 2026). Those, and a check that never settles, are
+      // asked again after a pause. Anything else is judged on the first
+      // answer, and a 5xx that lasts through every attempt still fails.
+      const transient = (u) =>
+        u.status === 'timeout' ||
+        (u.status === 'retrying' &&
+          /HttpError: 5\d\d|\b5\d\d (Bad Gateway|Service Unavailable|Gateway Time-?out)|ERR_TIMED_OUT|ETIMEDOUT/i.test(lastCause()));
+      const FEED_PAUSES = [10000, 30000];
+      const attempts = [];
+      let u;
+      for (let n = 0; ; n++) {
+        u = await Promise.race([
+          updater.check(),
+          new Promise((r) => setTimeout(() => r({ status: 'timeout', problem: '' }), 45000)),
+        ]);
+        attempts.push(u.status);
+        if (n >= FEED_PAUSES.length || !transient(u)) break;
+        log(`update.retry${n + 1}`, lastCause());
+        await new Promise((r) => setTimeout(r, FEED_PAUSES[n]));
+      }
+      log('update.attempts', attempts.join(','));
       log('update.status', u.status);
       log('update.version', u.version || '-');
       log('update.problem', u.problem || '-');
@@ -3015,18 +3046,8 @@ async function runSmoke() {
         `${u.status}: ${u.problem || 'no problem text'}`
       );
       must('updateQuiet', !/error|exception|stack|http/i.test(u.problem || ''), u.problem);
-      if (u.status === 'retrying' || u.status === 'error') {
-        // The sentence is for people; the raw cause is in updater.log.
-        try {
-          const lines = require('fs')
-            .readFileSync(path.join(app.getPath('userData'), 'updater.log'), 'utf8')
-            .split('\n')
-            .filter((l) => / warn | error /.test(l));
-          log('update.cause', (lines.pop() || '-').slice(0, 400));
-        } catch (err) {
-          log('update.cause', 'no updater.log');
-        }
-      }
+      // The sentence is for people; the raw cause is in updater.log.
+      if (u.status === 'retrying' || u.status === 'error') log('update.cause', lastCause());
     }
     log('shortcut.toggleVisibility', lastRegisterResults.toggleVisibility);
     log('model', store.getModel());

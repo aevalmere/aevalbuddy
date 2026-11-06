@@ -144,6 +144,29 @@ function Describe-Download([string]$version, [int]$since) {
   }
 }
 
+# GitHub's release download links answer 5xx now and then (a 504 on
+# latest/download/latest.yml failed a whole run in Nov 2026). A 5xx or a
+# timeout is asked again after a pause; anything else throws at once, and a
+# 5xx that lasts through every attempt throws the last error.
+function Get-Release([string]$url, [string]$outFile) {
+  $pauses = @(10, 30, 60)
+  for ($n = 0; ; $n++) {
+    try {
+      Invoke-WebRequest $url -OutFile $outFile -TimeoutSec 300
+      return
+    } catch {
+      $code = 0
+      if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+      $timedOut = $_.Exception -is [System.Threading.Tasks.TaskCanceledException] -or
+        $_.Exception.InnerException -is [System.TimeoutException] -or
+        $_.Exception.Message -match 'timed out|timeout'
+      if ($n -ge $pauses.Count -or -not ($code -ge 500 -or $timedOut)) { throw }
+      Write-Host "[retry] $url answered $(if ($code) { $code } else { 'a timeout' }); again in $($pauses[$n])s"
+      Start-Sleep -Seconds $pauses[$n]
+    }
+  }
+}
+
 $localApp = $env:LOCALAPPDATA
 
 # ------------------------------------------------------------ the old release
@@ -151,11 +174,11 @@ $localApp = $env:LOCALAPPDATA
 $prevDir = Join-Path $scratch 'prev'
 New-Item -ItemType Directory -Force $prevDir | Out-Null
 $base = "https://github.com/$Repo/releases"
-Invoke-WebRequest "$base/latest/download/latest.yml" -OutFile "$prevDir\latest.yml"
-Invoke-WebRequest "$base/latest/download/AevalBuddy-Setup.exe" -OutFile "$prevDir\AevalBuddy-Setup.exe"
+Get-Release "$base/latest/download/latest.yml" "$prevDir\latest.yml"
+Get-Release "$base/latest/download/AevalBuddy-Setup.exe" "$prevDir\AevalBuddy-Setup.exe"
 $prevYml = Get-Content "$prevDir\latest.yml" -Raw
 $prev = Yml $prevYml 'version'
-Invoke-WebRequest "$base/download/v$prev/AevalBuddy-Setup.exe.blockmap" -OutFile "$prevDir\AevalBuddy-Setup.exe.blockmap"
+Get-Release "$base/download/v$prev/AevalBuddy-Setup.exe.blockmap" "$prevDir\AevalBuddy-Setup.exe.blockmap"
 Check 'release.latestYmlPath' ((Yml $prevYml 'path') -eq 'AevalBuddy-Setup.exe') "v$prev latest.yml path=$(Yml $prevYml 'path')"
 Check 'release.sha512' ((Sha512 "$prevDir\AevalBuddy-Setup.exe") -eq (Yml $prevYml 'sha512')) "v$prev exe matches its latest.yml"
 Check 'versions.order' ([version]$VersionA -gt [version]$prev -and [version]$VersionB -gt [version]$VersionA) "$prev < $VersionA < $VersionB"
