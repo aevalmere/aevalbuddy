@@ -15,6 +15,48 @@ const STAGGER_CAP = 300;
 const PAD = 3;
 let drawnKey = '';
 let lastDisplayed = -1;
+let shown = []; // the hits on this display, for keeping the why chip off them
+
+// Where the why chip goes: below the ring, above it, or level with it on
+// the right or the left; the first of those that stays on the display and
+// covers no other hit. Always going below put it over the next line's hit,
+// often the next thing the person wants to read (D21). When every side
+// covers something, the side covering the fewest wins.
+function whySpot(h, x, y, wr) {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const clampX = (v) => Math.max(8, Math.min(W - wr.width - 8, v));
+  const clampY = (v) => Math.max(8, Math.min(H - wr.height - 8, v));
+  const ringW = h.w + PAD * 2;
+  const ringH = h.h + PAD * 2;
+  const spots = [
+    { left: clampX(x), top: y + ringH + 8 },
+    { left: clampX(x), top: y - wr.height - 8 },
+    { left: x + ringW + 8, top: clampY(y + ringH / 2 - wr.height / 2) },
+    { left: x - wr.width - 8, top: clampY(y + ringH / 2 - wr.height / 2) },
+  ].filter((s) => s.left >= 8 && s.top >= 8 && s.left + wr.width <= W - 8 && s.top + wr.height <= H - 8);
+  if (!spots.length) return { left: clampX(x), top: clampY(y + ringH + 8) };
+  const covered = (s) =>
+    shown.filter(
+      (o) =>
+        o.i !== h.i &&
+        o.x < s.left + wr.width &&
+        o.x + o.w > s.left &&
+        o.y < s.top + wr.height &&
+        o.y + o.h > s.top
+    ).length;
+  let best = spots[0];
+  let least = covered(best);
+  for (const s of spots.slice(1)) {
+    if (!least) break;
+    const n = covered(s);
+    if (n < least) {
+      best = s;
+      least = n;
+    }
+  }
+  return best;
+}
 
 function placeRing(h) {
   const x = h.x - PAD;
@@ -26,17 +68,15 @@ function placeRing(h) {
   if (h.kind !== 'literal' && h.why) {
     why.textContent = h.why;
     why.classList.add('on');
-    const wr = why.getBoundingClientRect();
-    const below = y + h.h + PAD * 2 + 8;
-    const top = below + wr.height > window.innerHeight - 8 ? y - wr.height - 8 : below;
-    const left = Math.max(8, Math.min(window.innerWidth - wr.width - 8, x));
-    why.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    const spot = whySpot(h, x, y, why.getBoundingClientRect());
+    why.style.transform = `translate(${Math.round(spot.left)}px, ${Math.round(spot.top)}px)`;
   } else {
     why.classList.remove('on');
   }
 }
 
 window.aeval.on('lens:draw', ({ hits, current, frame }) => {
+  shown = hits;
   const key = hits.map((h) => `${h.i}:${h.kind}:${h.x},${h.y},${h.w},${h.h}`).join('|');
   if (key !== drawnKey) {
     drawnKey = key;
