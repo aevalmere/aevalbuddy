@@ -13,6 +13,9 @@
 
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* A 5% overshoot for things that arrive and stay: the token changing, a
+     card landing. Approved in v2.1; see DESIGN.md. */
+  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
   --d-fast: 150ms;
   --d-med: 240ms;
   --d-slow: 380ms;
@@ -91,8 +94,22 @@ button {
 #panel[hidden],
 #opanel[hidden],
 #hud[hidden],
-#bar-status[hidden] {
+#bar-status[hidden],
+#intent-menu[hidden],
+#guess[hidden],
+#examples[hidden] {
   display: none;
+}
+
+/* Read by screen readers, never seen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------- pill */
@@ -325,8 +342,9 @@ body[data-anchor-v="bottom"] #opanel {
   caret-color: var(--accent);
 }
 
+/* 0.62 measures 4.6:1 on the panel; 0.45 was 3.1:1. */
 #query-input::placeholder {
-  color: rgba(201, 207, 221, 0.45);
+  color: rgba(201, 207, 221, 0.62);
 }
 
 /* The blanket :focus-visible rule further up draws an outline and a 1px
@@ -363,36 +381,143 @@ body[data-anchor-v="bottom"] #opanel {
   opacity: 1;
 }
 
-/* ------------------------------------------------------------ mode label */
+/* ------------------------------------------------------------ intent token */
 
-/* Text, not a control with a box: slate at 0.70, the size of secondary text,
-   and it cross-fades with the placeholder when the mode changes. The bar
-   itself never resizes for it. */
-.panel-top #mode-label {
+/* What Enter will do, where the text starts. Guessed, it is text: slate at
+   0.72, no box. Chosen (a prefix, Ctrl+1/2/3, the menu), it gains a quiet
+   fill so the lock is visible without reading it. Phase B turns this into a
+   glass chip; it keeps these class names and data attributes. */
+.panel-top .intent-token {
   width: auto;
   min-width: 44px;
-  padding: 0 8px 0 2px;
-  justify-content: flex-start;
+  padding: 0 8px;
+  justify-content: center;
   font-size: 13px;
-  color: rgba(201, 207, 221, 0.7);
+  color: rgba(201, 207, 221, 0.72);
   opacity: 1;
-  transition: color var(--d-fast) ease;
+  transition: color var(--d-fast) ease, background var(--d-fast) ease;
 }
 
-.panel-top #mode-label:hover {
-  background: none;
+.panel-top .intent-token:hover {
+  background: rgba(201, 207, 221, 0.08);
   color: var(--slate);
 }
 
-#mode-label.swap,
-#query-input.swap::placeholder {
-  animation: label-swap var(--d-fast) ease;
+.intent-token[data-locked="true"] {
+  color: var(--slate);
+  background: rgba(201, 207, 221, 0.1);
 }
 
-@keyframes label-swap {
+.intent-token[data-intent="do"] {
+  color: var(--slate);
+}
+
+/* A low-confidence guess is the same word, dimmer. */
+.intent-token[data-locked="false"][data-confidence="low"] .intent-name {
+  opacity: 0.85;
+}
+
+.intent-token.swap .intent-name {
+  display: inline-block;
+  animation: token-swap var(--d-med) var(--ease-settle);
+}
+
+@keyframes token-swap {
   from {
     opacity: 0;
+    transform: scale(0.94);
   }
+}
+
+#intent-menu {
+  list-style: none;
+  margin-top: 8px;
+  padding: 4px;
+  border-top: 1px solid var(--hairline);
+  font-size: 13px;
+}
+
+#intent-menu li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#intent-menu li:hover,
+#intent-menu li:focus {
+  background: rgba(201, 207, 221, 0.08);
+  outline: none;
+}
+
+#intent-menu li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+#intent-menu li[aria-selected="true"] span::after {
+  content: " · now";
+  color: rgba(201, 207, 221, 0.72);
+}
+
+kbd {
+  font: inherit;
+  font-size: 12px;
+  color: rgba(201, 207, 221, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ guess card */
+
+.guess-card {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(201, 207, 221, 0.8);
+  animation: content-in var(--d-med) var(--ease-settle) backwards;
+}
+
+.guess-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  margin-left: -8px;
+}
+
+#guess-run {
+  color: var(--slate);
+}
+
+/* ------------------------------------------------------------ examples */
+
+#examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+
+.example-chip {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  color: rgba(201, 207, 221, 0.78);
+  background: rgba(201, 207, 221, 0.06);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.example-chip:hover {
+  background: rgba(201, 207, 221, 0.12);
+  color: var(--slate);
 }
 
 /* ------------------------------------------------------------ bar status */
@@ -418,6 +543,7 @@ body[data-anchor-v="bottom"] #opanel {
 
 .link-btn {
   flex: 0 0 auto;
+  min-height: 24px;
   font-size: 12px;
   color: rgba(201, 207, 221, 0.72);
   padding: 2px 8px;
@@ -1060,6 +1186,45 @@ body[data-fixed-height="1"] #chat {
   }
 }
 
+/* More contrast asked for: secondary text and edges go to full slate. */
+@media (prefers-contrast: more) {
+  :root {
+    --edge: rgba(201, 207, 221, 0.6);
+    --hairline: rgba(201, 207, 221, 0.4);
+    --chrome: 1;
+  }
+  #query-input::placeholder,
+  #bar-status,
+  .link-btn,
+  kbd,
+  .intent-token {
+    color: var(--slate) !important;
+  }
+}
+
+/* Windows high contrast themes: system colours, real borders, no fills that
+   would vanish. */
+@media (forced-colors: active) {
+  #panel,
+  #opanel,
+  #pill,
+  .guess-card,
+  #intent-menu {
+    border: 1px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+  .intent-token[data-locked="true"] {
+    border: 1px solid ButtonText;
+  }
+  :focus-visible {
+    outline: 2px solid Highlight;
+  }
+  #intent-menu li[aria-selected="true"] {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
 /* ===================================================================== v2 */
 
 #chat[hidden],
@@ -1383,4 +1548,34 @@ body[data-fixed-height="1"] #chat {
 
 .copy-msg[hidden] {
   display: none;
+}
+
+/* ------------------------------------------------------------- v2.1 */
+
+/* Time and cost under an answer: small, tabular, out of the way. */
+.usage {
+  font-size: 11px;
+  color: rgba(201, 207, 221, 0.72);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  align-self: center;
+}
+
+.confirm-url {
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-all;
+  margin-top: 4px;
+  color: rgba(201, 207, 221, 0.8);
+}
+
+.confirm-url strong {
+  color: var(--slate);
+  font-weight: 600;
+}
+
+.confirm-card:focus,
+.consent:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

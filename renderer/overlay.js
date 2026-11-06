@@ -14,105 +14,11 @@ const regionBtn = document.getElementById('region-btn');
 const regionChip = document.getElementById('region-chip');
 const regionSize = document.getElementById('region-size');
 const regionClear = document.getElementById('region-clear');
-const modeLabel = document.getElementById('mode-label');
 const pillLabel = document.querySelector('.pill-label');
 const barStatus = document.getElementById('bar-status');
 const barStatusText = document.getElementById('bar-status-text');
 const barStatusAction = document.getElementById('bar-status-action');
 const findScopeBtn = document.getElementById('find-scope');
-
-// ------------------------------------------------------------------ modes
-
-// Ask, Find, Agent: one bar, three verbs. The text in the bar belongs to the
-// person, not to a mode, so it survives every switch.
-const MODES = ['ask', 'find', 'agent'];
-const MODE_NAME = { ask: 'Ask', find: 'Find', agent: 'Agent' };
-// Each placeholder finishes the sentence the mode word starts ("Ask
-// anything about your screen"); repeating the verb read "Ask  Ask about".
-const PLACEHOLDER = {
-  ask: 'anything about your screen',
-  find: 'a word or an idea on screen',
-  agent: 'describe a task',
-};
-let barMode = 'ask';
-let findState = null;
-let agentHint = '';
-let findTimer = null;
-
-function applyMode(mode, tell) {
-  const next = MODES.includes(mode) ? mode : 'ask';
-  const changed = next !== barMode;
-  barMode = next;
-  document.body.dataset.barMode = next;
-  modeLabel.textContent = MODE_NAME[next];
-  modeLabel.setAttribute('aria-label', `Mode: ${MODE_NAME[next]}. Click to switch.`);
-  input.placeholder = PLACEHOLDER[next];
-  input.setAttribute('aria-label', `${MODE_NAME[next]} ${PLACEHOLDER[next]}. Press Enter to ${next === 'find' ? 'go to the next match' : next === 'agent' ? 'start' : 'send'}.`);
-  if (changed) {
-    replayAnim(modeLabel, 'swap');
-    replayAnim(input, 'swap');
-    agentHint = '';
-  }
-  if (tell && changed) {
-    window.aeval.invoke('bar:mode', { mode: next });
-    if (next === 'find' && input.value.trim()) queryFind();
-  }
-  renderStatus();
-}
-
-function cycleMode(by) {
-  const i = MODES.indexOf(barMode);
-  applyMode(MODES[(i + by + MODES.length) % MODES.length], true);
-}
-
-function queryFind() {
-  clearTimeout(findTimer);
-  window.aeval.invoke('find:query', { query: input.value });
-}
-
-// One line under the bar: Find's count and what the model stages are doing,
-// or the Agent's hint. It takes no space while it has nothing to say.
-function renderStatus() {
-  let text = '';
-  let action = null;
-  if (barMode === 'find' && findState && findState.open) {
-    text = [findState.status, ...(findState.lines || [])].filter(Boolean).join('\n');
-    if (findState.action === 'ask') action = { label: 'Ask instead', run: () => applyMode('ask', true) };
-    findScopeBtn.hidden = false;
-    findScopeBtn.textContent = findState.scope === 'screen' ? 'Whole screen' : 'This window';
-  } else {
-    findScopeBtn.hidden = true;
-  }
-  if (barMode === 'agent') text = agentHint;
-  barStatusText.textContent = text;
-  barStatusAction.hidden = !action;
-  if (action) {
-    barStatusAction.textContent = action.label;
-    barStatusAction.onclick = action.run;
-  }
-  const show = !!text || !findScopeBtn.hidden;
-  if (barStatus.hidden === show) {
-    barStatus.hidden = !show;
-    requestResize();
-  } else if (show) {
-    requestResize();
-  }
-}
-
-modeLabel.addEventListener('click', () => cycleMode(1));
-findScopeBtn.addEventListener('click', () => window.aeval.invoke('find:scope', {}));
-
-window.aeval.on('find:state', (s) => {
-  findState = s;
-  renderStatus();
-});
-
-window.aeval.on('bar:prefill', ({ text, mode }) => {
-  if (mode) applyMode(mode, false);
-  input.value = text || '';
-  input.focus();
-  if (barMode === 'find' && input.value) queryFind();
-});
 
 let state = { mode: 'pill', hasKey: false, captureOk: true };
 let watchSelector = null;
@@ -145,9 +51,8 @@ function render(prevMode) {
   if (state.agent && state.agent.running) {
     pillLabel.textContent = state.agent.state === 'paused' ? 'Paused' : `Step ${Math.max(1, state.agent.step || 1)}`;
   } else {
-    pillLabel.textContent = MODE_NAME[state.barMode] || 'Ask';
+    pillLabel.textContent = 'Ask';
   }
-  if (state.barMode && state.barMode !== barMode) applyMode(state.barMode, false);
   if (state.inputWidth) {
     document.documentElement.style.setProperty('--panel-w', state.inputWidth + 'px');
   }
@@ -162,6 +67,7 @@ function render(prevMode) {
     if (prevMode !== 'panel') {
       input.focus();
       input.select();
+      barOpened();
     }
     requestResize();
   }
@@ -180,16 +86,22 @@ function renderRegion() {
 }
 
 function renderNotice() {
-  if (!state.hasKey && barMode !== 'find') {
-    noticeText.textContent =
-      barMode === 'agent' ? 'Agent needs an OpenRouter API key.' : 'No OpenRouter API key saved yet.';
+  const was = notice.hidden ? '' : noticeText.textContent;
+  const now = barIntent();
+  if (state.hotkeyFailed) {
+    noticeText.textContent = `${state.hotkeyFailed} is taken by another app, so it does nothing. Pick another shortcut in Settings.`;
     noticeSettings.hidden = false;
     notice.hidden = false;
-  } else if (state.offline && barMode === 'ask') {
-    noticeText.textContent = 'No connection. Ask works again when you are back online.';
+  } else if (!state.hasKey && now !== 'find') {
+    noticeText.textContent =
+      now === 'do' ? 'Doing tasks needs an OpenRouter API key.' : 'No OpenRouter API key saved yet. Finding words on screen works without one.';
+    noticeSettings.hidden = false;
+    notice.hidden = false;
+  } else if (state.offline && now !== 'find') {
+    noticeText.textContent = 'No connection. Finding words on screen still works; answers need the internet.';
     noticeSettings.hidden = true;
     notice.hidden = false;
-  } else if (!state.captureOk && barMode === 'ask') {
+  } else if (!state.captureOk && now === 'ask') {
     noticeText.textContent =
       'Screen capture failed. Your question will be sent without a screenshot.';
     noticeSettings.hidden = true;
@@ -197,6 +109,7 @@ function renderNotice() {
   } else {
     notice.hidden = true;
   }
+  if (!notice.hidden && noticeText.textContent !== was) announce(noticeText.textContent);
 }
 
 function requestResize() {
@@ -212,20 +125,6 @@ function requestResize() {
 }
 
 new ResizeObserver(requestResize).observe(panel);
-
-// ------------------------------------------------------------------ query
-
-function submit() {
-  const question = input.value;
-  // Clear immediately, like a messaging app; the transcript echoes the
-  // message. Without a key the text stays put so nothing typed is lost.
-  if (state.hasKey) input.value = '';
-  window.aeval.invoke('query:submit', { question }).then((result) => {
-    if (result && result.status === 'walkthrough') {
-      input.value = '';
-    }
-  });
-}
 
 // ------------------------------------------------------------------ state
 
@@ -271,67 +170,6 @@ closeBtn.addEventListener('click', () => {
 });
 hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');
-});
-
-input.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && !e.altKey && ['1', '2', '3'].includes(e.key)) {
-    e.preventDefault();
-    applyMode(MODES[Number(e.key) - 1], true);
-    return;
-  }
-  if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) {
-    e.preventDefault();
-    // With text in Find, Tab switches what is searched; on an empty bar it
-    // moves to the next mode.
-    if (barMode === 'find' && input.value.trim()) window.aeval.invoke('find:scope', {});
-    else cycleMode(e.shiftKey ? -1 : 1);
-    return;
-  }
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
-  if (barMode === 'find') {
-    if (e.ctrlKey) window.aeval.invoke('find:to-ask', {});
-    else window.aeval.invoke('find:step', { by: e.shiftKey ? -1 : 1 });
-    return;
-  }
-  if (barMode === 'agent') {
-    const task = input.value.trim();
-    if (!task) {
-      agentHint = 'Say what to do, for example "rename these files by date".';
-      renderStatus();
-      return;
-    }
-    window.aeval.invoke('agent:start', { task }).then((r) => {
-      if (r && (r.status === 'started' || r.status === 'consent' || r.status === 'offline')) {
-        input.value = '';
-        agentHint = '';
-      } else if (r && r.status === 'busy') {
-        agentHint = 'A task is already running. Esc stops it.';
-      } else if (r && r.status === 'unsupported') {
-        agentHint = 'The agent needs Windows.';
-      }
-      renderStatus();
-      renderNotice();
-    });
-    return;
-  }
-  submit();
-});
-
-input.addEventListener('input', () => {
-  if (barMode !== 'find') return;
-  // Literal hits are local and instant, so every keystroke goes straight
-  // through; the model stages wait for a pause on the other side.
-  queryFind();
-});
-
-// Window-level fallback for Escape. While the panel is open Escape is a
-// global shortcut handled in the main process; this covers the rare case
-// where that registration failed.
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    window.aeval.invoke('overlay:collapse');
-  }
 });
 
 // Click-through management while idle: the window ignores mouse events with

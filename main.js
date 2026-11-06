@@ -12,6 +12,7 @@ const {
   Menu,
   net,
   Notification,
+  systemPreferences,
 } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -46,7 +47,7 @@ const updater = require('./lib/updater');
 const desktop = require('./lib/desktop');
 const find = require('./lib/find');
 const agent = require('./lib/agent');
-const intent = require('./lib/intent');
+const intent = require('./renderer/intent');
 const lens = require('./lib/lens');
 
 // Everything the agent and Find emit also goes here, so the smoke run can
@@ -564,8 +565,20 @@ function openSettings(opts) {
 // panel is already painted inside the pill-sized frame and the growth reveals
 // it. Doing it the other way round is what produced the opening flash: a
 // full-size window showing pill content for one frame.
+// Read each time a window is about to move, so turning animations off in
+// Windows settings takes effect without a restart.
+function syncReducedMotion() {
+  try {
+    const a = systemPreferences.getAnimationSettings();
+    motion.setReducedMotion(!!a.prefersReducedMotion);
+  } catch (err) {
+    // Not on this platform: the value read from the renderer at boot stands.
+  }
+}
+
 function expandPanel() {
   if (!overlayWin || overlayMode === 'hud') return;
+  syncReducedMotion();
   const wasPill = overlayMode === 'pill';
   const from = overlayWin.getBounds();
   overlayMode = 'panel';
@@ -593,6 +606,7 @@ function expandPanel() {
 
 function collapsePanel(opts) {
   if (!overlayWin) return;
+  syncReducedMotion();
   const keepOutput = !!(opts && opts.keepOutput);
   if (!keepOutput) {
     abortCurrentQuery();
@@ -1631,6 +1645,9 @@ async function handleQuerySubmit(question, opts) {
         cost: meter.cost,
         textOnly,
       },
+      // The guess sent this as a question; the answer offers Find instead.
+      inferred: !!o.inferred,
+      question: text,
     });
     rememberChat(answering);
     pillError = false;
@@ -2326,7 +2343,12 @@ function registerIpc() {
     setBarMode(mode);
     return { mode: barMode };
   });
-  ipcMain.handle('find:open', () => {
+  // With text: Find this instead, from an answer whose question was a guess.
+  ipcMain.handle('find:open', (_e, p) => {
+    if (p && p.prefill) {
+      openBar('find', { prefill: String(p.prefill).slice(0, 120) });
+      return { ok: true };
+    }
     setBarMode('find');
     return find.state();
   });
@@ -2389,7 +2411,7 @@ function registerIpc() {
   });
   ipcMain.handle('overlay:open-settings', () => openSettings());
 
-  ipcMain.handle('query:submit', (_e, { question }) => handleQuerySubmit(question));
+  ipcMain.handle('query:submit', (_e, { question, inferred }) => handleQuerySubmit(question, { inferred: !!inferred }));
   ipcMain.handle('query:cancel', () => abortCurrentQuery());
   // Re-sends the question that failed. The input box was cleared on send, so
   // without this the only "retry" available was an empty box, which submits

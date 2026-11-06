@@ -124,7 +124,7 @@ function el(tag, cls, text) {
 function newBlock(task) {
   const wrap = el('div', 'msg trail');
   const head = el('div', 'trail-head');
-  head.appendChild(el('span', 'trail-title', 'Agent'));
+  head.appendChild(el('span', 'trail-title', 'Task'));
   const status = el('span', 'trail-status', 'Planning…');
   head.appendChild(status);
   wrap.appendChild(head);
@@ -252,6 +252,7 @@ window.aeval.on('agent:step', (r) => putRow(r));
 window.aeval.on('agent:state', ({ state, message, step }) => {
   if (!block) return;
   block.status.textContent = STATUS_TEXT[state] ? `${STATUS_TEXT[state]}${step ? ` · step ${step}` : ''}` : '';
+  if (block.el.dataset.state !== state && STATUS_TEXT[state]) window.announce(`Task: ${STATUS_TEXT[state]}`);
   block.el.dataset.state = state;
   if (state !== 'confirm' && block.card) {
     block.card.remove();
@@ -269,33 +270,44 @@ window.aeval.on('agent:state', ({ state, message, step }) => {
     go.type = 'button';
     go.addEventListener('click', () => window.aeval.invoke('agent:continue', {}));
     banner.appendChild(go);
+    // Enter on this button is the only Enter that continues a run; nothing
+    // is taken from other apps for it.
+    setTimeout(() => go.focus(), 30);
   } else if (banner) {
     banner.remove();
   }
   requestResize();
 });
 
-function keycap(text) {
-  return el('kbd', 'keycap', text);
-}
+const CONFIRM_SETTLE_MS = 700;
 
-window.aeval.on('agent:confirm-request', ({ id, text, reason, why }) => {
+window.aeval.on('agent:confirm-request', ({ id, text, reason, why, url }) => {
   if (!block) newBlock('');
   if (block.card) block.card.remove();
   const card = el('div', 'confirm-card');
   card.setAttribute('role', 'alertdialog');
   card.setAttribute('aria-label', text);
+  card.tabIndex = -1;
   card.appendChild(el('p', 'confirm-text', text));
+  if (url && url.full) {
+    // The host is what decides where it goes; the rest is shown whole so a
+    // look-alike path cannot hide behind an ellipsis.
+    const u = el('p', 'confirm-url');
+    u.appendChild(el('strong', '', url.host || ''));
+    u.appendChild(el('span', '', url.rest || ''));
+    u.title = url.full;
+    card.appendChild(u);
+  }
   if (reason) card.appendChild(el('p', 'confirm-reason', `Why: ${reason}`));
   if (why) card.appendChild(el('p', 'confirm-reason', `Asking because ${why}.`));
   const actions = el('div', 'confirm-actions');
-  const skip = el('button', 'link-btn');
+  const skip = el('button', 'link-btn', 'Skip this step');
   skip.type = 'button';
-  skip.append('Skip ', keycap('Ctrl+Backspace'));
-  const allow = el('button', 'accent-btn');
+  const allow = el('button', 'accent-btn', 'Allow');
   allow.type = 'button';
-  allow.append('Allow ', keycap('Ctrl+Enter'));
+  const shownAt = Date.now();
   const answer = (yes) => {
+    if (Date.now() - shownAt < CONFIRM_SETTLE_MS) return;
     allow.disabled = true;
     skip.disabled = true;
     window.aeval.invoke('agent:confirm', { id, allow: yes });
@@ -307,24 +319,19 @@ window.aeval.on('agent:confirm-request', ({ id, text, reason, why }) => {
   card.dataset.id = String(id);
   block.card = card;
   block.el.insertBefore(card, block.meta);
-  setTimeout(() => allow.focus(), 30);
+  setTimeout(() => card.focus(), 30);
+  window.announce(`Asking first: ${text}${why ? `. Asking because ${why}` : ''}. Tab to Skip or Allow.`);
   scrollToBottom(true);
   requestResize();
 });
 
-document.addEventListener('keydown', (e) => {
-  if (!block || !block.card || !e.ctrlKey) return;
-  if (e.key === 'Enter' || e.key === 'Backspace') {
-    e.preventDefault();
-    const btns = block.card.querySelectorAll('button');
-    (e.key === 'Enter' ? btns[1] : btns[0]).click();
-  }
-});
-
 const END_TONE = { done: 'done', stopped: 'quiet', error: 'error', limit: 'error', offline: 'error' };
 
-window.aeval.on('agent:done', ({ state, text }) => {
+window.aeval.on('agent:done', ({ state, text, usage }) => {
   if (!block) newBlock('');
+  const line = window.usageLine && window.usageLine(usage && { ...usage, cost: usage.costKnown ? usage.cost : NaN });
+  if (line) block.meta.appendChild(el('span', 'usage', `${usage.calls || 0} model calls · ${line}`));
+  window.announce(state === 'done' ? 'Task done.' : state === 'stopped' ? 'Task stopped.' : 'The task did not finish.');
   block.ended = true;
   block.el.dataset.state = state;
   block.status.textContent = state === 'done' ? 'Done' : state === 'stopped' ? 'Stopped' : 'Did not finish';
@@ -372,7 +379,17 @@ window.aeval.on('agent:consent-request', ({ task }) => {
   ul.appendChild(el('li', '', 'It can see, click and type in any app, the way you would.'));
   ul.appendChild(el('li', '', 'It asks first before anything that sends, deletes, buys, signs or opens a link.'));
   ul.appendChild(el('li', '', 'Press Esc, or move the mouse, and it stops.'));
+  ul.appendChild(
+    el(
+      'li',
+      '',
+      'Each step sends a screenshot and the window\'s text to OpenRouter and the model set for tasks. A free model\'s provider may keep and train on what it receives.'
+    )
+  );
   sheet.appendChild(ul);
+  sheet.tabIndex = -1;
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-label', 'Let AevalBuddy use your computer?');
   const actions = el('div', 'confirm-actions');
   const later = el('button', 'link-btn', 'Not now');
   later.type = 'button';
@@ -388,7 +405,9 @@ window.aeval.on('agent:consent-request', ({ task }) => {
   actions.append(later, allow);
   sheet.appendChild(actions);
   chatEl.appendChild(sheet);
-  setTimeout(() => allow.focus(), 30);
+  // Focus on the sheet, not on Allow: Enter alone must not grant this.
+  setTimeout(() => sheet.focus(), 30);
+  window.announce('Let AevalBuddy use your computer? Tab to Not now or Allow.');
   scrollToBottom(true);
   requestResize();
 });
@@ -397,7 +416,7 @@ window.aeval.on('agent:consent-request', ({ task }) => {
 window.addStoredTrail = function addStoredTrail(text) {
   const wrap = el('div', 'msg trail stored');
   const det = el('details', 'trail-stored');
-  const sum = el('summary', '', `Agent steps (${String(text).split('\n').filter(Boolean).length})`);
+  const sum = el('summary', '', `Task steps (${String(text).split('\n').filter(Boolean).length})`);
   det.appendChild(sum);
   det.appendChild(el('pre', 'trail-text', text));
   det.addEventListener('toggle', requestResize);

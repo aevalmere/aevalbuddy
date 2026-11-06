@@ -22,19 +22,24 @@
 
   <section id="panel" hidden aria-label="AevalBuddy query panel">
     <div class="panel-top">
-      <!-- The mode is a word where the text starts, not a segmented control:
-           one surface per window. Click it, Tab on an empty bar, or
-           Ctrl+1/2/3 to switch. -->
-      <button id="mode-label" type="button" aria-label="Mode: Ask. Click to switch."
-              title="Tab or Ctrl+1/2/3 to switch">Ask</button>
+      <!-- The token says what Enter will do with the text: guessed while
+           typing, chosen with / ? > //, Ctrl+1/2/3, or this menu (Alt+Down).
+           Phase B dresses it in glass; the hooks are .intent-token and its
+           data-intent, data-locked and data-confidence. -->
+      <button id="intent" class="intent-token" type="button" data-intent="ask" data-locked="false"
+              data-confidence="low" aria-haspopup="listbox" aria-expanded="false"
+              aria-controls="intent-menu" title="Ctrl+1 Ask · Ctrl+2 Find · Ctrl+3 Do · Alt+Down to choose"><span
+              class="intent-name">Ask</span></button>
       <input
         id="query-input"
         type="text"
-        placeholder="anything about your screen"
-        aria-label="Ask anything about your screen. Press Enter to send."
+        placeholder="Ask, find, or tell me what to do"
+        aria-label="Ask, find, or tell me what to do"
+        aria-describedby="intent-desc"
         autocomplete="off"
         spellcheck="false"
       />
+      <span id="intent-desc" class="sr-only"></span>
       <button id="region-btn" type="button" aria-label="Ask about an area of the screen"
               title="Ask about an area">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
@@ -59,6 +64,24 @@
       </button>
     </div>
 
+    <ul id="intent-menu" role="listbox" aria-label="What Enter does" hidden>
+      <li role="option" tabindex="-1" data-intent="ask"><span>Ask about the screen</span><kbd>?</kbd></li>
+      <li role="option" tabindex="-1" data-intent="find"><span>Find words on screen</span><kbd>/</kbd></li>
+      <li role="option" tabindex="-1" data-intent="do"><span>Do it as a task</span><kbd>&gt;</kbd></li>
+    </ul>
+
+    <!-- A task that was only guessed never starts on Enter. -->
+    <div id="guess" class="guess-card" hidden>
+      <span id="guess-text"></span>
+      <div class="guess-actions">
+        <button id="guess-answer" type="button" class="link-btn">Just answer <kbd>Enter</kbd></button>
+        <button id="guess-run" type="button" class="link-btn">Run as a task <kbd>Alt+Enter</kbd></button>
+        <button id="guess-find" type="button" class="link-btn">Find it</button>
+      </div>
+    </div>
+
+    <div id="examples" hidden aria-label="Examples"></div>
+
     <!-- An area constrains every message in the conversation, not just the
          one that chose it, so it stays on screen for as long as it is in
          force. A follow-up answered from a corner of the screen with nothing
@@ -74,13 +97,13 @@
     </div>
 
     <!-- Find's count and Agent's hints live under the bar, as one line. -->
-    <div id="bar-status" role="status" hidden>
+    <div id="bar-status" hidden>
       <span id="bar-status-text"></span>
       <button id="bar-status-action" type="button" class="link-btn" hidden></button>
-      <button id="find-scope" type="button" class="link-btn" hidden title="Tab with text in the bar">This window</button>
+      <button id="find-scope" type="button" class="link-btn" hidden>This window</button>
     </div>
 
-    <div id="notice" role="status" hidden>
+    <div id="notice" hidden>
       <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="12" cy="12" r="10"></circle>
@@ -101,6 +124,11 @@
     </div>
   </section>
 
+  <!-- The window's one live region; everything that speaks goes here. -->
+  <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
+
+  <script src="intent.js"></script>
   <script src="overlay.js"></script>
+  <script src="bar.js"></script>
 </body>
 </html>

@@ -26,7 +26,10 @@
         </svg>
       </button>
     </div>
-    <div id="chat" role="log" aria-live="polite"></div>
+    <!-- Not live itself: streaming rewrote it every frame, which a screen
+         reader heard as noise. Finished answers and step changes are said
+         once through #announce. -->
+    <div id="chat" role="log" aria-live="off"></div>
     <!-- Find's results: what matched, and for related matches, why. -->
     <div id="find-view" role="listbox" aria-label="Matches on screen" hidden></div>
   </section>
@@ -42,6 +45,8 @@
       </div>
     </div>
   </section>
+
+  <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 
   <script src="markdown.js"></script>
   <script src="output.js"></script>

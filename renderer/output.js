@@ -77,6 +77,56 @@ let lastUserText = '';
 // An answer that reads as steps to take gets a Do it button.
 const STEPS_RE = /(^|\n)\s*(\d+[.)]|[-*])\s|\b(click|press|open|type|select|choose|go to|drag|enter)\b/i;
 
+// The window's one live region, shared with trail.js.
+const announcer = document.getElementById('announce');
+function announce(text) {
+  announcer.textContent = '';
+  requestAnimationFrame(() => {
+    announcer.textContent = String(text || '').slice(0, 600);
+  });
+}
+window.announce = announce;
+
+// Free models queue. After a few seconds with no word the dots say so and
+// count, so a long wait reads as waiting, not as broken.
+const WAIT_SAY_MS = 6000;
+let waitTimer = null;
+function startWaitCount(entry) {
+  clearInterval(waitTimer);
+  const t0 = Date.now();
+  waitTimer = setInterval(() => {
+    if (!entry || entry.raw || !entry.el.isConnected) {
+      clearInterval(waitTimer);
+      return;
+    }
+    const ms = Date.now() - t0;
+    if (ms < WAIT_SAY_MS) return;
+    const label = `Waiting for the model · ${Math.round(ms / 1000)} s. Free models queue at busy times; Stop is beside this.`;
+    const tag = entry.body.querySelector('.stage-label');
+    if (tag) tag.textContent = label;
+    else setThinking(entry, true, label);
+    if (Math.round(ms / 1000) === 6) announce('Still waiting for the model.');
+  }, 1000);
+}
+
+// "0.9 s to first word · 3.2 s · 1,204 tokens · free". Shown small under
+// each answer, so a slow model is visible as one.
+function usageLine(u) {
+  if (!u) return '';
+  const sec = (ms) => `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)} s`;
+  const parts = [];
+  if (u.ttftMs) parts.push(`${sec(u.ttftMs)} to first word`);
+  if (u.ms) parts.push(sec(u.ms));
+  const tok = (u.prompt || 0) + (u.completion || 0);
+  if (tok) parts.push(`${tok.toLocaleString('en-US')} tokens`);
+  if (u.cost === 0) parts.push('free');
+  else if (Number.isFinite(u.cost) && u.cost > 0) parts.push(`${u.cost < 0.01 ? u.cost.toFixed(4) : u.cost.toFixed(2)}`);
+  if (u.model) parts.push(u.model);
+  if (u.textOnly) parts.push('read as text');
+  return parts.join(' · ');
+}
+window.usageLine = usageLine;
+
 function addUserMsg(text) {
   lastUserText = text;
   const msg = document.createElement('div');
@@ -136,7 +186,7 @@ function addAssistantMsg() {
   msg.appendChild(meta);
 
   chatEl.appendChild(msg);
-  const entry = { el: msg, body, raw: '', stop, doIt, question: lastUserText };
+  const entry = { el: msg, body, raw: '', stop, doIt, meta, question: lastUserText };
   doIt.addEventListener('click', () => {
     window.aeval.invoke('agent:do-it', { question: entry.question, answer: entry.raw });
   });
@@ -344,6 +394,8 @@ window.aeval.on('query:start', ({ gen }) => {
   liveMsg = addAssistantMsg();
   setThinking(liveMsg, true);
   setBusy(liveMsg, true);
+  chatEl.setAttribute('aria-busy', 'true');
+  startWaitCount(liveMsg);
   scrollToBottom(true);
   requestResize();
 });
@@ -364,8 +416,30 @@ window.aeval.on('query:delta', ({ gen, text }) => {
   }
 });
 
-window.aeval.on('query:done', ({ gen }) => {
+window.aeval.on('query:done', ({ gen, usage, inferred, question }) => {
   if (gen < lastGen) return;
+  clearInterval(waitTimer);
+  chatEl.removeAttribute('aria-busy');
+  if (liveMsg && liveMsg.raw) {
+    const line = usageLine(usage);
+    if (line) {
+      const u = document.createElement('span');
+      u.className = 'usage';
+      u.textContent = line;
+      liveMsg.meta.appendChild(u);
+    }
+    // The guess sent this as a question. A short one may have been a word
+    // to find; one click says so, without retyping.
+    if (inferred && question && question.trim().split(/\s+/).length <= 6) {
+      const f = document.createElement('button');
+      f.type = 'button';
+      f.className = 'copy-msg';
+      f.textContent = 'Find this on screen instead';
+      f.addEventListener('click', () => window.aeval.invoke('find:open', { prefill: question }));
+      liveMsg.meta.appendChild(f);
+    }
+    announce(`Answer: ${liveMsg.raw.replace(/[#*_\x60>[\]()]/g, ' ')}`);
+  }
   if (liveMsg) {
     const done = liveMsg;
     setTimeout(() => setBusy(done, false), 0);
@@ -385,6 +459,8 @@ window.aeval.on('query:done', ({ gen }) => {
 
 window.aeval.on('query:error', ({ gen, message, question }) => {
   if (gen < lastGen) return;
+  clearInterval(waitTimer);
+  chatEl.removeAttribute('aria-busy');
   if (liveMsg) {
     setBusy(liveMsg, false);
     if (!liveMsg.raw) liveMsg.el.remove();
@@ -446,7 +522,12 @@ chatEl.addEventListener('click', (e) => {
 // Escape fallback mirrors the input window; the global shortcut normally
 // handles it first.
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && !e.defaultPrevented) {
     window.aeval.invoke('overlay:collapse');
+  }
+  // F6 goes back to the bar, the way it moves between panes elsewhere.
+  if (e.key === 'F6') {
+    e.preventDefault();
+    window.aeval.invoke('ui:focus-bar');
   }
 });
