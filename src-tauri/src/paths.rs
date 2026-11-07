@@ -53,14 +53,20 @@ mod tests {
     #[test]
     fn user_data_is_electrons_folder() {
         let dir = user_data_dir_from(env(&[("APPDATA", r"C:\Users\a\AppData\Roaming")]));
-        assert_eq!(dir, PathBuf::from(r"C:\Users\a\AppData\Roaming").join("aevalbuddy"));
+        assert_eq!(
+            dir,
+            PathBuf::from(r"C:\Users\a\AppData\Roaming").join("aevalbuddy")
+        );
     }
 
     #[test]
     fn aeval_userdata_overrides() {
         let get = env(&[("APPDATA", r"C:\x"), ("AEVAL_USERDATA", r"D:\scratch")]);
         assert_eq!(user_data_dir_from(&get), PathBuf::from(r"D:\scratch"));
-        assert_eq!(webview_data_dir_from(&get), PathBuf::from(r"D:\scratch").join("WebView2"));
+        assert_eq!(
+            webview_data_dir_from(&get),
+            PathBuf::from(r"D:\scratch").join("WebView2")
+        );
     }
 
     #[test]
@@ -73,7 +79,10 @@ mod tests {
     fn webview_profile_is_not_in_the_userdata_root() {
         let get = env(&[("APPDATA", r"C:\r"), ("LOCALAPPDATA", r"C:\l")]);
         let web = webview_data_dir_from(&get);
-        assert_eq!(web, PathBuf::from(r"C:\l").join("aevalbuddy").join("WebView2"));
+        assert_eq!(
+            web,
+            PathBuf::from(r"C:\l").join("aevalbuddy").join("WebView2")
+        );
         assert_ne!(web.parent(), Some(user_data_dir_from(&get).as_path()));
     }
 }

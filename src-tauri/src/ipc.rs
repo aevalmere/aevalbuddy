@@ -205,7 +205,9 @@ fn not_ported(channel: &str, payload: &Value) -> Result<Value, String> {
         Value::Null => String::new(),
         _ => "value".to_string(),
     };
-    Err(format!("{channel} is not ported to Rust yet (payload keys: [{shape}])"))
+    Err(format!(
+        "{channel} is not ported to Rust yet (payload keys: [{shape}])"
+    ))
 }
 
 #[cfg(test)]

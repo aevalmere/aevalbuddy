@@ -41,7 +41,11 @@ pub fn scaffold(app: AppHandle) {
     line("webviewData", paths::webview_data_dir().display());
     let pages: Vec<&str> = seen.keys().map(String::as_str).collect();
     line("scaffold.pages", pages.join(","));
-    let verdict = if ok { "ok" } else { "FAIL:a page never reached Rust" };
+    let verdict = if ok {
+        "ok"
+    } else {
+        "FAIL:a page never reached Rust"
+    };
     line("scaffold.bridge", verdict);
     if ok {
         println!("[SMOKE] done");
