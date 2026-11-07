@@ -9,6 +9,8 @@ const ring = document.getElementById('ring');
 const why = document.getElementById('why');
 const frameEl = document.getElementById('frame');
 const chip = document.getElementById('chip');
+const loupeEl = ring.querySelector('.loupe');
+let loupeUrl = '';
 
 const STAGGER_MS = 12;
 const STAGGER_CAP = 300;
@@ -58,7 +60,35 @@ function whySpot(h, x, y, wr) {
   return best;
 }
 
+// The magnifier drops when the ring moves and comes back, with a small
+// settle, once main has cut the new hit's pixels.
+function dropLoupe() {
+  ring.classList.remove('loupe-on');
+  loupeEl.style.backgroundImage = '';
+  if (loupeUrl) URL.revokeObjectURL(loupeUrl);
+  loupeUrl = '';
+}
+
+window.aeval.on('lens:loupe', ({ i, img }) => {
+  if (i !== lastDisplayed || !img) return;
+  const url = URL.createObjectURL(new Blob([img], { type: 'image/jpeg' }));
+  const pic = new Image();
+  pic.onload = () => {
+    if (i !== lastDisplayed) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    dropLoupe();
+    loupeUrl = url;
+    loupeEl.style.backgroundImage = `url("${url}")`;
+    void loupeEl.offsetWidth;
+    ring.classList.add('loupe-on');
+  };
+  pic.src = url;
+});
+
 function placeRing(h) {
+  if (h.i !== lastDisplayed) dropLoupe();
   const x = h.x - PAD;
   const y = h.y - PAD;
   ring.style.transform = `translate(${x}px, ${y}px)`;
@@ -107,6 +137,7 @@ window.aeval.on('lens:draw', ({ hits, current, frame }) => {
   } else {
     ring.classList.remove('on');
     why.classList.remove('on');
+    dropLoupe();
     lastDisplayed = -1;
   }
   frameEl.classList.toggle('on', !!frame);

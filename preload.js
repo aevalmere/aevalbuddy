@@ -88,6 +88,11 @@ const INVOKE_CHANNELS = new Set([
   'settings:use-clip-key',
   'hud:nudge',
   'buddy:focus',
+  // Phase B: the glass backdrop, click-through on the shadow margin, and
+  // the solid-surface setting.
+  'glass:hello',
+  'glass:passthrough',
+  'settings:set-surface',
 ]);
 
 const LISTEN_CHANNELS = new Set([
@@ -125,6 +130,9 @@ const LISTEN_CHANNELS = new Set([
   'settings:section',
   'bar:open',
   'bar:context',
+  'glass:frame',
+  'glass:tier',
+  'lens:loupe',
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {

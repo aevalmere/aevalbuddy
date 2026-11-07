@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
   <title>AevalBuddy guide</title>
+  <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="cursor-buddy.css" />
 </head>
 <body>
@@ -26,15 +27,11 @@
   </div>
 
   <div id="callout" role="status">
-    <div class="bubble-tail" aria-hidden="true"></div>
-    <div class="bubble-body">
+    <!-- A glass card beside the pointer. No mascot, no name and no tail:
+         the arrow itself is the connector. Progress is a row of pips. -->
+    <div class="bubble-body glass thin">
       <div class="bubble-head">
-        <span class="face" aria-hidden="true">
-          <span class="eye"></span>
-          <span class="eye"></span>
-        </span>
-        <span class="who">Buddy</span>
-        <span id="callout-count"></span>
+        <span id="callout-count" class="pips"></span>
         <button id="callout-close" type="button" aria-label="Dismiss the pointer">
           <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none"
                stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
@@ -48,6 +45,7 @@
       <div id="callout-actions" hidden></div>
     </div>
   </div>
+  <script src="glass.js"></script>
   <script src="buddy.js"></script>
 </body>
 </html>

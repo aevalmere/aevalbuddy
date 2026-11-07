@@ -15,6 +15,7 @@ const regionChip = document.getElementById('region-chip');
 const regionSize = document.getElementById('region-size');
 const regionClear = document.getElementById('region-clear');
 const pillLabel = document.querySelector('.pill-label');
+const barEl = document.getElementById('bar');
 const barStatus = document.getElementById('bar-status');
 const barStatusText = document.getElementById('bar-status-text');
 const barStatusAction = document.getElementById('bar-status-action');
@@ -41,28 +42,51 @@ function replayAnim(el, cls) {
   el.classList.add(cls);
 }
 
+// The orb's name carries what its rim and badge show (a11y N9).
+const ORB_SAYS = {
+  idle: 'Open AevalBuddy',
+  chat: 'Open AevalBuddy, a conversation is waiting',
+  busy: 'AevalBuddy is answering',
+};
+
 function render(prevMode) {
+  // A fold that is still running is finished by whatever comes next.
+  if (state.mode !== 'pill' || prevMode !== 'panel') endFold();
   document.body.dataset.mode = state.mode;
   // idle, chat (a conversation is waiting behind it), busy (an answer is on
-  // its way) or agent (it has the computer): the collapsed pill shows which.
-  document.body.dataset.pill = state.pillState || 'idle';
+  // its way) or agent (it has the computer): the orb shows which.
+  const ps = state.pillState || 'idle';
+  document.body.dataset.pill = ps;
   document.body.dataset.pillError = state.pillError || state.offline ? '1' : '0';
   pill.title = state.offline ? 'Offline' : state.pillError ? 'The last task did not finish' : '';
+  pill.classList.toggle('orbit', ps === 'busy' || (ps === 'agent' && state.agent && state.agent.state !== 'paused'));
+  let say = ORB_SAYS[ps] || ORB_SAYS.idle;
   if (state.agent && state.agent.running) {
-    pillLabel.textContent = state.agent.state === 'paused' ? 'Paused' : `Step ${Math.max(1, state.agent.step || 1)}`;
+    const n = Math.max(1, state.agent.step || 1);
+    pillLabel.textContent = state.agent.state === 'paused' ? '||' : String(n);
+    say = state.agent.state === 'paused' ? 'Task paused' : `Task running, step ${n}`;
   } else {
-    pillLabel.textContent = 'Ask';
+    pillLabel.textContent = '';
   }
+  if (state.offline) say += ', offline';
+  else if (state.pillError) say += ', the last task did not finish';
+  pill.setAttribute('aria-label', say);
   if (state.inputWidth) {
     document.documentElement.style.setProperty('--panel-w', state.inputWidth + 'px');
   }
   applyAnchor();
   renderRegion();
+  const folding = state.mode === 'pill' && prevMode === 'panel' && foldIntoOrb();
   pill.hidden = state.mode !== 'pill';
-  panel.hidden = state.mode !== 'panel';
+  panel.hidden = state.mode !== 'panel' && !folding;
   hud.hidden = state.mode !== 'hud';
+  if (state.mode === 'panel' && prevMode !== 'panel') {
+    // Main turned hit-testing on for the whole window; the margin goes back
+    // to click-through on the next mouse move.
+    ignoreState = false;
+    if (prevMode === 'pill') growFromOrb();
+  }
   if (state.mode === 'panel') {
-    if (prevMode !== 'panel') replayAnim(panel, 'in');
     renderNotice();
     if (prevMode !== 'panel') {
       input.focus();
@@ -71,9 +95,108 @@ function render(prevMode) {
     }
     requestResize();
   }
-  if (state.mode === 'pill' && prevMode !== 'pill') {
-    replayAnim(pill, 'in');
+}
+
+// ----------------------------------------------------------------- morphs
+
+// The orb and the bar are one piece of glass. Growing, the bar's glass
+// layer starts as the orb's circle at the orb's place and its edges travel
+// out to the capsule's; the contents fade in a beat behind. Folding is the
+// same in reverse, then the orb takes over. Only the layer's insets and
+// radius move, so nothing reflows, and it runs on the compositor.
+function motionOn() {
+  return document.documentElement.dataset.motion !== 'reduced' && !state.reducedMotion;
+}
+
+function orbInsets() {
+  const g = barEl.querySelector(':scope > .gl');
+  const o = state.orbAt;
+  if (!g || !o) return null;
+  const br = barEl.getBoundingClientRect();
+  // The orb's rect inside this window: the window's origin is the bar's
+  // glass rect minus the stage margin, and the panel sits in that margin.
+  const pr = panel.getBoundingClientRect();
+  const ox = pr.left + o.x;
+  const oy = pr.top + o.y;
+  return {
+    g,
+    t: oy - br.top,
+    l: ox - br.left,
+    r: br.right - (ox + o.width),
+    b: br.bottom - (oy + o.height),
+  };
+}
+
+function setInsets(g, v, radius) {
+  g.style.setProperty('--gi-t', `${v ? v.t : 0}px`);
+  g.style.setProperty('--gi-l', `${v ? v.l : 0}px`);
+  g.style.setProperty('--gi-r', `${v ? v.r : 0}px`);
+  g.style.setProperty('--gi-b', `${v ? Math.max(0, v.b) : 0}px`);
+  if (radius) g.style.setProperty('--gr', radius);
+  else g.style.removeProperty('--gr');
+}
+
+let morphTimer = null;
+
+function growFromOrb() {
+  clearTimeout(morphTimer);
+  panel.dataset.morph = 'start';
+  if (!motionOn()) {
+    panel.dataset.morph = 'in';
+    morphTimer = setTimeout(() => delete panel.dataset.morph, 300);
+    return;
   }
+  const v = orbInsets();
+  if (!v) {
+    delete panel.dataset.morph;
+    return;
+  }
+  const g = v.g;
+  g.style.transition = 'none';
+  setInsets(g, v, '22px');
+  void g.offsetWidth;
+  if (window.AevalGlass) window.AevalGlass.morph(320);
+  g.style.transition = 'inset 320ms var(--ease-morph), border-radius 320ms var(--ease-morph)';
+  setInsets(g, null, null);
+  panel.dataset.morph = 'in';
+  morphTimer = setTimeout(() => {
+    g.style.transition = '';
+    delete panel.dataset.morph;
+  }, 520);
+}
+
+let folding = false;
+
+function foldIntoOrb() {
+  if (!motionOn() || panel.hidden) return false;
+  const v = orbInsets();
+  if (!v) return false;
+  clearTimeout(morphTimer);
+  folding = true;
+  document.body.dataset.folding = '1';
+  panel.dataset.morph = 'out';
+  const g = v.g;
+  if (window.AevalGlass) window.AevalGlass.morph(200);
+  g.style.transition = 'inset 200ms var(--ease-morph), border-radius 200ms var(--ease-morph)';
+  setInsets(g, v, '22px');
+  morphTimer = setTimeout(endFold, 200);
+  return true;
+}
+
+function endFold() {
+  if (!folding) return;
+  folding = false;
+  clearTimeout(morphTimer);
+  const g = barEl.querySelector(':scope > .gl');
+  if (g) {
+    g.style.transition = 'none';
+    setInsets(g, null, null);
+    void g.offsetWidth;
+    g.style.transition = '';
+  }
+  delete panel.dataset.morph;
+  delete document.body.dataset.folding;
+  if (state.mode !== 'panel') panel.hidden = true;
 }
 
 // The chip is the only thing telling the user that "what about now?" is
@@ -196,10 +319,17 @@ function setIgnore(ignore) {
   window.aeval.invoke('overlay:set-ignore', { ignore });
 }
 
+// The open bar works the same way now: the window carries a transparent
+// margin for the shadow (lib/stage.js), and a click there belongs to the
+// app underneath.
 document.addEventListener('mousemove', (e) => {
-  if (state.mode !== 'pill') return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  setIgnore(!(el && el.closest('#pill')));
+  if (state.mode === 'pill') {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    setIgnore(!(el && el.closest('#pill')));
+  } else if (state.mode === 'panel' && !folding) {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    setIgnore(!(el && el.closest('#panel .glass, #intent-menu, #examples .glass')));
+  }
 });
 
 document.addEventListener('mouseleave', () => {

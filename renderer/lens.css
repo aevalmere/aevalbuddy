@@ -154,3 +154,112 @@ body {
     transition: opacity var(--d-fast) ease;
   }
 }
+
+/* =====================================================================
+   v2.1 Phase B (DESIGN.md, Material and Find). The list and the lens share
+   one mark: a 5px rounded swatch with a hairline highlight on top. The
+   current hit is a magnifier: the pixels under it, cut at full resolution
+   and scaled 1.18 inside a glass rim, so the word grows instead of being
+   boxed. The chips are the solid tier of thin glass; the lens window has no
+   backdrop of its own and draws none. Rules above that this restates are
+   superseded.
+   ===================================================================== */
+
+html,
+body {
+  font-family: var(--font-text);
+}
+
+.hit {
+  border-radius: 5px;
+}
+
+.hit.literal {
+  background: var(--hit-fill);
+  box-shadow: 0 0 0 1px var(--hit-rim), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.hit.related,
+.hit.concept {
+  border-radius: 5px;
+}
+
+#ring {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 0 0 2px var(--accent-bright), 0 0 0 3px var(--hit-rim);
+}
+
+#ring .loupe {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1);
+  transition: none;
+}
+
+/* The lens rim: a bright specular line on top, the accent ring, and a soft
+   drop so it lifts off the page it magnifies. */
+#ring.loupe-on .loupe {
+  opacity: 1;
+  transform: scale(1.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 0 2px var(--accent-bright), 0 0 0 3px var(--hit-rim), 0 8px 22px rgba(0, 0, 0, 0.45);
+  transition: transform var(--d-morph) var(--ease-settle), opacity var(--d-fast) ease;
+}
+
+#ring.loupe-on {
+  box-shadow: none;
+}
+
+#why,
+#chip {
+  border: none;
+  border-radius: var(--r-cap);
+  background: rgb(var(--tint) / 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  color: var(--label);
+  font-size: 13px;
+}
+
+#why {
+  padding: 7px 14px;
+  border-radius: 14px;
+}
+
+#chip {
+  top: 12px;
+  padding: 7px 16px;
+  font-weight: 500;
+}
+
+/* The control frame is a bezel: the accent inside a dark hairline, with
+   rounded inner corners like a display's. */
+#frame {
+  inset: 2px;
+  border: 3px solid var(--accent-bright);
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ring.loupe-on .loupe {
+    transition: opacity var(--d-fast) ease;
+  }
+}
+
+@media (forced-colors: active) {
+  #ring .loupe {
+    display: none;
+  }
+  #why,
+  #chip {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

@@ -214,9 +214,17 @@ function addAssistantMsg() {
 
 // While this is on, the answer is still coming and the row shows Stop
 // instead of Copy.
+// The sheet's rim carries the light while anything is still coming: an
+// answer streaming, or a task running (trail.js calls this too).
+function syncOrbit() {
+  const working = !!chatEl.querySelector('.msg.assistant.busy, .msg.trail[data-state="running"], .msg.trail[data-state="planning"], .msg.trail[data-state="thinking"]');
+  opanel.classList.toggle('orbit', working);
+}
+
 function setBusy(entry, on) {
   if (!entry) return;
   entry.el.classList.toggle('busy', on);
+  syncOrbit();
   entry.stop.hidden = !on;
   if (entry.doIt) entry.doIt.hidden = on || !STEPS_RE.test(entry.raw);
   if (!on) {
@@ -230,15 +238,15 @@ function setThinking(entry, on, label) {
     entry.body.textContent = '';
     const dots = document.createElement('span');
     dots.className = 'think-dots';
-    dots.setAttribute('aria-label', label || 'Thinking');
+    dots.setAttribute('aria-hidden', 'true');
     dots.innerHTML = '<i></i><i></i><i></i>';
     entry.body.appendChild(dots);
-    if (label) {
-      const tag = document.createElement('span');
-      tag.className = 'stage-label';
-      tag.textContent = label;
-      entry.body.appendChild(tag);
-    }
+    // The word is the whole indicator now; the moving part is the light on
+    // the sheet's rim.
+    const tag = document.createElement('span');
+    tag.className = 'stage-label';
+    tag.textContent = label || 'Thinking';
+    entry.body.appendChild(tag);
   }
   entry.el.classList.toggle('thinking', on);
 }
@@ -310,10 +318,25 @@ function requestResize() {
 new ResizeObserver(requestResize).observe(opanel);
 
 function playEntrance() {
-  opanel.classList.remove('in');
+  opanel.classList.remove('in', 'away');
   void opanel.offsetWidth; // restart the animation
   opanel.classList.add('in');
+  if (window.AevalGlass) window.AevalGlass.morph(360);
 }
+
+// A hidden window keeps its last frame and shows it for a moment when it
+// comes back. The sheet goes blank as the window hides, and grows in again
+// when it is shown.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    opanel.classList.add('away');
+    if (window.AevalGlass) window.AevalGlass.resetPassthrough();
+  } else if (!opanel.hidden) {
+    playEntrance();
+  } else {
+    opanel.classList.remove('away');
+  }
+});
 
 // ------------------------------------------------------------------- state
 
@@ -321,6 +344,9 @@ window.aeval.on('overlay:state', (next) => {
   prevMode = mode;
   mode = next.mode;
   hud.hidden = mode !== 'hud';
+  // The layout editor drags the whole window, margin included.
+  document.documentElement.dataset.passthrough = mode === 'hud' ? 'off' : 'on';
+  if (!document.hidden) opanel.classList.remove('away');
   if (mode === 'hud') {
     opanel.hidden = true;
   } else if (chatEl.childElementCount) {

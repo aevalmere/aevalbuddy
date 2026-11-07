@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
   <title>AevalBuddy history</title>
+  <link rel="stylesheet" href="../renderer/glass.css" />
   <link rel="stylesheet" href="history.css" />
 </head>
 <body>
-  <div id="app">
+  <div id="app" class="glass thick">
     <header id="titlebar">
       <span class="title">History</span>
       <button id="close-history" type="button" aria-label="Close history">
@@ -50,6 +51,7 @@
     </footer>
   </div>
 
+  <script src="../renderer/glass.js"></script>
   <script src="history.js"></script>
 </body>
 </html>

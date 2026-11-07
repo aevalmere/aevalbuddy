@@ -108,9 +108,38 @@ function row(entry) {
   return item;
 }
 
+// Rows are grouped under the day they belong to, like a mail list: Today,
+// Yesterday, This week, then Earlier.
+function dayGroup(at) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const t0 = start.getTime();
+  if (at >= t0) return 'Today';
+  if (at >= t0 - DAY) return 'Yesterday';
+  if (at >= t0 - 6 * DAY) return 'This week';
+  return 'Earlier';
+}
+
 function render() {
   listEl.textContent = '';
-  for (const entry of rows) listEl.appendChild(row(entry));
+  let group = null;
+  let groupName = '';
+  for (const entry of rows) {
+    const name = dayGroup(entry.at);
+    if (!group || name !== groupName) {
+      groupName = name;
+      const head = document.createElement('h2');
+      head.className = 'group-head';
+      head.textContent = name;
+      listEl.appendChild(head);
+      group = document.createElement('div');
+      group.className = 'group';
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', name);
+      listEl.appendChild(group);
+    }
+    group.appendChild(row(entry));
+  }
 
   const none = rows.length === 0;
   emptyEl.hidden = !none;

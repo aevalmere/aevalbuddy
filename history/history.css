@@ -43,9 +43,9 @@ html,
 body {
   background: transparent;
   overflow: hidden;
-  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
   font-size: 14px;
-  color: var(--slate);
+  color: var(--label);
   user-select: none;
 }
 
@@ -90,7 +90,7 @@ button {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(201, 207, 221, 0.75);
+  color: var(--label-2);
 }
 
 #titlebar button {
@@ -100,13 +100,13 @@ button {
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  color: rgba(201, 207, 221, 0.6);
+  color: var(--label-2);
   transition: background var(--d-fast), color var(--d-fast);
 }
 
 #titlebar button:hover {
   background: rgba(201, 207, 221, 0.09);
-  color: var(--slate);
+  color: var(--label);
 }
 
 /* ------------------------------------------------------------------ search */
@@ -127,21 +127,21 @@ button {
   border: 1px solid transparent;
   border-radius: 6px;
   background: rgba(201, 207, 221, 0.07);
-  color: rgba(201, 207, 221, 0.45);
+  color: var(--label-2);
   transition: border-color var(--d-fast), background-color var(--d-fast);
 }
 
 #searchbar:focus-within {
   border-color: rgba(201, 207, 221, 0.3);
   background: rgba(201, 207, 221, 0.1);
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
 }
 
 #search {
   flex: 1 1 auto;
   min-width: 0;
   font: inherit;
-  color: var(--slate);
+  color: var(--label);
   background: none;
   border: none;
   outline: none;
@@ -149,7 +149,7 @@ button {
 }
 
 #search::placeholder {
-  color: rgba(201, 207, 221, 0.38);
+  color: var(--label-2);
 }
 
 /* The platform's own clear affordance draws a second, differently-styled X
@@ -161,11 +161,11 @@ button {
 #clear-search {
   flex: none;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.55);
+  color: var(--label-2);
 }
 
 #clear-search:hover {
-  color: var(--slate);
+  color: var(--label);
 }
 
 /* -------------------------------------------------------------------- list */
@@ -229,7 +229,7 @@ button {
   display: block;
   font-size: 13.5px;
   font-weight: 500;
-  color: var(--slate);
+  color: var(--label);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -240,7 +240,7 @@ button {
   display: block;
   margin-top: 3px;
   font-size: 12.5px;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,13 +252,13 @@ button {
   margin-top: 5px;
   font-size: 11px;
   letter-spacing: 0.02em;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
 
 .item mark {
   background: rgba(130, 58, 128, 0.42);
-  color: var(--slate);
+  color: var(--label);
   border-radius: 2px;
 }
 
@@ -271,7 +271,7 @@ button {
   display: grid;
   place-items: center;
   border-radius: 5px;
-  color: rgba(201, 207, 221, 0.4);
+  color: var(--label-2);
   opacity: 0;
   transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast);
 }
@@ -296,7 +296,7 @@ button {
   text-align: center;
   font-size: 13px;
   line-height: 1.55;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
 }
 
 #empty[hidden] {
@@ -313,7 +313,7 @@ button {
   padding: 10px var(--gutter);
   border-top: 1px solid var(--hairline);
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -323,14 +323,14 @@ button {
 
 .link {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   text-decoration: underline;
   text-decoration-color: rgba(201, 207, 221, 0.28);
   text-underline-offset: 3px;
 }
 
 .link:hover {
-  color: var(--slate);
+  color: var(--label);
   text-decoration-color: rgba(201, 207, 221, 0.6);
 }
 
@@ -347,4 +347,244 @@ button {
 
 #confirm[hidden] {
   display: none;
+}
+
+/* =====================================================================
+   v2.1 Phase B: History as a grouped glass list (DESIGN.md, Material).
+   One sheet of thick glass in a transparent margin; a capsule search
+   field; rows grouped under the day, each group one rounded list with
+   inset hairlines. Rules above this block that it restates are
+   superseded.
+   ===================================================================== */
+
+html,
+body {
+  font-family: var(--font-text);
+  color: var(--label);
+}
+
+body {
+  padding: 14px 18px 22px;
+  height: 100vh;
+}
+
+#app {
+  --r: var(--r-sheet);
+  height: 100%;
+  width: 100%;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--r-sheet);
+  overflow: visible;
+}
+
+#app > :not(.gl) {
+  position: relative;
+}
+
+#titlebar {
+  justify-content: center;
+  position: relative;
+  padding: 12px 12px 8px;
+  min-height: 52px;
+}
+
+#titlebar .title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--label);
+}
+
+#titlebar button {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  border-radius: var(--r-cap);
+  opacity: 1;
+  color: var(--label-2);
+}
+
+#titlebar button:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+#searchbar {
+  margin: 0 16px 8px;
+  height: 36px;
+  padding: 0 8px 0 12px;
+  border: none;
+  border-radius: var(--r-cap);
+  background: rgba(0, 0, 0, 0.26);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
+  color: var(--label-2);
+}
+
+#searchbar:focus-within {
+  border: none;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.72);
+}
+
+#search {
+  font-size: 14px;
+  color: var(--label);
+}
+
+#search::placeholder {
+  color: var(--label-3);
+}
+
+#clear-search {
+  border-radius: var(--r-cap);
+  padding: 0 10px;
+  min-height: 26px;
+  color: var(--label);
+  background: var(--fill-1);
+}
+
+#list {
+  padding: 0 16px 12px;
+}
+
+.group-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label-2);
+  padding: 14px 4px 6px;
+}
+
+.group-head:first-child {
+  padding-top: 6px;
+}
+
+.group {
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.item {
+  position: relative;
+  min-height: 60px;
+  padding: 10px 44px 10px 16px;
+  border-radius: 0;
+  background: none;
+}
+
+.item + .item {
+  border-top: none;
+}
+
+.item + .item::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 0;
+  top: 0;
+  height: var(--px);
+  background: var(--hairline);
+}
+
+.item:hover {
+  background: var(--fill-1);
+}
+
+.item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.92);
+  outline-offset: -3px;
+  border-radius: var(--r-row);
+}
+
+.item .q {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--label);
+}
+
+.item .a {
+  font-size: 13px;
+  color: var(--label-2);
+}
+
+.item .meta {
+  font-size: 12px;
+  color: var(--label-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.item mark {
+  background: rgb(197 111 195 / 0.4);
+  color: var(--label);
+  border-radius: 3px;
+}
+
+.del {
+  border-radius: var(--r-cap);
+  color: var(--label-2);
+}
+
+.del:hover {
+  background: var(--fill-2);
+  color: var(--label);
+}
+
+#empty {
+  font-size: 14px;
+  color: var(--label-2);
+}
+
+#foot {
+  border-top: none;
+  padding: 10px 16px 14px;
+  color: var(--label-2);
+  font-size: 12px;
+}
+
+.link {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--r-cap);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  text-decoration: none;
+}
+
+.link:hover {
+  background: var(--fill-2);
+  text-decoration: none;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+@media (forced-colors: active) {
+  .group {
+    border: 1px solid CanvasText;
+  }
+}
+
+.item,
+.item + .item,
+.item:hover,
+.item:focus-visible,
+.item:hover + .item,
+.item:focus-visible + .item {
+  border: none;
+  box-shadow: none;
+}
+
+.del {
+  top: 50%;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
 }

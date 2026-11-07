@@ -697,6 +697,31 @@ saveHistory.addEventListener('change', () => {
     });
 });
 
+const SURFACE_WHY = {
+  'transparency-off': 'Transparency effects are off in Windows settings, so glass is off too.',
+  'high-contrast': 'A contrast theme is on, so surfaces are solid.',
+  'capture-visible': 'This Windows build cannot hide AevalBuddy from capture, so glass, which needs that, is off.',
+  'capture-failed': 'The screen could not be read for the glass, so surfaces are solid for now.',
+};
+
+function renderSurface() {
+  const solid = data.surface === 'solid';
+  const g = data.glass || { tier: 'live', reasons: [] };
+  const why = (g.reasons || []).filter((r) => r !== 'setting').map((r) => SURFACE_WHY[r]).filter(Boolean);
+  setSummary('surface-summary', solid ? 'Solid' : why.length ? 'Solid for now' : 'Automatic');
+  const note = document.getElementById('surface-note');
+  note.textContent = solid ? '' : why.join(' ');
+  note.hidden = !note.textContent;
+}
+
+document.getElementById('surface-solid').addEventListener('change', (e) => {
+  window.aeval.invoke('settings:set-surface', { surface: e.target.checked ? 'solid' : 'auto' }).then((r) => {
+    data.surface = r.surface;
+    data.glass = { tier: r.tier, reasons: r.reasons };
+    renderSurface();
+  });
+});
+
 launchAtLogin.addEventListener('change', () => {
   window.aeval
     .invoke('settings:set-launch-at-login', { on: launchAtLogin.checked })
@@ -950,8 +975,10 @@ window.aeval.invoke('settings:get').then((d) => {
   showBrainPicker(!!d.brainEnabled);
   saveHistory.checked = d.saveHistory !== false;
   launchAtLogin.checked = !!d.launchAtLogin;
+  document.getElementById('surface-solid').checked = d.surface === 'solid';
   renderHistory();
   renderStartup();
+  renderSurface();
   renderKeyState(!!d.hasKey);
   renderSkills(d.skills || [], d.skill);
   renderShortcuts();

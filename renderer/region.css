@@ -41,7 +41,7 @@ body {
   overflow: hidden;
   background: transparent;
   cursor: crosshair;
-  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
   user-select: none;
 }
 
@@ -133,7 +133,7 @@ body:not([data-dragging]) #scrim-right {
   font-weight: 600;
   letter-spacing: .02em;
   font-variant-numeric: tabular-nums;
-  color: var(--slate);
+  color: var(--label);
   background: rgba(18, 20, 28, 0.92);
   border: 1px solid var(--twilight);
   border-radius: 4px;
@@ -161,7 +161,7 @@ body:not([data-dragging]) #scrim-right {
   align-items: center;
   gap: 10px;
   font-size: 13px;
-  color: var(--slate);
+  color: var(--label);
   background: rgba(18, 20, 28, 0.92);
   border: 1px solid var(--twilight);
   border-radius: 999px;
@@ -210,7 +210,7 @@ kbd {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(201, 207, 221, 0.72);
+  color: var(--label-2);
   border: 1px solid var(--twilight);
   border-bottom-width: 2px;
   border-radius: 4px;

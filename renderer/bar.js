@@ -24,7 +24,9 @@ const announcer = document.getElementById('announce');
 
 const PREFIX = { find: '/', ask: '?', do: '>' };
 const ENTER_SAYS = { ask: 'Enter asks', find: 'Enter goes to the next match', do: 'Enter starts the task' };
-const PLACEHOLDER = 'Ask, find, or tell me what to do';
+// Short enough to sit beside the sigil legend in a 420px capsule at 18px;
+// the field's accessible name keeps the full sentence.
+const PLACEHOLDER = 'Ask, find, or do';
 
 // lock: null while guessing, else the intent the person chose.
 // literal: // was typed, so Find stays on exact words.
@@ -56,15 +58,41 @@ function classifyNow() {
   renderToken();
 }
 
+// The token's width follows its word: measured before and after the change
+// and animated between the two (FLIP), so the capsule morphs instead of
+// snapping. The field beside it never moves; the token has room reserved.
+let tokenFlip = null;
+function flipToken(change) {
+  const w0 = token.getBoundingClientRect().width;
+  change();
+  const w1 = token.getBoundingClientRect().width;
+  if (document.documentElement.dataset.motion === 'reduced' || !w0 || Math.abs(w1 - w0) < 1) return;
+  clearTimeout(tokenFlip);
+  token.style.transition = 'none';
+  token.style.width = `${w0}px`;
+  void token.offsetWidth;
+  token.style.transition = 'width 240ms var(--ease-morph), background 160ms ease, box-shadow 160ms ease';
+  token.style.width = `${w1}px`;
+  tokenFlip = setTimeout(() => {
+    token.style.width = '';
+    token.style.transition = '';
+  }, 260);
+}
+
 function renderToken() {
   const now = barIntent();
-  token.dataset.intent = now;
-  token.dataset.locked = bar.lock ? 'true' : 'false';
-  token.dataset.confidence = bar.lock || bar.guess.margin >= 0.25 ? 'high' : 'low';
-  if (tokenName.textContent !== Intent.NAME[now]) {
-    tokenName.textContent = Intent.NAME[now];
+  const wasLocked = token.dataset.locked === 'true';
+  const name = Intent.NAME[now];
+  if (tokenName.textContent !== name || token.dataset.intent !== now) {
+    flipToken(() => {
+      token.dataset.intent = now;
+      tokenName.textContent = name;
+    });
     replayAnim(token, 'swap');
   }
+  token.dataset.locked = bar.lock ? 'true' : 'false';
+  token.dataset.confidence = bar.lock || bar.guess.margin >= 0.25 ? 'high' : 'low';
+  if (bar.lock && !wasLocked) replayAnim(token, 'lock');
   const how = bar.lock ? 'chosen' : 'guessed';
   token.setAttribute('aria-label', `${Intent.NAME[now]}, ${how}. Choose what Enter does.`);
   intentDesc.textContent = `${ENTER_SAYS[now]}${bar.literal ? ', exact words only' : ''}. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.`;
@@ -263,7 +291,7 @@ function renderExamples(list) {
   for (const ex of list.slice(0, 3)) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'example-chip';
+    b.className = 'example-chip glass thin interactive';
     b.textContent = ex;
     b.addEventListener('click', () => {
       const m = /^Find "(.+)"$/.exec(ex);

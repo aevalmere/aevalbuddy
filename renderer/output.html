@@ -1,26 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-passthrough="on">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
   <title>AevalBuddy answer</title>
+  <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="overlay.css" />
 </head>
-<body data-mode="idle">
-  <section id="opanel" hidden aria-label="AevalBuddy conversation">
+<body data-mode="idle" data-surface="answer">
+  <!-- The answer sheet: thick glass, because this is where you read. -->
+  <section id="opanel" class="glass thick refract" hidden aria-label="AevalBuddy conversation">
     <div id="chat-tools">
-      <button id="history-btn" type="button" aria-label="Open past conversations" title="History">
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button id="history-btn" class="g-icon small" type="button" aria-label="Open past conversations" title="History">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 3v6h6"></path>
           <path d="M3.5 13a9 9 0 1 0 2-6.4L3 9"></path>
           <path d="M12 7.5V12l3.5 2"></path>
         </svg>
       </button>
-      <button id="new-chat" type="button" aria-label="Start a new conversation" title="New conversation">
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button id="new-chat" class="g-icon small" type="button" aria-label="Start a new conversation" title="New conversation">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 5v14"></path>
           <path d="M5 12h14"></path>
         </svg>
@@ -34,20 +36,21 @@
     <div id="find-view" role="listbox" aria-label="Matches on screen" hidden></div>
   </section>
 
-  <section id="hud" hidden aria-label="Answer position editor">
+  <section id="hud" class="glass thick" hidden aria-label="Answer position editor">
     <div class="hud-inner">
       <p class="hud-title">Answer window</p>
       <p class="hud-sub">Drag anywhere. Drop it near the input bar to dock them together.</p>
       <span id="dock-badge" class="dock-badge" hidden>Docked</span>
       <div class="hud-actions">
-        <button id="dock-toggle" type="button">Detach</button>
-        <button id="hud-done" type="button" class="accent-btn">Done</button>
+        <button id="dock-toggle" type="button" class="g-btn">Detach</button>
+        <button id="hud-done" type="button" class="g-btn prominent">Done</button>
       </div>
     </div>
   </section>
 
   <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 
+  <script src="glass.js"></script>
   <script src="markdown.js"></script>
   <script src="output.js"></script>
   <script src="trail.js"></script>

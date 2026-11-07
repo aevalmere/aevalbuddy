@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>backdrop fixture</title>
+<!-- What the glass is photographed over in the visual self-check: a white
+     document, a black code editor, and a saturated wallpaper. Rendered at the
+     display's size in an offscreen window and handed to lib/backdrop.js as if
+     it were the desktop. Never shown to anyone. -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+  body[data-kind="white"] { background: #fff; color: #111; font: 13px/1.5 "Segoe UI", sans-serif; }
+  .doc { width: 760px; margin: 28px auto; }
+  .doc h1 { font-size: 26px; margin: 8px 0 12px; }
+  .doc h2 { font-size: 16px; margin: 18px 0 6px; }
+  .doc p { margin: 0 0 9px; font-size: 11px; }
+  .doc a { color: #0b57d0; }
+  .doc table { border-collapse: collapse; margin: 10px 0; font-size: 11px; }
+  .doc td, .doc th { border: 1px solid #ccc; padding: 4px 10px; }
+  .doc .side { position: absolute; left: 0; top: 0; bottom: 0; width: 150px; background: #f3f4f6; border-right: 1px solid #ddd; }
+  .bar { height: 30px; background: #f8f8f8; border-bottom: 1px solid #ddd; }
+
+  body[data-kind="black"] { background: #1e1e1e; color: #d4d4d4; font: 13px/19px Consolas, "Cascadia Mono", monospace; }
+  .ed { padding: 14px 0 0 0; white-space: pre; }
+  .ed .ln { color: #6e7681; display: inline-block; width: 52px; text-align: right; padding-right: 16px; }
+  .k { color: #569cd6; } .s { color: #ce9178; } .c { color: #6a9955; } .f { color: #dcdcaa; } .n { color: #b5cea8; }
+  .tabs { height: 34px; background: #252526; border-bottom: 1px solid #333; }
+
+  body[data-kind="wallpaper"] {
+    background:
+      radial-gradient(40% 55% at 18% 22%, #ff5f6d 0%, transparent 70%),
+      radial-gradient(45% 60% at 82% 18%, #ffc371 0%, transparent 70%),
+      radial-gradient(50% 60% at 70% 78%, #3a7bd5 0%, transparent 70%),
+      radial-gradient(45% 55% at 22% 82%, #00d2ff 0%, transparent 70%),
+      radial-gradient(30% 35% at 50% 50%, #f8f8ff 0%, transparent 70%),
+      linear-gradient(135deg, #7b2ff7, #f107a3);
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const kind = new URLSearchParams(location.search).get('kind') || 'wallpaper';
+  document.body.dataset.kind = kind;
+  const root = document.getElementById('root');
+  const words = 'The quarterly invoice totals were reconciled against the ledger and two late payments were flagged for follow up before Friday. Please review the attached terms on page two and confirm the revised due dates with the vendor. '.repeat(2);
+  if (kind === 'white') {
+    let html = '<div class="bar"></div><div class="doc"><h1>Invoice 2291 for March</h1>';
+    for (let i = 0; i < 14; i += 1) {
+      if (i % 4 === 0) html += `<h2>Section ${i / 4 + 1}: payment terms</h2>`;
+      html += `<p>${words.slice(0, 260 + (i % 3) * 60)} <a>See the policy</a>.</p>`;
+      if (i === 5) html += '<table><tr><th>Item</th><th>Qty</th><th>Total due</th></tr><tr><td>Design</td><td>12</td><td>$4,120.00</td></tr><tr><td>Support</td><td>3</td><td>$540.00</td></tr></table>';
+    }
+    root.innerHTML = html + '</div>';
+  } else if (kind === 'black') {
+    const lines = [
+      '<span class="c">// Settle the invoice once the payment clears.</span>',
+      '<span class="k">import</span> { ledger } <span class="k">from</span> <span class="s">"./ledger"</span>;',
+      '',
+      '<span class="k">export async function</span> <span class="f">settle</span>(invoice, opts = {}) {',
+      '  <span class="k">const</span> total = invoice.items.<span class="f">reduce</span>((s, i) => s + i.qty * i.price, <span class="n">0</span>);',
+      '  <span class="k">if</span> (total <= <span class="n">0</span>) <span class="k">throw new</span> <span class="f">Error</span>(<span class="s">"nothing to settle"</span>);',
+      '  <span class="k">await</span> ledger.<span class="f">post</span>({ id: invoice.id, total, due: opts.due ?? <span class="s">"Friday"</span> });',
+      '  <span class="k">return</span> { ok: <span class="k">true</span>, total };',
+      '}',
+      '',
+      '<span class="c">/* TODO: retry on 429 and 5xx with a bounded backoff */</span>',
+    ];
+    let html = '<div class="tabs"></div><div class="ed">';
+    for (let i = 0; i < 46; i += 1) html += `<span class="ln">${i + 1}</span>${lines[i % lines.length]}\n`;
+    root.innerHTML = html + '</div>';
+  }
+</script>
+</body>
+</html>

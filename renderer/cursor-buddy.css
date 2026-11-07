@@ -25,7 +25,7 @@ body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
 }
 
 /* ----------------------------------------------------------------- arrow */
@@ -240,13 +240,13 @@ body {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(201, 207, 221, 0.75);
+  color: var(--label-2);
 }
 
 #callout-count {
   margin-left: auto;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
 }
 
 #callout-message {
@@ -279,7 +279,7 @@ body {
   margin-top: 6px;
   font-size: 12px;
   font-style: italic;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   transition: color 150ms ease;
 }
 
@@ -288,7 +288,7 @@ body {
 }
 
 .bubble-body:hover #callout-hint {
-  color: rgba(201, 207, 221, 0.85);
+  color: var(--label-2);
 }
 
 #callout-close {
@@ -344,7 +344,7 @@ body {
 #callout-actions .act {
   font: inherit;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.75);
+  color: var(--label-2);
   background: none;
   border: none;
   border-radius: 6px;
@@ -381,3 +381,123 @@ body {
 body[data-kind="agent"] #callout-close {
   display: none;
 }
+
+/* =====================================================================
+   v2.1 Phase B: the tour card and pointer callout as thin glass
+   (DESIGN.md, Material). No mascot face, no name, no tail; pips for
+   progress; the card's main choice is the prominent glass button. Rules
+   above this block that it restates are superseded.
+   ===================================================================== */
+
+.bubble-body {
+  --r: 20px;
+  max-width: 300px;
+  min-width: 200px;
+  background: none;
+  border: none;
+  border-radius: 20px;
+  color: var(--label);
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 12px 14px 14px 16px;
+  box-shadow: none;
+}
+
+.bubble-body:hover {
+  background-image: none;
+}
+
+.bubble-head {
+  min-height: 20px;
+  margin-bottom: 6px;
+}
+
+.pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pips i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-cap);
+  background: rgba(255, 255, 255, 0.34);
+  transition: width 240ms var(--ease-morph), background 240ms ease;
+}
+
+.pips i.on {
+  width: 16px;
+  background: var(--label);
+}
+
+#callout-count {
+  margin-left: 0;
+}
+
+#callout-close {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  margin-top: -6px;
+  margin-right: -8px;
+  border-radius: var(--r-cap);
+  color: var(--label-2);
+  opacity: 1;
+}
+
+#callout-close:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+#callout-close:focus-visible,
+#callout-actions .act:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.92);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.38);
+}
+
+#callout-message {
+  color: var(--label);
+}
+
+#callout-hint {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--label-2);
+}
+
+#callout-actions {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#callout-actions .act {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-cap);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+#callout-actions .act:hover {
+  color: var(--label);
+  background: var(--fill-1);
+}
+
+#callout-actions .act.primary {
+  padding: 0 16px;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--accent-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
+}
+
+#callout-actions .act.primary:hover {
+  background: rgb(197 111 195 / 0.55);
+  opacity: 1;
+}
+

@@ -100,6 +100,23 @@ function schedule() {
   if (!rafId) rafId = requestAnimationFrame(tick);
 }
 
+// Progress as pips: one per step, the current one a wider capsule. The
+// words stay for a screen reader.
+function setPips(index, count) {
+  calloutCount.textContent = '';
+  if (index < 0 || count < 2) {
+    calloutCount.removeAttribute('aria-label');
+    return;
+  }
+  for (let i = 0; i < count; i += 1) {
+    const p = document.createElement('i');
+    if (i === index) p.className = 'on';
+    calloutCount.appendChild(p);
+  }
+  calloutCount.setAttribute('role', 'img');
+  calloutCount.setAttribute('aria-label', `Step ${index + 1} of ${count}`);
+}
+
 // Beside the arrow, tail pointing back at it, flipped to the other side when
 // there is no room. The tail sits 18px down the bubble, so the bubble starts
 // slightly above the tip to put the tail level with the arrow's shaft.
@@ -114,17 +131,20 @@ function positionCallout() {
     callout.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
     return;
   }
+  // Down and to the right of the tip, so the arrow reads as what joins the
+  // card to the thing it points at; flipped left when there is no room.
   let side = 'right';
-  let left = cur.x + ARROW_W + GAP;
+  let left = cur.x + ARROW_W + GAP - 4;
   if (left + w > window.innerWidth - EDGE) {
     side = 'left';
     left = cur.x - GAP - w;
   }
-  let top = cur.y - 6;
+  let top = cur.y + 14;
   left = clamp(left + dragBy.x, EDGE, Math.max(EDGE, window.innerWidth - w - EDGE));
   top = clamp(top + dragBy.y, EDGE, Math.max(EDGE, window.innerHeight - h - EDGE));
   callout.dataset.side = side;
   callout.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+  if (window.AevalGlass) window.AevalGlass.track(60);
 }
 
 // Types the message out. Feels like the buddy is talking rather than a label
@@ -205,11 +225,11 @@ window.aeval.on('buddy:show', (payload) => {
   calloutHint.hidden = !isPoint || lastOfSequence;
   if (isPoint) {
     calloutHint.textContent = 'Click for the next one';
-    calloutCount.textContent = stepCount > 1 ? `${stepIndex + 1} of ${stepCount}` : '';
+    setPips(stepCount > 1 ? stepIndex : -1, stepCount);
   } else if ((kind === 'step' || kind === 'card') && stepCount > 1) {
-    calloutCount.textContent = `${stepIndex + 1} of ${stepCount}`;
+    setPips(stepIndex, stepCount);
   } else {
-    calloutCount.textContent = '';
+    setPips(-1, 0);
   }
   // The tour's buttons: Skip on a pointer step, the card's own choices on a
   // card. The agent's cursor has none; it is narration, not a dialog.

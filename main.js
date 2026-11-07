@@ -31,6 +31,12 @@ if (process.env.AEVAL_USERDATA) {
   app.setPath('userData', process.env.AEVAL_USERDATA);
 }
 
+// The visual self-check photographs every surface at 100, 125 and 150
+// percent display scaling, one run per scale (tools/installer-check.ps1).
+if (process.env.AEVAL_SHOT_SCALE) {
+  app.commandLine.appendSwitch('force-device-scale-factor', String(Number(process.env.AEVAL_SHOT_SCALE) || 1));
+}
+
 const crash = require('./lib/crash');
 crash.install();
 
@@ -49,6 +55,8 @@ const find = require('./lib/find');
 const agent = require('./lib/agent');
 const intent = require('./renderer/intent');
 const lens = require('./lib/lens');
+const stage = require('./lib/stage');
+const backdrop = require('./lib/backdrop');
 
 // Everything the agent and Find emit also goes here, so the smoke run can
 // wait on the same events the windows render.
@@ -83,7 +91,9 @@ function hideFromCapture(win) {
   win.setContentProtection(true);
 }
 
-const PILL = { width: 104, height: 40 };
+// The orb: one 44px glass circle. State is shown by its rim and a badge,
+// never by a word (DESIGN.md, Material).
+const PILL = { width: 44, height: 44 };
 // Widths are user-set now; these are the shipping defaults and the bounds a
 // drag is clamped to.
 const PANEL_WIDTH = 420;
@@ -428,7 +438,10 @@ function baseWindowOptions() {
 }
 
 function createOverlay() {
-  overlayWin = new BrowserWindow({ ...pillBounds(), ...baseWindowOptions(), focusable: false });
+  overlayWin = new BrowserWindow({ ...stage.outer(pillBounds()), ...baseWindowOptions(), focusable: false });
+  // From here on the window's bounds API speaks in glass rectangles; the
+  // window itself carries a transparent margin for the shadow.
+  stage.wrap(overlayWin);
   pinOnTop(overlayWin);
   // Core Cluely-defining feature: exclude the overlay from screen capture.
   // On Windows this maps to WDA_EXCLUDEFROMCAPTURE and is reliable on
@@ -465,10 +478,11 @@ function createOverlay() {
 
 function createOutput() {
   outputWin = new BrowserWindow({
-    ...boundsForSize({ width: PANEL_WIDTH, height: DEFAULT_OUTPUT_HEIGHT }, store.getOverlayPos()),
+    ...stage.outer(boundsForSize({ width: PANEL_WIDTH, height: DEFAULT_OUTPUT_HEIGHT }, store.getOverlayPos())),
     ...baseWindowOptions(),
     focusable: true,
   });
+  stage.wrap(outputWin);
   pinOnTop(outputWin);
   hideFromCapture(outputWin);
   outputWin.loadFile(path.join(__dirname, 'renderer', 'output.html'));
@@ -589,20 +603,22 @@ function expandPanel() {
   pinOnTop(overlayWin);
   sendOverlayState();
   const to = inputBounds(currentInputHeight);
-  if (wasPill) {
-    // The renderer measures itself while the glide is running, so its height
-    // report is applied once the glide lands rather than fighting it.
-    markApp(overlayWin);
-    unlockInput();
-    motion.animate(overlayWin, { from, to, duration: T_EXPAND, onDone: syncInputBounds });
-  } else {
-    motion.stop(overlayWin);
-    setInputBounds(to);
-  }
+  clearTimeout(collapseTimer);
+  collapseTimer = null;
+  // The window takes the bar's size at once and stays still: the orb grows
+  // into the bar inside the page, on the compositor, where it runs at the
+  // display's rate (renderer/overlay.js). The orb is pinned to the same
+  // anchored corner either way, so the size change itself is invisible.
+  void from;
+  motion.stop(overlayWin);
+  setInputBounds(to);
+  if (wasPill) setTimeout(syncInputBounds, T_EXPAND);
   overlayWin.show();
   overlayWin.focus();
   applyRegistrations();
 }
+
+let collapseTimer = null;
 
 function collapsePanel(opts) {
   if (!overlayWin) return;
@@ -623,19 +639,17 @@ function collapsePanel(opts) {
   overlayWin.showInactive();
   const to = pillBounds();
   if (wasPanel) {
-    // The renderer keeps showing the panel until the frame is nearly pill
-    // sized, so the contents shrink away instead of vanishing at frame one.
-    markApp(overlayWin);
-    unlockInput();
-    motion.animate(overlayWin, {
-      to,
-      duration: T_COLLAPSE,
-      onDone: () => {
-        applyInputLimits();
-        markApp(overlayWin);
-        sendOverlayState();
-      },
-    });
+    // The bar folds back into the orb inside the page first; the window
+    // shrinks to the orb once that is over, which nobody can see because
+    // the orb is pinned to the corner the window keeps.
+    motion.stop(overlayWin);
+    clearTimeout(collapseTimer);
+    collapseTimer = setTimeout(() => {
+      collapseTimer = null;
+      if (overlayMode !== 'pill' || !overlayWin || overlayWin.isDestroyed()) return;
+      setInputBounds(to);
+      sendOverlayState();
+    }, motion.isReduced() ? 0 : T_COLLAPSE + 30);
   } else {
     motion.stop(overlayWin);
     setInputBounds(to);
@@ -660,10 +674,14 @@ function showOutput() {
   const anchorV = op.docked ? store.getOverlayPos().v : op.v;
   const anchorH = op.docked ? store.getOverlayPos().h : op.h;
   markApp(outputWin);
-  outputWin.setBounds(motion.shrunkFrom(to, anchorV, anchorH));
+  // The sheet grows out of the bar's edge inside the page (overlay.css,
+  // #opanel.in); the window is already its final size and does not move.
+  void anchorV;
+  void anchorH;
+  motion.stop(outputWin);
+  outputWin.setBounds(to);
   outputWin.showInactive();
-  // The fade is the renderer's entrance animation, not window opacity.
-  motion.animate(outputWin, { to, duration: T_OUT_IN, onDone: syncOutputBounds });
+  setTimeout(syncOutputBounds, T_OUT_IN);
 }
 
 // Applies a height the renderer reported while a glide was in flight.
@@ -740,8 +758,14 @@ function repositionOutputIfDocked() {
 function sendOverlayState() {
   // Anchors ride along so each renderer can grow its surface out of the
   // correct corner (transform-origin follows the anchored edge).
+  const pb = pillBounds();
+  const ib = inputBounds(currentInputHeight);
   const payload = {
     mode: overlayMode,
+    // Where the orb sits inside the bar, so the bar can grow out of it and
+    // fold back into it.
+    orbAt: { x: pb.x - ib.x, y: pb.y - ib.y, width: pb.width, height: pb.height },
+    reducedMotion: motion.isReduced(),
     hasKey: store.hasApiKey(),
     captureOk: lastCaptureOk,
     inputAnchor: store.getOverlayPos(),
@@ -812,6 +836,7 @@ function enterHudEditor() {
 
   outputWin.setMovable(true);
   unlockSize(outputWin);
+  outputWin.setIgnoreMouseEvents(false);
   outputWin.setBounds(hudOutputGhostBounds());
   lockSize(outputWin, hudOutputSize().width, hudOutputSize().height);
   pinOnTop(outputWin);
@@ -2421,8 +2446,21 @@ function registerIpc() {
     resizeOutput(outputBounds(height));
   });
   ipcMain.handle('overlay:set-ignore', (_e, { ignore }) => {
-    if (!overlayWin || overlayMode !== 'pill') return;
+    if (!overlayWin || (overlayMode !== 'pill' && overlayMode !== 'panel')) return;
     overlayWin.setIgnoreMouseEvents(ignore, { forward: true });
+  });
+  // The shadow margin around the answer lets clicks through to whatever is
+  // under it; the page says when the pointer is over glass (glass.js).
+  ipcMain.handle('glass:passthrough', (e, { ignore }) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win || win.isDestroyed() || win !== outputWin || overlayMode === 'hud') return;
+    win.setIgnoreMouseEvents(!!ignore, { forward: true });
+  });
+  ipcMain.handle('glass:hello', (e) => backdrop.hello(BrowserWindow.fromWebContents(e.sender)));
+  ipcMain.handle('settings:set-surface', (_e, { surface }) => {
+    const v = store.setSurface(surface);
+    backdrop.broadcastTier();
+    return { surface: v, tier: backdrop.tier(), reasons: backdrop.reasons() };
   });
   ipcMain.handle('overlay:open-settings', () => openSettings());
 
@@ -2511,6 +2549,8 @@ function registerIpc() {
       saveHistory: store.getSaveHistory(),
       historyCount: history.count(),
       launchAtLogin: store.getLaunchAtLogin(),
+      surface: store.getSurface(),
+      glass: { tier: backdrop.tier(), reasons: backdrop.reasons() },
       // Unpackaged, the Run key would point at the Electron binary, so the
       // switch is shown as remembered-but-inactive rather than silently lying.
       launchAtLoginLive: app.isPackaged,
@@ -2859,6 +2899,19 @@ if (!gotLock) {
     if (process.env.AEVAL_SHOT) {
       setTimeout(runShots, 1200);
     }
+    backdrop.init({
+      canHide: CAN_HIDE_FROM_CAPTURE,
+      userSurface: () => store.getSurface(),
+      // 2 Hz while anything you read or type into is up; the orb alone
+      // refreshes every few seconds.
+      pace: () => {
+        const up = (w) => w && !w.isDestroyed() && w.isVisible();
+        return overlayMode !== 'pill' || outputActive || up(settingsWin) || up(historyWin) ||
+          cursorBuddy.isActive() || lens.windows().some(up)
+          ? 'fast'
+          : 'slow';
+      },
+    });
     if (!process.env.AEVAL_SMOKE && !process.env.AEVAL_SHOT) {
       setInterval(keepOnTop, 4000);
     }
@@ -2871,6 +2924,9 @@ if (!gotLock) {
     crash.guard(win);
     hideFromCapture(win);
     protectedWindows.add(win);
+    // Every surface draws glass from the same backdrop, except the page
+    // the self-check renders offscreen to stand in for the desktop.
+    if (!win.webContents.isOffscreen()) backdrop.register(win);
     // Windows can drop a hidden window's display affinity; it is set again
     // every time the window is shown, which is when it could be captured.
     win.on('show', () => hideFromCapture(win));
@@ -3024,6 +3080,9 @@ async function runShots() {
         // length of one frame here and turned straight back on.
         liveShot: async (outPath) => {
           const wins = [overlayWin, outputWin].filter((x) => x && !x.isDestroyed());
+          // No backdrop frames while the windows are capturable, or the
+          // glass would hold a picture of itself.
+          backdrop.pause();
           for (const win of wins) win.setContentProtection(false);
           await new Promise((r) => setTimeout(r, 500));
           try {
@@ -3054,6 +3113,7 @@ async function runShots() {
             for (const win of wins) {
               if (!win.isDestroyed()) win.setContentProtection(true);
             }
+            backdrop.resume();
           }
         },
         closeSettings: () => {

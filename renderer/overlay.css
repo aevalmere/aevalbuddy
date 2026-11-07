@@ -1,52 +1,16 @@
-/* Palette: #000000 black, #10254F space indigo, #2B2C33 shadow grey,
-   #823A80 grape soda (single accent), #C9CFDD pale slate, #303D6A twilight
-   indigo. Nothing outside this palette. Motion tokens and scales are
-   specified in DESIGN.md; this file builds to them. */
+/* The bar and the answer sheet. The material itself (layers, scrim, rim,
+   tiers, controls) is renderer/glass.css; this file lays the surfaces out.
+   Tokens and the reasons for them are in DESIGN.md: Material, Palette,
+   Type, Radius, Motion. */
 
 :root {
-  --black: #000000;
-  --indigo: #10254F;
-  --grey: #2B2C33;
-  --accent: #823A80;
-  --slate: #C9CFDD;
-  --twilight: #303D6A;
-
-  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  /* A 5% overshoot for things that arrive and stay: the token changing, a
-     card landing. Approved in v2.1; see DESIGN.md. */
-  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
-  --d-fast: 150ms;
-  --d-med: 240ms;
-  --d-slow: 380ms;
-
-  /* Surface tokens, per the v0.4 table in DESIGN.md. One gutter, one control
-     height, one divider, one shadow. Anything that invents its own is a
-     defect. */
   --gutter: 12px;
   --control: 32px;
-  --hairline: rgba(201, 207, 221, 0.10);
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.11);
-  --lift: 0 1px 2px rgba(0, 0, 0, 0.45), 0 18px 44px rgba(0, 0, 0, 0.55);
-  /* Opaque. At 97% a bright terminal behind the panel still showed through
-     enough to read, which fights the text on top of it. The depth comes from
-     the gradient, the edge and the shadow, not from translucency. */
-  --skin: linear-gradient(#3E404A, #262930);
-  --edge: rgba(201, 207, 221, 0.17);
-  --chrome: 0.55;
-  /* A scrollbar has to be visible to count as one. The thumb used to be
-     twilight, which against this panel is roughly the same value as the
-     panel: the transcript scrolled perfectly and looked as though it could
-     not, which is the same thing as being unable to. Pale slate at low alpha
-     reads at a glance and still recedes. */
-  --scroll-thumb: rgba(201, 207, 221, 0.26);
-  --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
-  /* From DESIGN.md: an error must not borrow the accent, which means "this
-     is the action". The edge keeps it legible on pale backgrounds. */
-  --danger: #E4818C;
-  --danger-edge: #6B2E38;
-  /* Agent trail rows that are finished recede. */
-  --step-done: rgba(201, 207, 221, 0.7);
+  /* A scrollbar has to be visible to count as one. */
+  --scroll-thumb: rgba(255, 255, 255, 0.28);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.46);
+  /* Agent trail rows that are finished recede, in a solid colour. */
+  --step-done: var(--label-2);
 }
 
 * {
@@ -55,22 +19,21 @@
   padding: 0;
 }
 
-/* Selected text takes the accent at low alpha, not the Windows blue the
-   engine falls back to: a bright system blue on these surfaces is a colour
-   outside the palette, and it was the loudest thing in the bar. */
 ::selection {
-  background: rgba(130, 58, 128, 0.6);
-  color: #C9CFDD;
+  background: rgba(197, 111, 195, 0.5);
+  color: #fff;
 }
 
 html,
 body {
   background: transparent;
   overflow: hidden;
-  font-family: -apple-system, "Segoe UI", sans-serif;
-  color: var(--slate);
+  font-family: var(--font-text);
+  font-weight: 400;
+  color: var(--label);
   font-size: 14px;
   user-select: none;
+  text-rendering: optimizeLegibility;
 }
 
 button {
@@ -81,15 +44,6 @@ button {
   cursor: pointer;
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 1px var(--slate);
-  border-radius: 4px;
-}
-
-/* The id selectors below set display values, which would beat the UA rule
-   for the hidden attribute; these keep hidden meaning hidden. */
 #pill[hidden],
 #panel[hidden],
 #opanel[hidden],
@@ -97,11 +51,19 @@ button {
 #bar-status[hidden],
 #intent-menu[hidden],
 #guess[hidden],
-#examples[hidden] {
+#examples[hidden],
+#region-chip[hidden],
+#notice[hidden],
+#chat[hidden],
+#find-view[hidden],
+#chat-tools[hidden],
+.copy-msg[hidden],
+.link-btn[hidden],
+.g-chip[hidden],
+.g-btn[hidden] {
   display: none;
 }
 
-/* Read by screen readers, never seen. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -112,133 +74,107 @@ button {
   white-space: nowrap;
 }
 
-/* ------------------------------------------------------------------- pill */
+/* ---------------------------------------------------------------- the orb
+
+   Pinned to the anchored corner at its own size, so it is in the same place
+   whether the window is orb-sized or still bar-sized (the bar folds into it
+   before the window shrinks). */
 
 #pill {
+  --r: 22px;
   position: fixed;
-  inset: 3px;
-  border-radius: 11px;
-  background: var(--skin);
-  border: 1px solid var(--edge);
-  box-shadow: var(--bevel), var(--lift);
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  transition: border-color var(--d-fast) ease, filter var(--d-fast) ease;
+  color: var(--label-2);
+  transition: color var(--d-fast) ease, transform 200ms var(--ease-settle);
 }
 
-#pill.in {
-  animation: pill-in 220ms var(--ease-glide);
-}
-
-@keyframes pill-in {
-  from {
-    opacity: 0;
-    transform: scale(0.88);
-  }
-}
+body[data-anchor-h="left"] #pill { left: var(--stage); }
+body[data-anchor-h="right"] #pill { right: var(--stage); }
+body[data-anchor-h="center"] #pill { left: 50%; margin-left: -22px; }
+body[data-anchor-v="top"] #pill { top: var(--stage); }
+body[data-anchor-v="bottom"] #pill { bottom: var(--stage); }
+body[data-anchor-v="center"] #pill { top: 50%; margin-top: -22px; }
 
 #pill:hover {
-  border-color: rgba(201, 207, 221, 0.34);
-  filter: brightness(1.14);
+  color: var(--label);
 }
 
-.pill-mark {
-  flex: 0 0 auto;
-  color: var(--slate);
-  opacity: 0.7;
-  transition: opacity var(--d-fast) ease;
+#pill:active {
+  transform: scale(0.94);
 }
 
-#pill:hover .pill-mark {
-  opacity: 1;
+.orb-mark {
+  grid-area: 1 / 1;
+  fill: currentColor;
+  transform: translate(1px, 1px);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  transition: opacity var(--d-fast) ease, transform var(--d-med) var(--ease-settle);
 }
 
+/* A task running: its step number takes the pointer's place. */
 .pill-label {
-  flex: 1;
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.75);
-  transition: color var(--d-fast) ease;
+  grid-area: 1 / 1;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--label);
+  opacity: 0;
 }
 
-#pill:hover .pill-label {
-  color: var(--slate);
-}
-
-/* The state light. Dim when there is nothing to come back to, lit when a
-   conversation is waiting behind it, breathing while an answer is on its
-   way. Reading the collapsed pill now tells you something. */
-.pill-dot {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(201, 207, 221, 0.3);
-  transition: background var(--d-fast) ease, box-shadow var(--d-fast) ease;
-}
-
-body[data-pill="chat"] .pill-dot {
-  background: var(--accent);
-  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.4);
-}
-
-body[data-pill="busy"] .pill-dot {
-  background: var(--accent);
-  animation: pill-breathe 1.4s ease-in-out infinite;
-}
-
-body[data-pill="busy"] .pill-label {
-  color: rgba(201, 207, 221, 0.7);
-}
-
-/* The agent has the computer: the pill counts its steps instead of idling. */
-body[data-pill="agent"] .pill-dot {
-  background: var(--accent);
+body[data-pill="agent"] .orb-mark {
+  opacity: 0;
+  transform: scale(0.8);
 }
 
 body[data-pill="agent"] .pill-label {
-  color: var(--slate);
-  font-variant-numeric: tabular-nums;
+  opacity: 1;
 }
 
-/* The last run failed, or the connection is gone: one small dot in
-   --danger, cleared the next time the bar opens. */
+/* A badge, not a dot in a row: a conversation waiting behind the orb, or
+   the last thing failing. Ringed in the glass tint so it reads on any
+   backdrop. */
+.pill-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 2px rgb(var(--tint) / 0.9);
+  transform: scale(0);
+  transition: transform 240ms var(--ease-settle), background var(--d-fast) ease;
+}
+
+body[data-pill="chat"] .pill-dot,
+body[data-pill-error="1"] .pill-dot {
+  transform: scale(1);
+}
+
 body[data-pill-error="1"] .pill-dot {
   background: var(--danger);
-  box-shadow: 0 0 0 1px var(--danger-edge);
-  animation: none;
 }
 
-@keyframes pill-breathe {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-body[data-mode="panel"] #pill {
+body[data-mode="panel"] #pill,
+body[data-mode="hud"] #pill {
   display: none;
+}
+
+/* While the bar folds back, the orb waits for it. */
+body[data-folding] #pill {
+  visibility: hidden;
 }
 
 /* ------------------------------------------------------- panel positioning
 
-   The window itself glides open (see lib/motion.js); these surfaces are
-   pinned at their full size against the edge the window grows away from, so
-   the growth uncovers a finished layout instead of reflowing one. Nothing
-   inside moves while the frame changes size, which is what removes the
-   flicker that a CSS scale on the same gesture used to produce. */
+   The surfaces sit inside the window's transparent margin (--stage), pinned
+   to the corner the window is anchored to. */
 
-/* The width follows the window, which the user can drag. It is set as a
-   variable rather than 100% on purpose: during the opening glide the frame
-   is still narrow, and a percentage would reflow the contents inside it,
-   which is the reflow this pinning exists to avoid. */
 #panel,
 #opanel {
   position: fixed;
@@ -247,12 +183,12 @@ body[data-mode="panel"] #pill {
 
 body[data-anchor-h="left"] #panel,
 body[data-anchor-h="left"] #opanel {
-  left: 0;
+  left: var(--stage);
 }
 
 body[data-anchor-h="right"] #panel,
 body[data-anchor-h="right"] #opanel {
-  right: 0;
+  right: var(--stage);
 }
 
 body[data-anchor-h="center"] #panel,
@@ -265,273 +201,316 @@ body[data-anchor-v="top"] #panel,
 body[data-anchor-v="top"] #opanel,
 body[data-anchor-v="center"] #panel,
 body[data-anchor-v="center"] #opanel {
-  top: 0;
+  top: var(--stage);
 }
 
 body[data-anchor-v="bottom"] #panel,
 body[data-anchor-v="bottom"] #opanel {
-  bottom: 0;
+  bottom: var(--stage);
 }
 
-/* ------------------------------------------------------------------ panel */
+/* ------------------------------------------------------------------- bar
 
-/* One surface. The bar itself is the field: there is no bordered input
-   sitting inside a bordered panel, which was the single loudest amateur tell
-   in the v0.3 capture. Depth comes from the material, not from stacking
-   boxes: a top-lit gradient, one crisp edge, a contact shadow and a deep
-   soft one. */
+   A group of glass pieces, like a GlassEffectContainer: the 56px capsule,
+   and under it only what has something to say. */
+
 #panel {
-  background: var(--skin);
-  border: 1px solid var(--edge);
-  border-radius: 12px;
-  padding: var(--gutter);
   display: flex;
   flex-direction: column;
-  gap: var(--gutter);
-  box-shadow: var(--bevel), var(--lift);
+  gap: 8px;
 }
 
-/* The surface only fades; its contents arrive a beat later, staggered, so
-   the panel reads as filling in behind the opening frame. */
-#panel.in {
-  animation: surface-in var(--d-fast) var(--ease-out);
-}
-
-#panel.in > * {
-  animation: content-in var(--d-med) var(--ease-out) backwards;
-}
-
-#panel.in > *:nth-child(2) {
-  animation-delay: 60ms;
-}
-
-@keyframes surface-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes content-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
+body[data-anchor-v="bottom"] #panel {
+  flex-direction: column-reverse;
 }
 
 .panel-top {
+  --r: 28px;
+  height: 56px;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: var(--control);
+  gap: 8px;
+  padding: 0 10px 0 12px;
 }
 
-/* No box: the text sits directly on the surface. Focus is shown by the
-   caret and by the panel's own border brightening, never by a ring. */
+/* The content waits for the shape: while the orb grows into the bar, its
+   contents fade in a beat behind it (overlay.js). */
+#panel[data-morph] .panel-top > :not(.gl),
+#panel[data-morph] > :not(.panel-top) {
+  opacity: 0;
+}
+
+#panel[data-morph="in"] .panel-top > :not(.gl) {
+  opacity: 1;
+  transition: opacity 160ms ease 110ms;
+}
+
+#panel[data-morph="in"] > :not(.panel-top) {
+  opacity: 1;
+  transition: opacity 180ms ease 180ms;
+}
+
+#panel[data-morph="out"] .panel-top > :not(.gl),
+#panel[data-morph="out"] > :not(.panel-top) {
+  transition: opacity 90ms ease;
+}
+
 #query-input {
   flex: 1;
   min-width: 0;
   height: 100%;
-  font-family: inherit;
-  font-size: 15px;
-  line-height: var(--control);
-  color: var(--slate);
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 450;
+  color: var(--label);
   background: none;
   border: none;
   padding: 0;
   user-select: text;
-  caret-color: var(--accent);
+  caret-color: var(--accent-bright);
+  text-shadow: none;
 }
 
-/* 0.62 measures 4.6:1 on the panel; 0.45 was 3.1:1. */
 #query-input::placeholder {
-  color: rgba(201, 207, 221, 0.62);
+  color: var(--label-3);
 }
 
-/* The blanket :focus-visible rule further up draws an outline and a 1px
-   halo. On the query field that halo redraws exactly the nested box this
-   design removes, so the field opts out: its focus is the caret, plus the
-   panel border lifting. */
+/* The field's focus is the caret and the capsule's rim brightening; a ring
+   around the text would draw a box inside the box. */
 #query-input:focus,
 #query-input:focus-visible {
   outline: none;
   box-shadow: none;
-  border-radius: 0;
 }
 
-#panel:focus-within {
-  border-color: rgba(201, 207, 221, 0.3);
+#bar:focus-within > .gl::after {
+  padding: calc(var(--px) * 1.5);
 }
 
-/* Chrome recedes: idle at 55%, full only under the cursor. */
-.panel-top button {
+/* Teaches the two sigils while the field is empty. */
+#legend {
+  display: none;
   flex: 0 0 auto;
-  width: var(--control);
-  height: var(--control);
-  display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: var(--slate);
-  opacity: var(--chrome);
-  transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--label-3);
+  margin-right: 2px;
 }
 
-.panel-top button:hover {
-  background: rgba(201, 207, 221, 0.08);
-  opacity: 1;
+#legend kbd + kbd {
+  margin-left: 6px;
 }
 
-/* ------------------------------------------------------------ intent token */
+#query-input:placeholder-shown ~ #legend {
+  display: inline-flex;
+}
 
-/* What Enter will do, where the text starts. Guessed, it is text: slate at
-   0.72, no box. Chosen (a prefix, Ctrl+1/2/3, the menu), it gains a quiet
-   fill so the lock is visible without reading it. Phase B turns this into a
-   glass chip; it keeps these class names and data attributes. */
-.panel-top .intent-token {
-  width: auto;
-  min-width: 44px;
-  padding: 0 8px;
-  justify-content: center;
+/* Esc and a click outside collapse; the close button is kept for anyone
+   looking for one when the bar is wide enough to hold it. */
+#close-btn {
+  display: none;
+}
+
+@media (min-width: 520px) {
+  #close-btn {
+    display: inline-flex;
+  }
+}
+
+body[data-region="1"] #region-btn {
+  color: var(--accent-bright);
+}
+
+/* ------------------------------------------------------------ intent token
+
+   A capsule at the left of the field saying what Enter will do. Guessed: a
+   quiet fill. Chosen (a sigil, Ctrl+1/2/3, the menu): tinted, and it lands
+   with the settle. Its width follows its word (FLIP, bar.js). */
+
+.intent-token {
+  flex: 0 0 auto;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px 0 9px;
+  border-radius: var(--r-cap);
   font-size: 13px;
-  color: rgba(201, 207, 221, 0.72);
-  opacity: 1;
-  transition: color var(--d-fast) ease, background var(--d-fast) ease;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
 
-.panel-top .intent-token:hover {
-  background: rgba(201, 207, 221, 0.08);
-  color: var(--slate);
+.intent-token:hover {
+  background: var(--fill-2);
 }
 
 .intent-token[data-locked="true"] {
-  color: var(--slate);
-  background: rgba(201, 207, 221, 0.1);
+  background: var(--accent-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.2);
 }
 
-.intent-token[data-intent="do"] {
-  color: var(--slate);
+.intent-token.lock {
+  animation: token-lock 260ms var(--ease-settle);
 }
 
-/* A low-confidence guess is the same word, dimmer. */
-.intent-token[data-locked="false"][data-confidence="low"] .intent-name {
-  opacity: 0.85;
+@keyframes token-lock {
+  from {
+    transform: scale(0.95);
+  }
+}
+
+.tok-glyph {
+  display: none;
+  flex: 0 0 auto;
+  color: var(--label-2);
+}
+
+.intent-token[data-locked="true"] .tok-glyph {
+  color: var(--label);
+}
+
+.intent-token[data-intent="ask"] .g-ask,
+.intent-token[data-intent="find"] .g-find,
+.intent-token[data-intent="do"] .g-do {
+  display: block;
+}
+
+/* A low-confidence guess is the same word with a quieter glyph; the word
+   itself stays at full contrast. */
+.intent-token[data-locked="false"][data-confidence="low"] {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.intent-token.swap .intent-name,
+.intent-token.swap .tok-glyph {
+  animation: token-swap 200ms var(--ease-morph) both;
 }
 
 .intent-token.swap .intent-name {
-  display: inline-block;
-  animation: token-swap var(--d-med) var(--ease-settle);
+  animation-delay: 40ms;
 }
 
 @keyframes token-swap {
   from {
     opacity: 0;
-    transform: scale(0.94);
+    transform: translateY(5px) scale(0.85);
+    filter: blur(2px);
   }
 }
 
+/* ------------------------------------------------------------- the menu */
+
 #intent-menu {
+  --r: 18px;
   list-style: none;
-  margin-top: 8px;
-  padding: 4px;
-  border-top: 1px solid var(--hairline);
-  font-size: 13px;
+  padding: 6px;
+  font-size: 14px;
+  animation: drop-in 220ms var(--ease-morph);
 }
 
 #intent-menu li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
+  gap: 12px;
+  min-height: 36px;
+  padding: 0 8px 0 12px;
+  border-radius: 12px;
   cursor: pointer;
+  color: var(--label);
 }
 
 #intent-menu li:hover,
 #intent-menu li:focus {
-  background: rgba(201, 207, 221, 0.08);
+  background: var(--fill-2);
   outline: none;
 }
 
 #intent-menu li:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgba(255, 255, 255, 0.92);
   outline-offset: -2px;
 }
 
 #intent-menu li[aria-selected="true"] span::after {
-  content: " · now";
-  color: rgba(201, 207, 221, 0.72);
+  content: "  ✓";
+  color: var(--label-2);
 }
 
-kbd {
-  font: inherit;
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.72);
-  font-variant-numeric: tabular-nums;
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
 }
 
-/* ------------------------------------------------------------ guess card */
+/* ---------------------------------------------------- rows under the bar */
 
 .guess-card {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--hairline);
-  font-size: 12px;
+  --r: 20px;
+  padding: 14px 16px;
+  font-size: 14px;
   line-height: 1.45;
-  color: rgba(201, 207, 221, 0.8);
-  animation: content-in var(--d-med) var(--ease-settle) backwards;
+  color: var(--label);
+  animation: drop-in 260ms var(--ease-settle);
 }
 
 .guess-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-  margin-left: -8px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-#guess-run {
-  color: var(--slate);
+.guess-actions kbd {
+  margin-left: 6px;
 }
-
-/* ------------------------------------------------------------ examples */
 
 #examples {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--hairline);
+  gap: 6px;
 }
 
 .example-chip {
-  min-height: 24px;
-  padding: 2px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-  color: rgba(201, 207, 221, 0.78);
-  background: rgba(201, 207, 221, 0.06);
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+  --r: var(--r-cap);
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: var(--label);
+  border-radius: var(--r-cap);
+  animation: drop-in 240ms var(--ease-morph) backwards;
 }
 
-.example-chip:hover {
-  background: rgba(201, 207, 221, 0.12);
-  color: var(--slate);
+.example-chip:nth-child(2) {
+  animation-delay: 40ms;
 }
 
-/* ------------------------------------------------------------ bar status */
+.example-chip:nth-child(3) {
+  animation-delay: 80ms;
+}
 
-#bar-status {
+#bar-status,
+#region-chip,
+#notice {
+  --r: 18px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 12px;
-  line-height: 1.45;
-  padding-top: 10px;
-  border-top: 1px solid var(--hairline);
-  color: rgba(201, 207, 221, 0.72);
+  gap: 6px 10px;
+  min-height: 40px;
+  padding: 8px 8px 8px 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--label-2);
+  animation: drop-in 220ms var(--ease-morph);
 }
 
 #bar-status-text {
@@ -539,201 +518,139 @@ kbd {
   min-width: 0;
   white-space: pre-line;
   font-variant-numeric: tabular-nums;
+  color: var(--label);
 }
 
-.link-btn {
-  flex: 0 0 auto;
-  min-height: 24px;
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.72);
-  padding: 2px 8px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
-}
-
-.link-btn:hover {
-  background: rgba(201, 207, 221, 0.08);
-  color: var(--slate);
-}
-
-.link-btn[hidden] {
-  display: none;
-}
-
-/* ------------------------------------------------------------ region chip */
-
-/* Reads as a state the panel is in, not as another control: same hairline
-   separation as the notice, no fill, and the only button in it is the way
-   out. */
-#region-chip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  line-height: 1.4;
-  padding-top: 10px;
-  margin-top: 2px;
-  border-top: 1px solid var(--hairline);
-  color: rgba(201, 207, 221, 0.72);
-}
-
-#region-chip[hidden] {
-  display: none;
+/* The scope reads as a control: a capsule with a chevron. */
+.g-chip.scope::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
 }
 
 #region-chip svg {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--accent-bright);
 }
 
 #region-size {
   flex: 1;
   font-variant-numeric: tabular-nums;
-}
-
-#region-clear {
-  flex: 0 0 auto;
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
-  padding: 2px 8px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
-}
-
-#region-clear:hover {
-  background: rgba(201, 207, 221, 0.08);
-  color: var(--slate);
-}
-
-/* The button that starts a selection stays lit while one is in force, so the
-   panel says which mode it is in from two places at once. */
-body[data-region="1"] #region-btn {
-  color: var(--accent);
-  opacity: 1;
-}
-
-/* ----------------------------------------------------------------- notice */
-
-/* Separated by a hairline and whitespace. A filled pill here would be a
-   third level of nesting inside an already filled panel. */
-#notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  line-height: 1.4;
-  padding-top: var(--gutter);
-  border-top: 1px solid var(--hairline);
-  color: rgba(201, 207, 221, 0.8);
-}
-
-#notice[hidden] {
-  display: none;
+  color: var(--label);
 }
 
 #notice svg {
   flex: 0 0 auto;
+  color: var(--label-2);
 }
 
 #notice span {
   flex: 1;
+  color: var(--label);
 }
 
-.accent-btn {
-  flex: 0 0 auto;
-  background: var(--accent);
-  color: var(--slate);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 6px;
-  transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
-}
-
-.accent-btn:hover {
-  opacity: 0.88;
-}
-
-.accent-btn:active {
-  transform: scale(0.97);
-}
-
-/* ---------------------------------------------------------------- opanel */
+/* --------------------------------------------------------- answer sheet */
 
 #opanel {
-  background: var(--skin);
-  border: 1px solid var(--edge);
-  border-radius: 12px;
-  padding: var(--gutter);
+  --r: var(--r-sheet);
+  padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: var(--bevel), var(--lift);
 }
 
-/* The window glides open around it; the surface only fades. */
+/* The sheet grows out of the bar's edge: revealed from that edge with a
+   barely-there scale, on the morph curve. Rim and refraction come back once
+   it lands (glass.js). */
 #opanel.in {
-  animation: surface-in var(--d-fast) var(--ease-out);
+  animation: sheet-grow var(--d-sheet) var(--ease-morph);
+  transform-origin: 50% 0;
 }
 
-/* No title row. The product does not need to introduce itself on its own
-   surface, and the only control here earns its place by being quiet: a
-   single icon at 55%, in the same column as everything else. */
+body[data-anchor-v="bottom"] #opanel.in {
+  animation-name: sheet-grow-up;
+  transform-origin: 50% 100%;
+}
+
+@keyframes sheet-grow {
+  from {
+    clip-path: inset(0 0 calc(100% - 56px) 0 round var(--r-sheet));
+    transform: scale(0.985);
+    opacity: 0.4;
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(-30px -30px -30px -30px round var(--r-sheet));
+  }
+}
+
+@keyframes sheet-grow-up {
+  from {
+    clip-path: inset(calc(100% - 56px) 0 0 0 round var(--r-sheet));
+    transform: scale(0.985);
+    opacity: 0.4;
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(-30px -30px -30px -30px round var(--r-sheet));
+  }
+}
+
+/* Hidden windows keep their last frame; a sheet about to reappear starts
+   empty so that frame is never what shows first (output.js). */
+#opanel.away {
+  opacity: 0;
+}
+
 #chat-tools {
   display: flex;
   justify-content: flex-end;
   gap: 2px;
-  height: 20px;
-  margin-bottom: -4px;
+  height: 28px;
+  margin: -6px -8px -10px 0;
+  position: relative;
+  z-index: 2;
 }
 
-#chat-tools button {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  color: var(--slate);
+.g-icon.small {
+  width: 28px;
+  height: 28px;
   opacity: 0;
-  transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
-#opanel:hover #chat-tools button,
-#chat-tools button:focus-visible {
-  opacity: var(--chrome);
-}
-
-#chat-tools button:hover {
-  background: rgba(201, 207, 221, 0.08);
+#opanel:hover .g-icon.small,
+.g-icon.small:focus-visible {
   opacity: 1;
 }
-
-/* ------------------------------------------------------------- transcript */
 
 #chat {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  /* Sent by the main process from the work area, so the ceiling here and the
-     window's own ceiling are the same number. */
+  gap: 12px;
   max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* The gutter is reserved whether or not the scrollbar is showing, so the
-     bubbles do not shift sideways the moment a conversation gets long. */
   scrollbar-gutter: stable;
-  padding: 2px;
+  padding: 2px 2px 2px 0;
+  margin-right: -10px;
+  padding-right: 8px;
   user-select: text;
 }
 
-/* Focusable so Page Down, Home and End reach the transcript. The ring is
-   suppressed because the panel is the only thing on screen and a box around
-   the whole transcript reads as an error state. */
 #chat:focus,
 #chat:focus-visible {
   outline: none;
+  box-shadow: none;
 }
 
 ::-webkit-scrollbar {
@@ -761,20 +678,20 @@ body[data-region="1"] #region-btn {
   background: transparent;
 }
 
-/* There is more below. Only shown while the transcript is scrolled away from
-   the bottom, so it never sits under the last line of a short answer. */
+/* More below the fold: the bottom edge dims into the glass. */
 #opanel::after {
-  content: '';
+  content: "";
   position: absolute;
-  left: 1px;
-  right: 1px;
-  bottom: 1px;
-  height: 28px;
-  border-radius: 0 0 11px 11px;
-  background: linear-gradient(rgba(38, 41, 48, 0), rgba(38, 41, 48, 0.92));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  border-radius: 0 0 var(--r-sheet) var(--r-sheet);
+  background: linear-gradient(rgb(var(--tint) / 0), rgb(var(--tint) / 0.7));
   opacity: 0;
   transition: opacity var(--d-fast) ease;
   pointer-events: none;
+  z-index: 1;
 }
 
 body[data-more="1"] #opanel::after {
@@ -799,58 +716,53 @@ body[data-more="1"] #opanel::after {
   align-items: flex-end;
 }
 
+/* One turn is 20px from the next; a question and its answer are 12px. */
+.msg.assistant + .msg.user,
+.msg.trail + .msg.user,
+.msg.error-row + .msg.user {
+  margin-top: 8px;
+}
+
 .bubble {
   max-width: 88%;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.5;
   word-break: break-word;
 }
 
-/* The question stays a chip so the transcript still reads as a
-   conversation. The answer does not: an answer is a document, and putting
-   it in a coloured bubble is what made this look like a toy chat app. */
+/* The question is a plain capsule; the answer is a document and has none. */
 .msg.user .bubble {
-  background: rgba(201, 207, 221, 0.09);
-  border-radius: 8px;
-  border-bottom-right-radius: 4px;
-  padding: 6px 10px;
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.9);
+  max-width: 85%;
+  background: var(--fill-2);
+  box-shadow: var(--chip-rim);
+  border-radius: 18px;
+  padding: 7px 14px;
+  font-size: 14px;
+  color: var(--label);
   white-space: pre-wrap;
 }
 
 .msg.assistant .bubble {
   max-width: 100%;
-  padding: 2px 0 0;
-}
-
-/* A hairline above each answer, so question and answer stay legible as
-   separate turns without either of them needing a container. */
-.msg.assistant + .msg.user {
-  margin-top: 4px;
-}
-
-.msg.user + .msg.assistant {
-  border-top: 1px solid var(--hairline);
-  padding-top: 8px;
-  width: 100%;
+  padding: 0;
 }
 
 .msg-meta {
-  padding: 2px 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  margin-top: 4px;
   opacity: 0;
   transition: opacity var(--d-fast) ease;
 }
 
 .msg.assistant:hover .msg-meta,
-.msg-meta:focus-within {
+.msg-meta:focus-within,
+.msg.assistant:last-child .msg-meta {
   opacity: 1;
 }
 
-/* Copy is a hover affordance because it is optional. Stop is not: while an
-   answer is on its way it is the only control that matters, so the row it
-   lives in stops hiding, and Copy stands aside until there is something
-   finished to copy. */
 .msg.assistant.busy .msg-meta {
   opacity: 1;
 }
@@ -859,137 +771,129 @@ body[data-more="1"] #opanel::after {
   display: none;
 }
 
-.stop-btn[disabled] {
-  opacity: 0.55;
-  cursor: default;
-}
-
 .copy-msg {
+  min-height: 26px;
+  padding: 0 10px;
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.85);
-  padding: 2px 8px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease;
-}
-
-.copy-msg:hover {
-  background: rgba(48, 61, 106, 0.4);
-}
-
-.think-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0 2px;
-}
-
-/* Brain mode runs two calls, and the first one is not streamed. Naming the
-   stage turns an unexplained pause into progress. */
-.stage-label {
-  margin-left: 8px;
-  font-size: 12px;
-  font-style: italic;
-  color: rgba(201, 207, 221, 0.7);
-}
-
-/* Free models are queued: the wait is routinely tens of seconds, and until
-   now there was no way out of one except closing the panel and losing the
-   turn. The control belongs next to the thing you are waiting on. */
-.stop-btn {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(201, 207, 221, 0.85);
-  background: rgba(48, 61, 106, 0.45);
-  padding: 4px 12px;
-  border-radius: 6px;
+  font-weight: 500;
+  color: var(--label-2);
+  border-radius: var(--r-cap);
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
-.stop-btn:hover {
-  background: rgba(48, 61, 106, 0.75);
-  color: var(--slate);
+.copy-msg:hover {
+  background: var(--fill-1);
+  color: var(--label);
 }
 
-.think-dots i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--slate);
-  opacity: 0.35;
-  animation: think 1.2s infinite var(--ease-out);
+.do-it {
+  margin-left: 2px;
 }
 
-.think-dots i:nth-child(2) {
-  animation-delay: 0.15s;
+/* Buttons the scripts create keep their class names; they wear the glass
+   button shapes from glass.css. */
+.stop-btn,
+.retry-btn,
+.accent-btn,
+.link-btn {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: var(--r-cap);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  transition: background var(--d-fast) ease, transform 120ms var(--ease-out);
 }
 
-.think-dots i:nth-child(3) {
-  animation-delay: 0.3s;
+.stop-btn:hover,
+.retry-btn:hover,
+.link-btn:hover {
+  background: var(--fill-2);
 }
 
-@keyframes think {
-  0%,
-  60%,
-  100% {
-    opacity: 0.35;
-    transform: none;
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
+.accent-btn {
+  background: var(--accent-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
+}
+
+.accent-btn:hover {
+  background: rgb(197 111 195 / 0.55);
+}
+
+.stop-btn:active,
+.retry-btn:active,
+.accent-btn:active,
+.link-btn:active {
+  transform: scale(0.96);
+}
+
+.stop-btn[disabled],
+.accent-btn[disabled],
+.link-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.link-btn {
+  background: transparent;
+  box-shadow: none;
+  color: var(--label-2);
+  font-weight: 500;
+}
+
+.g-btn.quiet {
+  background: transparent;
+  box-shadow: none;
+  color: var(--label-2);
+  font-weight: 500;
+}
+
+/* Working. The light on the sheet's rim travels (glass.css, .orbit); in
+   place of the three dots there is only the word. */
+.think-dots {
+  display: none;
+}
+
+.stage-label {
+  font-size: 14px;
+  color: var(--label-2);
+}
+
+.msg.assistant.thinking .stage-label {
+  display: inline-block;
+  min-height: 22px;
 }
 
 .error-row {
   flex-direction: row;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  font-size: 13px;
-  line-height: 1.45;
-  padding-top: 8px;
-  border-top: 1px solid var(--hairline);
-  color: rgba(201, 207, 221, 0.85);
-}
-
-.error-row svg {
-  margin-top: 2px;
-  color: var(--accent);
+  padding: 12px 12px 12px 14px;
+  border-radius: var(--r-card);
+  background: rgba(240, 120, 132, 0.12);
+  box-shadow: inset 0 0 0 var(--px) rgba(242, 160, 168, 0.3);
 }
 
 .error-row svg {
   flex: 0 0 auto;
+  color: var(--danger);
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 .error-row .error-text {
   flex: 1;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--label);
 }
 
-/* The five error messages used to end in "press Enter to retry", which sent
-   the default question because the input clears on send. This sends the one
-   that failed. */
-.retry-btn {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--slate);
-  background: rgba(48, 61, 106, 0.45);
-  padding: 4px 12px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease;
-}
-
-.retry-btn:hover {
-  background: rgba(48, 61, 106, 0.75);
-}
-
-/* A height the user dragged to: the panel fills the window and the
-   transcript scrolls inside it, rather than the window chasing the text. */
 body[data-fixed-height="1"] #opanel {
-  top: 0;
-  bottom: 0;
-  height: 100%;
+  height: calc(100vh - 2 * var(--stage));
 }
 
 body[data-fixed-height="1"] #chat {
@@ -997,72 +901,86 @@ body[data-fixed-height="1"] #chat {
   max-height: none;
 }
 
-/* --------------------------------------------------------------- markdown */
+/* ---------------------------------------------------------------- answers */
 
 .md-body {
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 450;
+  color: var(--label);
+  text-wrap: pretty;
 }
 
 .md-body .md-p {
-  margin: 3px 0;
+  margin: 0 0 8px;
+}
+
+.md-body .md-p:last-child {
+  margin-bottom: 0;
 }
 
 .md-body .md-gap {
-  height: 8px;
+  height: 4px;
 }
 
 .md-body .md-h {
+  font-family: var(--font-display);
   font-weight: 600;
-  margin: 10px 0 4px;
+  font-size: 15px;
+  margin: 14px 0 4px;
 }
 
 .md-body .md-h:first-child {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .md-body .md-h1 {
-  font-size: 16px;
-}
-
-.md-body .md-h2 {
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .md-body ul,
 .md-body ol {
-  margin: 4px 0 6px;
-  padding-left: 20px;
+  margin: 2px 0 8px;
+  padding-left: 22px;
 }
 
 .md-body li {
-  margin: 2px 0;
+  margin: 3px 0;
+}
+
+.md-body li::marker {
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .md-body code {
-  font-family: Consolas, "Cascadia Mono", monospace;
-  font-size: 13px;
-  background: rgba(16, 37, 79, 0.6);
-  border: 1px solid rgba(48, 61, 106, 0.6);
-  border-radius: 4px;
-  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 1px 6px;
+  color: var(--label);
 }
 
 .md-body pre {
-  font-family: Consolas, "Cascadia Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.5;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--twilight);
-  border-radius: 8px;
-  padding: 9px 11px;
-  margin: 6px 0;
+  line-height: 1.55;
+  background: rgba(0, 0, 0, 0.32);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.06);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  margin: 6px 0 10px;
   overflow-x: auto;
   white-space: pre;
+  color: var(--label);
 }
 
-/* Kept narrower than the page scrollbar: a code block is a small box, and a
-   10px bar inside it eats the indentation. */
+.md-body pre code {
+  background: none;
+  padding: 0;
+}
+
 .md-body pre::-webkit-scrollbar {
   height: 8px;
 }
@@ -1075,51 +993,55 @@ body[data-fixed-height="1"] #chat {
 }
 
 .md-body blockquote {
-  border-left: 2px solid var(--twilight);
-  padding-left: 10px;
-  margin: 4px 0;
-  color: rgba(201, 207, 221, 0.8);
+  border-left: 2px solid rgba(255, 255, 255, 0.24);
+  padding-left: 12px;
+  margin: 6px 0;
+  color: var(--label-2);
 }
 
 .md-body hr {
   border: none;
-  border-top: 1px solid var(--twilight);
-  margin: 8px 0;
+  border-top: var(--px) solid var(--hairline);
+  margin: 12px 0;
 }
 
 .md-body a {
-  color: var(--slate);
+  color: var(--label);
   text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.md-body a:hover {
-  text-decoration-color: var(--accent);
+  text-decoration-color: var(--accent-bright);
+  text-underline-offset: 3px;
 }
 
 .md-body strong {
-  font-weight: 600;
+  font-weight: 650;
 }
 
-/* -------------------------------------------------------------- HUD edit */
+/* ------------------------------------------------------------ layout editor */
 
 #hud {
+  --r: var(--r-sheet);
   position: fixed;
-  inset: 0;
-  background: rgba(43, 44, 51, 0.94);
-  border: 2px dashed var(--accent);
-  border-radius: 12px;
+  inset: var(--stage);
   display: flex;
   align-items: center;
   justify-content: center;
   -webkit-app-region: drag;
   cursor: move;
+}
+
+#hud::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 22px;
+  border: 1.5px dashed rgb(197 111 195 / 0.85);
+  pointer-events: none;
   transition: border-color var(--d-fast) ease;
 }
 
-#hud.snapped {
+#hud.snapped::before {
   border-style: solid;
-  border-color: var(--slate);
+  border-color: var(--label);
 }
 
 .hud-inner {
@@ -1128,17 +1050,20 @@ body[data-fixed-height="1"] #chat {
   align-items: center;
   gap: 6px;
   text-align: center;
-  padding: 0 16px;
+  padding: 0 20px;
 }
 
 .hud-title {
+  font-family: var(--font-display);
+  font-size: 15px;
   font-weight: 600;
 }
 
 .hud-sub {
   font-size: 13px;
-  color: rgba(201, 207, 221, 0.75);
-  margin-bottom: 4px;
+  color: var(--label-2);
+  margin-bottom: 6px;
+  text-wrap: balance;
 }
 
 .hud-actions {
@@ -1153,140 +1078,85 @@ body[data-fixed-height="1"] #chat {
   min-width: 96px;
 }
 
-#dock-toggle {
-  font-size: 13px;
-  padding: 5px 12px;
-  border-radius: 6px;
-  background: rgba(48, 61, 106, 0.4);
-  transition: background var(--d-fast) ease;
-}
-
-#dock-toggle:hover {
-  background: rgba(48, 61, 106, 0.65);
-}
-
 .dock-badge {
   font-size: 12px;
-  color: var(--slate);
-  background: rgba(130, 58, 128, 0.18);
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 2px 8px;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--accent-glass);
+  border-radius: var(--r-cap);
+  padding: 3px 10px;
   margin-bottom: 6px;
 }
 
-/* ---------------------------------------------------------------- motion */
+/* ------------------------------------------------------------------ find
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition: none !important;
-    animation: none !important;
-  }
-}
+   The list and the screen share one mark: a small rounded rectangle, filled
+   for the words themselves, outlined for something related. */
 
-/* More contrast asked for: secondary text and edges go to full slate. */
-@media (prefers-contrast: more) {
-  :root {
-    --edge: rgba(201, 207, 221, 0.6);
-    --hairline: rgba(201, 207, 221, 0.4);
-    --chrome: 1;
-  }
-  #query-input::placeholder,
-  #bar-status,
-  .link-btn,
-  kbd,
-  .intent-token {
-    color: var(--slate) !important;
-  }
-}
-
-/* Windows high contrast themes: system colours, real borders, no fills that
-   would vanish. */
-@media (forced-colors: active) {
-  #panel,
-  #opanel,
-  #pill,
-  .guess-card,
-  #intent-menu {
-    border: 1px solid CanvasText;
-    forced-color-adjust: auto;
-  }
-  .intent-token[data-locked="true"] {
-    border: 1px solid ButtonText;
-  }
-  :focus-visible {
-    outline: 2px solid Highlight;
-  }
-  #intent-menu li[aria-selected="true"] {
-    background: Highlight;
-    color: HighlightText;
-  }
-}
-
-/* ===================================================================== v2 */
-
-#chat[hidden],
-#find-view[hidden],
-#chat-tools[hidden] {
-  display: none;
-}
-
-/* ------------------------------------------------------------- find view */
-
-/* Rows separated by hairlines, nothing filled except the current one. The
-   mark says what kind of match it is: a filled dot is the word itself, a
-   ring is something related. Same distinction the lens draws. */
 #find-view {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   max-height: var(--chat-max, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  margin: 0 -10px 0 -6px;
+  padding-right: 4px;
 }
 
 .find-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 8px 8px;
-  border-radius: 6px;
+  padding: 9px 12px 9px 14px;
+  border-radius: var(--r-row);
   transition: background var(--d-fast) ease;
 }
 
-.find-row + .find-row {
-  border-top: 1px solid var(--hairline);
-}
-
 .find-row:hover {
-  background: rgba(201, 207, 221, 0.06);
+  background: var(--fill-1);
 }
 
+/* The current row is a glass pill with the accent as a mark at its leading
+   edge, not a wash of colour. */
 .find-row.current {
-  background: rgba(130, 58, 128, 0.22);
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.find-row.current::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent-bright);
 }
 
 .find-row.offscreen .find-snippet {
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
 }
 
 .kind-mark {
   flex: 0 0 auto;
-  width: 8px;
+  width: 14px;
   height: 8px;
-  margin-top: 6px;
-  border-radius: 50%;
-  background: var(--slate);
+  margin-top: 7px;
+  border-radius: 3px;
+  background: rgb(197 111 195 / 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 var(--px) rgba(0, 0, 0, 0.4);
 }
 
 .kind-mark.related,
 .kind-mark.concept {
   background: none;
-  border: 1.5px solid var(--slate);
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright), 0 0 0 var(--px) rgba(0, 0, 0, 0.4);
 }
 
 .find-body {
@@ -1299,54 +1169,112 @@ body[data-fixed-height="1"] #chat {
   font-size: 14px;
   line-height: 1.45;
   word-break: break-word;
+  color: var(--label);
 }
 
 .find-snippet b {
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .find-why {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
 }
 
+/* Empty and offline: a headline and a line under it. */
 .find-empty {
   font-size: 13px;
   line-height: 1.5;
-  color: rgba(201, 207, 221, 0.75);
-  padding: 4px 2px;
+  color: var(--label-2);
+  padding: 6px 6px 4px;
   white-space: pre-line;
 }
 
-/* ----------------------------------------------------------------- trail */
+.find-empty::first-line {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--label);
+}
+
+/* ------------------------------------------------------------ agent trail
+
+   Outcome first, then the steps as a checklist. A step's state is its
+   glyph's shape (ring, arc, check, cross, dash); colour only backs it up. */
 
 .msg.trail {
   width: 100%;
   align-items: stretch;
-  gap: 6px;
-}
-
-.msg.user + .msg.trail {
-  border-top: 1px solid var(--hairline);
-  padding-top: 8px;
+  gap: 8px;
 }
 
 .trail-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
+  min-height: 24px;
 }
 
 .trail-title {
   font-size: 13px;
   font-weight: 600;
+  color: var(--label-2);
 }
 
 .trail-status {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  font-size: 13px;
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
+}
+
+.trail-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-cap);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.trail-toggle:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+.trail-toggle::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--d-fast) var(--ease-out);
+}
+
+.msg.trail.open .trail-toggle::after {
+  transform: translateY(3px) rotate(225deg);
+}
+
+.msg.trail.ended:not(.open) .trail-rows {
+  display: none;
+}
+
+.trail-outcome {
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--label);
+}
+
+.trail-outcome .md-p {
+  margin: 0;
 }
 
 .trail-rows {
@@ -1357,47 +1285,125 @@ body[data-fixed-height="1"] #chat {
 
 .trow {
   display: grid;
-  grid-template-columns: 12px 1fr auto;
+  grid-template-columns: 18px 1fr auto;
   align-items: start;
-  gap: 8px;
-  padding: 3px 0;
+  gap: 10px;
+  padding: 4px 0;
   font-size: 14px;
   line-height: 1.45;
+  color: var(--label);
   animation: msg-in var(--d-med) var(--ease-out);
 }
 
-/* Done steps recede; the running one is full slate. Reads are quieter
-   still: they are how the agent looks, not what it does. */
 .trow.done,
 .trow.skipped {
   color: var(--step-done);
 }
 
-.trow.read,
+/* Reading the screen is how the agent looks, not something it did. */
+.trow.read:not(.failed) {
+  display: none;
+}
+
 .trow.note {
-  font-size: 12px;
-  color: var(--step-done);
+  font-size: 13px;
+  color: var(--label-2);
 }
 
 .trow-mark {
-  width: 6px;
-  height: 6px;
-  margin: 7px 3px 0;
+  position: relative;
+  width: 18px;
+  height: 20px;
+}
+
+/* Pending: a small ring. */
+.trow-mark::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: rgba(201, 207, 221, 0.35);
+  box-shadow: inset 0 0 0 1.5px var(--label-3);
 }
 
-.trow.running .trow-mark {
-  background: var(--accent);
+/* Running: an arc turning, the rim light's language at row size. */
+.trow.running .trow-mark::before {
+  left: 2px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+  border: 1.6px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--label);
+  animation: spin 900ms linear infinite;
 }
 
-.trow.failed .trow-mark {
+/* Done: a check in a circle. */
+.trow.done .trow-mark::before {
+  left: 2px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+  background: var(--fill-2);
+}
+
+.trow.done .trow-mark::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
+  width: 4px;
+  height: 7px;
+  border-right: 1.6px solid var(--label);
+  border-bottom: 1.6px solid var(--label);
+  transform: rotate(45deg);
+}
+
+/* Failed: a cross in a circle, in the danger colour. */
+.trow.failed .trow-mark::before {
+  left: 2px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
   background: var(--danger);
 }
 
-.trow.skipped .trow-mark {
-  background: none;
-  border: 1px solid rgba(201, 207, 221, 0.5);
+.trow.failed .trow-mark::after {
+  content: "×";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 14px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 14px;
+  color: #2a0c10;
+}
+
+/* Skipped: a dash. */
+.trow.skipped .trow-mark::before {
+  left: 5px;
+  top: 9px;
+  width: 8px;
+  height: 0;
+  border-radius: 1px;
+  box-shadow: none;
+  border-top: 1.6px solid var(--label-2);
+}
+
+.trow.thinking .trow-mark::before {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .trow-body {
@@ -1408,48 +1414,101 @@ body[data-fixed-height="1"] #chat {
 }
 
 .trow-note {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.75);
+  font-size: 13px;
+  color: var(--label-2);
 }
 
 .trow-side {
   font-size: 12px;
-  color: rgba(201, 207, 221, 0.7);
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+/* The plan is the checklist the steps are measured against. */
+.trow.plan .trow-mark {
+  display: none;
+}
+
+.trow.plan {
+  grid-template-columns: 1fr auto;
+}
+
+.trow.plan .trow-text {
+  display: none;
 }
 
 .plan-steps {
-  margin: 2px 0 0;
-  padding-left: 18px;
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.8);
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--label);
 }
 
-.think-dots.small {
-  padding: 0;
+.plan-steps li {
+  position: relative;
+  padding-left: 28px;
 }
 
-.think-dots.small i {
+.plan-steps li::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--label-3);
+}
+
+.msg.trail[data-state="done"] .plan-steps li {
+  color: var(--label-2);
+}
+
+.msg.trail[data-state="done"] .plan-steps li::before {
+  left: 2px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+  background: var(--fill-2);
+}
+
+.msg.trail[data-state="done"] .plan-steps li::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 6px;
   width: 4px;
-  height: 4px;
+  height: 7px;
+  border-right: 1.6px solid var(--label);
+  border-bottom: 1.6px solid var(--label);
+  transform: rotate(45deg);
 }
 
 .ask-input {
-  margin-top: 4px;
-  height: var(--control);
+  margin-top: 6px;
+  height: 36px;
   font: inherit;
   font-size: 14px;
-  color: var(--slate);
-  background: rgba(201, 207, 221, 0.07);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0 10px;
+  color: var(--label);
+  background: rgba(0, 0, 0, 0.28);
+  border: none;
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 0 12px;
   user-select: text;
+}
+
+.ask-input::placeholder {
+  color: var(--label-3);
 }
 
 .ask-input:focus {
   outline: none;
-  border-color: rgba(201, 207, 221, 0.3);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.7);
 }
 
 .trail-meta {
@@ -1461,44 +1520,63 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
-  color: rgba(201, 207, 221, 0.85);
+  font-size: 14px;
+  color: var(--label);
+}
+
+.trail-banner {
+  padding: 10px 10px 10px 14px;
+  border-radius: var(--r-card);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
 }
 
 .trail-banner span {
   flex: 1;
 }
 
-.note-row {
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid var(--hairline);
-  color: rgba(201, 207, 221, 0.75);
+.trail-banner .retry-btn {
+  background: var(--accent-glass);
 }
 
-/* The confirm card: the one card in the trail. Twilight fill because cards
-   carry the ~30% band; Allow is the primary; the risky verb in the sentence
-   is not coloured, the card already means caution. */
+.note-row {
+  width: 100%;
+  color: var(--label-2);
+}
+
+/* The confirm card rises from the bottom of the sheet: a raised plate on
+   the thick glass, not a second pane of glass inside it. */
 .confirm-card,
 .msg.consent {
   width: 100%;
-  background: var(--twilight);
-  border-radius: 8px;
-  padding: var(--gutter);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  border-radius: var(--r-card);
+  padding: 16px;
   display: grid;
-  gap: 8px;
-  animation: msg-in var(--d-med) var(--ease-out);
+  gap: 6px;
+  animation: card-rise 280ms var(--ease-settle);
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
 }
 
 .confirm-text,
 .consent-title {
-  font-size: 14px;
+  font-family: var(--font-display);
+  font-size: 15px;
   font-weight: 600;
+  color: var(--label);
 }
 
 .confirm-reason {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.8);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--label-2);
 }
 
 .consent-list {
@@ -1506,7 +1584,8 @@ body[data-fixed-height="1"] #chat {
   font-size: 13px;
   line-height: 1.5;
   display: grid;
-  gap: 2px;
+  gap: 4px;
+  color: var(--label);
 }
 
 .confirm-actions {
@@ -1514,68 +1593,134 @@ body[data-fixed-height="1"] #chat {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
+  margin-top: 8px;
 }
 
-.keycap {
-  font-family: inherit;
+.confirm-hint {
+  margin-right: auto;
   font-size: 12px;
-  font-weight: 400;
-  padding: 0 4px;
-  margin-left: 4px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.25);
-  color: rgba(201, 207, 221, 0.85);
+  color: var(--label-3);
+  opacity: 0;
+  transition: opacity var(--d-fast) ease;
+}
+
+.confirm-card:focus-within .confirm-hint,
+.confirm-card:focus .confirm-hint {
+  opacity: 1;
 }
 
 .trail-stored summary {
-  font-size: 12px;
-  color: rgba(201, 207, 221, 0.75);
+  font-size: 13px;
+  color: var(--label-2);
   cursor: pointer;
 }
 
 .trail-text {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
-  color: rgba(201, 207, 221, 0.75);
+  color: var(--label-2);
   margin-top: 4px;
 }
 
-.do-it {
-  margin-left: 4px;
-}
-
-.copy-msg[hidden] {
-  display: none;
-}
-
-/* ------------------------------------------------------------- v2.1 */
-
-/* Time and cost under an answer: small, tabular, out of the way. */
 .usage {
-  font-size: 11px;
-  color: rgba(201, 207, 221, 0.72);
+  font-size: 12px;
+  color: var(--label-2);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
   align-self: center;
 }
 
 .confirm-url {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
   word-break: break-all;
-  margin-top: 4px;
-  color: rgba(201, 207, 221, 0.8);
+  margin-top: 2px;
+  color: var(--label-2);
 }
 
 .confirm-url strong {
-  color: var(--slate);
+  color: var(--label);
   font-weight: 600;
 }
 
 .confirm-card:focus,
 .consent:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgba(255, 255, 255, 0.92);
   outline-offset: 2px;
+}
+
+/* ------------------------------------------------- reduced motion, contrast */
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-name: fade-only !important;
+  animation-duration: 100ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+  transition-duration: 100ms !important;
+  transition-delay: 0ms !important;
+}
+
+/* Loops stop altogether. */
+html[data-motion="reduced"] .trow.running .trow-mark::before {
+  animation: none !important;
+}
+
+@keyframes fade-only {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 100ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 100ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --scroll-thumb: rgba(255, 255, 255, 0.6);
+  }
+  .intent-token,
+  .g-chip,
+  .copy-msg {
+    box-shadow: inset 0 0 0 1px #fff;
+  }
+}
+
+@media (forced-colors: active) {
+  #panel,
+  #opanel,
+  .guess-card,
+  #intent-menu,
+  .confirm-card,
+  .msg.consent {
+    border: 1px solid CanvasText;
+    forced-color-adjust: auto;
+  }
+  .intent-token[data-locked="true"],
+  .find-row.current {
+    border: 1px solid Highlight;
+  }
+  #intent-menu li[aria-selected="true"] {
+    background: Highlight;
+    color: HighlightText;
+  }
+  .kind-mark {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+  .kind-mark.related,
+  .kind-mark.concept {
+    background: Canvas;
+    box-shadow: inset 0 0 0 1.5px Highlight;
+  }
 }

@@ -127,6 +127,18 @@ function newBlock(task) {
   head.appendChild(el('span', 'trail-title', 'Task'));
   const status = el('span', 'trail-status', 'Planning…');
   head.appendChild(status);
+  // Once a run ends its steps fold away under the outcome; this opens them.
+  const toggle = el('button', 'trail-toggle', '');
+  toggle.type = 'button';
+  toggle.hidden = true;
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.addEventListener('click', () => {
+    const open = !wrap.classList.contains('open');
+    wrap.classList.toggle('open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    requestResize();
+  });
+  head.appendChild(toggle);
   wrap.appendChild(head);
   const list = el('ol', 'trail-rows');
   wrap.appendChild(list);
@@ -146,7 +158,9 @@ function newBlock(task) {
     playEntrance();
   }
   chatEl.appendChild(wrap);
-  block = { el: wrap, rows: new Map(), list, meta, stop, status, task, ended: false, card: null };
+  wrap.dataset.state = 'planning';
+  block = { el: wrap, rows: new Map(), list, meta, stop, status, toggle, task, ended: false, card: null };
+  syncOrbit();
   scrollToBottom(true);
   requestResize();
   return block;
@@ -201,8 +215,9 @@ function rowEl(r) {
     side.appendChild(dots);
   } else if (STATE_MARK[r.state]) {
     side.textContent = STATE_MARK[r.state];
-  } else if (r.ms) {
-    side.textContent = r.ms >= 1000 ? `${(r.ms / 1000).toFixed(1)}s` : `${r.ms}ms`;
+  } else if (r.ms >= 1500) {
+    // Only a step slow enough to notice says how long it took.
+    side.textContent = `${(r.ms / 1000).toFixed(1)}s`;
   }
   li.appendChild(side);
   li.addEventListener('contextmenu', (e) => {
@@ -254,6 +269,7 @@ window.aeval.on('agent:state', ({ state, message, step }) => {
   block.status.textContent = STATUS_TEXT[state] ? `${STATUS_TEXT[state]}${step ? ` · step ${step}` : ''}` : '';
   if (block.el.dataset.state !== state && STATUS_TEXT[state]) window.announce(`Task: ${STATUS_TEXT[state]}`);
   block.el.dataset.state = state;
+  syncOrbit();
   if (state !== 'confirm' && block.card) {
     block.card.remove();
     block.card = null;
@@ -298,10 +314,14 @@ window.aeval.on('agent:confirm-request', ({ id, text, reason, why, url }) => {
     u.title = url.full;
     card.appendChild(u);
   }
-  if (reason) card.appendChild(el('p', 'confirm-reason', `Why: ${reason}`));
-  if (why) card.appendChild(el('p', 'confirm-reason', `Asking because ${why}.`));
+  // One line: what it does, and why it stopped to ask.
+  const says = [reason ? `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.` : '', why ? `Asked because ${why}.` : '']
+    .filter(Boolean)
+    .join(' ');
+  if (says) card.appendChild(el('p', 'confirm-reason', says));
   const actions = el('div', 'confirm-actions');
-  const skip = el('button', 'link-btn', 'Skip this step');
+  actions.appendChild(el('span', 'confirm-hint', 'Tab to a button, then Enter'));
+  const skip = el('button', 'retry-btn', 'Skip');
   skip.type = 'button';
   const allow = el('button', 'accent-btn', 'Allow');
   allow.type = 'button';
@@ -334,8 +354,20 @@ window.aeval.on('agent:done', ({ state, text, usage }) => {
   window.announce(state === 'done' ? 'Task done.' : state === 'stopped' ? 'Task stopped.' : 'The task did not finish.');
   block.ended = true;
   block.el.dataset.state = state;
+  block.el.classList.add('ended');
+  syncOrbit();
   block.status.textContent = state === 'done' ? 'Done' : state === 'stopped' ? 'Stopped' : 'Did not finish';
   block.stop.hidden = true;
+  // The steps fold under the outcome; a run that failed keeps them open,
+  // since which one failed is the point.
+  const shown = [...block.list.children].filter((li) => getComputedStyle(li).display !== 'none').length;
+  if (shown) {
+    block.toggle.hidden = false;
+    block.toggle.textContent = `${shown} step${shown === 1 ? '' : 's'}`;
+    const open = state !== 'done';
+    block.el.classList.toggle('open', open);
+    block.toggle.setAttribute('aria-expanded', String(open));
+  }
   if (block.card) {
     block.card.remove();
     block.card = null;
@@ -345,12 +377,23 @@ window.aeval.on('agent:done', ({ state, text, usage }) => {
   for (const li of block.list.querySelectorAll('.trow.thinking')) li.remove();
   const tone = END_TONE[state] || 'quiet';
   if (tone === 'done' && text) {
-    const entry = addAssistantMsg();
-    entry.raw = text;
-    entry.question = block.task;
-    window.renderMarkdownInto(entry.body, text);
-    setBusy(entry, false);
-    entry.doIt.hidden = true;
+    // Outcome first: the result is the headline of the block, above the
+    // steps that produced it.
+    const out = el('div', 'trail-outcome md-body');
+    window.renderMarkdownInto(out, text);
+    block.el.insertBefore(out, block.list);
+    const copy = el('button', 'copy-msg', 'Copy');
+    copy.type = 'button';
+    copy.setAttribute('aria-label', 'Copy the result');
+    copy.addEventListener('click', () => {
+      window.aeval.invoke('clipboard:write', { text }).then(() => {
+        copy.textContent = 'Copied';
+        setTimeout(() => {
+          copy.textContent = 'Copy';
+        }, 1500);
+      });
+    });
+    block.meta.insertBefore(copy, block.meta.firstChild);
   } else if (text) {
     const row = el('div', `msg ${tone === 'error' ? 'error-row' : 'note-row'}`);
     row.appendChild(el('span', 'error-text', text));

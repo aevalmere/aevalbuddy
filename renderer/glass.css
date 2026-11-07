@@ -1,0 +1,370 @@
+/* The material. One file, linked by every surface (bar, answer, lens, tour,
+   settings, history), so glass is defined in exactly one place.
+
+   How it is built (DESIGN.md, "Material"): renderer/glass.js puts a layer
+   behind each .glass element holding a blurred sixth-size picture of the
+   desktop behind the window (lib/backdrop.js), a scrim whose strength follows
+   how bright that picture is under this element, and a lit rim. Windows never
+   change style for any of it. Text never sits on raw glass: the scrim is
+   measured so the label tokens hold contrast over white, black and busy
+   content, and the photograph gate in lib/contrast.js checks it. */
+
+@property --scrim {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.62;
+}
+
+@property --rim-a {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+:root {
+  /* Type. Segoe UI Variable is Windows 11's own face, with optical sizes:
+     Display from 18px up, Text below. */
+  --font-text: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+
+  /* Labels on glass. Solid values only: alpha text over a backdrop that can
+     be anything has no fixed contrast. --label-2 is the palette's slate. */
+  --label: #F4F6FB;
+  --label-2: #C9CFDD;
+  --label-3: #B8BECA;
+
+  --accent: #823A80;
+  --accent-bright: #C56FC3;
+  --accent-glass: rgb(197 111 195 / 0.42);
+  --danger: #F2A0A8;
+  --danger-edge: #6B2E38;
+
+  /* The glass body: a cool near-black drawn from shadow grey and indigo, so
+     the material keeps a trace of the brand. */
+  --tint: 16 18 28;
+  --solid: linear-gradient(#383A45, #23252D);
+
+  /* Fills for controls that sit on glass. Never glass on glass. */
+  --fill-1: rgba(255, 255, 255, 0.08);
+  --fill-2: rgba(255, 255, 255, 0.13);
+  --fill-3: rgba(255, 255, 255, 0.2);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --chip-rim: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
+
+  /* One device pixel, so hairlines are crisp at 125% and 150% (glass.js). */
+  --px: 1px;
+  /* The transparent margin the shadow is drawn in (lib/stage.js). */
+  --stage: 20px;
+
+  --r-sheet: 28px;
+  --r-card: 16px;
+  --r-row: 10px;
+  --r-key: 6px;
+  --r-cap: 999px;
+
+  --shadow:
+    0 0 0 var(--px) rgba(0, 0, 0, 0.34),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 6px 18px -4px rgba(0, 0, 0, 0.4);
+
+  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
+  /* About 5% overshoot, for small shape changes only (owner-approved). */
+  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --d-fast: 150ms;
+  --d-med: 240ms;
+  --d-morph: 320ms;
+  --d-sheet: 360ms;
+}
+
+/* ------------------------------------------------------------- the layer */
+
+.glass {
+  --r: var(--r-sheet);
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r);
+}
+
+.glass > .gl {
+  position: absolute;
+  inset: var(--gi-t, 0px) var(--gi-r, 0px) var(--gi-b, 0px) var(--gi-l, 0px);
+  border-radius: var(--gr, var(--r));
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+  background: rgb(var(--tint) / 0.5);
+}
+
+.glass > .gl > .gs {
+  position: absolute;
+  inset: -24px;
+  background-image: var(--snap, none);
+  background-repeat: no-repeat;
+  background-size: var(--bw, 100vw) var(--bh, 100vh);
+  background-position: var(--bx, 0px) var(--by, 0px);
+  filter: var(--gfr, var(--gf));
+}
+
+.glass.thin {
+  --gf: blur(14px) saturate(1.7) brightness(0.94);
+  --scrim: 0.6;
+}
+
+.glass.thick {
+  --gf: blur(28px) saturate(1.5) brightness(0.9);
+  --scrim: 0.8;
+}
+
+/* The scrim, and the glass body catching the light at its top edge. */
+.glass > .gl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  background:
+    radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgba(255, 255, 255, 0.09), transparent 70%),
+    rgb(var(--tint) / var(--scrim));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.2),
+    inset 0 0 18px rgba(255, 255, 255, 0.03);
+  transition: --scrim 300ms linear;
+}
+
+/* The specular rim: lit from the top left, a weaker bounce at the bottom
+   right, almost nothing on the sides. A masked ring, so it is one crisp
+   device pixel and not a blurred border. */
+.glass > .gl::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--px);
+  z-index: 2;
+  background: conic-gradient(from var(--rim-a) at 50% 50%,
+    rgba(255, 255, 255, 0.16) 0deg,
+    rgba(255, 255, 255, 0.05) 70deg,
+    rgba(255, 255, 255, 0.3) 130deg,
+    rgba(255, 255, 255, 0.08) 200deg,
+    rgba(255, 255, 255, 0.05) 270deg,
+    rgba(255, 255, 255, 0.62) 318deg,
+    rgba(255, 255, 255, 0.16) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Working: one light travels the edge, one turn per 2.4 s. It replaces the
+   three thinking dots and is the only continuous animation in the product. */
+.glass.orbit > .gl::after {
+  background: conic-gradient(from var(--rim-a) at 50% 50%,
+    rgba(255, 255, 255, 0.08) 0deg,
+    rgba(255, 255, 255, 0.08) 250deg,
+    rgba(232, 170, 230, 0.55) 320deg,
+    rgba(255, 255, 255, 0.95) 352deg,
+    rgba(255, 255, 255, 0.08) 360deg);
+  padding: calc(var(--px) * 1.5);
+  animation: rim-orbit 2.4s linear infinite;
+}
+
+@keyframes rim-orbit {
+  to {
+    --rim-a: 360deg;
+  }
+}
+
+/* While a shape is morphing the displacement filter is dropped: it would
+   re-rasterise on every frame. It comes back 120 ms after the settle. */
+html[data-morph] .glass > .gl > .gs {
+  filter: var(--gf);
+}
+
+/* Until the first frame arrives, and in the solid tier, the same shapes on
+   an opaque body. Never a see-through scrim over an unblurred desktop. */
+html:not([data-snap]) .glass > .gl > .gs,
+html[data-glass="solid"] .glass > .gl > .gs {
+  display: none;
+}
+
+html:not([data-snap]) .glass > .gl,
+html[data-glass="solid"] .glass > .gl {
+  background: var(--solid);
+}
+
+html:not([data-snap]) .glass > .gl::before,
+html[data-glass="solid"] .glass > .gl::before {
+  background: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass > .gl > .gs {
+    display: none;
+  }
+  .glass > .gl {
+    background: var(--solid);
+  }
+  .glass > .gl::before {
+    background: transparent;
+  }
+}
+
+html[data-motion="reduced"] .glass.orbit > .gl::after {
+  animation: none;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --label-2: #E2E6EE;
+    --label-3: #D6DAE3;
+    --hairline: rgba(255, 255, 255, 0.4);
+    --scrim: 0.9;
+  }
+  .glass > .gl {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 0 2px #000;
+  }
+}
+
+@media (forced-colors: active) {
+  .glass > .gl {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    forced-color-adjust: none;
+  }
+  .glass > .gl > .gs,
+  .glass > .gl::after,
+  .glass > .gl::before {
+    display: none;
+  }
+}
+
+/* Text on thin glass gets a 1px contact shadow: it is what keeps a 13px
+   label crisp when a bright edge passes behind it. */
+.glass.thin {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+}
+
+/* The photograph mode of the visual self-check: the page's background is
+   the same backdrop the glass was cut from, so the PNG is a composite. */
+html[data-shot-bg] body {
+  background-image: var(--shot-bg) !important;
+  background-repeat: no-repeat !important;
+  background-size: var(--bw) var(--bh) !important;
+  background-position: var(--sx, 0px) var(--sy, 0px) !important;
+}
+
+/* ------------------------------------------------------- controls on glass */
+
+/* Two-tone focus, so it holds 3:1 on the glass and on whatever is behind
+   it. */
+:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.92);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.38);
+}
+
+.g-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-cap);
+  color: var(--label-2);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease, transform 120ms var(--ease-out);
+}
+
+.g-icon:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+.g-icon:active,
+.g-btn:active,
+.g-chip:active {
+  transform: scale(0.96);
+  transition: transform 120ms var(--ease-out);
+}
+
+.g-btn {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--r-cap);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  transition: background var(--d-fast) ease, transform 240ms var(--ease-settle);
+}
+
+.g-btn:hover {
+  background: var(--fill-2);
+}
+
+.g-btn.prominent {
+  background: var(--accent-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
+}
+
+.g-btn.prominent:hover {
+  background: rgb(197 111 195 / 0.55);
+}
+
+.g-btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.g-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--r-cap);
+  font-size: 13px;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  transition: background var(--d-fast) ease;
+}
+
+.g-chip:hover {
+  background: var(--fill-2);
+}
+
+kbd,
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-key);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--label-2);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
+  .g-btn,
+  .g-chip,
+  kbd {
+    border: 1px solid ButtonText;
+  }
+}
