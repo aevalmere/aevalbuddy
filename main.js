@@ -643,6 +643,10 @@ function collapsePanel(opts) {
     // shrinks to the orb once that is over, which nobody can see because
     // the orb is pinned to the corner the window keeps.
     motion.stop(overlayWin);
+    // The page has to hear about the pill now, while the window is still
+    // the bar's size, or the fold plays inside an orb-sized window and
+    // nobody sees it.
+    sendOverlayState();
     clearTimeout(collapseTimer);
     collapseTimer = setTimeout(() => {
       collapseTimer = null;

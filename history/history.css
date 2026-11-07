@@ -13,7 +13,6 @@
   --accent: #823A80;
   --slate: #C9CFDD;
   --twilight: #303D6A;
-  --danger: #E4818C;
   --scroll-thumb: rgba(201, 207, 221, 0.26);
   --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
 
@@ -21,7 +20,6 @@
   --d-fast: 150ms;
   --gutter: 16px;
   --control: 32px;
-  --hairline: rgba(201, 207, 221, 0.10);
   --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
 }
 

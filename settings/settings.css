@@ -21,7 +21,6 @@
   --d-fast: 150ms;
   --gutter: 16px;
   --control: 32px;
-  --hairline: rgba(201, 207, 221, 0.10);
   --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
   --chrome: 0.6;
 }
@@ -888,7 +887,6 @@ h1 {
 }
 
 :root {
-  --danger: #E4818C;
 }
 
 /* The steps to a free key, shown until one is saved. */

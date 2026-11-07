@@ -80,6 +80,13 @@ function render(prevMode) {
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel' && !folding;
   hud.hidden = state.mode !== 'hud';
+  if (state.mode === 'pill' && prevMode !== 'pill') {
+    // Main made the whole window click-through again on the way to the pill.
+    // Without this the cache still says "taking clicks" from the bar, so the
+    // first move over the orb never asks main to take them, and the orb
+    // cannot be clicked until the pointer leaves and comes back.
+    ignoreState = true;
+  }
   if (state.mode === 'panel' && prevMode !== 'panel') {
     // Main turned hit-testing on for the whole window; the margin goes back
     // to click-through on the next mouse move.
