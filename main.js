@@ -974,6 +974,20 @@ function onInputMove() {
   inputDropTimer = setTimeout(settleInputDrag, DROP_SETTLE_MS);
 }
 
+// The layout editor without a mouse: arrows step the bar across the nine
+// anchors (thirds of the work area), and the drop snaps it as a drag would.
+function nudgeHudInput(dx, dy) {
+  if (overlayMode !== 'hud' || !overlayWin || overlayWin.isDestroyed()) return;
+  const wa = workArea();
+  const b = overlayWin.getBounds();
+  const col = Math.max(0, Math.min(2, Math.round(((b.x - wa.x) / Math.max(1, wa.width - b.width)) * 2) + Math.sign(dx)));
+  const row = Math.max(0, Math.min(2, Math.round(((b.y - wa.y) / Math.max(1, wa.height - b.height)) * 2) + Math.sign(dy)));
+  const x = Math.round(wa.x + ((wa.width - b.width) * col) / 2);
+  const y = Math.round(wa.y + ((wa.height - b.height) * row) / 2);
+  withSnapGuard(() => overlayWin.setBounds({ ...b, x, y }));
+  settleInputDrag();
+}
+
 function settleInputDrag() {
   if (overlayMode !== 'hud' || !overlayWin || overlayWin.isDestroyed()) return;
   const rect = overlayWin.getBounds();
@@ -2383,6 +2397,7 @@ function registerIpc() {
     startWalkthrough();
   });
   ipcMain.handle('buddy:skip', () => cursorBuddy.skip());
+  ipcMain.handle('buddy:focus', () => cursorBuddy.focusCard());
   ipcMain.handle('buddy:card', (_e, { id }) => {
     cursorBuddy.skip();
     if (id === 'try') openBar('agent', { prefill: 'open Notepad and write a haiku' });
@@ -2436,6 +2451,7 @@ function registerIpc() {
 
   ipcMain.handle('hud:enter', () => enterHudEditor());
   ipcMain.handle('hud:exit', () => exitHudEditor());
+  ipcMain.handle('hud:nudge', (_e, p) => nudgeHudInput(Number(p && p.dx) || 0, Number(p && p.dy) || 0));
   ipcMain.handle('hud:set-dock', (_e, { docked }) => setHudDock(!!docked));
 
   ipcMain.handle('open-external', (_e, { url }) => {

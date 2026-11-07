@@ -222,6 +222,12 @@ window.aeval.on('buddy:show', (payload) => {
     calloutActions.appendChild(actionButton('Skip', false, () => window.aeval.invoke('buddy:skip')));
   }
   calloutActions.hidden = !calloutActions.childElementCount;
+  if (kind === 'card' && calloutActions.childElementCount) {
+    window.aeval.invoke('buddy:focus').then(() => {
+      const first = calloutActions.querySelector('.primary') || calloutActions.querySelector('button');
+      if (first) first.focus();
+    });
+  }
   if (kind === 'agent' && payload.glideMs && shown) {
     glide = { from: { x: cur.x, y: cur.y }, start: performance.now(), ms: payload.glideMs };
   } else {

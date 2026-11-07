@@ -92,11 +92,52 @@ document.addEventListener('mouseup', (e) => {
   window.aeval.invoke('region:done', rect);
 });
 
+// Without a mouse: the first arrow or Enter puts a box in the middle of the
+// screen. Arrows move it (Shift for larger steps), Alt+arrows change its
+// size, Enter asks about it.
+let keyed = false;
+function keyBox() {
+  if (keyed) return;
+  keyed = true;
+  const w = Math.round(window.innerWidth / 2);
+  const h = Math.round(window.innerHeight / 2);
+  rect = { x: Math.round((window.innerWidth - w) / 2), y: Math.round((window.innerHeight - h) / 2), width: w, height: h };
+}
+
+const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     e.preventDefault();
     window.aeval.invoke('region:cancel');
+    return;
   }
+  if (start) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (!keyed) {
+      keyBox();
+      draw();
+      return;
+    }
+    window.aeval.invoke('region:done', rect);
+    return;
+  }
+  const d = ARROWS[e.key];
+  if (!d) return;
+  e.preventDefault();
+  keyBox();
+  const step = e.shiftKey ? 64 : 16;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (e.altKey) {
+    rect.width = Math.max(MIN_EDGE, Math.min(vw - rect.x, rect.width + d[0] * step));
+    rect.height = Math.max(MIN_EDGE, Math.min(vh - rect.y, rect.height + d[1] * step));
+  } else {
+    rect.x = Math.max(0, Math.min(vw - rect.width, rect.x + d[0] * step));
+    rect.y = Math.max(0, Math.min(vh - rect.height, rect.y + d[1] * step));
+  }
+  draw();
 });
 
 // A drag that leaves the window and releases outside it would otherwise strand

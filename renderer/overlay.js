@@ -172,6 +172,21 @@ hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');
 });
 
+// Arrows move the bar between the snap points while the editor is open;
+// Enter or Done saves.
+const HUD_KEYS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+document.addEventListener('keydown', (e) => {
+  if (state.mode !== 'hud') return;
+  const d = HUD_KEYS[e.key];
+  if (d) {
+    e.preventDefault();
+    window.aeval.invoke('hud:nudge', { dx: d[0], dy: d[1] });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    window.aeval.invoke('hud:exit');
+  }
+});
+
 // Click-through management while idle: the window ignores mouse events with
 // forwarding on, so mousemove still arrives here. Hit-testing turns back on
 // only while the cursor is over the pill.

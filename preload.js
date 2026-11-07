@@ -86,6 +86,8 @@ const INVOKE_CHANNELS = new Set([
   'app:help',
   'settings:clip-key',
   'settings:use-clip-key',
+  'hud:nudge',
+  'buddy:focus',
 ]);
 
 const LISTEN_CHANNELS = new Set([
