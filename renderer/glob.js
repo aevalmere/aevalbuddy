@@ -329,5 +329,17 @@
     run = null;
   }
 
-  window.AevalGlob = { open, close, shapeAt, geometry, bezier };
+  // One still frame at time t, for the visual self-check's frame sequence.
+  // bar is in this window's coordinates.
+  function preview(sheet, bar, t) {
+    const rect = sheet.getBoundingClientRect();
+    const g = geometry(bar, rect);
+    run = g;
+    host.hidden = false;
+    sheet.classList.add('globbing');
+    sheet.classList.toggle('reveal', t > 0.55);
+    draw(shapeAt(g, t));
+  }
+
+  window.AevalGlob = { open, close, preview, shapeAt, geometry, bezier };
 })();
