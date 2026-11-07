@@ -67,6 +67,9 @@
   // --ease-glide (window-level, no overshoot).
   const easeMorph = bezier(0.22, 1, 0.36, 1);
   const easeGlide = bezier(0.32, 0.72, 0, 1);
+  // The growth itself starts slower than --ease-morph, so the bud is seen
+  // leaving the bar on its neck before it swells into the sheet.
+  const easeSwell = bezier(0.5, 0, 0.18, 1);
 
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -179,7 +182,7 @@
     const f = g.f;
     const S = g.sheet;
     const B = g.bar;
-    const grow = easeMorph(clamp(t / 0.88, 0, 1));
+    const grow = easeSwell(clamp(t / 0.88, 0, 1));
     const budW = Math.min((S.u1 - S.u0) * 0.5, Math.max(96, (B.u1 - B.u0) * 0.4));
     const budH = 26;
     const start = B.v1 + 4;

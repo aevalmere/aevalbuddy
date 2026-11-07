@@ -24,6 +24,11 @@
     invoke(channel, payload) {
       calls.push({ channel, payload });
       if (channel === 'output:bar') return Promise.resolve(window.__barRect || null);
+      // Rust sizes the window to the sheet plus the 20 px margin on each side.
+      if ((channel === 'output:resize' || channel === 'overlay:resize') && payload && payload.height > 0 && !fe.dataset.fixed) {
+        fe.style.height = `${Math.min(Math.round(payload.height) + 40, Number(fe.dataset.max || 900))}px`;
+        return Promise.resolve(null);
+      }
       const r = answers[channel];
       if (r === '__reject__') return Promise.reject(new Error(`${channel} is not ported to Rust yet`));
       const v = typeof r === 'function' ? r(payload, window) : r;

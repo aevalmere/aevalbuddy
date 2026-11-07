@@ -412,6 +412,16 @@
   // becomes a blob: URL of this page, so the CSS and the sampler see the same
   // picture and a later frame can never swap it underneath.
   async function asBlob(img) {
+    if (typeof img === 'string' && img.startsWith('data:')) {
+      // Decoded here rather than fetched: the pages' CSP has no data: in
+      // connect-src.
+      const comma = img.indexOf(',');
+      const type = (/^data:([^;,]+)/.exec(img) || [])[1] || 'image/jpeg';
+      const bin = atob(img.slice(comma + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type });
+    }
     if (typeof img === 'string') {
       const r = await fetch(img);
       if (!r.ok) throw new Error(`frame ${r.status}`);
