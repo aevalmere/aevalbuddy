@@ -5,6 +5,7 @@
 #   $AevalCs       the C# source of host.cs
 #   $AevalCache    folder for the compiled assembly ('' to skip the cache)
 #   $AevalVersion  the app version, echoed in the ready event
+#   $AevalDllSha    SHA-256 the prebuilt assembly must have ('' to never load one)
 #
 # Compiling host.cs takes one to two seconds, so the assembly is kept in
 # %LOCALAPPDATA%\aevalbuddy\desktop-<hash>.dll, keyed by a hash of the source,
@@ -29,11 +30,17 @@ try {
   $loaded = $false
   # A copy compiled at build time ships beside app.asar; same hash, no
   # compiler on first use.
-  if ($AevalPrebuilt) {
+  # It loads only when its SHA-256 matches the one the app shipped with, and
+  # from the bytes that were checked, so the file cannot change in between.
+  if ($AevalPrebuilt -and $AevalDllSha) {
     foreach ($dir in ($AevalPrebuilt -split ';')) {
       $pre = Join-Path $dir "desktop-$hash.dll"
       if (-not $loaded -and (Test-Path -LiteralPath $pre)) {
-        try { Add-Type -Path $pre; $loaded = $true } catch { $loaded = $false }
+        try {
+          $bytes = [IO.File]::ReadAllBytes($pre)
+          $got = -join ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
+          if ($got -eq $AevalDllSha) { [void][Reflection.Assembly]::Load($bytes); $loaded = $true }
+        } catch { $loaded = $false }
       }
     }
   }

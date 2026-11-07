@@ -40,3 +40,8 @@ if (!built.length) {
   console.error(r.stdout, r.stderr);
   process.exit(1);
 }
+// The app checks the DLL against this before loading it. It goes inside
+// app.asar (lib/**), not beside the DLL, so replacing one file is not enough.
+const sha = require('crypto').createHash('sha256').update(fs.readFileSync(path.join(out, built[0]))).digest('hex');
+fs.writeFileSync(path.join(__dirname, '..', 'lib', 'desktop', 'prebuilt.json'), JSON.stringify({ dll: built[0], sha256: sha }) + '\n');
+console.log(`[build-desktop] sha256 ${sha}`);
