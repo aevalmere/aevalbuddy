@@ -17,7 +17,20 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# Split (b): model providers, Ask, Find, Agent (ARCHITECTURE.md section 8).
+async-trait = "0.1"
+fancy-regex = "0.14"
+futures-util = "0.3"
+parking_lot = "0.12"
+rand = "0.8"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio-util = "0.7"
+unicode-normalization = "0.1"
+url = "2"
 
 [profile.release]
 codegen-units = 1

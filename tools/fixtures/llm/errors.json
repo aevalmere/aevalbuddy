@@ -1,0 +1,23 @@
+[
+  {"provider": "openrouter", "status": 401, "detail": "x", "model": "a/b:free", "text": "OpenRouter rejected the API key. Open Settings, check the key, and save it again."},
+  {"provider": "openrouter", "status": 402, "detail": "x", "model": "qwen/q", "text": "qwen/q bills per token and this account has no credit. Add a dollar at openrouter.ai/credits (it lasts thousands of questions at this rate), or open Settings and pick one from the Free group."},
+  {"provider": "openrouter", "status": 403, "detail": "nope", "model": "a/b:free", "text": "OpenRouter refused the request: nope"},
+  {"provider": "openrouter", "status": 404, "detail": "gone", "model": "a/b:free", "text": "a/b:free is not available right now, and the free model tried after it was not either. OpenRouter says: gone. Pick another model in Settings."},
+  {"provider": "openrouter", "status": 429, "detail": "x", "model": "a/b:free", "text": "Every free model is busy. Free models take a few requests a minute; retry in a moment, or add credit and pick a paid model in Settings."},
+  {"provider": "openrouter", "status": 429, "detail": "x", "model": "qwen/q", "text": "Rate limited by the provider. Wait a moment, then retry."},
+  {"provider": "openrouter", "status": 400, "detail": "No endpoints support image input", "model": "a/b:free", "text": "The model a/b:free does not accept images. Pick another Screen model in Settings, or turn on the Answer model so a screen model reads for it."},
+  {"provider": "openrouter", "status": 400, "detail": "bad", "model": "a/b:free", "text": "Request rejected: bad"},
+  {"provider": "openrouter", "status": 204, "detail": "empty response", "model": "a/b:free", "text": "The model a/b:free streamed no answer text. Pick a different model in Settings."},
+  {"provider": "openrouter", "status": 502, "detail": "x", "model": "a/b:free", "text": "OpenRouter returned a server error, on this model and on the fallback. Retry in a moment."},
+  {"provider": "openrouter", "status": 404, "detail": "No endpoints found matching your data policy", "model": "a/b:free", "text": "Your OpenRouter account blocks free models. Free models are offered on the condition that their providers may keep and train on what they receive, which here includes your screen. To accept that, turn on \"Free model publication\" at openrouter.ai/settings/privacy. To avoid it, add credit and pick a paid model in Settings."},
+  {"provider": "openrouter", "kind": "network", "detail": "fetch failed", "model": "a/b:free", "text": "No connection. Finding words on your screen still works; answers need the internet."},
+  {"provider": "openrouter", "kind": "other", "detail": "boom", "model": "a/b:free", "text": "Request failed: boom. Retry, or ask again."},
+  {"provider": "openrouter", "kind": "none", "detail": "", "model": "a/b:free", "text": "Request failed for an unknown reason. Retry, or ask again."},
+  {"provider": "openrouter", "kind": "abort", "detail": "", "model": "a/b:free", "text": null},
+  {"provider": "anthropic", "status": 401, "detail": "x", "model": "claude-opus-5-5", "text": "Anthropic rejected the API key. Open Settings, check the key, and save it again."},
+  {"provider": "anthropic", "status": 529, "detail": "Overloaded", "model": "claude-opus-5-5", "text": "Anthropic returned a server error. Retry in a moment."},
+  {"provider": "anthropic", "status": 429, "detail": "x", "model": "claude-opus-5-5", "text": "Rate limited by the provider. Wait a moment, then retry."},
+  {"provider": "openai", "status": 402, "detail": "x", "model": "gpt-6.1-sol", "text": "gpt-6.1-sol bills per token and this OpenAI account has no credit. Add credit to the OpenAI account, or open Settings and use another key."},
+  {"provider": "gemini", "status": 404, "detail": "model not found", "model": "gemini-x", "text": "gemini-x is not available right now. Google Gemini says: model not found. Pick another model in Settings."},
+  {"provider": "gemini", "status": 400, "detail": "bad", "model": "gemini-x", "text": "Request rejected: bad"}
+]
