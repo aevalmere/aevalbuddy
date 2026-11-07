@@ -3766,11 +3766,17 @@ async function runSmoke() {
       resolveUiaPoint,
       startAgentRun,
       chatId: () => chatId,
+      globalShortcut,
     };
     try {
       await smokeV2.basics(v2);
     } catch (err) {
       must('v2basics', false, err.message);
+    }
+    try {
+      await require('./lib/smoke-v21').basics(v2);
+    } catch (err) {
+      must('v21basics', false, err.message);
     }
     if (process.env.GITHUB_ACTIONS || process.env.AEVAL_DESKTOP_NOTEPAD) {
       try {
