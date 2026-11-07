@@ -10,9 +10,9 @@ A small always-on-top overlay for Windows that talks about whatever is on your s
 
 1. **Run it.** It installs in a few seconds and opens the app. No admin prompt, no wizard, nothing to choose.
 2. **If Windows says "Windows protected your PC"**, click **More info**, then **Run anyway**. That screen appears for any installer that has not paid for a code-signing certificate; it is not a virus warning. Your browser may also say the file is not commonly downloaded: choose **Keep**.
-3. **Paste an API key.** A pointer walks you to the settings panel. Get a key free at [openrouter.ai/keys](https://openrouter.ai/keys); the default models cost nothing, so you do not need to add credit.
+3. **Paste an API key.** A pointer walks you to the settings panel. Get a key free at [openrouter.ai/keys](https://openrouter.ai/keys); the default models cost nothing, so you do not need to add credit. Copy the key and Settings offers to use it. Free models also need **Free model publication** on at [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy), which lets their providers keep and train on what they receive, your screen included.
 
-Then press `Ctrl+Shift+Space` and ask a question. There is no window in the taskbar; the tray icon by the clock is how you find AevalBuddy again.
+Then press `Ctrl+Alt+Space` and type. AevalBuddy starts with Windows from then on (turn that off in Settings, General). There is no window in the taskbar; the tray icon by the clock is how you find AevalBuddy again.
 
 It updates itself from then on. To remove it: Windows Settings, Apps, Installed apps, AevalBuddy, Uninstall.
 
@@ -20,17 +20,29 @@ On the very first launch a pointer appears and walks you to the settings panel, 
 
 ## Use it
 
-| Shortcut | Action |
+One shortcut opens one input. Type a question, a word that is on screen, or a
+task; the word at the left of the input says what Enter will do (Ask, Find or
+Do), and you can settle it yourself.
+
+| In the bar | Action |
 | --- | --- |
-| `Ctrl+Shift+Space` | Ask about your screen |
-| `Ctrl+Shift+A` | Draw a box around part of the screen and ask about that |
-| `Ctrl+Shift+G` | Find on screen: exact matches light up as you type, related ones and things that mean the same follow a moment later |
-| `Ctrl+Shift+U` | Agent: tell it what to do in any app, and it clicks and types for you |
-| `Ctrl+Shift+H` | Hide or show the overlay |
-| `Tab`, `Ctrl+1/2/3` | In the bar: switch between Ask, Find and Agent (what you typed stays) |
+| `Ctrl+Alt+Space` | Open the bar, from any app |
+| `?` at the start | Ask, whatever the words look like |
+| `/` at the start | Find on screen; `//` for exact words only |
+| `>` at the start | Do it as a task on your computer |
+| `Ctrl+1/2/3`, `Alt+Down` | Choose Ask, Find or Do without typing a prefix |
+| `Backspace` on an empty bar | Go back to guessing |
 | `Enter` / `Shift+Enter` | Send; in Find, next or previous match |
-| `Ctrl+Enter` | In Find, ask about the current match; on a confirm card, Allow |
-| `Esc` | Stop the agent, close Find, collapse the panel, close settings, cancel an area selection, or dismiss the tour |
+| `Alt+Enter` | Run a task the bar only guessed was one |
+| `Up` | Earlier entries |
+| `F6` | Move between the bar and the answer |
+| `Esc` | Clear the text, then close the bar; stops a running task |
+
+A task the bar only guessed never starts on Enter: it shows a card, Enter
+answers it as a question, and running it is a click or `Alt+Enter`. The
+per-action shortcuts from earlier versions (area, Find, Do, hide) are unbound
+by default and can be set in Settings, Shortcuts; ones you had changed are
+kept.
 
 **Find** reads the app's own text where it shares it (and recognises text in
 the pixels where it does not), so exact matches work offline and without a
@@ -38,15 +50,22 @@ key. Related matches explain themselves: `"refund" relates to "chargeback":
 both are payment reversals`. The highlights are hidden from screen shares like
 every other AevalBuddy window.
 
-**Agent** works with any OpenRouter model you pick; ones that support tool
+**Do** (tasks) works with any OpenRouter model you pick; ones that support tool
 calls use them, others write their actions out as JSON. It shows a plan, then
 each step in the answer window, and the pointer glides to whatever it is
 about to click. Anything that sends, deletes, buys, signs, types a password or
-opens a link waits for you to Allow it. Esc, the Stop button, the tray, or
+opens a link waits for you to Allow it, and so does any Enter, Delete, Alt
+or Win chord, typing into a terminal, the Run box or an address bar, and any
+drag. Esc, the Stop button, the tray, or
 simply moving your mouse stops it. It asks for permission once, before its
 first task.
 
-There is a tray icon too: left-click it to open the bar where you left it,
+**Who sees what.** Asking sends a screenshot, or the window's text when that
+says enough, plus your question to OpenRouter and the model you picked. Tasks
+send one per step. Free models' providers may keep and train on what they
+receive; exact Find never leaves the computer.
+
+There is a tray icon too: left-click it to open the bar,
 right-click for every action plus History, Settings and Quit. It is the way back in if you hide the
 overlay and forget the shortcut, because none of these windows appear in the
 taskbar or in Alt-Tab.
@@ -68,7 +87,7 @@ because no other model would answer those differently.
 
 ### Asking about part of the screen
 
-`Ctrl+Shift+A`, or the crop button in the panel. The screen dims, you drag a
+The crop button in the panel, or a shortcut you set in Settings. The screen dims, you drag a
 box, and the question is about what is inside it.
 
 This is the single biggest thing you can do for answer quality. A whole 2560px
@@ -202,7 +221,7 @@ than disappearing. A window whose renderer dies is reloaded, because an
 always-on-top blank rectangle is worse than no window. None of this should
 ever fire; if it does, `errors.log` is what to send.
 
-Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. Settings can also start AevalBuddy when you sign in to Windows; it is off until you ask for it. The settings footer shows the app version, which is the quick way to confirm which build is running.
+Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. A fresh install starts AevalBuddy when you sign in to Windows, and says so once; turn it off in Settings. Upgrades keep the setting they had. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ### Updates
 

@@ -752,7 +752,7 @@ function renderShortcuts() {
     const warn = row.querySelector('.sc-warn');
     const button = row.querySelector('.sc-change');
     const isCapturing = capturing && capturing.action === action;
-    kbd.textContent = isCapturing ? 'Press keys' : data.shortcuts[action] || '';
+    kbd.textContent = isCapturing ? 'Press keys' : data.shortcuts[action] || 'Not set';
     warn.hidden = data.active[action] !== false;
     row.classList.toggle('capturing', !!isCapturing);
     button.textContent = isCapturing ? 'Cancel' : 'Change';

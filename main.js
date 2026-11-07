@@ -117,7 +117,7 @@ const DOCK_DISTANCE = 150;
 const DEFAULT_PROMPT = "What's on my screen and what should I do?";
 
 const ACTION_LABELS = {
-  captureQuery: 'Ask about my screen',
+  captureQuery: 'Ask, find, or do',
   captureRegion: 'Ask about an area',
   findOnScreen: 'Find on screen',
   agentTask: 'Do a task',

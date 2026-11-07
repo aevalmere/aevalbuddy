@@ -684,3 +684,48 @@ brightest colour in the bar whenever a prefilled task was selected.
   `--danger`.
 - `Show paid models` filters every picker on the Models page, so it sits on
   that page's title line instead of between the title and the first row.
+
+## v2.1: one input that works out what is meant
+
+The owner asked for one text input that figures out what the person wants
+instead of three modes and a toggle. The plan behind this section is
+`.claude/appforge-loop/PLAN-v2.1.md`; this records what it changed here.
+
+### The token
+
+The word at the start of the bar is now what Enter will do with the text
+(`Ask`, `Find`, `Do`), guessed live by `renderer/intent.js` from the words
+and from whether they occur in the window's own text. Guessed, it is slate
+at 0.72 with no box; chosen, it gains a 10% slate fill. A low-confidence
+guess dims its word slightly. Phase B dresses it in glass and keeps its
+hooks: `.intent-token`, `data-intent`, `data-locked`, `data-confidence`.
+
+The guess is never trusted with the computer. A task that was only guessed
+shows a card under the bar; Enter answers it as a question, and running it
+takes a click or `Alt+Enter`. Ties go to Ask.
+
+### Departures from DESIGN v2, with reasons
+
+| Departure | Reason |
+| --- | --- |
+| Mode names in the bar are verbs (`Ask`, `Find`, `Do`), not nouns, and `Agent` is `Do` in the bar and `Tasks` in Settings | the word now says what Enter does, not where you are; "Agent" named the mechanism, not the action |
+| Tab never switches modes or Find's scope | Tab belongs to focus order; taking it trapped keyboard and screen-reader users in the input. Ctrl+1/2/3, the prefixes and Alt+Down replace it |
+| One global chord, `Ctrl+Alt+Space`; the other four start unbound | the five defaults collided with VS Code (`Ctrl+Shift+A`, `G`, `U`) and Chrome (`Ctrl+Shift+A`, `H`). Stored chords equal to an old default migrate; hand-set ones stay |
+| `--ease-settle: cubic-bezier(.34, 1.3, .64, 1)`, a 5% overshoot, for the token and the guess card | approved by the owner in v2.1. "Nothing bounces" still holds for windows and drags |
+| Escape is global only while a task runs, the tour or area selector covers the screen, or the layout editor is open; Enter is never global | a global key is taken from every app. The bar, the answer and Settings handle Escape in their own windows; a paused or planned task continues from the focused Start button |
+| The bar never reopens in the last mode | a remembered Find or Do turned the next question into a search or a task |
+| The tray's first item is `Ask, find, or do…`, and `Help and feedback…` sits under Settings | the first item opens the one input; the smoke run's `trayOrder` follows |
+| Ask sends text alone when the window gave 800+ characters and the question is not about how something looks | perception order is UIA first; the screenshot was being sent even when the text said everything |
+
+### Safety rules added
+
+- The gate reads every chord in a key sequence; every Enter (under any
+  name), Delete, F-key, Win or Alt chord asks, as does any newline or tab in
+  typed text, typing in a terminal, the Run box or an address bar, any drag,
+  a click in a mail or chat app, and a dialog whose text names a risky verb.
+  An exception inside the gate asks; it never allows.
+- Text handed to a task (Do it, Retry from here, Find hits) is wrapped as
+  untrusted data, and the task waits for its plan to be approved.
+- A confirm card takes focus itself, offers Skip first, has no key chord for
+  Allow, and ignores input for 700 ms. An open-link card shows the full URL
+  with its host in bold.
