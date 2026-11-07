@@ -1,0 +1,51 @@
+{
+  "task": "AevalBuddy v2.1 Phase B finish: green installer + update-check on the glass, contrast gate measures only visible text, then >=3 visual iterations to Apple-level liquid glass.",
+  "scope": [
+    "renderer/**",
+    "settings/**",
+    "history/**",
+    "main.js",
+    "preload.js",
+    "lib/**",
+    "tools/**",
+    ".github/workflows/**",
+    "DESIGN.md",
+    "README.md",
+    ".gitignore",
+    ".claude/appforge-loop/**"
+  ],
+  "non_goals": [
+    "no release tag",
+    "no weakening of any smoke/installer/update assert",
+    "no running the app on this desktop"
+  ],
+  "iteration": 6,
+  "max_iterations": 6,
+  "started_at": "2026-11-07T02:00:00Z",
+  "gate_policy": "node --check locally on every changed JS file; every push to main runs installer.yml and update-check.yml in the cloud",
+  "gates": {
+    "syntax": {
+      "cmd": "node --check <changed js>",
+      "last_exit": 0,
+      "last_run_iteration": 6
+    },
+    "installer": {
+      "cmd": "push main -> installer.yml",
+      "last_exit": 0,
+      "last_run_iteration": 6
+    },
+    "update-check": {
+      "cmd": "push main -> update-check.yml",
+      "last_exit": 0,
+      "last_run_iteration": 6
+    },
+    "visual-review": {
+      "cmd": "fetch shots/latest/*.png and read them",
+      "last_exit": 0,
+      "last_run_iteration": 6
+    }
+  },
+  "progress_history": [],
+  "no_progress_streak": 0,
+  "status": "stopped: iteration cap, all gates green on 1326fd6"
+}
