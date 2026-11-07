@@ -99,6 +99,11 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "glass:hello",
     "glass:passthrough",
     "settings:set-surface",
+    // Split (d): floating output windows and the glass slider
+    // (ARCHITECTURE.md section 10).
+    "output:bar",
+    "output:close",
+    "settings:set-glass",
 ];
 
 /// Channels a page may listen on. Must equal `LISTEN_CHANNELS` in preload.js.

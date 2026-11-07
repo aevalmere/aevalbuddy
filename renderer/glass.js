@@ -8,14 +8,22 @@
 // (.gs), keeps that backdrop lined up with the element's place on the
 // screen, measures how bright the desktop is under it and sets --scrim from
 // that, and on .refract elements builds a displacement map for the edge
-// band. It also keeps three document-level facts current: the tier
-// (data-glass), reduced motion read live (data-motion), and one device pixel
-// (--px).
+// band. It also keeps four document-level facts current: the tier
+// (data-glass), reduced motion read live (data-motion), one device pixel
+// (--px), and how liquid the glass is (--glass-k, data-glass-level).
+//
+// How liquid: Settings' "Liquid glass" slider, 0 (None: solid frosted
+// panels) to 1 (Very very). It moves blur, refraction, the specular light,
+// saturation and the scrim together, live, in every window: Settings writes
+// it to localStorage, which every page of the app shares, so the others hear
+// it through the storage event; Rust also repeats it in glass:tier and in the
+// glass:hello reply (ARCHITECTURE.md section 10).
 
 (() => {
   const root = document.documentElement;
   const bridge = window.aeval;
   const S = {
+    k: 0.5,
     tier: 'live',
     reasons: [],
     display: null,
@@ -32,10 +40,63 @@
 
   // Scrim from the brightness behind (0..1, sRGB luma, 90th percentile).
   // Chosen so --label-3 holds 4.5:1 over a white page (DESIGN.md, Palette).
+  // More liquid glass lets more of a dark desktop through; over a bright one
+  // (y near 1) the scrim does not move, so the contrast floor holds at every
+  // setting.
   const SCRIM = {
-    thin: (y) => 0.46 + 0.32 * y,
-    thick: (y) => 0.72 + 0.16 * y,
+    thin: (y, k) => 0.46 + 0.32 * y + (0.5 - k) * 0.24 * (1 - y),
+    thick: (y, k) => 0.72 + 0.16 * y + (0.5 - k) * 0.16 * (1 - y),
   };
+
+  // ---------------------------------------------------------- liquidness
+
+  const K_KEY = 'aeval.glassIntensity';
+  const K_DEFAULT = 0.5;
+  const clampK = (v) => Math.min(1, Math.max(0, Math.round(Number(v) * 100) / 100));
+  function storedK() {
+    try {
+      const v = localStorage.getItem(K_KEY);
+      if (v !== null && v !== '' && Number.isFinite(Number(v))) return clampK(v);
+    } catch (err) {
+      // Storage can be off in a locked-down profile; the default stands.
+    }
+    return K_DEFAULT;
+  }
+  S.k = storedK();
+
+  function levelOf(k) {
+    if (k <= 0) return 'none';
+    if (k < 0.34) return 'low';
+    if (k < 0.67) return 'mid';
+    return 'high';
+  }
+
+  function applyK(k, opts) {
+    const next = clampK(k);
+    const changed = next !== S.k || root.style.getPropertyValue('--glass-k') === '';
+    S.k = next;
+    root.style.setProperty('--glass-k', String(next));
+    root.dataset.glassLevel = levelOf(next);
+    if (opts && opts.persist) {
+      try {
+        localStorage.setItem(K_KEY, String(next));
+      } catch (err) {
+        // Not shared, then; Rust still repeats it through glass:tier.
+      }
+    }
+    if (!changed) return;
+    syncTier();
+    for (const el of S.layers) {
+      if (!el.__gl) continue;
+      el.__gl.y = -1;
+      refract(el, true);
+    }
+    placeAll();
+  }
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === K_KEY && e.newValue !== null) applyK(e.newValue);
+  });
 
   // ------------------------------------------------------------ device px
 
@@ -59,20 +120,26 @@
 
   // ----------------------------------------------------------------- tier
 
-  const reducedTransparency = matchMedia('(prefers-reduced-transparency: reduce)');
   const forcedColors = matchMedia('(forced-colors: active)');
+  // Glass no longer follows Windows' transparency setting (REQUESTS.md 5):
+  // Chromium reports that setting as prefers-reduced-transparency, and the
+  // slider is the control for it now. Forced colours (a contrast theme) and
+  // the reasons only Rust can see (no capture exclusion, capture failing)
+  // still make the surface solid.
+  const IGNORED = new Set(['transparency-off', 'reduced-transparency']);
   function localReason() {
     if (forcedColors.matches) return 'forced-colors';
-    if (reducedTransparency.matches) return 'reduced-transparency';
     return '';
   }
   function syncTier() {
     const local = localReason();
-    const solid = S.tier === 'solid' || !!local;
+    const remote = S.reasons.filter((r) => !IGNORED.has(r));
+    const remoteSolid = S.tier === 'solid' && (remote.length > 0 || S.reasons.length === 0);
+    const chosen = S.k <= 0 ? 'none-chosen' : '';
+    const solid = remoteSolid || !!local || !!chosen;
     root.dataset.glass = solid ? 'solid' : 'live';
-    root.dataset.glassWhy = [...S.reasons, local].filter(Boolean).join(' ') || 'none';
+    root.dataset.glassWhy = [...remote, local, chosen].filter(Boolean).join(' ') || 'none';
   }
-  reducedTransparency.addEventListener('change', syncTier);
   forcedColors.addEventListener('change', syncTier);
 
   // --------------------------------------------------------------- layers
@@ -208,7 +275,7 @@
     if (Math.abs(y - g.y) < 0.02) return;
     g.y = y;
     const kind = el.classList.contains('thick') ? 'thick' : 'thin';
-    el.style.setProperty('--scrim', SCRIM[kind](y).toFixed(3));
+    el.style.setProperty('--scrim', SCRIM[kind](y, S.k).toFixed(3));
     el.dataset.backdropY = y.toFixed(2);
   }
 
@@ -230,7 +297,7 @@
   // A map for the snap layer (the element plus 24 px of bleed): neutral grey
   // inside, and in a 14 px band along the glass edge a push that reaches
   // outward, so content just past the edge bends into the rim.
-  function buildMap(w, h, radius) {
+  function buildMap(w, h, radius, band) {
     const W = w + 48;
     const H = h + 48;
     const c = document.createElement('canvas');
@@ -238,7 +305,6 @@
     c.height = H;
     const ctx = c.getContext('2d');
     const img = ctx.createImageData(W, H);
-    const band = 14;
     const rr = Math.min(radius, w / 2, h / 2);
     const cx = w / 2;
     const cy = h / 2;
@@ -290,9 +356,18 @@
       const h = Math.round(el.offsetHeight);
       if (!w || !h) return;
       const radius = parseFloat(getComputedStyle(g.gl).borderTopLeftRadius) || 0;
-      const key = `${w}x${h}r${radius}`;
+      // The edge band widens and the bend deepens as the glass gets more
+      // liquid; at 0.5 they are the v2.1 values (14 px, scale 22 thin and 28
+      // thick). None has no refraction at all.
+      const band = Math.round(6 + 16 * S.k);
+      const scale = Math.round((el.classList.contains('thick') ? 28 : 22) * 2 * S.k);
+      const key = `${w}x${h}r${radius}b${band}s${scale}`;
       if (key === g.mapKey && !force) return;
       g.mapKey = key;
+      if (!scale) {
+        g.gs.style.removeProperty('--gfr');
+        return;
+      }
       if (!g.fid) g.fid = `rf${(S.filters += 1)}`;
       const host = svgHost();
       let f = host.querySelector(`#${g.fid}`);
@@ -308,12 +383,12 @@
           '<feDisplacementMap in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>';
         host.appendChild(f);
       }
-      const map = buildMap(w, h, radius);
+      const map = buildMap(w, h, radius, band);
       const fe = f.querySelector('feImage');
       fe.setAttribute('href', map.url);
       fe.setAttribute('width', String(map.W));
       fe.setAttribute('height', String(map.H));
-      f.querySelector('feDisplacementMap').setAttribute('scale', el.classList.contains('thick') ? '28' : '22');
+      f.querySelector('feDisplacementMap').setAttribute('scale', String(scale));
       const gf = getComputedStyle(el).getPropertyValue('--gf').trim();
       g.gs.style.setProperty('--gfr', `url(#${g.fid}) ${gf}`);
     }, 120));
@@ -331,13 +406,33 @@
 
   // --------------------------------------------------------------- frames
 
+  // A frame arrives as a URL under aeval-frame:// on Tauri (ARCHITECTURE.md
+  // D4; Rust serves it with Access-Control-Allow-Origin so its pixels can be
+  // read for the scrim) and as JPEG bytes under Electron. Either way it
+  // becomes a blob: URL of this page, so the CSS and the sampler see the same
+  // picture and a later frame can never swap it underneath.
+  async function asBlob(img) {
+    if (typeof img === 'string') {
+      const r = await fetch(img);
+      if (!r.ok) throw new Error(`frame ${r.status}`);
+      return r.blob();
+    }
+    return new Blob([img], { type: 'image/jpeg' });
+  }
+
   async function onFrame(f) {
     S.tier = f.tier || 'live';
     S.reasons = f.reasons || [];
+    if (typeof f.intensity === 'number') applyK(f.intensity);
     syncTier();
     if (!f.img || !f.display) return;
+    let blob;
+    try {
+      blob = await asBlob(f.img);
+    } catch (err) {
+      return;
+    }
     S.display = f.display;
-    const blob = new Blob([f.img], { type: 'image/jpeg' });
     const url = URL.createObjectURL(blob);
     try {
       const bmp = await createImageBitmap(blob);
@@ -364,8 +459,14 @@
     root.dataset.snap = '1';
     root.dataset.fixture = f.fixture || '';
     if (f.full) {
-      const full = URL.createObjectURL(new Blob([f.full], { type: 'image/jpeg' }));
+      let full = '';
+      try {
+        full = URL.createObjectURL(await asBlob(f.full));
+      } catch (err) {
+        full = '';
+      }
       const oldShot = S.shotUrl;
+      if (!full) return;
       S.shotUrl = full;
       root.style.setProperty('--shot-bg', `url("${full}")`);
       root.dataset.shotBg = '1';
@@ -410,6 +511,7 @@
 
   syncPx();
   syncMotion();
+  applyK(S.k);
   syncTier();
   if (bridge) {
     bridge.on('glass:frame', (f) => {
@@ -418,13 +520,21 @@
     bridge.on('glass:tier', (t) => {
       S.tier = t.tier;
       S.reasons = t.reasons || [];
+      if (typeof t.intensity === 'number') applyK(t.intensity);
       syncTier();
     });
   }
   const boot = () => {
     scan(document.body);
     passthrough();
-    if (bridge) bridge.invoke('glass:hello').catch(() => {});
+    if (bridge) {
+      bridge
+        .invoke('glass:hello')
+        .then((r) => {
+          if (r && typeof r.intensity === 'number') applyK(r.intensity);
+        })
+        .catch(() => {});
+    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
@@ -436,6 +546,9 @@
     placeAll,
     solidAt,
     resetPassthrough,
-    state: () => ({ tier: root.dataset.glass, why: root.dataset.glassWhy, layers: S.layers.size, snap: !!S.url, display: S.display }),
+    // Settings' slider: applied here at once, shared with every other page.
+    setIntensity: (k) => applyK(k, { persist: true }),
+    intensity: () => S.k,
+    state: () => ({ k: S.k, tier: root.dataset.glass, why: root.dataset.glassWhy, layers: S.layers.size, snap: !!S.url, display: S.display }),
   };
 })();
