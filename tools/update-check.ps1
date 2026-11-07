@@ -279,6 +279,8 @@ try {
     AEVAL_USERDATA    = $userB
     AEVAL_UPDATE_FEED = "$feedUrl/v$VersionB/"
     AEVAL_UPDATE_QUIT = '1'
+    # Packaged builds ignore a feed override without one of the test flags.
+    AEVAL_UPDATE_TEST = '1'
   }
   $exited = $app.WaitForExit(300000)
   Check 'hopB.quit' $exited 'the app quit by itself once the update was ready'
