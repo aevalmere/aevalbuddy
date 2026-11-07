@@ -1,0 +1,81 @@
+# The Tauri rewrite (branch rust-rewrite). Every gate runs here: no Rust
+# toolchain is installed on a developer machine for this project.
+name: rust
+
+on:
+  push:
+    branches: [rust-rewrite]
+  workflow_dispatch:
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test
+
+      - name: Build installer
+        run: npx --yes @tauri-apps/cli@2 build --bundles nsis
+
+      - name: Scaffold smoke
+        run: |
+          $exe = 'target\release\AevalBuddy.exe'
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          $scratch = Join-Path $env:RUNNER_TEMP 'aeval-smoke'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:AEVAL_SMOKE = '1'
+          $env:AEVAL_USERDATA = $scratch
+          $out = Join-Path $env:RUNNER_TEMP 'smoke.out'
+          $err = Join-Path $env:RUNNER_TEMP 'smoke.err'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+          if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Output '::error::smoke timed out' }
+          Get-Content $out, $err -ErrorAction SilentlyContinue
+          $text = Get-Content $out -Raw -ErrorAction SilentlyContinue
+          if ($text -notmatch '\[SMOKE\] scaffold\.bridge=ok') {
+            Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: aevalbuddy-tauri-nsis
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
