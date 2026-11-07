@@ -1,23 +1,26 @@
 'use strict';
 
-// The answer window renders the conversation as a transcript: user bubbles,
-// assistant bubbles with streamed markdown, inline error rows. The window
-// only ever grows during a conversation (in 24px steps); the transcript
-// scrolls inside it, so streaming never jitters the window edge.
+// An output window renders one conversation as a transcript: the question
+// as a quiet chip, the answer as a document with streamed markdown, inline
+// error rows, and (trail.js) Find results and task trails. Each output
+// window is its own floating window with a title bar it is moved by
+// (REQUESTS.md 11); there is no input here, the bar is the only one
+// (REQUESTS.md 9). The window follows the transcript's height until the
+// person resizes it; the transcript scrolls inside, so streaming never
+// jitters the window edge.
 
 const opanel = document.getElementById('opanel');
 const chatEl = document.getElementById('chat');
 const newChatBtn = document.getElementById('new-chat');
 const historyBtn = document.getElementById('history-btn');
-const hud = document.getElementById('hud');
-const hudDone = document.getElementById('hud-done');
-const dockToggle = document.getElementById('dock-toggle');
-const dockBadge = document.getElementById('dock-badge');
+const copyAllBtn = document.getElementById('copy-all');
+const closeOutBtn = document.getElementById('close-out');
+const sheetTitle = document.getElementById('sheet-title');
+const sheetKind = document.getElementById('sheet-kind');
 
 let mode = 'idle';
 let prevMode = 'idle';
 let lastGen = 0;
-let docked = true;
 let renderQueued = false;
 let resizeQueued = false;
 let lastSentHeight = 0;
@@ -39,6 +42,7 @@ function scrollToBottom(force) {
 function markOverflow() {
   const more = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight > 8;
   document.body.dataset.more = more ? '1' : '0';
+  document.body.dataset.scrolled = chatEl.scrollTop > 2 ? '1' : '0';
 }
 
 chatEl.addEventListener('scroll', markOverflow, { passive: true });
@@ -56,7 +60,7 @@ const SCROLL_KEYS = {
 };
 
 document.addEventListener('keydown', (e) => {
-  if (mode === 'hud' || opanel.hidden) return;
+  if (opanel.hidden) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   const step = SCROLL_KEYS[e.key];
   if (!step) return;
@@ -127,8 +131,26 @@ function usageLine(u) {
 }
 window.usageLine = usageLine;
 
+// The title bar names the conversation by its first question, the way a
+// document is named by its first line; a run is named by its task.
+let titled = false;
+function setTitle(kind, text) {
+  sheetKind.textContent = kind;
+  sheetKind.dataset.kind = kind.toLowerCase();
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  sheetTitle.textContent = t || kind;
+  sheetTitle.title = t;
+  document.title = t ? `${t} · AevalBuddy` : 'AevalBuddy answer';
+}
+window.setSheetTitle = (kind, text, force) => {
+  if (titled && !force) return;
+  titled = true;
+  setTitle(kind, text);
+};
+
 function addUserMsg(text) {
   lastUserText = text;
+  window.setSheetTitle('Answer', text);
   const msg = document.createElement('div');
   msg.className = 'msg user';
   const bubble = document.createElement('div');
@@ -187,6 +209,7 @@ function addAssistantMsg() {
 
   chatEl.appendChild(msg);
   const entry = { el: msg, body, raw: '', stop, doIt, meta, question: lastUserText };
+  msg.__entry = entry;
   doIt.addEventListener('click', () => {
     window.aeval.invoke('agent:do-it', { question: entry.question, answer: entry.raw });
   });
@@ -302,7 +325,7 @@ function renderLive() {
 // shrink while an answer is streaming, so the bottom edge does not chase the
 // text as it arrives.
 function requestResize() {
-  if (mode === 'hud' || opanel.hidden || resizeQueued || fixedHeight) return;
+  if (opanel.hidden || resizeQueued || fixedHeight) return;
   resizeQueued = true;
   requestAnimationFrame(() => {
     resizeQueued = false;
@@ -317,11 +340,11 @@ function requestResize() {
 
 new ResizeObserver(requestResize).observe(opanel);
 
+// The sheet globs out of the bar (glob.js, REQUESTS.md 8); under reduced
+// motion it fades.
 function playEntrance() {
-  opanel.classList.remove('in', 'away');
-  void opanel.offsetWidth; // restart the animation
-  opanel.classList.add('in');
-  if (window.AevalGlass) window.AevalGlass.morph(360);
+  opanel.classList.remove('away', 'fading-out');
+  if (window.AevalGlob) window.AevalGlob.open(opanel);
 }
 
 // A hidden window keeps its last frame and shows it for a moment when it
@@ -340,26 +363,13 @@ document.addEventListener('visibilitychange', () => {
 
 // ------------------------------------------------------------------- state
 
+// The layout editor places the bar only now (REQUESTS.md 11): an output
+// window keeps its place and its transcript through every mode.
 window.aeval.on('overlay:state', (next) => {
   prevMode = mode;
   mode = next.mode;
-  hud.hidden = mode !== 'hud';
-  // The layout editor drags the whole window, margin included.
-  document.documentElement.dataset.passthrough = mode === 'hud' ? 'off' : 'on';
   if (!document.hidden) opanel.classList.remove('away');
-  if (mode === 'hud') {
-    opanel.hidden = true;
-  } else if (chatEl.childElementCount) {
-    // Leaving the layout editor (or any later state change) brings an
-    // existing transcript back; without this the window would show blank.
-    opanel.hidden = false;
-  }
-  // A docked answer grows away from the input bar's edge; a free one grows
-  // from its own anchor. The stylesheet pins the panel to those edges so the
-  // window's own glide uncovers it.
-  if (next.outputWidth) {
-    document.documentElement.style.setProperty('--panel-w', next.outputWidth + 'px');
-  }
+  if (chatEl.childElementCount && opanel.hidden) opanel.hidden = false;
   if (next.chatMax) {
     document.documentElement.style.setProperty('--chat-max', next.chatMax + 'px');
   }
@@ -367,36 +377,6 @@ window.aeval.on('overlay:state', (next) => {
   // the renderer stops asking it to.
   fixedHeight = !!next.outputFixedHeight;
   document.body.dataset.fixedHeight = fixedHeight ? '1' : '0';
-  if (next.outputPos) {
-    docked = next.outputPos.docked;
-    const anchor = docked ? next.inputAnchor || next.outputPos : next.outputPos;
-    document.body.dataset.anchorH = anchor.h || 'right';
-    document.body.dataset.anchorV = anchor.v || 'top';
-  }
-  // Reopening the panel with an existing transcript replays the entrance.
-  if (mode === 'panel' && prevMode === 'pill' && !opanel.hidden) {
-    playEntrance();
-  }
-});
-
-window.aeval.on('hud:docked', ({ docked: d }) => {
-  dockBadge.hidden = !d;
-  dockToggle.textContent = d ? 'Detach' : 'Dock';
-});
-
-let snapFlashTimer = null;
-window.aeval.on('hud:snapped', () => {
-  hud.classList.add('snapped');
-  clearTimeout(snapFlashTimer);
-  snapFlashTimer = setTimeout(() => hud.classList.remove('snapped'), 350);
-});
-
-hudDone.addEventListener('click', () => {
-  window.aeval.invoke('hud:exit');
-});
-
-dockToggle.addEventListener('click', () => {
-  window.aeval.invoke('hud:set-dock', { docked: dockToggle.textContent !== 'Detach' });
 });
 
 // -------------------------------------------------------------------- chat
@@ -501,6 +481,8 @@ window.aeval.on('chat:reset', () => {
   chatEl.innerHTML = '';
   liveMsg = null;
   lastSentHeight = 0;
+  titled = false;
+  setTitle('Answer', '');
   opanel.hidden = true;
   markOverflow();
 });
@@ -509,6 +491,7 @@ window.aeval.on('chat:reset', () => {
 window.aeval.on('chat:sync', ({ messages }) => {
   chatEl.innerHTML = '';
   liveMsg = null;
+  titled = false;
   for (const m of messages || []) {
     if (m.role === 'user') {
       addUserMsg(m.text);
@@ -534,6 +517,46 @@ newChatBtn.addEventListener('click', () => {
 
 historyBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:open-history');
+});
+
+// The whole conversation as plain text: questions, answers, task outcomes.
+function transcriptText() {
+  const out = [];
+  for (const m of chatEl.children) {
+    if (m.classList.contains('user')) out.push(`> ${m.textContent.trim()}`);
+    else if (m.__entry && m.__entry.raw) out.push(m.__entry.raw.trim());
+    else if (m.classList.contains('trail')) {
+      const o = m.querySelector('.trail-outcome');
+      if (o) out.push(o.innerText.trim());
+    } else if (m.classList.contains('error-row')) out.push(m.innerText.trim());
+  }
+  return out.filter(Boolean).join('\n\n');
+}
+
+copyAllBtn.addEventListener('click', () => {
+  const text = transcriptText();
+  if (!text) return;
+  window.aeval.invoke('clipboard:write', { text }).then(() => {
+    copyAllBtn.dataset.done = '1';
+    announce('Copied the conversation');
+    setTimeout(() => delete copyAllBtn.dataset.done, 1500);
+  });
+});
+
+// Close pulls the sheet back into the bar, then the window goes. Without
+// the Rust side of output:close (a build that predates floating windows)
+// the old behaviour stands: the bar collapses and takes the answer with it.
+let closing = false;
+closeOutBtn.addEventListener('click', async () => {
+  if (closing) return;
+  closing = true;
+  if (window.AevalGlob) await window.AevalGlob.close(opanel);
+  window.aeval
+    .invoke('output:close')
+    .catch(() => window.aeval.invoke('overlay:collapse'))
+    .finally(() => {
+      closing = false;
+    });
 });
 
 // Links from model answers open in the default browser, main-process

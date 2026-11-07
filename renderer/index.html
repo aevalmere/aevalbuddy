@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-resize="x" data-resize-target="#bar">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
   <title>AevalBuddy</title>
   <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="overlay.css" />
@@ -27,10 +27,12 @@
   <section id="panel" hidden aria-label="AevalBuddy">
     <div id="bar" class="panel-top glass thin refract">
       <!-- The token says what Enter will do with the text: guessed while
-           typing, chosen with / ? > //, Ctrl+1/2/3, or this menu (Alt+Down). -->
+           typing, chosen with / ? > //, Ctrl+1/2/3, or this menu (Alt+Down).
+           It is the one place the Ask / Find / Do keys are taught
+           (REQUESTS.md 6): its tooltip, and the menu it opens. -->
       <button id="intent" class="intent-token" type="button" data-intent="ask" data-locked="false"
               data-confidence="low" aria-haspopup="listbox" aria-expanded="false"
-              aria-controls="intent-menu" title="Ctrl+1 Ask · Ctrl+2 Find · Ctrl+3 Do · Alt+Down to choose">
+              aria-controls="intent-menu" title="Ask ? or Ctrl+1 · Find / or Ctrl+2 · Do &gt; or Ctrl+3 · Alt+Down for this menu">
         <svg class="tok-glyph g-ask" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none"
              stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20.5 11.6a8.1 8.1 0 0 1-8.6 8.1 8.6 8.6 0 0 1-3.7-.8L3.5 20.3l1.5-4.3a8 8 0 0 1-1-3.9 8.1 8.1 0 0 1 8-8.3 8.1 8.1 0 0 1 8.5 7.8z"></path>
@@ -55,9 +57,6 @@
         autocomplete="off"
         spellcheck="false"
       />
-      <!-- Teaches the two sigils while the field is empty; gone on the
-           first character (overlay.css, :placeholder-shown). -->
-      <span id="legend" aria-hidden="true"><kbd>/</kbd>Find<kbd>&gt;</kbd>Do</span>
       <span id="intent-desc" class="sr-only"></span>
       <button id="region-btn" class="g-icon" type="button" aria-label="Ask about an area of the screen"
               title="Ask about an area">
@@ -86,9 +85,9 @@
     </div>
 
     <ul id="intent-menu" class="glass thin" role="listbox" aria-label="What Enter does" hidden>
-      <li role="option" tabindex="-1" data-intent="ask"><span>Ask about the screen</span><kbd>?</kbd></li>
-      <li role="option" tabindex="-1" data-intent="find"><span>Find words on screen</span><kbd>/</kbd></li>
-      <li role="option" tabindex="-1" data-intent="do"><span>Do it as a task</span><kbd>&gt;</kbd></li>
+      <li role="option" tabindex="-1" data-intent="ask"><span>Ask about the screen</span><span class="keys"><kbd>?</kbd><kbd>Ctrl+1</kbd></span></li>
+      <li role="option" tabindex="-1" data-intent="find"><span>Find words on screen</span><span class="keys"><kbd>/</kbd><kbd>Ctrl+2</kbd></span></li>
+      <li role="option" tabindex="-1" data-intent="do"><span>Do it as a task</span><span class="keys"><kbd>&gt;</kbd><kbd>Ctrl+3</kbd></span></li>
     </ul>
 
     <!-- A task that was only guessed never starts on Enter. -->
@@ -136,7 +135,7 @@
 
   </section>
 
-  <section id="hud" class="glass thick" hidden aria-label="Input position editor">
+  <section id="hud" class="glass thick" hidden aria-label="Input position editor" data-drag>
     <div class="hud-inner">
       <p class="hud-title">Input bar</p>
       <p class="hud-sub">Drag anywhere, or use the arrow keys. It snaps to screen edges and corners. Enter saves.</p>
@@ -148,6 +147,7 @@
   <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 
   <script src="glass.js"></script>
+  <script src="frame.js"></script>
   <script src="intent.js"></script>
   <script src="overlay.js"></script>
   <script src="bar.js"></script>

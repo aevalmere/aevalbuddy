@@ -56,7 +56,7 @@ button {
 #notice[hidden],
 #chat[hidden],
 #find-view[hidden],
-#chat-tools[hidden],
+#glob[hidden],
 .copy-msg[hidden],
 .link-btn[hidden],
 .g-chip[hidden],
@@ -175,38 +175,40 @@ body[data-folding] #pill {
    The surfaces sit inside the window's transparent margin (--stage), pinned
    to the corner the window is anchored to. */
 
-#panel,
-#opanel {
+#panel {
   position: fixed;
   width: var(--panel-w, 420px);
 }
 
-body[data-anchor-h="left"] #panel,
-body[data-anchor-h="left"] #opanel {
+body[data-anchor-h="left"] #panel {
   left: var(--stage);
 }
 
-body[data-anchor-h="right"] #panel,
-body[data-anchor-h="right"] #opanel {
+body[data-anchor-h="right"] #panel {
   right: var(--stage);
 }
 
-body[data-anchor-h="center"] #panel,
-body[data-anchor-h="center"] #opanel {
+body[data-anchor-h="center"] #panel {
   left: 50%;
   margin-left: calc(var(--panel-w, 420px) / -2);
 }
 
 body[data-anchor-v="top"] #panel,
-body[data-anchor-v="top"] #opanel,
-body[data-anchor-v="center"] #panel,
-body[data-anchor-v="center"] #opanel {
+body[data-anchor-v="center"] #panel {
   top: var(--stage);
 }
 
-body[data-anchor-v="bottom"] #panel,
-body[data-anchor-v="bottom"] #opanel {
+body[data-anchor-v="bottom"] #panel {
   bottom: var(--stage);
+}
+
+/* An output window is free-floating (REQUESTS.md 11): its sheet fills the
+   window inside the shadow margin, whatever size the person drags it to. */
+#opanel {
+  position: fixed;
+  left: var(--stage);
+  right: var(--stage);
+  top: var(--stage);
 }
 
 /* ------------------------------------------------------------------- bar
@@ -217,7 +219,7 @@ body[data-anchor-v="bottom"] #opanel {
 #panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 body[data-anchor-v="bottom"] #panel {
@@ -225,13 +227,13 @@ body[data-anchor-v="bottom"] #panel {
 }
 
 .panel-top {
-  --r: 28px;
-  height: 56px;
+  --r: var(--r-sheet);
+  height: var(--bar-h);
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px 0 12px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
 }
 
 /* The content waits for the shape: while the orb grows into the bar, its
@@ -251,9 +253,19 @@ body[data-anchor-v="bottom"] #panel {
   transition: opacity 180ms ease 180ms;
 }
 
-#panel[data-morph="out"] .panel-top > :not(.gl),
+#panel[data-morph="out"] .panel-top > :not(.gl) {
+  filter: blur(2px);
+  transform: scale(0.98);
+  transition: opacity 90ms ease, filter 90ms ease, transform 160ms var(--ease-glide);
+}
+
 #panel[data-morph="out"] > :not(.panel-top) {
-  transition: opacity 90ms ease;
+  transform: translateY(calc(var(--sp-2) * -1)) scale(0.98);
+  transition: opacity 110ms ease, transform 160ms var(--ease-glide);
+}
+
+body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
+  transform: translateY(var(--sp-2)) scale(0.98);
 }
 
 #query-input {
@@ -261,7 +273,7 @@ body[data-anchor-v="bottom"] #panel {
   min-width: 0;
   height: 100%;
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: var(--fs-bar);
   line-height: 24px;
   font-weight: 450;
   color: var(--label);
@@ -289,23 +301,12 @@ body[data-anchor-v="bottom"] #panel {
   padding: calc(var(--px) * 1.5);
 }
 
-/* Teaches the two sigils while the field is empty. */
-#legend {
-  display: none;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--label-3);
-  margin-right: 2px;
-}
-
-#legend kbd + kbd {
-  margin-left: 6px;
-}
-
-#query-input:placeholder-shown ~ #legend {
-  display: inline-flex;
+/* A task waiting on an answer: the bar is where it is typed, and its rim
+   says so in the accent. */
+body[data-waiting="asking"] #bar > .gl::after {
+  padding: calc(var(--px) * 1.5);
+  background: linear-gradient(var(--accent-bright), var(--accent-bright));
+  opacity: 0.85;
 }
 
 /* Esc and a click outside collapse; the close button is kept for anyone
@@ -332,13 +333,13 @@ body[data-region="1"] #region-btn {
 
 .intent-token {
   flex: 0 0 auto;
-  height: 32px;
+  height: var(--ctl);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 11px 0 9px;
+  padding: 0 var(--sp-3) 0 10px;
   border-radius: var(--r-cap);
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--label);
   background: var(--fill-1);
@@ -409,10 +410,10 @@ body[data-region="1"] #region-btn {
 /* ------------------------------------------------------------- the menu */
 
 #intent-menu {
-  --r: 18px;
+  --r: var(--r-card);
   list-style: none;
-  padding: 6px;
-  font-size: 14px;
+  padding: var(--sp-1);
+  font-size: var(--fs-row);
   animation: drop-in 220ms var(--ease-morph);
 }
 
@@ -420,12 +421,17 @@ body[data-region="1"] #region-btn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sp-3);
   min-height: 36px;
-  padding: 0 8px 0 12px;
-  border-radius: 12px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--r-row);
   cursor: pointer;
   color: var(--label);
+}
+
+#intent-menu .keys {
+  display: inline-flex;
+  gap: var(--sp-1);
 }
 
 #intent-menu li:hover,
@@ -454,9 +460,9 @@ body[data-region="1"] #region-btn {
 /* ---------------------------------------------------- rows under the bar */
 
 .guess-card {
-  --r: 20px;
-  padding: 14px 16px;
-  font-size: 14px;
+  --r: var(--r-card);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-row);
   line-height: 1.45;
   color: var(--label);
   animation: drop-in 260ms var(--ease-settle);
@@ -465,8 +471,8 @@ body[data-region="1"] #region-btn {
 .guess-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
 }
 
 .guess-actions kbd {
@@ -476,14 +482,14 @@ body[data-region="1"] #region-btn {
 #examples {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
 .example-chip {
   --r: var(--r-cap);
-  min-height: 32px;
-  padding: 0 14px;
-  font-size: 13px;
+  min-height: var(--ctl);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-small);
   color: var(--label);
   border-radius: var(--r-cap);
   animation: drop-in 240ms var(--ease-morph) backwards;
@@ -500,14 +506,14 @@ body[data-region="1"] #region-btn {
 #bar-status,
 #region-chip,
 #notice {
-  --r: 18px;
+  --r: var(--r-card);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: var(--sp-2) var(--sp-3);
   min-height: 40px;
-  padding: 8px 8px 8px 16px;
-  font-size: 13px;
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-4);
+  font-size: var(--fs-small);
   line-height: 1.4;
   color: var(--label-2);
   animation: drop-in 220ms var(--ease-morph);
@@ -557,51 +563,123 @@ body[data-region="1"] #region-btn {
 
 #opanel {
   --r: var(--r-sheet);
-  padding: 14px 16px 16px;
+  padding: 0 var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
-/* The sheet grows out of the bar's edge: revealed from that edge with a
-   barely-there scale, on the morph curve. Rim and refraction come back once
-   it lands (glass.js). */
-#opanel.in {
-  animation: sheet-grow var(--d-sheet) var(--ease-morph);
-  transform-origin: 50% 0;
+/* The title bar: what the window is held by, what it is about, and its
+   four controls. The same height and inset on every output window. */
+#sheet-bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--sheet-bar-h);
+  margin: 0 calc(var(--sp-2) * -1) 0 0;
+  cursor: default;
 }
 
-body[data-anchor-v="bottom"] #opanel.in {
-  animation-name: sheet-grow-up;
-  transform-origin: 50% 100%;
+.sheet-kind {
+  flex: 0 0 auto;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--label-2);
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-cap);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
 }
 
-@keyframes sheet-grow {
-  from {
-    clip-path: inset(0 0 calc(100% - 56px) 0 round var(--r-sheet));
-    transform: scale(0.985);
-    opacity: 0.4;
-  }
-  55% {
-    opacity: 1;
-  }
-  to {
-    clip-path: inset(-30px -30px -30px -30px round var(--r-sheet));
-  }
+.sheet-kind:empty {
+  display: none;
 }
 
-@keyframes sheet-grow-up {
-  from {
-    clip-path: inset(calc(100% - 56px) 0 0 0 round var(--r-sheet));
-    transform: scale(0.985);
-    opacity: 0.4;
-  }
-  55% {
-    opacity: 1;
-  }
-  to {
-    clip-path: inset(-30px -30px -30px -30px round var(--r-sheet));
-  }
+.sheet-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-text);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-tools {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+}
+
+#copy-all[data-done] {
+  color: var(--accent-bright);
+}
+
+/* A hairline under the title bar only once the transcript scrolls under it. */
+#sheet-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: var(--sp-2);
+  bottom: 0;
+  height: var(--px);
+  background: var(--hairline);
+  opacity: 0;
+  transition: opacity var(--d-fast) ease;
+}
+
+body[data-scrolled="1"] #sheet-bar::after {
+  opacity: 1;
+}
+
+/* While the glob runs the sheet's own glass and words wait: the glob is
+   the glass, and the words fade in as it lands (glob.js). */
+#opanel.globbing > .gl,
+#opanel.globbing > :not(.gl) {
+  opacity: 0;
+}
+
+#opanel.globbing.reveal > :not(.gl) {
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+#opanel.fading {
+  animation: fade-only 150ms ease;
+}
+
+#opanel.fading-out {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+#glob {
+  --r: 0px;
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.32)) drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.5));
+}
+
+#glob > .gl {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+#glob > .gl > .gs {
+  will-change: transform;
+}
+
+#glob-rim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* Hidden windows keep their last frame; a sheet about to reappear starts
@@ -610,23 +688,11 @@ body[data-anchor-v="bottom"] #opanel.in {
   opacity: 0;
 }
 
-#chat-tools {
-  display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-  height: 28px;
-  /* Its own row now that it shows at rest: overlapping the transcript by
-     10 px put scrolled messages under the icons. */
-  margin: -6px -8px -2px 0;
-  position: relative;
-  z-index: 2;
-}
-
 /* Visible at rest, quietly: hidden until hover they left an empty band
    across the top of every answer that read as a layout fault. */
 .g-icon.small {
-  width: 28px;
-  height: 28px;
+  width: var(--ctl-s);
+  height: var(--ctl-s);
   color: var(--label-3);
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
@@ -636,10 +702,14 @@ body[data-anchor-v="bottom"] #opanel.in {
   color: var(--label);
 }
 
+/* A wide window keeps a reading measure: the transcript centres at 760 px,
+   so a maximised or full-screen output reads like a document, not a
+   banner (REQUESTS.md 4). */
 #chat {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
+  padding-inline: max(0px, calc((100% - 760px) / 2));
   max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
@@ -720,16 +790,16 @@ body[data-more="1"] #opanel::after {
   align-items: flex-end;
 }
 
-/* One turn is 20px from the next; a question and its answer are 12px. */
+/* One turn is 24px from the next; a question and its answer are 12px. */
 .msg.assistant + .msg.user,
 .msg.trail + .msg.user,
 .msg.error-row + .msg.user {
-  margin-top: 8px;
+  margin-top: var(--sp-3);
 }
 
 .bubble {
   max-width: 88%;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -739,9 +809,10 @@ body[data-more="1"] #opanel::after {
   max-width: 85%;
   background: var(--fill-2);
   box-shadow: var(--chip-rim);
-  border-radius: 18px;
-  padding: 7px 14px;
-  font-size: 14px;
+  border-radius: var(--r-card);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-row);
+  line-height: 1.45;
   color: var(--label);
   white-space: pre-wrap;
 }
@@ -754,9 +825,10 @@ body[data-more="1"] #opanel::after {
 .msg-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 28px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-height: var(--ctl);
+  margin-top: var(--sp-2);
   opacity: 0;
   transition: opacity var(--d-fast) ease;
 }
@@ -778,9 +850,9 @@ body[data-more="1"] #opanel::after {
 /* The answer's actions are capsules like every other button on glass, not
    bare words: a control has a shape. */
 .copy-msg {
-  min-height: 28px;
-  padding: 0 12px;
-  font-size: 12px;
+  min-height: var(--ctl);
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--label);
   background: var(--fill-1);
@@ -797,9 +869,6 @@ body[data-more="1"] #opanel::after {
   background: var(--fill-3);
 }
 
-.do-it {
-  margin-left: 4px;
-}
 
 /* Buttons the scripts create keep their class names; they wear the glass
    button shapes from glass.css. */
@@ -808,10 +877,10 @@ body[data-more="1"] #opanel::after {
 .accent-btn,
 .link-btn {
   flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 14px;
+  min-height: var(--ctl);
+  padding: 0 var(--sp-4);
   border-radius: var(--r-cap);
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--label);
   background: var(--fill-1);
@@ -869,7 +938,7 @@ body[data-more="1"] #opanel::after {
 }
 
 .stage-label {
-  font-size: 14px;
+  font-size: var(--fs-row);
   color: var(--label-2);
 }
 
@@ -881,9 +950,9 @@ body[data-more="1"] #opanel::after {
 .error-row {
   flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-3);
   width: 100%;
-  padding: 12px 12px 12px 14px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
   border-radius: var(--r-card);
   background: rgba(240, 120, 132, 0.12);
   box-shadow: inset 0 0 0 var(--px) rgba(242, 160, 168, 0.3);
@@ -898,7 +967,7 @@ body[data-more="1"] #opanel::after {
 
 .error-row .error-text {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--fs-row);
   line-height: 1.45;
   color: var(--label);
 }
@@ -915,7 +984,7 @@ body[data-fixed-height="1"] #chat {
 /* ---------------------------------------------------------------- answers */
 
 .md-body {
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.5;
   font-weight: 450;
   color: var(--label);
@@ -937,8 +1006,8 @@ body[data-fixed-height="1"] #chat {
 .md-body .md-h {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 15px;
-  margin: 14px 0 4px;
+  font-size: var(--fs-body);
+  margin: var(--sp-4) 0 var(--sp-1);
 }
 
 .md-body .md-h:first-child {
@@ -946,7 +1015,7 @@ body[data-fixed-height="1"] #chat {
 }
 
 .md-body .md-h1 {
-  font-size: 17px;
+  font-size: var(--fs-title);
 }
 
 .md-body ul,
@@ -966,9 +1035,9 @@ body[data-fixed-height="1"] #chat {
 
 .md-body code {
   font-family: var(--font-mono);
-  font-size: 13.5px;
+  font-size: var(--fs-small);
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  border-radius: var(--r-key);
   padding: 1px 6px;
   color: var(--label);
 }
@@ -979,9 +1048,9 @@ body[data-fixed-height="1"] #chat {
   line-height: 1.55;
   background: rgba(0, 0, 0, 0.32);
   box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.06);
-  border-radius: var(--r-card);
-  padding: 12px 14px;
-  margin: 6px 0 10px;
+  border-radius: var(--r-row);
+  padding: var(--sp-3) var(--sp-4);
+  margin: var(--sp-2) 0 var(--sp-3);
   overflow-x: auto;
   white-space: pre;
   color: var(--label);
@@ -1036,7 +1105,6 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   align-items: center;
   justify-content: center;
-  -webkit-app-region: drag;
   cursor: move;
 }
 
@@ -1081,22 +1149,10 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   align-items: center;
   gap: 8px;
-  -webkit-app-region: no-drag;
 }
 
 #hud-done {
-  -webkit-app-region: no-drag;
   min-width: 96px;
-}
-
-.dock-badge {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--label);
-  background: var(--accent-glass);
-  border-radius: var(--r-cap);
-  padding: 3px 10px;
-  margin-bottom: 6px;
 }
 
 /* ------------------------------------------------------------------ find
@@ -1234,8 +1290,8 @@ body[data-fixed-height="1"] #chat {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-3);
   border-radius: var(--r-cap);
   font-size: 12px;
   font-weight: 500;
@@ -1489,27 +1545,10 @@ body[data-fixed-height="1"] #chat {
   transform: rotate(45deg);
 }
 
-.ask-input {
-  margin-top: 6px;
-  height: 36px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--label);
-  background: rgba(0, 0, 0, 0.28);
-  border: none;
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  padding: 0 12px;
-  user-select: text;
-}
-
-.ask-input::placeholder {
-  color: var(--label-3);
-}
-
-.ask-input:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.7);
+/* A question from a task is answered in the bar; the row says so. */
+.trow-note.waiting {
+  color: var(--accent-bright);
+  font-weight: 600;
 }
 
 .trail-meta {
@@ -1526,7 +1565,7 @@ body[data-fixed-height="1"] #chat {
 }
 
 .trail-banner {
-  padding: 10px 10px 10px 14px;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
   border-radius: var(--r-card);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
@@ -1553,9 +1592,9 @@ body[data-fixed-height="1"] #chat {
   background: rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
   border-radius: var(--r-card);
-  padding: 16px;
+  padding: var(--sp-4);
   display: grid;
-  gap: 6px;
+  gap: var(--sp-2);
   animation: card-rise 280ms var(--ease-settle);
 }
 
@@ -1593,8 +1632,8 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
 }
 
 .confirm-hint {
@@ -1626,7 +1665,7 @@ body[data-fixed-height="1"] #chat {
 }
 
 .usage {
-  font-size: 12px;
+  font-size: var(--fs-meta);
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
