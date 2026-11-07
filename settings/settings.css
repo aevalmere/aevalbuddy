@@ -890,3 +890,20 @@ h1 {
 :root {
   --danger: #E4818C;
 }
+
+/* The steps to a free key, shown until one is saved. */
+.free-pass {
+  margin: 0 0 12px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(201, 207, 221, 0.8);
+}
+
+.free-pass li + li {
+  margin-top: 4px;
+}
+
+.free-pass[hidden],
+#clip-key[hidden] {
+  display: none;
+}

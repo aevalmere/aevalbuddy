@@ -78,10 +78,48 @@ const setShortcutError = makeStatus(shortcutError);
 
 // --------------------------------------------------------------- API key
 
+const freePass = document.getElementById('free-pass');
+const clipKey = document.getElementById('clip-key');
+const clipKeyText = document.getElementById('clip-key-text');
+let keySaved = false;
+
 function renderKeyState(saved) {
+  keySaved = !!saved;
   setSummary('key-summary', saved ? 'Connected' : 'No key yet');
   removeKeyBtn.hidden = !saved;
   testKeyBtn.hidden = !saved;
+  freePass.hidden = !!saved;
+  if (saved) clipKey.hidden = true;
+}
+
+// A key copied from openrouter.ai is offered when the window comes back.
+// Main reads the clipboard; only a masked form ever reaches this page.
+function checkClipboardKey() {
+  if (keySaved) return;
+  window.aeval.invoke('settings:clip-key').then((r) => {
+    clipKey.hidden = !(r && r.found);
+    if (r && r.found) clipKeyText.textContent = `Key on the clipboard: ${r.masked}`;
+  });
+}
+window.addEventListener('focus', checkClipboardKey);
+document.getElementById('clip-key-use').addEventListener('click', () => {
+  window.aeval.invoke('settings:use-clip-key').then(afterSave);
+});
+
+// Saved keys are tested at once, so a key that cannot reach free models
+// says so here instead of on the first question.
+function afterSave(r) {
+  if (!r || !r.ok) {
+    setKeyStatus((r && r.error) || 'Could not save the key.', true);
+    return;
+  }
+  keyInput.value = '';
+  keyInput.type = 'password';
+  toggleKeyBtn.textContent = 'Show';
+  toggleKeyBtn.setAttribute('aria-pressed', 'false');
+  renderKeyState(true);
+  setKeyStatus('Saved. Checking it…', true);
+  window.aeval.invoke('settings:test-key').then((t) => setKeyStatus(t.message, !t.ok));
 }
 
 toggleKeyBtn.addEventListener('click', () => {
@@ -93,18 +131,7 @@ toggleKeyBtn.addEventListener('click', () => {
 });
 
 function saveKey() {
-  window.aeval.invoke('settings:save-key', { key: keyInput.value }).then((r) => {
-    if (!r.ok) {
-      setKeyStatus(r.error, true);
-      return;
-    }
-    keyInput.value = '';
-    keyInput.type = 'password';
-    toggleKeyBtn.textContent = 'Show';
-    toggleKeyBtn.setAttribute('aria-pressed', 'false');
-    renderKeyState(true);
-    setKeyStatus('Saved.');
-  });
+  window.aeval.invoke('settings:save-key', { key: keyInput.value }).then(afterSave);
 }
 
 saveKeyBtn.addEventListener('click', saveKey);
@@ -332,7 +359,6 @@ const agentCombo = makeCombo({
 
 // ------------------------------------------------------------- find, agent
 
-const findRelated = document.getElementById('find-related');
 const findOcr = document.getElementById('find-ocr');
 const agentSteps = document.getElementById('agent-steps');
 const agentStepsValue = document.getElementById('agent-steps-value');
@@ -345,12 +371,12 @@ function renderFindSettings(f) {
   for (const b of document.querySelectorAll('[data-find-scope]')) {
     b.setAttribute('aria-checked', String(b.dataset.findScope === f.scope));
   }
-  findRelated.checked = !!f.related;
+  for (const b of document.querySelectorAll('[data-find-related]')) {
+    b.setAttribute('aria-checked', String(b.dataset.findRelated === f.related));
+  }
   findOcr.checked = !!f.ocr;
-  setSummary(
-    'find-summary',
-    `${f.scope === 'screen' ? 'Whole screen' : 'This window'}${f.related ? ' · related on' : ''}`
-  );
+  const rel = { ask: ' · related on request', auto: ' · related automatic', off: '' }[f.related] || '';
+  setSummary('find-summary', `${f.scope === 'screen' ? 'Whole screen' : 'This window'}${rel}`);
 }
 
 function renderAgentSettings(a) {
@@ -375,10 +401,11 @@ const setAgent = (patch) => window.aeval.invoke('settings:set-agent', patch).the
 document.addEventListener('click', (e) => {
   const scope = e.target.closest('[data-find-scope]');
   if (scope) setFind({ scope: scope.dataset.findScope });
+  const rel = e.target.closest('[data-find-related]');
+  if (rel) setFind({ related: rel.dataset.findRelated });
   const perm = e.target.closest('[data-permission]');
   if (perm) setAgent({ permission: perm.dataset.permission });
 });
-findRelated.addEventListener('change', () => setFind({ related: findRelated.checked }));
 findOcr.addEventListener('change', () => setFind({ ocr: findOcr.checked }));
 agentSteps.addEventListener('input', () => {
   agentStepsValue.textContent = agentSteps.value;

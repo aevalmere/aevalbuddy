@@ -2502,6 +2502,24 @@ function registerIpc() {
   });
 
   ipcMain.handle('settings:test-key', () => ai.testKey(store.getApiKey()));
+  // An OpenRouter key on the clipboard, shown masked. The key itself stays
+  // in this process.
+  const clipKey = () => {
+    const t = String(clipboard.readText() || '').trim();
+    return /^sk-or-[A-Za-z0-9_-]{20,200}$/.test(t) ? t : '';
+  };
+  ipcMain.handle('settings:clip-key', () => {
+    const k = store.hasApiKey() ? '' : clipKey();
+    return { found: !!k, masked: k ? `${k.slice(0, 9)}…${k.slice(-4)}` : '' };
+  });
+  ipcMain.handle('settings:use-clip-key', () => {
+    const k = clipKey();
+    if (!k) return { ok: false, error: 'The clipboard no longer holds an OpenRouter key.' };
+    store.setApiKey(k);
+    sendOverlayState();
+    if (cursorBuddy.stepIndex() === 0) cursorBuddy.notify('key-saved');
+    return { ok: true };
+  });
 
   ipcMain.handle('update:check', () => updater.check());
   ipcMain.handle('update:restart', () => ({ ok: updater.restart() }));

@@ -29,7 +29,7 @@
         <button type="button" data-page="pg-models">Models</button>
         <button type="button" data-page="pg-answers">Answers</button>
         <button type="button" data-page="pg-find">Find</button>
-        <button type="button" data-page="pg-agent">Agent</button>
+        <button type="button" data-page="pg-agent">Tasks</button>
         <button type="button" data-page="pg-privacy">Privacy</button>
         <button type="button" data-page="pg-shortcuts">Shortcuts</button>
         <button type="button" data-page="pg-general">General</button>
@@ -50,6 +50,16 @@
               <button class="edit" type="button" data-edit="sec-key">Edit</button>
             </div>
             <div class="body">
+              <!-- No key yet: the three steps to a free one, in order. -->
+              <ol id="free-pass" class="free-pass" hidden>
+                <li>Make a free OpenRouter account and key. <a class="link" href="#" data-external="https://openrouter.ai/keys">Open openrouter.ai/keys</a></li>
+                <li>Copy the key. Coming back here, AevalBuddy offers to use what is on your clipboard.</li>
+                <li>Free models need <strong>Free model publication</strong> turned on: their providers may keep and train on what they receive, which includes your screen. <a class="link" href="#" data-external="https://openrouter.ai/settings/privacy">Open privacy settings</a></li>
+              </ol>
+              <div id="clip-key" class="row subtle" hidden>
+                <span id="clip-key-text"></span>
+                <button id="clip-key-use" type="button" class="primary">Use this key</button>
+              </div>
               <div class="row">
                 <input
                   id="api-key-input"
@@ -203,10 +213,12 @@
                 <button type="button" class="choice-option" role="radio" data-find-scope="window">This window</button>
                 <button type="button" class="choice-option" role="radio" data-find-scope="screen">Whole screen</button>
               </div>
-              <label class="switch">
-                <input id="find-related" type="checkbox" />
-                <span>Related matches: words that mean the same thing, found by the Find model</span>
-              </label>
+              <p class="note" id="find-related-label">Related matches: words that mean the same thing, found by the Find model. They send this window's text to it.</p>
+              <div class="choice" role="radiogroup" aria-labelledby="find-related-label">
+                <button type="button" class="choice-option" role="radio" data-find-related="ask">Ask each time</button>
+                <button type="button" class="choice-option" role="radio" data-find-related="auto">Automatic</button>
+                <button type="button" class="choice-option" role="radio" data-find-related="off">Off</button>
+              </div>
               <label class="switch">
                 <input id="find-ocr" type="checkbox" />
                 <span>Read text from pixels when an app shares none</span>
@@ -217,7 +229,7 @@
         </div>
 
         <div class="page" id="pg-agent">
-          <h1>Agent</h1>
+          <h1>Tasks</h1>
           <section id="sec-agent" aria-labelledby="agent-heading">
             <div class="row-head">
               <h2 id="agent-heading">Permissions</h2>
@@ -253,6 +265,12 @@
 
         <div class="page" id="pg-privacy">
           <h1>Privacy</h1>
+          <section id="sec-recipients">
+            <div class="row-head">
+              <h2>Who sees your screen</h2>
+            </div>
+            <p class="note">Asking sends a screenshot, or the window's text, and your question to OpenRouter, which passes them to the model you picked. Tasks send one each step. Free models are offered on the condition that their providers may keep and train on what they receive. A paid model under OpenRouter's no-training setting does not. Exact Find never leaves this computer; related Find sends the window's text to the Find model.</p>
+          </section>
           <section id="sec-history" aria-labelledby="history-heading">
             <div class="row-head">
               <h2 id="history-heading">History</h2>
