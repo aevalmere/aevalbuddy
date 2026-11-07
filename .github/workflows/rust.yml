@@ -60,6 +60,15 @@ jobs:
           }
           '@ | Set-Content (Join-Path $env:RUNNER_TEMP 'gate.ps1')
 
+      # The desktop helper ships prebuilt (DESK-12): compile host.cs once,
+      # bundle build/desktop-<hash>.dll, and pin its SHA-256 into the exe.
+      - name: Prebuild desktop helper
+        run: |
+          node ../tools/build-desktop.js
+          $sha = (Get-Content ../lib/desktop/prebuilt.json -Raw | ConvertFrom-Json).sha256
+          if ($sha -notmatch '^[0-9a-f]{64}$') { throw "no prebuilt sha: $sha" }
+          "AEVAL_DESKTOP_DLL_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Format
         run: '& "$env:RUNNER_TEMP\gate.ps1" fmt "cargo fmt --all -- --check"'
 
@@ -92,6 +101,50 @@ jobs:
             Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
             exit 1
           }
+
+      # Split (c): capture fidelity and exclusion on the runner's real screen,
+      # then the desktop selfcheck (Notepad included).
+      - name: Capture check
+        if: success() || failure()
+        run: |
+          $exe = 'target\release\AevalBuddy.exe'
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          if (-not (Test-Path 'target\release\desktop')) { Write-Output '::warning::no bundled desktop/ folder beside the exe' }
+          $scratch = Join-Path $env:RUNNER_TEMP 'aeval-capture'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:AEVAL_CAPTURE_CHECK = '1'
+          $env:AEVAL_USERDATA = $scratch
+          $out = Join-Path $env:RUNNER_TEMP 'capture.out'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'capture.err')
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output '::error::capture check timed out' }
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
+          Write-Output $text
+          $lines = ($text -split "`n" | Where-Object { $_ -match '^\[CAPTURE\]' }) -join '%0A'
+          if ($text -notmatch '\[CAPTURE\] done') {
+            Write-Output "::error title=capture check::$lines"
+            exit 1
+          }
+          Write-Output "::notice title=capture check::$lines"
+
+      - name: Desktop selfcheck
+        if: success() || failure()
+        run: |
+          $exe = 'target\release\AevalBuddy.exe'
+          $scratch = Join-Path $env:RUNNER_TEMP 'aeval-desktop'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:AEVAL_DESKTOP_CHECK = '1'
+          $env:AEVAL_USERDATA = $scratch
+          $out = Join-Path $env:RUNNER_TEMP 'desktop.out'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'desktop.err')
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Output '::error::desktop selfcheck timed out' }
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
+          Write-Output $text
+          $lines = ($text -split "`n" | Where-Object { $_ -match '^\[DESKTOP\]' -and $_ -notmatch 'typeReadText|editorCandidates' }) -join '%0A'
+          if ($text -notmatch '\[DESKTOP\] done') {
+            Write-Output "::error title=desktop selfcheck::$lines"
+            exit 1
+          }
+          Write-Output "::notice title=desktop selfcheck::$lines"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -1,0 +1,1 @@
+*, *::before, *::after { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; caret-color: transparent !important; text-decoration-color: transparent !important; } ::placeholder { color: transparent !important; } ::selection { color: transparent !important; -webkit-text-fill-color: transparent !important; }

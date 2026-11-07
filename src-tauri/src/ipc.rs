@@ -187,7 +187,12 @@ pub fn aeval_invoke(
         return Err(format!("Blocked IPC channel: {channel}"));
     }
     seen.record(window.label(), &channel);
-    route(&channel, payload.unwrap_or(Value::Null))
+    let payload = payload.unwrap_or(Value::Null);
+    // Rows owned by agent (c): region:*, buddy:*, glass:hello.
+    if let Some(r) = crate::desktop::channels::route(&window, &channel, &payload) {
+        return r;
+    }
+    route(&channel, payload)
 }
 
 fn route(channel: &str, payload: Value) -> Result<Value, String> {

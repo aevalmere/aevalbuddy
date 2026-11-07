@@ -34,6 +34,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(ipc::Seen::default())
         .invoke_handler(tauri::generate_handler![ipc::aeval_invoke])
+        // Glass frames and the lens loupe, served from memory (agent c, D4).
+        .register_uri_scheme_protocol(backdrop::SCHEME, |_ctx, request| {
+            backdrop::serve(request.uri().path())
+        })
         .on_page_load(|webview, payload| {
             let loaded = matches!(payload.event(), PageLoadEvent::Finished);
             if loaded && selftest::smoke_enabled() {
@@ -44,6 +48,8 @@ pub fn run() {
             for (label, page) in windows::SCAFFOLD_WINDOWS {
                 windows::create_page(app.handle(), label, page)?;
             }
+            // Desktop helper client, glass backdrop, CI checks (agent c).
+            desktop::setup(app.handle());
             if selftest::smoke_enabled() {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || selftest::scaffold(handle));

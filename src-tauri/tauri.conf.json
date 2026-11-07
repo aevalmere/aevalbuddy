@@ -18,6 +18,9 @@
     "active": true,
     "targets": ["nsis"],
     "icon": ["icons/icon.ico"],
+    "resources": {
+      "../build/desktop-*.dll": "desktop/"
+    },
     "publisher": "darkelights",
     "shortDescription": "Screen-aware AI overlay for Windows",
     "windows": {
