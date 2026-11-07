@@ -14,18 +14,34 @@
    rest of the file is the palette. See DESIGN.md. */
 
 :root {
-  --accent: #823A80;
-  --slate: #C9CFDD;
-  --twilight: #303D6A;
   /* Grape soda at the palette value is a dark violet, which is what it is
      meant to be on the app's own dark surfaces. On a black editor, 3px of it
      is a smudge. The ticks are the one mark that says which pixels are being
      sent, so they take the lifted accent. */
   --accent-bright: #C56FC3;
   /* An error cannot be signalled with the accent, because the accent means
-     "this is the action". Shared with the history window's Delete all. */
-  --danger: #E4818C;
+     "this is the action". The glass values, shared with Delete all. */
+  --danger: #F2A0A8;
   --danger-edge: #6B2E38;
+
+  /* This page does not load glass.css (it draws no backdrop), so the type
+     and label tokens it uses are repeated here. Without them the chip fell
+     back to the browser's serif in black on near-black. */
+  --font-text: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --label: #F4F6FB;
+  --label-2: #C9CFDD;
+  --fill-1: rgba(255, 255, 255, 0.08);
+  /* The chips are the thin glass's solid tier: the same tint at the alpha
+     the scrim reaches over a white page, a rim instead of a border, and
+     the sheets' shadow. */
+  --chip-bg: rgb(16 18 28 / 0.86);
+  --chip-rim:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --chip-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.34),
+    0 1px 2px rgba(0, 0, 0, 0.24),
+    0 6px 18px -4px rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -85,7 +101,7 @@ body:not([data-dragging]) #scrim-right {
    whatever the user is pointing it at. */
 .edge {
   position: absolute;
-  background: var(--slate);
+  background: var(--label-2);
   box-shadow: 0 0 0 1px rgba(11, 12, 16, 0.55);
 }
 
@@ -131,13 +147,13 @@ body:not([data-dragging]) #scrim-right {
   pointer-events: none;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: .02em;
   font-variant-numeric: tabular-nums;
+  line-height: 16px;
   color: var(--label);
-  background: rgba(18, 20, 28, 0.92);
-  border: 1px solid var(--twilight);
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: var(--chip-bg);
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: var(--chip-rim), var(--chip-shadow);
   white-space: nowrap;
 }
 
@@ -147,26 +163,26 @@ body:not([data-dragging]) #scrim-right {
 
 #size.too-small {
   color: var(--danger);
-  border-color: var(--danger-edge);
+  box-shadow: inset 0 0 0 1px var(--danger-edge), var(--chip-shadow);
 }
 
 /* ------------------------------------------------------------------ hint */
 
 #hint {
   position: fixed;
-  top: 28px;
+  top: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-size: 13px;
+  line-height: 18px;
   color: var(--label);
-  background: rgba(18, 20, 28, 0.92);
-  border: 1px solid var(--twilight);
+  background: var(--chip-bg);
   border-radius: 999px;
-  padding: 8px 16px 8px 12px;
-  box-shadow: 0 8px 28px -14px rgba(0, 0, 0, .9);
+  padding: 8px 8px 8px 16px;
+  box-shadow: var(--chip-rim), var(--chip-shadow);
   animation: hint-in 240ms cubic-bezier(.32, .72, 0, 1) both;
 }
 
@@ -184,37 +200,16 @@ body[data-dragging] #hint {
   }
 }
 
-/* The buddy's face, so the selector reads as the same character as the
-   pointer rather than as a system tool. */
-.face {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  flex: none;
-}
-
-.eye {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--slate);
-}
-
 kbd {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
+  line-height: 16px;
   color: var(--label-2);
-  border: 1px solid var(--twilight);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  padding: 1px 5px;
+  background: var(--fill-1);
+  border-radius: 6px;
+  padding: 2px 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {

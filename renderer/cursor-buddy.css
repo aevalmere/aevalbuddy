@@ -175,72 +175,11 @@ body {
   }
 }
 
-/* The tail points back at the arrow. Its side flips with the bubble. */
-.bubble-tail {
-  position: absolute;
-  top: 18px;
-  width: 10px;
-  height: 10px;
-  background: #10254F;
-  border-left: 1px solid #303D6A;
-  border-bottom: 1px solid #303D6A;
-  transform: rotate(45deg);
-}
-
-#callout[data-side="right"] .bubble-tail {
-  left: -6px;
-}
-
-#callout[data-side="left"] .bubble-tail {
-  right: -6px;
-  transform: rotate(225deg);
-}
-
 .bubble-head {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 4px;
-}
-
-/* Small face so the pointer reads as someone helping rather than a tooltip
-   that appeared. Two eyes on the accent, nothing more. */
-.face {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #823A80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-}
-
-.eye {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #C9CFDD;
-  animation: blink 5.5s infinite;
-}
-
-@keyframes blink {
-  0%,
-  95%,
-  100% {
-    transform: scaleY(1);
-  }
-  97% {
-    transform: scaleY(0.15);
-  }
-}
-
-.who {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--label-2);
 }
 
 #callout-count {
@@ -375,9 +314,8 @@ body {
   box-shadow: 0 0 0 1px #C9CFDD;
 }
 
-/* A card has no arrow beside it, so no tail. The agent's bubble narrates and
-   carries no close button: Esc and the trail's Stop are how a run ends. */
-#callout[data-side="none"] .bubble-tail,
+/* The agent's bubble narrates and carries no close button: Esc and the
+   trail's Stop are how a run ends. */
 body[data-kind="agent"] #callout-close {
   display: none;
 }

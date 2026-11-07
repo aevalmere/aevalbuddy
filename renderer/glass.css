@@ -368,3 +368,34 @@ kbd,
     border: 1px solid ButtonText;
   }
 }
+
+/* ------------------------------------------------------ scroll edge effect */
+
+/* Text that scrolls under a sheet's edge fades into the glass instead of
+   being cut by a hard line, and only on an edge with more behind it: the
+   fade is driven by the scroll position, so a list at its top has a crisp
+   top and a list that does not scroll has no fade at all. */
+@property --edge-t {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --edge-b {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.edge-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--edge-t), #000 calc(100% - var(--edge-b)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--edge-t), #000 calc(100% - var(--edge-b)), transparent);
+  animation: edge-fade linear both;
+  animation-timeline: scroll(self);
+}
+
+@keyframes edge-fade {
+  0% { --edge-t: 0px; --edge-b: 24px; }
+  6%, 94% { --edge-t: 24px; --edge-b: 24px; }
+  100% { --edge-t: 24px; --edge-b: 0px; }
+}

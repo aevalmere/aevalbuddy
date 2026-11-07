@@ -620,16 +620,18 @@ body[data-anchor-v="bottom"] #opanel.in {
   z-index: 2;
 }
 
+/* Visible at rest, quietly: hidden until hover they left an empty band
+   across the top of every answer that read as a layout fault. */
 .g-icon.small {
   width: 28px;
   height: 28px;
-  opacity: 0;
-  transition: background var(--d-fast) ease, color var(--d-fast) ease, opacity var(--d-fast) ease;
+  color: var(--label-3);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
-#opanel:hover .g-icon.small,
+#opanel .g-icon.small:hover,
 .g-icon.small:focus-visible {
-  opacity: 1;
+  color: var(--label);
 }
 
 #chat {
@@ -771,23 +773,30 @@ body[data-more="1"] #opanel::after {
   display: none;
 }
 
+/* The answer's actions are capsules like every other button on glass, not
+   bare words: a control has a shape. */
 .copy-msg {
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 12px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--label-2);
+  font-weight: 600;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
   border-radius: var(--r-cap);
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
 .copy-msg:hover {
-  background: var(--fill-1);
-  color: var(--label);
+  background: var(--fill-2);
+}
+
+.copy-msg:active {
+  background: var(--fill-3);
 }
 
 .do-it {
-  margin-left: 2px;
+  margin-left: 4px;
 }
 
 /* Buttons the scripts create keep their class names; they wear the glass
@@ -1112,7 +1121,7 @@ body[data-fixed-height="1"] #chat {
   gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 9px 12px 9px 14px;
+  padding: 10px 12px;
   border-radius: var(--r-row);
   transition: background var(--d-fast) ease;
 }
@@ -1121,22 +1130,11 @@ body[data-fixed-height="1"] #chat {
   background: var(--fill-1);
 }
 
-/* The current row is a glass pill with the accent as a mark at its leading
-   edge, not a wash of colour. */
+/* The current row is a raised glass pill: a brighter fill and its own rim.
+   The swatch already carries the hit's colour, so no stripe at the edge. */
 .find-row.current {
   background: var(--fill-2);
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-}
-
-.find-row.current::before {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--accent-bright);
+  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .find-row.offscreen .find-snippet {

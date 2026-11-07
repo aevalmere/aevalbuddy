@@ -52,6 +52,21 @@ page, not by Windows: `renderer/glass.css` and `renderer/glass.js`, shared by ev
 Measured on the GitHub runner by the `snapCost` and `glassCost` smoke gates and logged with every run
 (PROGRESS.md has the numbers). A capture may not block the main thread for more than 25 ms at p95.
 
+### Edges, controls and the surfaces without a backdrop
+
+- **Scroll edge.** A list that scrolls under a sheet's edge fades into the glass over 24 px, only on an
+  edge with more content behind it (`.edge-fade` in `glass.css`, driven by `animation-timeline: scroll()`).
+  A list at rest at its top has a crisp top; a list that does not scroll has no fade.
+- **Every control has a shape.** The answer's Copy and Do it are capsules with `--fill-1` and the chip rim,
+  like Stop and Retry. The History and New conversation icons sit in the sheet's top band at rest in
+  `--label-3`; hidden until hover they left an empty band that read as a layout fault.
+- **Selection is a raised fill, not a stripe.** The current Find row is `--fill-2` with its own rim. The
+  swatch already carries the hit's colour.
+- **The area selector** draws no backdrop, so its size chip, hint and keycaps are the solid tier of thin
+  glass: `rgb(16 18 28 / .86)`, the rim, the sheets' shadow, capsule radius, Segoe UI Variable. It repeats
+  the tokens it uses because it does not load `glass.css`.
+- **Focus on a field** brightens its rim and adds a 3 px accent halo outside it, instead of a white ring.
+
 ## Palette
 
 The six values stay, and each has a new job on glass:
