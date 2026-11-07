@@ -4,7 +4,7 @@ name: rust
 
 on:
   push:
-    branches: [rust-rewrite]
+    branches: [rust-rewrite, "rust/**"]
   workflow_dispatch:
 
 concurrency:
