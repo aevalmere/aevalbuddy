@@ -43,17 +43,36 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
           restore-keys: cargo-${{ runner.os }}-
 
+      # Each gate repeats the end of its output as an annotation, so a failure
+      # can be read from the public check-runs API without log access.
+      - name: Gate helper
+        run: |
+          @'
+          param([string]$Title, [string]$Command)
+          $out = Join-Path $env:RUNNER_TEMP "$Title.log"
+          cmd /c "$Command 2>&1" | Tee-Object -FilePath $out
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $tail = (Get-Content $out -Tail 120) -join "`n"
+            $enc = $tail.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
+            Write-Output "::error title=$Title::$enc"
+            exit $code
+          }
+          '@ | Set-Content (Join-Path $env:RUNNER_TEMP 'gate.ps1')
+
       - name: Format
-        run: cargo fmt --all -- --check
+        run: '& "$env:RUNNER_TEMP\gate.ps1" fmt "cargo fmt --all -- --check"'
 
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        if: success() || failure()
+        run: '& "$env:RUNNER_TEMP\gate.ps1" clippy "cargo clippy --all-targets --color never -- -D warnings"'
 
       - name: Unit tests
-        run: cargo test
+        if: success() || failure()
+        run: '& "$env:RUNNER_TEMP\gate.ps1" test "cargo test --color never"'
 
       - name: Build installer
-        run: npx --yes @tauri-apps/cli@2 build --bundles nsis
+        run: '& "$env:RUNNER_TEMP\gate.ps1" build "npx --yes @tauri-apps/cli@2 build --bundles nsis"'
 
       - name: Scaffold smoke
         run: |
