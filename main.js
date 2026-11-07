@@ -2961,7 +2961,7 @@ async function runShots() {
   const evalIn = (win, code) =>
     win && !win.isDestroyed() ? win.webContents.executeJavaScript(code) : Promise.resolve();
   try {
-    await shots.run({
+    const result = await shots.run({
       dir: process.env.AEVAL_SHOT,
       windows: () => ({
         overlay: overlayWin,
@@ -3181,13 +3181,22 @@ async function runShots() {
         tourSkip: () => cursorBuddy.skip(),
         endTour: () => cursorBuddy.cancel(),
         settingsJs: (code) => evalIn(settingsWin, code),
+        // Phase B: a rendered page stands in for the desktop behind the glass.
+        useFixture: (name) => backdrop.useFixture(name),
+        fixtureUrl: () => backdrop.fixtureUrl(),
+        glassStatus: () => backdrop.status(),
+        display: () => {
+          const d = screen.getPrimaryDisplay();
+          return `${d.size.width}x${d.size.height}@${d.scaleFactor}`;
+        },
         showPoint: () =>
           cursorBuddy.showPoints([
             { x: 420, y: 230, label: 'Press Save to apply the change' },
           ]),
       },
     });
-    app.exit(0);
+    // Any frame below the contrast floor fails the run (lib/contrast.js).
+    app.exit(result && result.failed ? 1 : 0);
   } catch (err) {
     console.error('[SHOT] error', err);
     app.exit(1);
@@ -3871,6 +3880,28 @@ async function runSmoke() {
       await require('./lib/smoke-v21').basics(v2);
     } catch (err) {
       must('v21basics', false, err.message);
+    }
+    // v2.1 Phase B: the glass engine and the window gates.
+    try {
+      await require('./lib/smoke-glass').run({
+        ...v2,
+        backdrop,
+        app,
+        outputWin: () => outputWin,
+        keepOnTop,
+        collapseMs: T_COLLAPSE,
+        seedAnswer: () => {
+          const messages = [
+            { role: 'user', text: 'smoke: what is this?' },
+            { role: 'assistant', text: 'A sample answer, so the answer sheet is up while the glass is measured.' },
+          ];
+          chat = messages.slice();
+          showOutput();
+          outputWin.webContents.send('chat:sync', { messages });
+        },
+      });
+    } catch (err) {
+      must('glassGates', false, `${err.code || ''}:${err.message}`);
     }
     if (process.env.GITHUB_ACTIONS || process.env.AEVAL_DESKTOP_NOTEPAD) {
       try {

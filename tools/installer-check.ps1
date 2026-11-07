@@ -40,6 +40,17 @@ function Annotate([string]$level, [string]$title, [string]$message) {
   Write-Host "::${level} title=${t}::$m"
 }
 
+# One annotation is cut off after a few KB, so long output goes out in parts
+# of 50 lines and every line stays readable through the public API.
+function Annotate-Parts([string]$level, [string]$title, [string]$message) {
+  $all = $message -split "`n"
+  if ($all.Count -le 50) { Annotate $level $title $message; return }
+  for ($i = 0; $i -lt $all.Count; $i += 50) {
+    $part = $all[$i..([Math]::Min($i + 49, $all.Count - 1))] -join "`n"
+    Annotate $level "$title part $([int]($i / 50) + 1)" $part
+  }
+}
+
 # Without this an exception ends the run with an exit code and nothing else
 # readable from outside the log.
 trap {
@@ -118,7 +129,7 @@ $running | Stop-Process -Force -ErrorAction SilentlyContinue
 $smoke = Run-App $exe 'smoke' @{
   AEVAL_SMOKE    = '1'
   AEVAL_USERDATA = (Join-Path $scratch 'aeval-smoke')
-} 180
+} 360
 $smokeLines = ($smoke.Text -split "`r?`n" | Where-Object { $_ -match '^\[SMOKE\]' }) -join "`n"
 Check 'smoke.exitCode' ($smoke.Code -eq 0) "code=$($smoke.Code)"
 Check 'smoke.printed' ([bool]$smokeLines) 'the packaged exe writes [SMOKE] lines to stdout'
@@ -142,12 +153,29 @@ New-Item -ItemType Directory -Force $shotDir | Out-Null
 $shots = Run-App $exe 'shots' @{
   AEVAL_SHOT     = $shotDir
   AEVAL_USERDATA = (Join-Path $scratch 'aeval-shots')
-} 300
+} 600
 $pngs = @(Get-ChildItem $shotDir -Filter *.png -ErrorAction SilentlyContinue)
 Check 'shots.exitCode' ($shots.Code -eq 0) "code=$($shots.Code)"
 Check 'shots.written' ($pngs.Count -gt 0) "png=$($pngs.Count)"
 $shotLines = ($shots.Text -split "`r?`n" | Where-Object { $_ -match '^\[SHOT\]|^fit\.' }) -join "`n"
-Annotate 'notice' "shots (installed exe): $($pngs.Count) png" $(if ($shotLines) { $shotLines } else { $shots.Text })
+Annotate-Parts 'notice' "shots (installed exe): $($pngs.Count) png" $(if ($shotLines) { $shotLines } else { $shots.Text })
+
+# The glass matrix again at 125% and 150%: hairlines, the refraction band
+# and the contrast gate all depend on the scale (PLAN-v2.1 Phase B).
+foreach ($scale in @('1.25', '1.5')) {
+  $tag = [int]([double]$scale * 100)
+  $m = Run-App $exe "shots-$tag" @{
+    AEVAL_SHOT             = $shotDir
+    AEVAL_SHOT_MATRIX_ONLY = '1'
+    AEVAL_SHOT_SCALE       = $scale
+    AEVAL_USERDATA         = (Join-Path $scratch "aeval-shots-$tag")
+  } 400
+  $n = @(Get-ChildItem $shotDir -Filter "m-*-$tag.png" -ErrorAction SilentlyContinue).Count
+  Check "shots$tag.exitCode" ($m.Code -eq 0) "code=$($m.Code)"
+  Check "shots$tag.written" ($n -gt 0) "png=$n"
+  $ml = ($m.Text -split "`r?`n" | Where-Object { $_ -match '^\[SHOT\]' }) -join "`n"
+  Annotate-Parts 'notice' "shots at $tag% (installed exe): $n png" $(if ($ml) { $ml } else { $m.Text })
+}
 
 # ------------------------------------------------------------------ uninstall
 

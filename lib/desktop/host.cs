@@ -391,6 +391,7 @@ namespace AevalDesktop
                 case "invoke": return InvokeCmd(a);
                 case "setValue": return SetValueCmd(a);
                 case "restoreCursor": return RestoreCursor();
+                case "windowStates": return WindowStates(a);
                 case "watchInput": return Watch.Set(Bool(a, "on", true));
                 case "testUserInput": Watch.Emit(Str(a, "kind", "key"), 0, 0, 0, true); return true;
                 default: throw new DesktopError("BAD_ARGS", "unknown op: " + op);
@@ -765,6 +766,69 @@ namespace AevalDesktop
                 return false;
             }, IntPtr.Zero);
             return pick;
+        }
+
+        // Read-only, for the self-check's window gates (PLAN-v2.1 Phase B):
+        // the style bits, topmost flag and z-order of the given windows, the
+        // first window titled `title`, and the top-level window under
+        // `point`. It acts on nothing, so our own windows are allowed.
+        static object WindowStates(Dictionary<string, object> a)
+        {
+            var order = new List<IntPtr>();
+            Native.EnumWindows(delegate (IntPtr h, IntPtr l) { order.Add(h); return true; }, IntPtr.Zero);
+            var list = new List<object>();
+            var hs = Arg(a, "handles") as object[];
+            if (hs != null)
+            {
+                foreach (var v in hs)
+                {
+                    var h = new IntPtr(ParseHandle(v));
+                    var d = new Dictionary<string, object>();
+                    d["handle"] = HandleStr(h);
+                    d["exists"] = Native.IsWindow(h);
+                    d["style"] = Native.GetWindowLong(h, -16);
+                    int ex = Native.GetWindowLong(h, Native.GWL_EXSTYLE);
+                    d["exStyle"] = ex;
+                    d["topmost"] = (ex & 0x8) != 0;
+                    d["visible"] = Native.IsWindowVisible(h);
+                    d["z"] = order.IndexOf(h);
+                    list.Add(d);
+                }
+            }
+            var res = new Dictionary<string, object>();
+            res["windows"] = list;
+            string title = Str(a, "title", "");
+            if (title.Length > 0)
+            {
+                foreach (var h in order)
+                {
+                    int n = Native.GetWindowTextLength(h);
+                    if (n <= 0 || n > 200) continue;
+                    var sb = new StringBuilder(n + 1);
+                    Native.GetWindowText(h, sb, sb.Capacity);
+                    if (sb.ToString() != title) continue;
+                    var d = new Dictionary<string, object>();
+                    d["handle"] = HandleStr(h);
+                    d["z"] = order.IndexOf(h);
+                    d["topmost"] = (Native.GetWindowLong(h, Native.GWL_EXSTYLE) & 0x8) != 0;
+                    res["titled"] = d;
+                    break;
+                }
+            }
+            var pt = Arg(a, "point") as Dictionary<string, object>;
+            if (pt != null)
+            {
+                // With move, the real pointer goes there first, so the page under
+                // it gets its mousemove and sets its own click-through state.
+                if (Bool(a, "move", false))
+                {
+                    MoveTo(RequireInt(pt, "x"), RequireInt(pt, "y"));
+                    System.Threading.Thread.Sleep(300);
+                }
+                IntPtr hit = Native.WindowFromPoint(new Native.POINT { X = RequireInt(pt, "x"), Y = RequireInt(pt, "y") });
+                res["atPoint"] = HandleStr(Native.GetAncestor(hit, Native.GA_ROOT));
+            }
+            return res;
         }
 
         static object ForegroundWindow()

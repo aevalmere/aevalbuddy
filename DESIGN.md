@@ -10,66 +10,128 @@ app, and it can physically point at your screen when an answer needs a "click he
 
 ## The one pushed dimension
 
-Motion. Color, type, and layout stay quiet and systematic; the personality lives in how surfaces arrive,
-grow, and glide. Nothing bounces, nothing loops decoratively, everything decelerates.
+Material and motion, together (v2.1 Phase B). The surfaces are liquid glass: they take their light from
+whatever is behind them, and they change shape instead of appearing. Colour, type and layout stay quiet
+and systematic. Nothing loops for decoration. Everything decelerates, and one curve, the settle, may
+overshoot by 5% and come back (the owner approved this; it amends "nothing bounces", see below).
 
-### Motion tokens
+## Material: liquid glass, drawn in the page
 
-| Token | Value | Used for |
+Every surface is a sheet of glass cut from a picture of the desktop behind it. The glass is drawn by the
+page, not by Windows: `renderer/glass.css` and `renderer/glass.js`, shared by every window.
+
+- **Backdrop.** `lib/backdrop.js` captures a 1/6-scale JPEG of each display with `desktopCapturer`, at
+  2 Hz while a glass surface other than the pill is visible, every 5 s while only the pill is, and not
+  at all while nothing is. Our windows are excluded from capture (`WDA_EXCLUDEFROMCAPTURE`), so the
+  picture never contains us and the glass never shows itself. Only pages that load `glass.js` get
+  frames.
+- **Body.** The frame is placed under each glass layer at its screen position, then blurred and
+  saturated: thin glass `blur(14px) saturate(1.7) brightness(0.94)`, thick glass `blur(28px) saturate(1.5) brightness(0.9)`.
+- **Edge.** The outer 14 px of a refracting layer bends the backdrop outward with an `feDisplacementMap`
+  built per layer (scale 22 thin, 28 thick). Only the bar and the answer sheet refract. Small controls
+  do not, because at their size it reads as a smear.
+- **Rim.** A specular line is drawn with a masked conic gradient: brightest at the top left, faint at
+  the bottom right, `--px` wide so it stays one physical pixel at every scale.
+- **Scrim.** Between the backdrop and the text there is a tint, `rgb(16 18 28 / a)`. Its alpha is
+  measured, not chosen: `glass.js` reads the 90th-percentile luma of the frame under each layer and sets
+  thin `a = 0.46 + 0.32 Y`, thick `a = 0.72 + 0.16 Y`. A white document gets a darker scrim than a
+  black editor. That is what holds text contrast over white, black and busy content.
+- **Thin and thick.** Thin glass is for controls: the pill, the bar, chips, menus, the tour card.
+  Thick glass is for reading: the answer sheet, Settings, History, the HUD ghosts.
+- **Solid tier.** The same surfaces, with the backdrop replaced by `--solid`, an opaque top-lit
+  gradient. Used when the person asks for it (Settings, General, Glass), and automatically under
+  `prefers-reduced-transparency`, forced colours, Windows transparency effects off, when the windows
+  cannot be hidden from capture (so a frame would contain us), or after three capture failures in a row.
+  The tier and its reason are on `html[data-glass]` and `data-glass-why`, and Settings says which.
+- **Shadow and margin.** The overlay and the answer window are 20 px larger than their glass
+  (`lib/stage.js`). The margin is transparent and click-through, so the shadow and the morphs are never
+  clipped by the window edge. Bounds code speaks in glass rectangles, and the wrapper adds the margin.
+
+### Cost
+
+Measured on the GitHub runner by the `snapCost` and `glassCost` smoke gates and logged with every run
+(PROGRESS.md has the numbers). A capture may not block the main thread for more than 25 ms at p95.
+
+## Palette
+
+The six values stay, and each has a new job on glass:
+
+| Token | Value | Job |
 | --- | --- | --- |
-| `--ease-glide` | `cubic-bezier(0.32, 0.72, 0, 1)` | window-level entrances: panel, answer window (the macOS sheet curve) |
-| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | in-surface micro motion: message rise, badges |
-| `--d-fast` | 150ms | hover, press, opacity |
-| `--d-med` | 240ms | message entrances |
-| `--d-slow` | 380ms | panel and answer-window entrances |
+| `--label` | `#F4F6FB` | primary text on glass. Solid, never alpha |
+| `--label-2` | `#C9CFDD` (pale slate) | secondary text. Solid |
+| `--label-3` | `#B8BECA` | tertiary text and placeholders. Solid |
+| `--accent` | `#823A80` (grape soda) | the accent on the solid tier, the pointer body |
+| `--accent-bright` | `#C56FC3` | the accent on live glass: locked token, current row bar, lens ring |
+| `--accent-glass` | `rgb(197 111 195 / .42)` | the prominent glass button's fill |
+| `--danger` | `#F2A0A8` | errors and Delete all (lightened from `#E4818C` to hold 4.5:1 on the scrim) |
+| `--tint` | `16 18 28` | the scrim, drawn from shadow grey and space indigo |
+| `--fill-1/2/3` | white at .08 / .13 / .20 | hover, pressed and selected fills inside glass |
+| `--hairline` | white at .10, `--px` high | inset separators between rows |
 
-Rules: animate transform and opacity only; entrances scale from 0.9 to 0.95, never from zero; exits run at
-roughly half the entrance duration; every animation dies under `prefers-reduced-motion` except opacity.
-The query panel grows out of the pill's corner: its transform-origin is the anchored corner, so expansion
-reads as the pill becoming the panel.
-
-## Palette (fixed, six values, nothing else)
-
-`#000000` black, `#10254F` space indigo, `#2B2C33` shadow grey, `#823A80` grape soda, `#C9CFDD` pale
-slate, `#303D6A` twilight indigo.
-
-Distribution: shadow grey and black carry the surfaces (~60%), indigo and twilight carry fields, bubbles,
-and cards (~30%), grape soda is reserved for the primary action, focus, and the pointer ring (~10%).
-Secondary text is slate at 0.70 alpha minimum (measured 4.5:1 or better on every surface it sits on);
-never lower for text under 14px.
-
-### The three values that are not in it
-
-"Nothing else" held until the app grew a surface with no surface of its own. Every window here supplies
-its own background, so the palette is always measured against a known dark grey. The area selector is
-not a window with a background; it is a sheet of glass over whatever the user happens to be pointing at,
-which is as often a white document as a black editor.
-
-| Token | Value | Where | Why the palette value does not work |
-| --- | --- | --- | --- |
-| `--accent-bright` | `#C56FC3` | the selection's corner ticks | grape soda is a dark violet by design, which is right on the app's own dark surfaces and a smudge on a black editor. The ticks are the one mark saying which pixels get sent |
-| `--danger` | `#E4818C` | the too-small warning, Delete all | the accent means "this is the action". An error that borrows it says the opposite of what it means |
-| `--danger-edge` | `#6B2E38` | that warning's border | the rim that keeps `--danger` legible against a pale background |
-| `--skin` | `#3E404A` to `#262930` | every window's background | the material that replaced acrylic. A top-lit gradient reads as dimensional; a flat palette grey reads as a sticker. Defined in `renderer/overlay.css` |
-
-So the rule that replaces "nothing else": a value outside the six is named as a token where it is
-defined, carries its reason there, and is listed here. An unnamed hex sitting inline in a stylesheet is
-still a defect, because it is a decision nobody can count. `renderer/region.css` had seven of them
-under a header comment claiming it used the palette.
+Text is never alpha. On glass the background changes under every frame, so an alpha label's contrast is
+whatever the desktop is that second. Secondary and tertiary text are solid colours with a measured
+floor instead. The contrast gate (`lib/contrast.js`) reads every run of text against the pixels actually
+under it in each shot: 4.5:1 for body text, 3:1 for large text and UI.
 
 ## Type
 
-Two families: Segoe UI (system) for UI, Consolas for code. Scale: 15 input text, 14 body, 13 secondary,
-12 metadata (floor). Markdown headings inside answers: 16/15/14 semibold, at least a step apart.
+Segoe UI Variable: Display for the bar and titles, Text for everything else (fallback Segoe UI), Cascadia
+Mono or Consolas for code. The bar's text is 18/24. Answers and body text are 15/1.5. Then 14 for rows,
+13 secondary, 12 metadata (floor). The first Markdown heading level inside answers is 17 semibold, the rest step down from there.
 
 ## Spacing and radius
 
-Spacing scale: 4, 8, 12, 16, 24, 32. No in-between values.
-Radius scale: 4 keycaps and chips, 6 controls and inputs, 8 cards and bubbles, 12 floating windows.
+Spacing scale: 4, 8, 12, 16, 24, 32.
 
-Borders: default borderless; separate with whitespace, then a background shift. Exception with a reason:
-the floating overlay windows keep a 1px twilight border, because they sit over arbitrary desktop content
-and a shadow alone disappears on dark backgrounds (3:1 boundary requirement).
+Radius scale: 28 for sheets and the bar, 16 for cards and grouped lists, 10 for rows and fields, 6 for
+keycaps, capsule (999) for chips, buttons and the search field. The bar is a 56 px capsule.
+
+Borders: none. A glass edge is its rim and its shadow. Separators inside a group are hairlines inset
+from the text's left edge, `--px` high, so they stay one physical pixel at 100%, 125% and 150%.
+
+## Motion
+
+| Token | Value | Used for |
+| --- | --- | --- |
+| `--ease-glide` | `cubic-bezier(0.32, 0.72, 0, 1)` | window-level entrances (unchanged) |
+| `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | in-surface micro motion (unchanged) |
+| `--ease-morph` | `cubic-bezier(0.22, 1, 0.36, 1)` | one shape becoming another: pill to bar, token width, sheet growth |
+| `--ease-settle` | `cubic-bezier(0.34, 1.3, 0.64, 1)` | the last 5%: a token locking, the loupe landing, a switch |
+| `--d-fast` | 150ms | hover, press, opacity |
+| `--d-med` | 240ms | message entrances |
+| `--d-morph` | 320ms | shape changes |
+| `--d-sheet` | 360ms | the answer sheet growing out of the bar |
+
+- The pill becomes the bar: the glass layer's insets animate from the orb's rectangle to the bar's, and
+  the content fades in once the shape is most of the way there. Collapsing runs it backwards, and main
+  waits for it before shrinking the window to the pill.
+- The bar grows the answer sheet: a clip-path reveal from the bar's edge on `--ease-morph`.
+- The intent token morphs its width and label with FLIP. Locking it plays the settle.
+- Thinking is a rim light orbiting the sheet's edge, not three dots. The words "Thinking" or the
+  current stage sit in the transcript for a screen reader and for anyone who does not see motion.
+- Find's current hit is a magnifier: the pixels under the hit, cut at full resolution, scaled 1.18 inside
+  a glass rim, landing with the settle.
+- Reduced motion is read live (`matchMedia` change, not just at load). Under it every morph is a 150 ms
+  cross-fade and the orbit stops.
+
+Rules kept: animate transform, opacity, clip-path and insets inside the page. Never animate window
+opacity (see v0.5). Exits run at roughly half the entrance duration.
+
+### Superseded, with reasons
+
+| Old rule | Now | Why |
+| --- | --- | --- |
+| Nothing bounces | One curve may overshoot 5% and settle | approved by the owner. A 5% settle reads as a physical object coming to rest, which is what glass that changes shape needs. It is only for arrivals of small things (token lock, loupe, switches), never for windows |
+| The surface is opaque (v0.5) | The surface is see-through glass, with a measured scrim | v0.5 was right that 97% acrylic let a bright terminal show through text. The scrim is now measured per frame from the backdrop's luma, and the contrast gate proves the result on white, black and colourful backdrops at three scales |
+| Depth is a material, not a compositor feature (v0.5) | Kept, and extended | the glass is still drawn in the page. Nothing asks Windows for acrylic or mica, so none of the window-style churn that broke v0.4 comes back. `noSetOpacity` and `styleStable` gate it |
+| `--skin` gradient on every window | `--solid`, only on the solid tier | the gradient survives as the fallback material |
+| Secondary text is slate at 0.70 alpha minimum | Secondary text is a solid colour | alpha text on glass has no fixed contrast |
+| Segoe UI, 15 input, 14 body | Segoe UI Variable, 18/24 bar, 15/1.5 body | the bar is the product's face; at 15 px in a 56 px capsule it read as a form field |
+| Radius 4/6/8/12 | 28/16/10/6/capsule | concentric radii: a 28 sheet holds 16 cards holds 10 rows. 12 px windows read as web cards next to Windows 11's own 8 px windows under glass |
+| 1 px twilight border on overlay windows | rim light plus shadow, no border | the rim does the boundary job (3:1) on dark and light backdrops, and a border under refraction draws a second edge |
+| One window per surface, each a separate rectangle | Each window has a 20 px transparent margin | a single stage window was judged too risky: the layout editor places input and output independently, and about 54 call sites own those bounds. The margin gives the shadow and the morphs room without touching that logic |
+| The tour's mascot face, name and tail | A plain glass card with pips | a face on a utility reads as a toy. The arrow is the connector; pips carry progress |
 
 ## References, by mechanism
 
@@ -163,6 +225,8 @@ halo around the query field, which redrew exactly the nested box the rebuild rem
 it as intended styling; over a real desktop it reads as the old design.
 
 ## v0.5: acrylic reverted, and what that cost
+
+(v2.1 Phase B keeps this section's lessons and replaces its material: see Material, above.)
 
 Acrylic shipped in v0.4 on the strength of a two-window comparison over the desktop. It looked better in
 that test and it broke the app in use: the overlay started falling behind other windows, the collapse
