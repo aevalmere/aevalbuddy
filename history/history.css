@@ -431,6 +431,13 @@ body {
     0 0 0 3px rgb(197 111 195 / 0.55);
 }
 
+/* The capsule shows focus (#searchbar:focus-within). The field inside it
+   takes no ring of its own: the generic two-tone ring drew a second,
+   square-cornered box inside the capsule, and so does type=search. */
+#search:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 /* type=search draws its own field inside ours: a second, square-cornered
    box inside the capsule. */
 #search {

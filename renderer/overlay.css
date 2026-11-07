@@ -754,7 +754,7 @@ body[data-more="1"] #opanel::after {
   align-items: center;
   gap: 4px;
   min-height: 28px;
-  margin-top: 4px;
+  margin-top: 12px;
   opacity: 0;
   transition: opacity var(--d-fast) ease;
 }
@@ -1110,10 +1110,11 @@ body[data-fixed-height="1"] #chat {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin: 0 -10px 0 -6px;
-  padding-right: 4px;
+  margin: 0 -10px 0 -4px;
+  padding-right: 6px;
 }
 
+/* Concentric with the sheet: a row 12 px inside a 28 px sheet takes 16. */
 .find-row {
   position: relative;
   display: flex;
@@ -1122,7 +1123,7 @@ body[data-fixed-height="1"] #chat {
   width: 100%;
   text-align: left;
   padding: 10px 12px;
-  border-radius: var(--r-row);
+  border-radius: var(--r-card);
   transition: background var(--d-fast) ease;
 }
 
