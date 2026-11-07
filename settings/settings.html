@@ -165,21 +165,21 @@
 
           <section id="sec-agent-model" aria-labelledby="agent-model-heading">
             <div class="row-head">
-              <h2 id="agent-model-heading">Agent model</h2>
+              <h2 id="agent-model-heading">Task model</h2>
               <span id="agent-model-summary" class="summary">Loading…</span>
               <button class="edit" type="button" data-edit="sec-agent-model">Edit</button>
             </div>
             <div class="body">
               <p class="note">Any model works. Tools means it calls actions natively; JSON mode means it writes them out, which works but slips more often.</p>
               <div class="combo" id="agent-combo">
-                <button id="agent-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Agent model">
+                <button id="agent-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Task model">
                   <span class="combo-lines">
                     <span id="agent-combo-label">Loading…</span>
                     <span id="agent-combo-detail" class="combo-detail"></span>
                   </span>
                   <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </button>
-                <ul id="agent-combo-list" role="listbox" aria-label="Agent models" hidden></ul>
+                <ul id="agent-combo-list" role="listbox" aria-label="Task models" hidden></ul>
               </div>
               <p id="agent-model-note" class="note"></p>
             </div>
@@ -237,7 +237,7 @@
               <button class="edit" type="button" data-edit="sec-agent">Edit</button>
             </div>
             <div class="body">
-              <div class="choice" role="radiogroup" aria-label="When the agent asks">
+              <div class="choice" role="radiogroup" aria-label="When a task asks first">
                 <button type="button" class="choice-option" role="radio" data-permission="risky">Ask for risky steps</button>
                 <button type="button" class="choice-option" role="radio" data-permission="every">Ask before every action</button>
               </div>
