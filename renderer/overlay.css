@@ -615,7 +615,9 @@ body[data-anchor-v="bottom"] #opanel.in {
   justify-content: flex-end;
   gap: 2px;
   height: 28px;
-  margin: -6px -8px -10px 0;
+  /* Its own row now that it shows at rest: overlapping the transcript by
+     10 px put scrolled messages under the icons. */
+  margin: -6px -8px -2px 0;
   position: relative;
   z-index: 2;
 }
