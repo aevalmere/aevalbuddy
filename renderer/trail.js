@@ -10,7 +10,8 @@
 //               final message. One conversation, three verbs.
 
 const findView = document.getElementById('find-view');
-const chatTools = document.getElementById('chat-tools');
+// Copying the conversation means nothing over a list of matches.
+const copyAll = document.getElementById('copy-all');
 
 // ------------------------------------------------------------------- views
 
@@ -24,7 +25,7 @@ function setView(next) {
   document.body.dataset.view = view;
   findView.hidden = view !== 'find';
   chatEl.hidden = view === 'find';
-  chatTools.hidden = view === 'find';
+  copyAll.hidden = view === 'find';
   // Hits that arrived while the chat was showing were stored, not drawn.
   if (view === 'find') renderFind();
   if (view === 'find') window.setSheetTitle('Find', (findStatus && findStatus.query) || '', true);

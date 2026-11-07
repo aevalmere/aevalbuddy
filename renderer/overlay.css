@@ -57,6 +57,7 @@ button {
 #chat[hidden],
 #find-view[hidden],
 #glob[hidden],
+.g-icon[hidden],
 .copy-msg[hidden],
 .link-btn[hidden],
 .g-chip[hidden],
@@ -663,7 +664,6 @@ body[data-scrolled="1"] #sheet-bar::after {
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.32)) drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.5));
 }
 
 #glob > .gl {
