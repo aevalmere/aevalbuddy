@@ -412,18 +412,22 @@ body[data-kind="agent"] #callout-close {
   margin-top: 12px;
 }
 
+/* Secondary choices are glass capsules too, not bare words (DESIGN.md,
+   "Every control has a shape"). */
 #callout-actions .act {
   min-height: 30px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: var(--r-cap);
   font-size: 13px;
-  font-weight: 500;
-  color: var(--label-2);
+  font-weight: 600;
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
 }
 
 #callout-actions .act:hover {
   color: var(--label);
-  background: var(--fill-1);
+  background: var(--fill-2);
 }
 
 #callout-actions .act.primary {

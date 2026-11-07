@@ -117,9 +117,9 @@ function setPips(index, count) {
   calloutCount.setAttribute('aria-label', `Step ${index + 1} of ${count}`);
 }
 
-// Beside the arrow, tail pointing back at it, flipped to the other side when
-// there is no room. The tail sits 18px down the bubble, so the bubble starts
-// slightly above the tip to put the tail level with the arrow's shaft.
+// Beside the arrow, flipped to the other side when there is no room. The
+// card starts slightly above the tip so its first line sits level with the
+// arrow's shaft.
 function positionCallout() {
   const w = calloutSize.w || callout.offsetWidth;
   const h = calloutSize.h || callout.offsetHeight;
