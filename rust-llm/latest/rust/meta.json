@@ -1,22 +1,21 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42463910933,
+  "run_id": 42464490387,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42463910933",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464490387",
   "event": "push",
-  "sha": "1b3898040a383093bcb9843b3d5a609237fcf0f8",
+  "sha": "bc63c8bd7ec9196428b7bb9bce75358ddf7b6443",
   "ref": "rust/llm",
   "ref_dir": "rust-llm",
   "conclusion": "failure",
   "failed": [
     "Format",
-    "Unit tests",
     "Capture check",
     "Desktop selfcheck"
   ],
-  "finished": "2026-11-08T08:46:39Z",
-  "error_lines": 47,
+  "finished": "2026-11-08T08:56:29Z",
+  "error_lines": 20,
   "steps": [
     {
       "name": "Checkout",
@@ -65,7 +64,7 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "test.log"
     },
     {

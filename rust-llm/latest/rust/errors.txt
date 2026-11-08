@@ -1,54 +1,22 @@
 == fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\fake.rs:702:
-         let reply = block(fake.respond(Provider::OpenRouter, &body, &cancel, &meta)).unwrap();
-         assert_eq!(reply.status, 200);
-         let mut stream = reply.body;
--        let first = block(async {
--            tokio::time::timeout(Duration::from_millis(50), stream.next()).await
--        });
-+        let first =
-+            block(async { tokio::time::timeout(Duration::from_millis(50), stream.next()).await });
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\fake.rs:706:
+         // One runtime for the reply and the read: the stall's timer belongs
+         // to the runtime that polls it.
+         let (status, first) = block(async {
+-            let reply = fake.respond(Provider::OpenRouter, &body, &cancel, &meta).await;
++            let reply = fake
++                .respond(Provider::OpenRouter, &body, &cancel, &meta)
++                .await;
+             let reply = reply.unwrap();
+             let mut stream = reply.body;
+             let wait = Duration::from_millis(50);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\fake.rs:713:
+-            (reply.status, tokio::time::timeout(wait, stream.next()).await)
++            (
++                reply.status,
++                tokio::time::timeout(wait, stream.next()).await,
++            )
+         });
+         assert_eq!(status, 200);
          assert!(first.is_err(), "the body arrived during the stall");
-     }
- 
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\settings.rs:363:
-     fn mismatched_key_is_skipped() {
-         let s = MemorySettings::default();
-         // An OpenRouter key filed under Anthropic never goes to Anthropic.
--        s.keys.lock().insert(Provider::Anthropic, "sk-or-v1-x".into());
-+        s.keys
-+            .lock()
-+            .insert(Provider::Anthropic, "sk-or-v1-x".into());
-         assert!(candidates(&s).is_empty());
-         assert_eq!(active(&s), None);
-         assert_eq!(usable_key(&s, Provider::Anthropic), None);
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\settings.rs:390:
-         t.mark_rejected(Provider::Anthropic, "sk-ant-y", "rejected");
-         let got = ids(&candidates_with(&s, Kind::Vision, &t, 0));
-         assert!(!got.contains(&Provider::Anthropic));
--        s.keys.lock().insert(Provider::Anthropic, "sk-ant-new".into());
-+        s.keys
-+            .lock()
-
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\settings.rs:405:
-         t.mark_no_credit(Provider::OpenRouter, "sk-or-v1-x", 0, "empty");
-         let got = ids(&candidates_with(&s, Kind::Vision, &t, 1_000_000));
-         assert_eq!(got[0], Provider::OpenRouter);
--        s.models.lock().insert(Kind::Vision, "qwen/qwen3.7-flash".into());
-+        s.models
-+            .lock()
-+            .insert(Kind::Vision, "qwen/qwen3.7-flash".into());
-         let got = ids(&candidates_with(&s, Kind::Vision, &t, 1_000_000));
-         assert!(!got.contains(&Provider::OpenRouter));
-         // Free models off: OpenRouter is skipped unless a paid model is
-
-
-== test.log ==
-test llm::fake::tests::a_stall_holds_the_body_back ... FAILED
-thread 'llm::fake::tests::a_stall_holds_the_body_back' (4148) panicked at C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tokio-1.54.1\src\runtime\time\entry.rs:534:9:
-A Tokio 1.x context was found, but it is being shutdown.
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-
-test result: FAILED. 259 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
-error: test failed, to rerun pass `--lib`
 
