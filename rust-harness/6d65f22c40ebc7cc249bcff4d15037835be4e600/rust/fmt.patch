@@ -1,0 +1,32 @@
+diff --git a/src-tauri/src/selftest/eval.rs b/src-tauri/src/selftest/eval.rs
+index 8a9ecb3..6f4bcc8 100644
+--- a/src-tauri/src/selftest/eval.rs
++++ b/src-tauri/src/selftest/eval.rs
+@@ -104,7 +104,9 @@ pub fn eval(app: &AppHandle, label: &str, js: &str, timeout: Duration) -> Answer
+     let end = Instant::now() + timeout;
+     let started = execute(app, label, start(id, js), timeout)?;
+     if started != Value::Bool(true) {
+-        return Err(format!("the expression did not parse, or threw at once: {started}"));
++        return Err(format!(
++            "the expression did not parse, or threw at once: {started}"
++        ));
+     }
+     loop {
+         let left = end.saturating_duration_since(Instant::now());
+diff --git a/src-tauri/src/selftest/probes/harness.rs b/src-tauri/src/selftest/probes/harness.rs
+index dfeebac..ea22be8 100644
+--- a/src-tauri/src/selftest/probes/harness.rs
++++ b/src-tauri/src/selftest/probes/harness.rs
+@@ -43,7 +43,11 @@ pub fn run(cx: &mut Cx) {
+ 
+     desktop_selfcheck(cx);
+     // Throwaway (B-009): a failed must has to turn the Smoke step red.
+-    cx.must("deliberateFailure", false, "throwaway commit proving the gate");
++    cx.must(
++        "deliberateFailure",
++        false,
++        "throwaway commit proving the gate",
++    );
+ }
+ 
+ /// The desktop helper starts, lists windows without ours and refuses a click

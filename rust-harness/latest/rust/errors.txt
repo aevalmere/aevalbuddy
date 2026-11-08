@@ -1,0 +1,26 @@
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\eval.rs:104:
+     let end = Instant::now() + timeout;
+     let started = execute(app, label, start(id, js), timeout)?;
+     if started != Value::Bool(true) {
+-        return Err(format!("the expression did not parse, or threw at once: {started}"));
++        return Err(format!(
++            "the expression did not parse, or threw at once: {started}"
++        ));
+     }
+     loop {
+         let left = end.saturating_duration_since(Instant::now());
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\harness.rs:43:
+ 
+     desktop_selfcheck(cx);
+     // Throwaway (B-009): a failed must has to turn the Smoke step red.
+-    cx.must("deliberateFailure", false, "throwaway commit proving the gate");
++    cx.must(
++        "deliberateFailure",
++        false,
++        "throwaway commit proving the gate",
++    );
+ }
+ 
+ /// The desktop helper starts, lists windows without ours and refuses a click
+
