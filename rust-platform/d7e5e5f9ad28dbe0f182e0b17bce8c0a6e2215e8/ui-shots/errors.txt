@@ -1,0 +1,2 @@
+== bridge.log ==
+[BRIDGE] editMenuInFields=FAIL:
