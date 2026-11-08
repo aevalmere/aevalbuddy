@@ -1,4 +1,27 @@
 [UI] laneFiles=ok
+[UI] scene capture/lens-hits-white
+[UI] lens-hits-white.ready=ok
+[UI] lens-hits-white.drawn=ok
+[UI] shot lens-hits-white.png
+[UI] lens-hits-white.whyCapsule=ok
+[UI] scene capture/lens-hits-dark-editor
+[UI] lens-hits-dark-editor.ready=ok
+[UI] lens-hits-dark-editor.drawn=ok
+[UI] shot lens-hits-dark-editor.png
+[UI] lens-hits-dark-editor.whyCapsule=ok
+[UI] scene capture/region-idle-white
+[UI] regionHint=ok
+[UI] regionRole=ok
+[UI] shot region-idle-white.png
+[UI] regionAnnouncesSize=ok
+[UI] scene capture/region-idle-dark
+[UI] shot region-idle-dark.png
+[UI] scene capture/region-dragging
+[UI] regionDragSize=ok
+[UI] shot region-dragging.png
+[UI] scene capture/region-too-small
+[UI] regionTooSmall=ok
+[UI] shot region-too-small.png
 [UI] scene bar/bar
 [UI] shot 01-bar-first-run.png
 [UI] suggestionsBeforeFirst=ok
@@ -22,7 +45,7 @@
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=522 frames=25 longestFrameMs=33.4
+[UI] globOpen ms=499 frames=24 longestFrameMs=33.4
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -178,6 +201,29 @@
 [UI] scene settings/history-deleted-undo
 [UI] shot history-deleted-undo.png
 [UI] deleteIsUndoable=ok
+[UI] scene capture/lens-hits-white-150
+[UI] lens-hits-white.ready-150=ok
+[UI] lens-hits-white.drawn-150=ok
+[UI] shot lens-hits-white-150.png
+[UI] lens-hits-white.whyCapsule-150=ok
+[UI] scene capture/lens-hits-dark-editor-150
+[UI] lens-hits-dark-editor.ready-150=ok
+[UI] lens-hits-dark-editor.drawn-150=ok
+[UI] shot lens-hits-dark-editor-150.png
+[UI] lens-hits-dark-editor.whyCapsule-150=ok
+[UI] scene capture/region-idle-white-150
+[UI] regionHint-150=ok
+[UI] regionRole-150=ok
+[UI] shot region-idle-white-150.png
+[UI] regionAnnouncesSize-150=ok
+[UI] scene capture/region-idle-dark-150
+[UI] shot region-idle-dark-150.png
+[UI] scene capture/region-dragging-150
+[UI] regionDragSize-150=ok
+[UI] shot region-dragging-150.png
+[UI] scene capture/region-too-small-150
+[UI] regionTooSmall-150=ok
+[UI] shot region-too-small-150.png
 [UI] scene bar/bar-150
 [UI] shot 01-bar-first-run-150.png
 [UI] suggestionsBeforeFirst-150=ok
@@ -199,7 +245,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=508 frames=24 longestFrameMs=33.4
+[UI] globOpen-150 ms=514 frames=24 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -357,7 +403,7 @@
 [UI] lane harness sceneRuns=0
 [UI] lane platform sceneRuns=0
 [UI] lane windows sceneRuns=0
-[UI] lane capture sceneRuns=0
+[UI] lane capture sceneRuns=12
 [UI] lane llm sceneRuns=0
 [UI] lane agent sceneRuns=0
 [UI] lane bar sceneRuns=2
@@ -368,4 +414,4 @@
 [UI] oneCssLayer=ok
 [UI] iconsFromSprite=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=124
+[UI] done failed=0 shots=136
