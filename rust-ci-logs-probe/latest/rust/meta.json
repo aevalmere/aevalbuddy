@@ -1,0 +1,98 @@
+{
+  "workflow": "rust",
+  "workflow_name": "rust",
+  "run_id": 42447541769,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42447541769",
+  "event": "push",
+  "sha": "be1a69b3e7fd0e4d83515f6698891c62d370bebe",
+  "ref": "rust/ci-logs-probe",
+  "ref_dir": "rust-ci-logs-probe",
+  "conclusion": "failure",
+  "failed": [
+    "Format",
+    "Clippy",
+    "Unit tests",
+    "Capture check",
+    "Desktop selfcheck"
+  ],
+  "finished": "2026-11-08T04:42:38Z",
+  "error_lines": 36,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Rust toolchain",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Cache cargo",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Gate helper",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Prebuild desktop helper",
+      "outcome": "success",
+      "log": "prebuild.log"
+    },
+    {
+      "name": "Format",
+      "outcome": "failure",
+      "log": "fmt.log"
+    },
+    {
+      "name": "Format patch",
+      "outcome": "success",
+      "log": "fmt.patch"
+    },
+    {
+      "name": "Clippy",
+      "outcome": "failure",
+      "log": "clippy.log"
+    },
+    {
+      "name": "Unit tests",
+      "outcome": "failure",
+      "log": "test.log"
+    },
+    {
+      "name": "Build installer",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Scaffold smoke",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Capture check",
+      "outcome": "failure",
+      "log": "capture.log"
+    },
+    {
+      "name": "Desktop selfcheck",
+      "outcome": "failure",
+      "log": "desktop.log"
+    },
+    {
+      "name": "Upload installer",
+      "outcome": "skipped",
+      "log": ""
+    }
+  ]
+}
