@@ -21,6 +21,17 @@ pub const BUSY_DEFAULT_MS: u64 = 60_000;
 /// How long a 402 waits before the key is tested again in the background.
 pub const NO_CREDIT_RETEST_MS: u64 = 10 * 60_000;
 
+/// What a provider's row says once an answer has come back from it.
+pub const ANSWERED: &str = "Works.";
+
+/// What a key test found, for [`Table::record_check`].
+#[derive(Clone, Copy, Debug)]
+pub struct Checked<'a> {
+    pub status: Status,
+    pub text: &'a str,
+    pub credit: Option<f64>,
+}
+
 /// The state words Settings and the overlay show for a provider.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Status {
@@ -34,6 +45,24 @@ pub enum Status {
     Blocked,
     #[default]
     Unchecked,
+}
+
+/// A key test's sentence stops being true a minute later.
+const JUST_NOW_MS: u64 = 60_000;
+
+/// The status word and sentence to show for an entry at `now`: a cooldown
+/// that has run out reads as the working key a 429 proved it to be, and
+/// "Checked just now" holds for a minute.
+pub fn shown(e: &Entry, now: u64) -> (Status, String) {
+    let until = e.busy_until.unwrap_or(0);
+    if e.status == Status::Busy && now >= until {
+        return (Status::Ready, ANSWERED.to_string());
+    }
+    let age = now.saturating_sub(e.checked_at.unwrap_or(now));
+    if e.status == Status::Ready && age > JUST_NOW_MS {
+        return (e.status, e.text.replace(" Checked just now.", ""));
+    }
+    (e.status, e.text.clone())
 }
 
 impl Status {
@@ -209,7 +238,55 @@ impl Table {
         )
     }
 
+    /// What a key test found. Returns true when what people see changed.
+    pub fn record_check(
+        &mut self,
+        provider: Provider,
+        key: &str,
+        now: u64,
+        check: &Checked<'_>,
+    ) -> bool {
+        let retest_at = (check.status == Status::NoCredit).then_some(now + NO_CREDIT_RETEST_MS);
+        self.set(
+            provider,
+            key,
+            Entry {
+                status: check.status,
+                text: check.text.to_string(),
+                checked_at: Some(now),
+                retest_at,
+                credit: check.credit,
+                ..Entry::default()
+            },
+        )
+    }
+
+    /// A key test has started.
+    pub fn mark_checking(&mut self, provider: Provider, key: &str) -> bool {
+        let prev = self.get(provider, key);
+        self.set(
+            provider,
+            key,
+            Entry {
+                status: Status::Checking,
+                ..prev
+            },
+        )
+    }
+
+    /// An answer came back, so whatever was wrong has cleared. A Ready entry
+    /// keeps the credit and time its key test recorded.
+    pub fn mark_answered(&mut self, provider: Provider, key: &str, now: u64) -> bool {
+        let prev = self.get(provider, key);
+        if prev.status == Status::Ready {
+            return false;
+        }
+        self.mark_ready(provider, key, now, ANSWERED, prev.credit)
+    }
+
     /// Native providers whose "no credit" mark is due for a quiet re-test.
+    // The ten-minute quiet re-test (B-046) is not wired yet.
+    #[allow(dead_code)]
     pub fn due_for_retest(&self, now: u64) -> Vec<Provider> {
         let mut due: Vec<Provider> = self
             .entries
@@ -257,6 +334,31 @@ mod tests {
     fn fingerprints_are_stable_and_distinct() {
         assert_eq!(fingerprint("sk-or-a"), fingerprint(" sk-or-a "));
         assert_ne!(fingerprint("sk-or-a"), fingerprint("sk-or-b"));
+    }
+
+    #[test]
+    fn stale_words_are_not_shown() {
+        let works = "Works. Checked just now. About $7.50 of credit left.";
+        let mut t = Table::default();
+        t.mark_ready(Provider::OpenRouter, "k", 1_000, works, Some(7.5));
+        let e = t.get(Provider::OpenRouter, "k");
+        assert_eq!(shown(&e, 2_000).1, works);
+        let later = shown(&e, 1_000 + JUST_NOW_MS + 1).1;
+        assert_eq!(later, "Works. About $7.50 of credit left.");
+        t.mark_busy(Provider::OpenRouter, "k", Some(5_000), 1_000, "busy");
+        let e = t.get(Provider::OpenRouter, "k");
+        assert_eq!(shown(&e, 2_000).0, Status::Busy);
+        assert_eq!(shown(&e, 6_000), (Status::Ready, ANSWERED.to_string()));
+    }
+
+    #[test]
+    fn an_answer_clears_a_cooldown() {
+        let mut t = Table::default();
+        t.mark_busy(Provider::Anthropic, "k", None, 0, "busy");
+        assert!(t.mark_answered(Provider::Anthropic, "k", 10));
+        let e = t.get(Provider::Anthropic, "k");
+        assert_eq!((e.status, e.busy_until), (Status::Ready, None));
+        assert!(!t.mark_answered(Provider::Anthropic, "k", 20));
     }
 
     #[test]

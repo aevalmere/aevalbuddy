@@ -155,6 +155,18 @@ pub fn key_request(provider: Provider, key: &str) -> HttpRequest {
     }
 }
 
+/// A native provider's whole model list (B-123): the key check's request,
+/// with Gemini's page opened up to every model.
+pub fn native_list_request(provider: Provider, key: &str) -> HttpRequest {
+    let mut req = key_request(provider, key);
+    match provider {
+        Provider::Gemini => req.url = format!("{GEMINI_MODELS}?pageSize=1000"),
+        Provider::Anthropic => req.url = format!("{ANTHROPIC_MODELS}?limit=1000"),
+        _ => {}
+    }
+    req
+}
+
 fn without_native(body: &Value) -> Value {
     let mut b = body.clone();
     if let Some(list) = b["messages"].as_array_mut() {

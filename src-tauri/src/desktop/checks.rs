@@ -21,8 +21,17 @@ use serde_json::json;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::selfcheck::{self, Report};
-use crate::capture::{self, encode, screen, Rect, Rgb};
-use crate::{backdrop, desktop};
+use crate::capture::{self, dxgi, encode, screen, Frame, Rect, Rgb};
+use crate::{backdrop, desktop, region};
+
+/// A left-button drag in the area selector, from (40, 40) to (360, 240).
+const DRAG_JS: &str = concat!(
+    "(() => {",
+    "const at = (t, x, y) => document.dispatchEvent(",
+    "new MouseEvent(t, { clientX: x, clientY: y, button: 0, bubbles: true }));",
+    "at('mousedown', 40, 40); at('mousemove', 360, 240); at('mouseup', 360, 240);",
+    "})();"
+);
 
 pub fn maybe_run(app: &AppHandle) {
     let capture_check = std::env::var_os("AEVAL_CAPTURE_CHECK").is_some();
@@ -207,6 +216,103 @@ fn box_resize(img: &Rgb, w: u32, h: u32) -> Rgb {
     }
 }
 
+/// Mean brightness and the share of near-black pixels of a JPEG.
+fn decode_look(bytes: &[u8]) -> Option<(f64, f64)> {
+    let mut d = jpeg_decoder::Decoder::new(bytes);
+    let px = d.decode().ok()?;
+    let (mut sum, mut black) = (0f64, 0u64);
+    for p in px.chunks_exact(3) {
+        let v = (p[0] as f64 + p[1] as f64 + p[2] as f64) / 3.0;
+        sum += v;
+        if v < 16.0 {
+            black += 1;
+        }
+    }
+    let n = (px.len() / 3).max(1) as f64;
+    Some((sum / n, black as f64 / n))
+}
+
+/// B-108: with every open failing, a burst of captures tries one open and
+/// goes on through GDI. The backoff is dropped afterwards, so DXGI is back.
+fn dxgi_open_backoff(rep: &Report, d: &screen::Display) {
+    dxgi::force_dxgi_open_failure(true);
+    let _ = capture::reset_dxgi(d);
+    let before = dxgi::dxgi_opens();
+    let mut shots = 0;
+    for _ in 0..20 {
+        shots += i32::from(capture::grab(d).is_ok());
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let opens = dxgi::dxgi_opens() - before;
+    dxgi::force_dxgi_open_failure(false);
+    let _ = capture::reset_dxgi(d);
+    rep.log("dxgiOpensPerTick", opens);
+    let why = format!("{opens} opens over 1 s, {shots} shots through GDI");
+    rep.must("dxgiOpensPerTick", opens <= 1 && shots == 20, &why);
+}
+
+/// B-030: one backdrop frame's work at 1080p, whatever the runner's screen
+/// is, and none at all for a frame already encoded.
+fn tick_ms(rep: &Report) {
+    let (w, h) = (1920u32, 1080u32);
+    let mut bgra = Vec::with_capacity(w as usize * h as usize * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let c = ((x ^ y) % 239) as u8;
+            bgra.extend_from_slice(&[(x % 251) as u8, (y % 241) as u8, c, 255]);
+        }
+    }
+    let frame = std::sync::Arc::new(Frame {
+        width: w,
+        height: h,
+        bgra,
+    });
+    let r = screen::PxRect {
+        x: 0,
+        y: 0,
+        width: w as i32,
+        height: h as i32,
+    };
+    let at = screen::Display::from_phys(r"\\.\DISPLAY1080", false, 96, r, r);
+    let t = Instant::now();
+    let first = backdrop::encode_frame(&at, &frame);
+    let ms = t.elapsed().as_secs_f64() * 1000.0;
+    let again = backdrop::encode_frame(&at, &frame);
+    rep.log("tickMs", format!("{ms:.1}"));
+    let why = format!("{ms:.1}ms, budget 40ms");
+    rep.must("tickMs", first.is_some() && ms < 40.0, &why);
+    let reused = matches!((&first, &again), (Some(a), Some(b)) if std::sync::Arc::ptr_eq(a, b));
+    rep.must("tickReusesFrame", reused, "a second encode of one frame");
+}
+
+/// B-029: a new duplication's first frame shows the desktop, not an empty
+/// pointer-only surface. A runner without DXGI says so loudly instead.
+fn dxgi_first_frame(rep: &Report, d: &screen::Display, control: screen::PxRect) {
+    let _ = capture::reset_dxgi(d);
+    std::env::set_var("AEVAL_CAPTURE_BACKEND", "dxgi");
+    let t = Instant::now();
+    let got = capture::grab(d);
+    std::env::remove_var("AEVAL_CAPTURE_BACKEND");
+    match got {
+        Ok(f) => {
+            let c = probe(&f.rgb(), control, d.phys);
+            rep.log("dxgiFirstFrameMs", t.elapsed().as_millis());
+            rep.must(
+                "dxgiFirstFrame",
+                c.mean > 150.0 && c.black < 0.05,
+                &format!("controlMean={:.0} black={:.3}", c.mean, c.black),
+            );
+        }
+        Err(e) => dxgi_unavailable(rep, &e),
+    }
+}
+
+fn dxgi_unavailable(rep: &Report, why: &str) {
+    rep.log("dxgi", "unavailable");
+    rep.log("dxgiError", why);
+    eprintln!("WARNING: DXGI capture is unavailable: {why}");
+}
+
 fn decode_dims(bytes: &[u8]) -> Option<(u32, u32)> {
     let mut d = jpeg_decoder::Decoder::new(bytes);
     d.decode().ok()?;
@@ -264,6 +370,10 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         width: 200,
         height: pr.height,
     };
+    dxgi_first_frame(rep, &d, control);
+    rep.log("hdr", if dxgi::dxgi_hdr_seen() { "on" } else { "off" });
+    dxgi_open_backoff(rep, &d);
+
     let mut passed_any = false;
     for backend in ["dxgi", "gdi"] {
         std::env::set_var("AEVAL_CAPTURE_BACKEND", backend);
@@ -288,27 +398,20 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 let not_blanked = p.black < 0.05 && p.mean > 150.0;
                 let sees_page = c.mean > 150.0;
                 let ok = excluded && not_blanked && sees_page;
-                if backend == "gdi" {
-                    rep.must(
-                        "gdiExcludesOwnWithoutBlanking",
-                        ok,
-                        &format!(
-                            "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
-                        ),
-                    );
-                } else {
-                    rep.log(
-                        "dxgiExcludesOwnWithoutBlanking",
-                        if ok { "ok" } else { "no" },
-                    );
-                }
+                // Whichever backend produced a frame, its result counts
+                // (B-029: a working DXGI path is gated, not just logged).
+                rep.must(
+                    &format!("{backend}ExcludesOwnWithoutBlanking"),
+                    ok,
+                    &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"),
+                );
                 passed_any |= ok;
             }
             Err(e) => {
                 if backend == "gdi" {
                     rep.must("gdiCapture", false, &e);
                 } else {
-                    rep.log("dxgi.unavailable", e);
+                    dxgi_unavailable(rep, &e);
                 }
             }
         }
@@ -321,13 +424,16 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     );
 
     // ---------------------------------------------- whole screen (CAP-02/05)
-    // Point the "active display" at the primary for a stable answer.
+    // The display the whole screen reads (D-09), at its physical size within
+    // the 1600 px budget (B-032).
     let t = Instant::now();
     match capture::capture_screen(None) {
         Some(shot) => {
-            let active = screen::active_display(&screen::all_displays());
-            let want = encode::whole_screen_size(active.bounds.width, active.bounds.height);
+            let active = screen::latched_display(&screen::all_displays());
+            let p = active.phys;
+            let want = encode::whole_screen_size(p.width as u32, p.height as u32);
             let dims = decode_dims(&shot.jpeg);
+            let look = decode_look(&shot.jpeg);
             let b64 = base64::engine::general_purpose::STANDARD
                 .decode(&shot.base64)
                 .ok();
@@ -355,6 +461,13 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 "captureJpeg",
                 dims == Some((shot.width, shot.height)),
                 &format!("decoded {dims:?}"),
+            );
+            // The fixture fills the display: the shot is bright, not black
+            // (B-029).
+            rep.must(
+                "wholeScreenShowsFixture",
+                look.is_some_and(|(mean, black)| mean > 150.0 && black < 0.05),
+                &format!("mean, black share: {look:?}"),
             );
             rep.must(
                 "captureBudget",
@@ -422,6 +535,11 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         None => rep.must("regionCapture", false, "area capture returned None"),
     }
 
+    // ---------------------------------------------- area selector (CAP-11)
+    // A drag on the real selector page comes back as the box, at the
+    // display's origin, and the selector closes (B-028).
+    region_drag(app, rep, &d);
+
     // ---------------------------------------------- fidelity (CAP-13 proxy)
     if let Ok(f) = capture::grab(&d) {
         let full = f.rgb();
@@ -478,7 +596,10 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     rep.log("snapCost", &m);
     let block = m["blockP95"].as_f64().unwrap_or(999.0);
     rep.must("snapCost", block < 25.0, &format!("blockP95={block:.1}ms"));
-    rep.log("glassTier", backdrop::tier());
+    let tier = backdrop::tier();
+    rep.log("glassTier", tier);
+    rep.must("glassLive", tier == "live", &format!("tier={tier}"));
+    tick_ms(rep);
 
     // Fixture mode (GLASS-05) goes through the same window + capture path.
     if let Some(w) = fixture {
@@ -507,6 +628,37 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     }
 }
 
+fn region_drag(app: &AppHandle, rep: &Report, d: &screen::Display) {
+    let (a, on) = (app.clone(), d.clone());
+    let pick = std::thread::spawn(move || {
+        let select = region::select(&a, Some(on));
+        tauri::async_runtime::block_on(select)
+    });
+    let t = Instant::now();
+    while !region::ready(app) && t.elapsed() < Duration::from_secs(8) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    rep.log("regionLoadMs", t.elapsed().as_millis());
+    std::thread::sleep(Duration::from_millis(300));
+    if let Some(w) = app.get_webview_window(region::LABEL) {
+        let _ = w.eval(DRAG_JS);
+    }
+    let t = Instant::now();
+    while !pick.is_finished() && t.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    if !pick.is_finished() {
+        region::cancel(app);
+    }
+    let got = pick.join().ok().flatten();
+    let want = Rect::new(d.bounds.x + 40.0, d.bounds.y + 40.0, 320.0, 200.0);
+    rep.must(
+        "regionDragReturnsTheBox",
+        got == Some(want),
+        &format!("got {got:?} want {want:?}"),
+    );
+}
+
 async fn desktop_checks(app: &AppHandle, rep: &Report) {
     let list = screen::all_displays();
     let d = screen::primary(&list);
@@ -526,9 +678,9 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
         .map(|w| super::protocol::handle_str(capture::hwnd_of(w) as u64))
         .collect();
     rep.log("ownHandles", handles.len());
-    let notepad = std::env::var("AEVAL_DESKTOP_NOTEPAD")
-        .map(|v| v != "0")
-        .unwrap_or(true);
+    let ci = std::env::var("GITHUB_ACTIONS").ok();
+    let asked = std::env::var("AEVAL_DESKTOP_NOTEPAD").ok();
+    let notepad = notepad_wanted(ci.as_deref(), asked.as_deref());
     selfcheck::run(
         desktop::client(),
         rep,
@@ -547,9 +699,25 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
     }
 }
 
+/// B-115 (LIFE-16): the selfcheck types into Notepad on CI
+/// (`GITHUB_ACTIONS`), or when asked with `AEVAL_DESKTOP_NOTEPAD` set to
+/// anything but "0"; never by default on someone's desktop.
+fn notepad_wanted(ci: Option<&str>, asked: Option<&str>) -> bool {
+    ci.is_some() || asked.is_some_and(|v| v != "0")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn notepad_gating() {
+        assert!(!notepad_wanted(None, None));
+        assert!(notepad_wanted(Some("true"), None));
+        assert!(notepad_wanted(Some("true"), Some("0")));
+        assert!(notepad_wanted(None, Some("1")));
+        assert!(!notepad_wanted(None, Some("0")));
+    }
 
     #[test]
     fn lanczos_keeps_fine_stripes() {

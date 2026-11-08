@@ -5,6 +5,7 @@
 //! FAIL-*, PROMPT-*, POINT-*, ERR-*). ARCHITECTURE.md section 10 documents
 //! the seams.
 
+pub mod auth;
 pub mod catalogue;
 pub mod client;
 pub mod elements;
@@ -20,9 +21,6 @@ pub mod prompt;
 pub mod provider;
 pub mod settings;
 pub mod sse;
-// The cooldown marks are written by B-046; until then candidates() only
-// reads the table.
-#[allow(dead_code)]
 pub mod status;
 pub mod wire;
 

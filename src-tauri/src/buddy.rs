@@ -14,7 +14,7 @@
 //! cursor poll replays mousemove into the page (ARCHITECTURE D10).
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -22,10 +22,28 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::capture::{self, screen, Rect};
 use crate::desktop::win;
+use crate::windows::flags;
 
 pub const LABEL: &str = "buddy";
 pub const POLL_MS: u64 = 150;
+/// The tour's card that asks for a key.
+pub const KEY_STEP: i64 = 1;
+/// How long `agent_point` gives the cursor to arrive.
+pub const GLIDE_WAIT_MS: u64 = 260;
 const FORWARD_MS: u64 = 16;
+/// The forwarding thread's pace between sessions.
+const FORWARD_IDLE_MS: u64 = 250;
+/// How long the window may take the mouse with no word from the page.
+const WATCHDOG: Duration = Duration::from_secs(3);
+
+const NEEDS_NO_KEY: &str = "no-key";
+const NEEDS_KEY: &str = "key";
+const NEEDS_BAR: &str = "bar";
+
+const BAR_TARGET: &str = "#pill, #query-input";
+const BAR_SCOPE: &str = "#pill, #panel";
+const TOKEN_MESSAGE: &str = "This shows what Enter will do. AevalBuddy guesses from what you \
+                             type, and a task always asks before anything risky; Esc stops it.";
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Button {
@@ -50,63 +68,93 @@ pub struct Step {
 /// The live chords the tour quotes.
 pub struct Chords<'a> {
     pub capture_query: &'a str,
+    // The tour quotes only the main chord now (B-033); host/mod.rs still
+    // fills these in.
+    #[allow(dead_code)]
     pub find_on_screen: &'a str,
+    #[allow(dead_code)]
     pub agent_task: &'a str,
 }
 
-/// The first-run tour (TOUR-01): four steps, each skippable, each moving on
-/// when the thing it asks for actually happens.
+/// The first-run tour (D-06): what works without a key comes first, each step
+/// can be skipped, and each moves on when the thing it asks for actually
+/// happens. It quotes only the main chord, and never an empty one.
 pub fn walkthrough(k: &Chords<'_>) -> Vec<Step> {
+    let chord = k.capture_query.trim();
+    let first = if chord.is_empty() {
+        "Click the orb, then type a word you can see on screen.".to_string()
+    } else {
+        format!("Press {chord}, then type a word you can see on screen.")
+    };
+    let button = |id: &str, label: &str, primary: bool| Button {
+        id: id.into(),
+        label: label.into(),
+        primary,
+    };
     vec![
         Step {
-            win: "settings".into(),
-            needs: "settings-key".into(),
-            target_selector: "#api-key-input".into(),
-            click_scope: "#sec-key".into(),
-            message: "Paste an OpenRouter API key here and press Save. A free key works.".into(),
-            advance_on: "key-saved".into(),
-            ..Default::default()
-        },
-        Step {
             win: "overlay".into(),
-            target_selector: "#pill, #query-input".into(),
-            click_scope: "#pill, #panel".into(),
-            message: format!(
-                "Press {} and ask anything about your screen.",
-                k.capture_query
-            ),
-            advance_on: "first-answer".into(),
-            ..Default::default()
-        },
-        Step {
-            win: "overlay".into(),
-            target_selector: "#pill, #query-input".into(),
-            click_scope: "#pill, #panel".into(),
-            message: format!("Press {} and type a word you can see.", k.find_on_screen),
+            target_selector: BAR_TARGET.into(),
+            click_scope: BAR_SCOPE.into(),
+            message: first,
             advance_on: "find-hit".into(),
             ..Default::default()
         },
         Step {
             card: true,
-            message: format!(
-                "Press {} and say what to do. Agent asks before anything risky, and Esc stops it.",
-                k.agent_task
-            ),
+            needs: NEEDS_NO_KEY.into(),
+            message: "To get answers, connect an AI provider. OpenRouter has free models.".into(),
+            advance_on: "key-saved".into(),
             buttons: vec![
-                Button {
-                    id: "try".into(),
-                    label: "Try it".into(),
-                    primary: true,
-                },
-                Button {
-                    id: "later".into(),
-                    label: "Later".into(),
-                    primary: false,
-                },
+                button("connect", "Connect", true),
+                button("later", "Later", false),
             ],
             ..Default::default()
         },
+        Step {
+            win: "overlay".into(),
+            needs: NEEDS_KEY.into(),
+            target_selector: BAR_TARGET.into(),
+            click_scope: BAR_SCOPE.into(),
+            message: "Now ask anything about your screen.".into(),
+            advance_on: "first-answer".into(),
+            ..Default::default()
+        },
+        Step {
+            win: "overlay".into(),
+            needs: NEEDS_BAR.into(),
+            target_selector: "#pill, #intent".into(),
+            click_scope: BAR_SCOPE.into(),
+            message: TOKEN_MESSAGE.into(),
+            buttons: vec![button("done", "Got it", true)],
+            ..Default::default()
+        },
     ]
+}
+
+/// Whether a step is for this install: the key card only without a key, the
+/// first question only with one.
+fn applies(step: &Step, has_key: bool) -> bool {
+    match step.needs.as_str() {
+        NEEDS_NO_KEY => !has_key,
+        NEEDS_KEY => has_key,
+        _ => true,
+    }
+}
+
+/// The first step at or after `from` that applies.
+fn first_applicable(steps: &[Step], from: i64, has_key: bool) -> Option<i64> {
+    let from = from.max(0) as usize;
+    (from..steps.len())
+        .find(|&i| applies(&steps[i], has_key))
+        .map(|i| i as i64)
+}
+
+/// Where a step stands among those that apply, for the progress pips.
+fn position(steps: &[Step], index: i64, has_key: bool) -> (usize, usize) {
+    let on = |i: &usize| applies(&steps[*i], has_key);
+    let before = (0..index.max(0) as usize).filter(on).count();
+    (before, (0..steps.len()).filter(on).count())
 }
 
 type Cb = Arc<dyn Fn() + Send + Sync>;
@@ -168,6 +216,12 @@ struct State {
     queued: Option<Value>,
     ignoring: bool,
     focusable: bool,
+    /// The window is on its way out; the next session builds a new one.
+    destroying: bool,
+    /// When click-through last changed.
+    heard: Option<Instant>,
+    /// The bubble, in page coordinates, when the page last took the mouse.
+    callout: Option<Rect>,
 }
 
 static STATE: Mutex<Option<State>> = Mutex::new(None);
@@ -265,8 +319,12 @@ fn create_window(display: &screen::Display) {
         s.scale = display.scale_factor;
         s.phys = display.phys;
     });
-    if let Some(w) = window() {
+    if let Some(w) = window().filter(|_| !with(|s| s.destroying)) {
         win::place(&w, display.phys);
+        let raw = capture::hwnd_of(&w);
+        if !flags::is_visible(raw) {
+            win::show_inactive(raw);
+        }
         return;
     }
     let Some(app) = app() else { return };
@@ -278,6 +336,11 @@ fn create_window(display: &screen::Display) {
     let phys = display.phys;
     // Built off the event loop thread: WebView2 creation waits on it.
     let build = move || {
+        // A window on its way out still holds the label.
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while app.get_webview_window(LABEL).is_some() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         let built =
             WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("renderer/buddy.html".into()))
                 .title("AevalBuddy")
@@ -293,16 +356,11 @@ fn create_window(display: &screen::Display) {
                 .visible(false)
                 .data_directory(crate::paths::webview_data_dir())
                 .initialization_script(crate::ipc::bridge_script())
-                .on_page_load(|_, p| {
-                    if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
-                        let queued = with(|s| {
-                            s.ready = true;
-                            s.queued.take()
-                        });
-                        if let Some(q) = queued {
-                            send_show(q);
-                        }
-                    }
+                .on_page_load(|_, p| match p.event() {
+                    // A reload starts over; `buddy:ready` ends the wait.
+                    tauri::webview::PageLoadEvent::Started => with(|s| s.ready = false),
+                    // However it got here, a new page lets the mouse through.
+                    tauri::webview::PageLoadEvent::Finished => set_click_through(true),
                 })
                 .build();
         if let Ok(w) = built {
@@ -311,6 +369,12 @@ fn create_window(display: &screen::Display) {
             win::place(&w, phys);
             let _ = w.set_ignore_cursor_events(true);
             win::show_inactive(raw);
+            w.on_window_event(|e| {
+                if matches!(e, tauri::WindowEvent::Destroyed) {
+                    with(|s| s.destroying = false);
+                }
+            });
+            crate::crash::guard_webview(&w, |_, _| browser_gone());
             start_forwarding();
         }
     };
@@ -322,49 +386,151 @@ fn create_window(display: &screen::Display) {
     }
 }
 
-fn destroy_window() {
-    if let Some(w) = window() {
-        let _ = w.destroy();
+/// `buddy:ready`: the page has its listeners, so what waited can go, and a
+/// page that came back from a reload is told what it was showing.
+pub fn page_ready() {
+    let (queued, active, mode, card) = with(|s| {
+        s.ready = true;
+        s.last_sent = None;
+        let card = s
+            .steps
+            .get(s.index.max(0) as usize)
+            .is_some_and(|st| st.card);
+        (s.queued.take(), s.active, s.mode, card)
+    });
+    // A new page starts out letting the mouse through; so does the window.
+    set_click_through(true);
+    match queued {
+        Some(q) => send_show(q),
+        None if active && mode == Mode::Points => show_current_point(),
+        None if active && mode == Mode::Steps && card => show_card(),
+        None => {}
     }
+}
+
+pub fn is_ready() -> bool {
+    with(|s| s.ready)
+}
+
+/// Whether the window really lets clicks through.
+pub fn lets_mouse_through() -> bool {
+    window().is_some_and(|w| win::is_transparent(capture::hwnd_of(&w)))
+}
+
+/// Puts the pointer away between sessions. The window and its page stay, so
+/// the next session shows at once (B-031).
+fn put_away() {
+    with(|s| {
+        s.queued = None;
+        s.last_sent = None;
+    });
+    let Some(w) = window() else { return };
+    emit_to(LABEL, "buddy:reset", json!(null));
+    let raw = capture::hwnd_of(&w);
+    if with(|s| std::mem::replace(&mut s.focusable, false)) {
+        let _ = w.set_focusable(false);
+        win::set_no_activate(raw, true);
+    }
+    set_click_through(true);
+    // Win32, not `w.hide()`: a hide queued on the event loop would land after
+    // the next session's show.
+    win::hide(raw);
+}
+
+/// Drops the window; the next session builds a new one.
+pub fn destroy() {
     with(|s| {
         s.ready = false;
         s.queued = None;
     });
+    if let Some(w) = window() {
+        with(|s| s.destroying = true);
+        let _ = w.destroy();
+    }
 }
 
-/// Replays the pointer into the page while the window ignores the mouse.
-fn start_forwarding() {
+/// The browser process died and the webview with it: the session is over.
+fn browser_gone() {
     std::thread::spawn(|| {
-        let mut last: Option<(i32, i32)> = None;
-        let mut inside = false;
-        loop {
-            std::thread::sleep(Duration::from_millis(FORWARD_MS));
-            let Some(w) = window() else { return };
-            let (ignoring, phys, scale) = with(|s| (s.ignoring, s.phys, s.scale));
-            if !ignoring {
-                last = None;
-                continue;
-            }
-            let Some((x, y)) = screen::cursor_phys() else {
-                continue;
-            };
-            if last == Some((x, y)) {
-                continue;
-            }
-            last = Some((x, y));
-            let now_inside = phys.contains(x, y);
-            if now_inside {
-                let cx = (x - phys.x) as f64 / scale;
-                let cy = (y - phys.y) as f64 / scale;
-                let _ = w.eval(format!(
-                    "document.dispatchEvent(new MouseEvent('mousemove',{{clientX:{cx},clientY:{cy},bubbles:true}}))"
-                ));
-            } else if inside {
-                let _ = w.eval("document.dispatchEvent(new MouseEvent('mouseleave'))");
-            }
-            inside = now_inside;
-        }
+        cancel();
+        destroy();
     });
+}
+
+/// The pointer's physical position in page coordinates.
+fn to_page(x: i32, y: i32, phys: screen::PxRect, scale: f64) -> (f64, f64) {
+    ((x - phys.x) as f64 / scale, (y - phys.y) as f64 / scale)
+}
+
+/// Whether to take the mouse back: the window has it, the page has said
+/// nothing for a while, and the pointer is off the bubble (B-114). A page
+/// that is alive hands the mouse back itself the moment the pointer leaves.
+fn watchdog_due(quiet: Duration, at: Option<(f64, f64)>, bubble: Option<Rect>) -> bool {
+    if quiet < WATCHDOG {
+        return false;
+    }
+    match (at, bubble) {
+        (Some((x, y)), Some(b)) => !b.contains(x, y),
+        (Some(_), None) => true,
+        (None, _) => false,
+    }
+}
+
+/// One thread for the life of the app, idle between sessions.
+fn start_forwarding() {
+    static STARTED: Once = Once::new();
+    STARTED.call_once(|| {
+        std::thread::spawn(forward_loop);
+    });
+}
+
+/// Replays the pointer into the page while the window ignores the mouse, and
+/// takes the mouse back from a page that stopped answering while it had it.
+fn forward_loop() {
+    let mut last: Option<(i32, i32)> = None;
+    let mut inside = false;
+    loop {
+        let nap = if is_active() {
+            FORWARD_MS
+        } else {
+            FORWARD_IDLE_MS
+        };
+        std::thread::sleep(Duration::from_millis(nap));
+        let Some(w) = window().filter(|_| is_active()) else {
+            last = None;
+            inside = false;
+            continue;
+        };
+        let (ignoring, phys, scale, heard, bubble) =
+            with(|s| (s.ignoring, s.phys, s.scale, s.heard, s.callout));
+        let at = screen::cursor_phys();
+        if !ignoring {
+            last = None;
+            let quiet = heard.map_or(Duration::MAX, |t| t.elapsed());
+            let page = at.map(|(x, y)| to_page(x, y, phys, scale));
+            if watchdog_due(quiet, page, bubble) {
+                set_click_through(true);
+            }
+            continue;
+        }
+        let Some((x, y)) = at else {
+            continue;
+        };
+        if last == Some((x, y)) {
+            continue;
+        }
+        last = Some((x, y));
+        let now_inside = phys.contains(x, y);
+        if now_inside {
+            let (cx, cy) = to_page(x, y, phys, scale);
+            let _ = w.eval(format!(
+                "document.dispatchEvent(new MouseEvent('mousemove',{{clientX:{cx},clientY:{cy},bubbles:true}}))"
+            ));
+        } else if inside {
+            let _ = w.eval("document.dispatchEvent(new MouseEvent('mouseleave'))");
+        }
+        inside = now_inside;
+    }
 }
 
 /// Starts the walkthrough.
@@ -405,7 +571,7 @@ pub async fn agent_point(point: (f64, f64), label: &str, display: &screen::Displ
         "message": label,
         "glideMs": 240,
     }));
-    tokio::time::sleep(Duration::from_millis(260)).await;
+    tokio::time::sleep(Duration::from_millis(GLIDE_WAIT_MS)).await;
 }
 
 /// K-13: the agent's cursor at a physical point. The display comes from the
@@ -436,21 +602,17 @@ pub fn agent_clear() {
         was
     });
     if was {
-        destroy_window();
+        put_away();
     }
 }
 
-/// The tour's Skip: the next step, or done after the last.
+/// The tour's Skip: the next step that applies, or done after the last.
 pub fn skip() {
-    let (active, mode, index, len) = with(|s| (s.active, s.mode, s.index, s.steps.len() as i64));
+    let (active, mode, index) = with(|s| (s.active, s.mode, s.index));
     if !active || mode != Mode::Steps {
         return;
     }
-    if index + 1 < len {
-        go_to(index + 1);
-    } else {
-        complete();
-    }
+    go_to(index + 1);
 }
 
 /// Replaces what the current step says (after a failed key test).
@@ -473,13 +635,15 @@ pub fn set_message(text: &str) {
 
 /// A tour step with no pointer: a card near the overlay with its buttons.
 fn show_card() {
+    let has_key = crate::store::get().has_api_key();
     let (step, index, count, b) = with(|s| {
         let st = s
             .steps
             .get(s.index.max(0) as usize)
             .cloned()
             .unwrap_or_default();
-        (st, s.index, s.steps.len(), s.bounds)
+        let (at, count) = position(&s.steps, s.index, has_key);
+        (st, at, count, s.bounds)
     });
     let list = screen::all_displays();
     let anchor = app()
@@ -498,8 +662,19 @@ fn show_card() {
             ))
         })
         .unwrap_or(Rect::new(b.x + b.width - 420.0, b.y + 40.0, 100.0, 40.0));
-    let buttons: Vec<Value> = step
-        .buttons
+    send_show(json!({
+        "kind": "card",
+        "x": ((b.x + 16.0).max(anchor.x + anchor.width - 380.0) - b.x).round(),
+        "y": (anchor.y + anchor.height + 12.0 - b.y).round(),
+        "message": step.message,
+        "buttons": button_values(&step.buttons),
+        "stepIndex": index,
+        "stepCount": count,
+    }));
+}
+
+fn button_values(buttons: &[Button]) -> Vec<Value> {
+    buttons
         .iter()
         .map(|x| {
             let mut v = json!({ "id": x.id, "label": x.label });
@@ -508,16 +683,7 @@ fn show_card() {
             }
             v
         })
-        .collect();
-    send_show(json!({
-        "kind": "card",
-        "x": ((b.x + 16.0).max(anchor.x + anchor.width - 380.0) - b.x).round(),
-        "y": (anchor.y + anchor.height + 12.0 - b.y).round(),
-        "message": step.message,
-        "buttons": buttons,
-        "stepIndex": index,
-        "stepCount": count,
-    }));
+        .collect()
 }
 
 /// Model-directed points, one at a time (DIP screen coordinates), on the
@@ -585,7 +751,13 @@ pub fn advance() {
     }
 }
 
+/// Goes to the first step at or after `i` that applies, or finishes.
 fn go_to(i: i64) {
+    let has_key = crate::store::get().has_api_key();
+    let Some(i) = with(|s| first_applicable(&s.steps, i, has_key)) else {
+        complete();
+        return;
+    };
     let step = with(|s| {
         s.index = i;
         s.last_sent = None;
@@ -593,6 +765,9 @@ fn go_to(i: i64) {
     });
     let Some(step) = step else { return };
     (deps().ensure_step_prereq)(&step);
+    if step.needs == NEEDS_BAR {
+        open_bar();
+    }
     broadcast_watch();
     let gen = GEN.fetch_add(1, Ordering::SeqCst) + 1;
     if step.card {
@@ -606,6 +781,16 @@ fn go_to(i: i64) {
         resolve_target();
         std::thread::sleep(Duration::from_millis(POLL_MS));
     });
+}
+
+/// The step about the bar's token needs the bar open.
+fn open_bar() {
+    let Some(app) = app() else { return };
+    if crate::state::shared(&app).lock().mode != crate::state::Mode::Pill {
+        return;
+    }
+    let a = app.clone();
+    let _ = app.run_on_main_thread(move || crate::windows::open_bar(&a, None, None));
 }
 
 /// Tells each app window which selector counts as on the walkthrough path,
@@ -668,18 +853,18 @@ pub fn handle_resolve_result(result: &Value) {
         return;
     }
     let f = |k: &str| result[k].as_f64().unwrap_or(0.0);
-    let (b, msg, index, count) = with(|s| {
-        let m = s
+    let (b, step) = with(|s| {
+        let st = s
             .steps
             .get(s.index.max(0) as usize)
-            .map(|st| st.message.clone())
+            .cloned()
             .unwrap_or_default();
-        (s.bounds, m, s.index, s.steps.len())
+        (s.bounds, st)
     });
     let x = (f("cx") - b.x).round();
     let y = (f("cy") - b.y).round();
     let (tw, th) = (f("w").round(), f("h").round());
-    let key = format!("{x}|{y}|{tw}|{th}|{msg}");
+    let key = format!("{x}|{y}|{tw}|{th}|{}", step.message);
     let fresh = with(|s| {
         if s.last_sent.as_deref() == Some(key.as_str()) {
             false
@@ -691,14 +876,17 @@ pub fn handle_resolve_result(result: &Value) {
     if !fresh {
         return;
     }
+    let has_key = crate::store::get().has_api_key();
+    let (index, count) = with(|s| position(&s.steps, s.index, has_key));
     send_show(json!({
         "kind": "step",
         "x": x,
         "y": y,
         "targetW": tw,
         "targetH": th,
-        "message": msg,
-        "skippable": true,
+        "message": step.message,
+        "skippable": step.buttons.is_empty(),
+        "buttons": button_values(&step.buttons),
         "stepIndex": index,
         "stepCount": count,
     }));
@@ -729,10 +917,23 @@ fn hide_pointer() {
 }
 
 /// `buddy:set-ignore`: click-through except while the cursor is over the
-/// callout.
+/// callout, whose rectangle comes along when the page takes the mouse.
+pub fn page_set_ignore(ignore: bool, callout: &Value) {
+    let n = |k: &str| callout[k].as_f64();
+    let rect = match (n("x"), n("y"), n("w"), n("h")) {
+        (Some(x), Some(y), Some(w), Some(h)) => Some(Rect::new(x, y, w, h)),
+        _ => None,
+    };
+    with(|s| s.callout = rect);
+    set_click_through(ignore);
+}
+
 pub fn set_click_through(ignore: bool) {
     if let Some(w) = window() {
-        with(|s| s.ignoring = ignore);
+        with(|s| {
+            s.ignoring = ignore;
+            s.heard = Some(Instant::now());
+        });
         let _ = w.set_ignore_cursor_events(ignore);
     }
 }
@@ -747,12 +948,11 @@ pub fn notify(event: &str) {
         cancel();
         return;
     }
-    let (mode, step, index, len) = with(|s| {
+    let (mode, step, index) = with(|s| {
         (
             s.mode,
             s.steps.get(s.index.max(0) as usize).cloned(),
             s.index,
-            s.steps.len() as i64,
         )
     });
     if mode != Mode::Steps {
@@ -760,11 +960,7 @@ pub fn notify(event: &str) {
     }
     let Some(step) = step else { return };
     if event == step.advance_on {
-        if index + 1 < len {
-            go_to(index + 1);
-        } else {
-            complete();
-        }
+        go_to(index + 1);
         return;
     }
     if event == "settings-closed" && step.win == "settings" && index > 0 {
@@ -784,7 +980,7 @@ fn complete() {
     std::thread::spawn(|| {
         std::thread::sleep(Duration::from_millis(700));
         if !is_active() {
-            destroy_window();
+            put_away();
         }
     });
     (deps().on_done)();
@@ -796,12 +992,19 @@ pub fn cancel() {
     }
     GEN.fetch_add(1, Ordering::SeqCst);
     broadcast_watch_cleared();
-    destroy_window();
+    put_away();
     (deps().on_cancel)();
 }
 
-/// `buddy:card`: skip the card; `try` also opens the bar in Agent.
+/// `buddy:card`: Connect opens Settings and waits for the key; every other
+/// button moves on, and `try` also opens the bar in Agent.
 pub fn card(id: &str) {
+    if id == "connect" {
+        if let Some(a) = app().filter(|_| step_index() == KEY_STEP) {
+            crate::windows::open_settings(&a, Some("providers"));
+        }
+        return;
+    }
     skip();
     if id == "try" {
         (deps().on_try)();
@@ -818,24 +1021,56 @@ fn broadcast_watch_cleared() {
 mod tests {
     use super::*;
 
+    fn tour(chord: &str) -> Vec<Step> {
+        walkthrough(&Chords {
+            capture_query: chord,
+            find_on_screen: "",
+            agent_task: "",
+        })
+    }
+
     #[test]
-    fn tour_has_four_steps_with_live_chords() {
-        let w = walkthrough(&Chords {
-            capture_query: "Ctrl+Alt+Space",
-            find_on_screen: "Ctrl+Alt+F",
-            agent_task: "Ctrl+Alt+A",
-        });
-        assert_eq!(w.len(), 4);
-        assert_eq!(w[0].target_selector, "#api-key-input");
-        assert_eq!(w[0].click_scope, "#sec-key");
-        assert_eq!(w[0].advance_on, "key-saved");
-        assert_eq!(w[1].advance_on, "first-answer");
-        assert!(w[1].message.contains("Ctrl+Alt+Space"));
-        assert_eq!(w[2].advance_on, "find-hit");
-        assert!(w[3].card);
-        assert_eq!(w[3].buttons[0].id, "try");
-        assert!(w[3]
-            .message
-            .starts_with("Press Ctrl+Alt+A and say what to do."));
+    fn walkthrough_order_and_no_double_spaces() {
+        let w = tour("Ctrl+Alt+Space");
+        let events: Vec<&str> = w.iter().map(|s| s.advance_on.as_str()).collect();
+        assert_eq!(events, ["find-hit", "key-saved", "first-answer", ""]);
+        assert_eq!(
+            w[0].message,
+            "Press Ctrl+Alt+Space, then type a word you can see on screen."
+        );
+        assert!(w[KEY_STEP as usize].card);
+        assert_eq!(w[1].buttons[0].id, "connect");
+        assert_eq!(w[1].buttons[1].id, "later");
+        assert_eq!(w[3].target_selector, "#pill, #intent");
+        assert_eq!(w[3].buttons[0].label, "Got it");
+        for chord in ["Ctrl+Alt+Space", "", "  "] {
+            for s in tour(chord) {
+                assert!(!s.message.contains("  "), "{}", s.message);
+                assert!(!s.message.contains("Press ,"), "{}", s.message);
+            }
+        }
+    }
+
+    #[test]
+    fn steps_apply_by_whether_a_key_exists() {
+        let w = tour("Ctrl+Alt+Space");
+        assert_eq!(first_applicable(&w, 1, false), Some(1));
+        assert_eq!(first_applicable(&w, 2, false), Some(3));
+        assert_eq!(first_applicable(&w, 1, true), Some(2));
+        assert_eq!(first_applicable(&w, 4, true), None);
+        assert_eq!(position(&w, 3, false), (2, 3));
+        assert_eq!(position(&w, 2, true), (1, 3));
+    }
+
+    #[test]
+    fn watchdog_restores_click_through() {
+        let bubble = Some(Rect::new(100.0, 100.0, 200.0, 80.0));
+        let long = WATCHDOG + Duration::from_millis(1);
+        let away = Some((10.0, 10.0));
+        assert!(watchdog_due(long, away, bubble));
+        assert!(watchdog_due(long, away, None));
+        assert!(!watchdog_due(long, Some((150.0, 120.0)), bubble));
+        assert!(!watchdog_due(Duration::from_secs(1), away, bubble));
+        assert!(!watchdog_due(long, None, bubble));
     }
 }

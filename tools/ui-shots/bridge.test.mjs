@@ -102,7 +102,16 @@ const menu = (target) => {
   return prevented;
 };
 check('noBrowserMenu', menu({ closest: () => null }));
-check('editMenuInFields', !menu({ closest: () => ({}) }));
+// B-077 (WIN-14): a field no page menu claimed gets the app's own edit menu
+// (Cut, Copy, Paste, Select all) instead of WebView2's, so the browser menu
+// is prevented there too and the bridge asks for kind 'edit'.
+const menuEnv = makeWindow();
+vm.runInNewContext(`${SRC}\naevalBridge(['ui:context-menu'], []);`, { window: menuEnv.win, Promise, Set, Error, String, Object, setTimeout });
+let fieldPrevented = false;
+menuEnv.handlers.contextmenu.forEach((h) => h({ defaultPrevented: false, target: { closest: () => ({}) }, preventDefault: () => (fieldPrevented = true) }));
+await new Promise((r) => setTimeout(r, 0));
+const asked = menuEnv.log.some((l) => l[0] === 'invoke' && l[1] === 'ui:context-menu');
+check('editMenuInFields', fieldPrevented && asked, JSON.stringify({ fieldPrevented, log: menuEnv.log }));
 
 // The ui-shots lane files (K-31): all nine import, and each is in the shape
 // shots.mjs documents, with every cssLintEnforce file present.
@@ -113,6 +122,35 @@ const ROOT = path.join(HERE, '..', '..');
 const listed = Object.values(LANES).flatMap((m) => m.cssLintEnforce || []);
 const absent = listed.filter((f) => !fs.existsSync(path.join(ROOT, f)));
 check('cssLintFilesExist', absent.length === 0, absent.join(', '));
+
+// The CSS gate (B-145, tools/ui-shots/css-lint.mjs): every file a lane lists
+// in cssLintEnforce must hold all three rules; the rest are counted, not
+// enforced, until the final pass (B-148).
+const { lintCss, selfTest } = await import('./css-lint.mjs');
+check('cssLintSelfTest', selfTest() === 0, 'css-lint.mjs failed its own cases');
+const enforced = [...new Set(listed)].filter((f) => fs.existsSync(path.join(ROOT, f)));
+let violations = 0;
+for (const f of enforced) {
+  for (const v of lintCss(fs.readFileSync(path.join(ROOT, f), 'utf8'))) {
+    violations += 1;
+    console.log(`[BRIDGE] css-lint ${f}:${v.line} ${v.rule}: ${v.text} (${v.why})`);
+  }
+}
+console.log(`[BRIDGE] css-lint: ${enforced.length} files enforced, ${violations} violations`);
+check('cssLint', violations === 0, `${violations} violations in ${enforced.join(', ')}`);
+const allCss = [];
+const walk = (dir) => {
+  for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+    const rel = path.posix.join(dir, e.name);
+    if (e.isDirectory() && !['node_modules', 'target', '.git', 'dist', 'out'].includes(e.name)) walk(rel);
+    else if (e.isFile() && e.name.endsWith('.css')) allCss.push(rel);
+  }
+};
+for (const dir of ['renderer', 'settings', 'history', 'src-tauri/src', 'src-tauri/ui']) {
+  if (fs.existsSync(path.join(ROOT, dir))) walk(dir);
+}
+const counts = allCss.filter((f) => !enforced.includes(f)).map((f) => [f, lintCss(fs.readFileSync(path.join(ROOT, f), 'utf8')).length]);
+for (const [f, n] of counts) console.log(`[BRIDGE] css-lint report ${f}: ${n} violations (not enforced yet)`);
 
 console.log(`[BRIDGE] done failed=${failed}`);
 process.exit(failed ? 1 : 0);

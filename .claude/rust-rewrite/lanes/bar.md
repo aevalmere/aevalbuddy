@@ -250,8 +250,33 @@ Stop when every item below and the standing labels task is green on CI at your b
 - C1 follow-up (icons): at c114f4a, 0319420 and 8c73071 every icon was blank (ui-shots 01 and 10 show empty buttons). The cause was that `renderer/icons.svg` was not well-formed XML: its header comment contained a double hyphen (`--ico`), so the whole image failed to load. 0319420 and 8c73071 changed how glyphs are drawn without fixing that. The fix commit removes the double hyphen and was checked with an XML parser. Icons are now a CSS mask of the whole sprite strip, slid to glyph `--i` and filled with currentColor (an image, allowed by `img-src 'self'`). Markup is `<span class="ico i-<name>" aria-hidden="true"></span>` or `AevalGlass.icon(name)`. Consumers should take the fix sha (recorded below once green), not c114f4a.
 - C1 icons fixed at d84a9d3: ui-shots green, with icons visible in 01-bar-first-run and 10-white-bar-output. rust failed only at Build installer, because the NSIS download returned HTTP 504 (runner network). The Rust sources are the same as 8c73071, whose rust run was green.
 - B-059: code landed in C1 (c114f4a): `ui:text-scale`, Ctrl+= / Ctrl+- / Ctrl+0 stepping 1.0..2.0 and invoking `settings:set-text-scale`, with a localStorage fallback. Acceptance (`zoomKeysInvokeTextScale`, the 200% scene variant) waits for harness C1 (`tools/ui-shots/lanes/bar.mjs`).
-- In progress (S1 batch): B-055 (level table in glass.css/glass.js, D-21 entries), B-056 (textarea, seven rows, Shift+Enter, recall only from the first or last row), B-057 (target chip, Ctrl+Tab; shows once K-05 lands), B-058 (the bar speaks through `AevalA11y.say`; capture failure and a taken shortcut are assertive), B-060 (Esc clears, then closes; `Close the bar` / `Close (Esc)`), and B-157 (forced-colors working outline).
+- Every item is implemented as of e87e29b (S1 at 462b98f, B-150..B-156 at 232d253, smoke labels at f15367b, ui-shots scenes at e04d998, B-152/B-158/B-159/B-182 at 1996c41). ui-shots green at e87e29b; rust green at 688cb40, `styleStable` included (windows fix 3c071b0 merged).
+- B-054: ui-shots green at e87e29b; tokensPresent, tokenMenuIsGMenu (and -ts200), bar-focus-ring.
+- B-055: ui-shots green at e87e29b; glassStopsDiffer, accentTextContrast, glass-level-* shots. SMOKE `styleStable` ok at 688cb40.
+- B-056: green at e87e29b; shiftEnterAddsRows, multilineSends (and -ts200), SMOKE barMultiline.
+- B-057: ui-shots green at e87e29b; targetChipOnlyWithTwoWindows, targetChipCutsTitle, targetChipDescribesField, ctrlTabCycles, targetChipStartsOver.
+- B-058: ui-shots green at e87e29b; sayRoutesByFocus, needsKeyNudgesAndAnnounces.
+- B-059: ui-shots green at e87e29b; zoomKeysInvokeTextScale and the ts200 scene variants.
+- B-060: ui-shots green at e87e29b; escClearsThenCloses, closeButtonNamed.
+- B-150: green at e87e29b; tokenRestsAsGlyph, tokenShowsChoice, tokenSaysReplyWhileAsking, tokenSaysStartOnPlan (and -ts200), SMOKE tokenReply.
+- B-151: ui-shots green at e87e29b; barShortcutsInvoke, chordsNameTheTarget; SMOKE barKeys.
+- B-152: ui-shots green at e87e29b; modelMenuGrouped, modelMenuFilters, modelPinSentWithSubmit, modelChipUnderFind (bar half; real list waits on llm B-122, see Blockers).
+- B-153: ui-shots green at e87e29b; dirtyFlagSentAndClearHonoured.
+- B-154: green at e87e29b; SMOKE earlyKeys.
+- B-155: ui-shots green at e87e29b; noticeNamesTheNeed, needsKeyNudgesAndAnnounces.
+- B-156: ui-shots green at e87e29b; noOpenRouterInBarCopy, noticeHotkeyTaken (C-11 row blocked, see Blockers).
+- B-157: ui-shots green at e87e29b; forcedColorsPillDashed, forcedColorsAnswerOutlined.
+- B-158: ui-shots green at e87e29b; windowMenuOpens, windowMenuNudges, windowMenuOnRightClick, windowMenuMaximizes.
+- B-159: ui-shots green at e87e29b; toneFlipsWithHysteresis, lightToneDarkLabels (dark-editor and photo-busy backdrops blocked, see Blockers).
+- B-182: ui-shots green at e87e29b; reducedFoldHasNoBlur, reducedTokenLockFades (css-lint part blocked on B-145, see Blockers).
+- Standing labels: all print ok at 688cb40, `styleStable` included, now that windows' 3c071b0 is on rust-rewrite.
 
 ## Blockers
 
-(None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+(Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+
+- None. `styleStable` (overlay pill-again WS_EX_NOACTIVATE lost after a collapse) was a windows-lane bug, fixed by 3c071b0 and green at 688cb40.
+- B-156, row C-11 only: the placeholder stays `Answer the task's question` instead of `Type your answer for the task`, because `barAnswersTask` in `tools/ui-shots/lanes/sheet.mjs:140` requires `/question/i` and that file is the sheet lane's. Unblock: the sheet lane or integrator changes that regex to match the new copy (for example `/answer/i`) in the same merge as the placeholder change in `renderer/bar.js`.
+- B-182, "css-lint clean" only: B-145 has not landed, so there is no lint to pass and `cssLintEnforce` stays empty; glass.css and overlay.css still have raw `rgb()` values outside token blocks that B-145 will flag. Unblock: B-145 lands; then fix what it reports and list both files.
+- B-055 and B-159, the `dark-editor` and `photo-busy` runs only: `tools/ui-shots/shots.mjs` has only `wallpaper` and `white`, so those two backdrops cannot be shot, and `glassStopsDiffer` runs over wallpaper. Unblock: harness B-053 adds the backdrops; then add them to the glass-level and light-tone scenes.
+- B-152, the real list only: the bar half is done and proven on the mock (`modelPinSentWithSubmit`), but until llm's B-122 adds `models:list.providers` and honours `{provider, model}`, the list has nothing to show in the app and `@` stays plain text. No bar change is needed when it lands.

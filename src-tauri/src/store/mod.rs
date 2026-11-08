@@ -15,8 +15,10 @@
 //!   are shown only before it.
 
 pub mod crypto;
+pub mod durable;
 
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -230,9 +232,130 @@ pub struct Store {
     path: PathBuf,
     data: Mutex<Map<String, Value>>,
     crypt: OsCrypt,
+    /// B-002: the file exists but could not be read, so nothing is written
+    /// over it this session; settings live in memory only.
+    saving_disabled: bool,
+    /// Whether the file on disk is one this session read or wrote whole, so
+    /// it may become `aevalbuddy.json.bak` before the next replace.
+    disk_good: AtomicBool,
 }
 
 static GLOBAL: OnceLock<Store> = OnceLock::new();
+
+/// B-001: one save at a time. The snapshot, the write and the replace all
+/// happen under it, so the last save always writes the newest state and two
+/// saves never interleave.
+static SAVE: Mutex<()> = parking_lot::const_mutex(());
+
+/// A failed save is logged once per session, not on every window move.
+static SAVE_FAILURE_LOGGED: AtomicBool = AtomicBool::new(false);
+
+type Reader<'a> = &'a dyn Fn(&Path) -> io::Result<Vec<u8>>;
+
+fn read_file(path: &Path) -> io::Result<Vec<u8>> {
+    fs::read(path)
+}
+
+/// `<path><suffix>`, beside the settings file.
+fn sibling(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.as_os_str().to_owned();
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
+/// The settings object in `bytes`, decoded as Node did (invalid UTF-8
+/// becomes U+FFFD, a BOM is skipped). None when it is not a JSON object.
+fn parse_object(bytes: &[u8]) -> Option<Map<String, Value>> {
+    let text = String::from_utf8_lossy(bytes);
+    match serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) {
+        Ok(Value::Object(m)) => Some(m),
+        _ => None,
+    }
+}
+
+/// Reads the file, retrying an error that may pass (a scanner holding it):
+/// three more tries, 100 ms apart. A missing file is not retried.
+fn read_retrying(path: &Path, read: Reader<'_>) -> io::Result<Vec<u8>> {
+    let mut result = read(path);
+    for _ in 0..3 {
+        match &result {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                result = read(path);
+            }
+            _ => break,
+        }
+    }
+    result
+}
+
+/// What `open` found on disk.
+struct Loaded {
+    file: Map<String, Value>,
+    saving_disabled: bool,
+    disk_good: bool,
+}
+
+/// B-001, B-002: only a missing file starts fresh. A file that cannot be
+/// read is never written over; a file that does not parse is kept as
+/// `.corrupt` and the last good copy, `.bak`, is used in its place.
+fn load(path: &Path, read: Reader<'_>) -> Loaded {
+    let corrupt = sibling(path, ".corrupt");
+    let bytes = match read_retrying(path, read) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            return Loaded {
+                file: Map::new(),
+                saving_disabled: false,
+                disk_good: false,
+            };
+        }
+        Err(e) => {
+            let _ = fs::copy(path, &corrupt);
+            let kind = e.kind();
+            crate::crash::write("store", &format!("read failed: {kind:?}; saving disabled"));
+            return Loaded {
+                file: Map::new(),
+                saving_disabled: true,
+                disk_good: false,
+            };
+        }
+    };
+    if let Some(file) = parse_object(&bytes) {
+        return Loaded {
+            file,
+            saving_disabled: false,
+            disk_good: true,
+        };
+    }
+    // electron-store would refuse to start. Keep the file for a person to
+    // recover, and carry on from the last good copy, else from defaults.
+    let _ = fs::copy(path, &corrupt);
+    let backup = read(&sibling(path, ".bak"))
+        .ok()
+        .and_then(|b| parse_object(&b));
+    let note = if backup.is_some() {
+        "settings file unreadable; restored aevalbuddy.json.bak"
+    } else {
+        "settings file unreadable; starting from defaults"
+    };
+    crate::crash::write("store", note);
+    Loaded {
+        file: backup.unwrap_or_default(),
+        saving_disabled: false,
+        disk_good: false,
+    }
+}
+
+/// electron-store's serialisation: tab-indented JSON.
+fn serialize(data: &Map<String, Value>) -> serde_json::Result<Vec<u8>> {
+    use serde::Serialize;
+    let mut buf = Vec::new();
+    let fmt = serde_json::ser::PrettyFormatter::with_indent(b"\t");
+    let mut ser = serde_json::Serializer::with_formatter(&mut buf, fmt);
+    data.serialize(&mut ser)?;
+    Ok(buf)
+}
 
 /// B-084: a key saved without encryption is logged once per session.
 static PLAIN_KEY_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -258,19 +381,17 @@ impl Store {
     }
 
     pub fn open_with(user_data: &Path, crypt: OsCrypt) -> Store {
+        Self::open_reading(user_data, crypt, &read_file)
+    }
+
+    fn open_reading(user_data: &Path, crypt: OsCrypt, read: Reader<'_>) -> Store {
         let path = user_data.join("aevalbuddy.json");
-        let file = match fs::read_to_string(&path) {
-            Ok(text) => match serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) {
-                Ok(Value::Object(m)) => m,
-                _ => {
-                    // electron-store would refuse to start. Keep the file for
-                    // a person to recover and carry on from defaults.
-                    let _ = fs::copy(&path, user_data.join("aevalbuddy.json.corrupt"));
-                    Map::new()
-                }
-            },
-            Err(_) => Map::new(),
-        };
+        durable::sweep_temps(&path);
+        let Loaded {
+            file,
+            saving_disabled,
+            disk_good,
+        } = load(&path, read);
         // A profile that chose the solid surface before the slider existed
         // keeps its look: no glass (ARCHITECTURE.md 10.1).
         let was_solid = !file.contains_key("glassIntensity")
@@ -287,15 +408,45 @@ impl Store {
             path,
             data: Mutex::new(data),
             crypt,
+            saving_disabled,
+            disk_good: AtomicBool::new(disk_good),
         };
         store.migrate();
         store.save();
         store
     }
 
+    /// B-001: under `SAVE`, snapshot the settings, copy the good file on disk
+    /// to `.bak`, then write the snapshot durably (unique temp, fsync,
+    /// write-through replace).
     fn save(&self) {
-        let data = self.data.lock().clone();
-        let _ = write_atomic(&self.path, &data);
+        if self.saving_disabled {
+            return;
+        }
+        let _one = SAVE.lock();
+        let snapshot = serialize(&self.data.lock());
+        let bytes = match snapshot {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                self.save_failed(&e.to_string());
+                return;
+            }
+        };
+        if self.disk_good.load(Ordering::SeqCst) {
+            let _ = fs::copy(&self.path, sibling(&self.path, ".bak"));
+        }
+        match durable::write(&self.path, &bytes) {
+            Ok(()) => self.disk_good.store(true, Ordering::SeqCst),
+            Err(e) => self.save_failed(&e.to_string()),
+        }
+    }
+
+    fn save_failed(&self, why: &str) {
+        // Always on stderr, so a smoke log shows it; errors.log once.
+        eprintln!("[aevalbuddy] store: settings not saved: {why}");
+        if !SAVE_FAILURE_LOGGED.swap(true, Ordering::SeqCst) {
+            crate::crash::write("store", &format!("settings not saved: {why}"));
+        }
     }
 
     pub fn raw(&self, key: &str) -> Option<Value> {
@@ -381,6 +532,34 @@ impl Store {
             }
             d.insert("apiKeysVersion".into(), json!(API_KEYS_VERSION));
         }
+        self.mirror_v1_key();
+    }
+
+    /// B-082: the v1 fields are the OpenRouter key's source of truth (the
+    /// Electron build reads and writes only them), so the copy in `apiKeys`
+    /// follows them: a key changed or cleared after a rollback stays changed
+    /// or cleared.
+    fn mirror_v1_key(&self) {
+        let enc = self.str_of("apiKeyEncrypted");
+        let plain = self.str_of("apiKeyPlain");
+        let mut d = self.data.lock();
+        let keys = d.entry("apiKeys").or_insert_with(|| json!({}));
+        if !keys.is_object() {
+            *keys = json!({});
+        }
+        let Some(m) = keys.as_object_mut() else {
+            return;
+        };
+        let entry = m.get("openrouter");
+        let same = js_string(entry.and_then(|e| e.get("encrypted"))) == enc
+            && js_string(entry.and_then(|e| e.get("plain"))) == plain;
+        let nothing = entry.is_none() && enc.is_empty() && plain.is_empty();
+        if !same && !nothing {
+            m.insert(
+                "openrouter".into(),
+                json!({ "encrypted": enc, "plain": plain }),
+            );
+        }
     }
 
     // ---------------------------------------------------------------- keys
@@ -403,6 +582,10 @@ impl Store {
     /// The saved key for one provider, decrypted. '' when none or when it
     /// cannot be decrypted (the person re-enters it; never a crash).
     pub fn get_provider_key(&self, provider: &str) -> String {
+        if provider == "openrouter" {
+            // B-082: the v1 fields win (see `mirror_v1_key`).
+            return self.legacy_api_key();
+        }
         let entry = self
             .raw("apiKeys")
             .and_then(|k| k.get(provider).cloned())
@@ -412,13 +595,7 @@ impl Store {
         if !enc.is_empty() && self.crypt.available() {
             return self.decrypt_b64(&enc);
         }
-        if !plain.is_empty() {
-            return plain;
-        }
-        if provider == "openrouter" {
-            return self.legacy_api_key();
-        }
-        String::new()
+        plain
     }
 
     /// lib/store.js getApiKey: the OpenRouter key in the v1 fields.
@@ -846,7 +1023,7 @@ impl Store {
     }
 
     pub fn push_input_history(&self, text: &str) -> Vec<String> {
-        let t: String = text.trim().chars().take(500).collect();
+        let t = utf16_prefix(text.trim(), 500);
         if t.is_empty() || !self.get_save_history() {
             return self.get_input_history();
         }
@@ -963,27 +1140,23 @@ fn truthy_ref(v: &Value) -> bool {
     truthy(Some(v))
 }
 
+/// JavaScript's `s.slice(0, units)`, counted in UTF-16 units, except that a
+/// surrogate pair is kept whole or dropped, never split.
+fn utf16_prefix(s: &str, units: usize) -> String {
+    let mut used = 0;
+    s.chars()
+        .take_while(|c| {
+            used += c.len_utf16();
+            used <= units
+        })
+        .collect()
+}
+
 fn wh(v: &Value) -> (i64, i64) {
     (
         v["width"].as_i64().unwrap_or(0),
         v["height"].as_i64().unwrap_or(0),
     )
-}
-
-/// electron-store's serialisation: tab-indented JSON, written to a temp file
-/// and renamed over the old one (STORE-44).
-pub fn write_atomic(path: &Path, data: &Map<String, Value>) -> std::io::Result<()> {
-    use serde::Serialize;
-    let mut buf = Vec::new();
-    let fmt = serde_json::ser::PrettyFormatter::with_indent(b"\t");
-    let mut ser = serde_json::Serializer::with_formatter(&mut buf, fmt);
-    data.serialize(&mut ser)?;
-    if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)?;
-    }
-    let tmp = PathBuf::from(format!("{}.tmp", path.display()));
-    fs::write(&tmp, &buf)?;
-    fs::rename(&tmp, path)
 }
 
 #[cfg(test)]
@@ -999,6 +1172,10 @@ mod tests {
 
     fn open(dir: &Path) -> Store {
         Store::open_with(dir, OsCrypt::with_key([3u8; 32]))
+    }
+
+    fn text(dir: &Path, name: &str) -> String {
+        fs::read_to_string(dir.join(name)).unwrap()
     }
 
     fn file(dir: &Path) -> Map<String, Value> {
@@ -1026,6 +1203,19 @@ mod tests {
         // electron-store writes tabs.
         let text = fs::read_to_string(dir.join("aevalbuddy.json")).unwrap();
         assert!(text.contains("\n\t\"apiKeyEncrypted\": \"\""));
+    }
+
+    /// A fresh profile saves, and a set lands on disk at once even while a
+    /// reader holds the file open (bar's suggestionsOnce polls it).
+    #[test]
+    fn fresh_store_set_lands_on_disk_while_file_is_open() {
+        let dir = temp("fresh-set");
+        let s = open(&dir);
+        assert!(!s.saving_disabled);
+        let held = fs::File::open(dir.join("aevalbuddy.json")).unwrap();
+        s.mark_first_request_sent();
+        drop(held);
+        assert_eq!(file(&dir)["hasSentFirstRequest"], true);
     }
 
     #[test]
@@ -1144,6 +1334,12 @@ mod tests {
         assert_eq!(s.get_input_history().len(), 50);
         s.set_save_history(false);
         assert_eq!(s.push_input_history("zzz").last().unwrap(), "59");
+        // 500 UTF-16 units, as JavaScript's slice(0, 500): 250 emoji.
+        s.set_save_history(true);
+        let kept = s.push_input_history(&"😀".repeat(300));
+        assert_eq!(kept.last().unwrap(), &"😀".repeat(250));
+        let odd = s.push_input_history(&format!("a{}", "😀".repeat(300)));
+        assert_eq!(odd.last().unwrap(), &format!("a{}", "😀".repeat(249)));
     }
 
     #[test]
@@ -1188,6 +1384,37 @@ mod tests {
                 > 10
         );
         assert_eq!(f["apiKeysVersion"], 1);
+    }
+
+    #[test]
+    fn v1_fields_win_after_rollback() {
+        let dir = temp("rollback");
+        let a = crypto::seal(&[3u8; 32], &[5u8; 12], "sk-or-a").unwrap();
+        let b = crypto::seal(&[3u8; 32], &[6u8; 12], "sk-or-b").unwrap();
+        let (a, b) = (B64.encode(a), B64.encode(b));
+        // This build saved A in both places; the Electron build, after a
+        // rollback, changed the v1 field to B.
+        let text = json!({
+            "apiKeyEncrypted": b,
+            "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
+            "apiKeysVersion": 1
+        });
+        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_api_key(), "sk-or-b");
+        assert_eq!(file(&dir)["apiKeys"]["openrouter"]["encrypted"], b);
+        // Then it cleared the key: both v1 fields empty.
+        let text = json!({
+            "apiKeyEncrypted": "",
+            "apiKeyPlain": "",
+            "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
+            "apiKeysVersion": 1
+        });
+        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_api_key(), "");
+        assert!(!s.has_provider_key("openrouter"));
+        assert_eq!(file(&dir)["apiKeys"]["openrouter"]["encrypted"], "");
     }
 
     #[test]
@@ -1236,6 +1463,91 @@ mod tests {
         let s = open(&dir);
         assert_eq!(s.get_input_width(), DEFAULT_INPUT_WIDTH);
         assert!(dir.join("aevalbuddy.json.corrupt").exists());
+    }
+
+    #[test]
+    fn concurrent_sets_never_lose_or_corrupt() {
+        let dir = temp("concurrent");
+        let s = open(&dir);
+        std::thread::scope(|scope| {
+            for t in 0..8 {
+                let s = &s;
+                scope.spawn(move || {
+                    for i in 0..100 {
+                        s.set_raw(&format!("k{t}-{i}"), json!(i));
+                    }
+                });
+            }
+        });
+        let f = file(&dir);
+        for t in 0..8 {
+            for i in 0..100 {
+                assert_eq!(f[&format!("k{t}-{i}")], i, "k{t}-{i}");
+            }
+        }
+        // The last good file before the final save is kept beside it.
+        let bak = text(&dir, "aevalbuddy.json.bak");
+        assert!(serde_json::from_str::<Map<String, Value>>(&bak).is_ok());
+        let left: Vec<String> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(left.is_empty(), "{left:?}");
+    }
+
+    #[test]
+    fn parse_failure_recovers_from_bak() {
+        let dir = temp("bak");
+        let s = open(&dir);
+        s.set_input_width(700.0);
+        s.set_save_history(false);
+        // .bak holds the file as it was before the latest save.
+        s.set_output_width(500.0);
+        drop(s);
+        assert!(dir.join("aevalbuddy.json.bak").exists());
+        fs::write(dir.join("aevalbuddy.json"), "{\"inputWidth\": 7").unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_input_width(), 700);
+        assert!(!s.get_save_history());
+        assert_eq!(text(&dir, "aevalbuddy.json.corrupt"), "{\"inputWidth\": 7");
+        // The torn file never becomes the backup.
+        s.set_input_width(500.0);
+        let bak = text(&dir, "aevalbuddy.json.bak");
+        let bak: Map<String, Value> = serde_json::from_str(&bak).unwrap();
+        assert_eq!(bak["inputWidth"], 700);
+        assert_eq!(file(&dir)["inputWidth"], 500);
+    }
+
+    #[test]
+    fn invalid_utf8_is_read_lossy_not_reset() {
+        let dir = temp("lossy");
+        let mut bytes = br#"{"inputWidth":700,"shortcutsVersion":2,"note":"a"#.to_vec();
+        bytes.push(0xff);
+        bytes.extend_from_slice(br#"b"}"#);
+        fs::write(dir.join("aevalbuddy.json"), &bytes).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_input_width(), 700);
+        assert_eq!(s.raw("note"), Some(json!("a\u{fffd}b")));
+        assert!(!dir.join("aevalbuddy.json.corrupt").exists());
+    }
+
+    fn denied(_: &Path) -> io::Result<Vec<u8>> {
+        Err(io::Error::from(io::ErrorKind::PermissionDenied))
+    }
+
+    #[test]
+    fn unreadable_file_disables_saving() {
+        let dir = temp("denied");
+        let original = br#"{"inputWidth":700,"apiKeyPlain":"sk-keep"}"#;
+        fs::write(dir.join("aevalbuddy.json"), original).unwrap();
+        let s = Store::open_reading(&dir, OsCrypt::with_key([3u8; 32]), &denied);
+        assert_eq!(s.get_input_width(), DEFAULT_INPUT_WIDTH);
+        s.set_save_history(false);
+        s.set_api_key("sk-new");
+        assert!(!s.get_save_history(), "settings still work in memory");
+        assert_eq!(fs::read(dir.join("aevalbuddy.json")).unwrap(), original);
+        assert!(!dir.join("aevalbuddy.json.bak").exists());
     }
 
     #[test]

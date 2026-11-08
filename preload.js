@@ -114,8 +114,14 @@ const INVOKE_CHANNELS = new Set([
   'a11y:announce',
   // ---- end: windows ----
   // ---- lane: capture ----
+  'lens:ready',
+  'buddy:ready',
   // ---- end: capture ----
   // ---- lane: llm ----
+  'settings:set-provider-order',
+  'settings:set-failover',
+  'auth:openrouter-connect',
+  'skills:open-folder',
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----
@@ -164,8 +170,10 @@ const LISTEN_CHANNELS = new Set([
   'a11y:say',
   // ---- end: windows ----
   // ---- lane: capture ----
+  'buddy:reset',
   // ---- end: capture ----
   // ---- lane: llm ----
+  'provider:status',
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----

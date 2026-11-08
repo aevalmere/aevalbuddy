@@ -297,6 +297,16 @@ pub fn credit_url(provider: Provider) -> &'static str {
     }
 }
 
+/// `Open OpenRouter privacy settings`.
+pub fn privacy_action() -> Action {
+    link("privacy", "Open OpenRouter privacy settings", PRIVACY_URL)
+}
+
+/// `Add credit`, at the provider's billing page.
+pub fn add_credit_action(provider: Provider) -> Action {
+    link("add-credit", "Add credit", credit_url(provider))
+}
+
 fn link(id: &str, label: &str, url: &str) -> Action {
     Action {
         url: Some(url.to_string()),
@@ -376,8 +386,7 @@ pub fn explain(err: &ApiError, a: &About<'_>) -> Option<Explained> {
     let mut actions: Vec<Action> = Vec::new();
     let text = match code {
         codes::DATA_POLICY => {
-            let privacy = link("privacy", "Open OpenRouter privacy settings", PRIVACY_URL);
-            actions.push(privacy);
+            actions.push(privacy_action());
             actions.push(Action {
                 provider: Some(a.provider.id().to_string()),
                 ..Action::new("test-again", "Test again")

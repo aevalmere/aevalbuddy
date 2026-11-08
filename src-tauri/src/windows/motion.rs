@@ -226,6 +226,7 @@ mod tests {
     fn display(id: isize, scale: f64, px: Rect, dip: Rect) -> screen::Display {
         screen::Display {
             id,
+            key: id as u32,
             primary: id == 1,
             scale,
             bounds_px: px,

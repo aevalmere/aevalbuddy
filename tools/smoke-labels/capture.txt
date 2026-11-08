@@ -2,3 +2,29 @@
 # one per line. The rust workflow's Smoke step (tools/smoke-gate.mjs) fails
 # when a listed label never prints or prints =FAIL. List a label in the same
 # commit that makes it print; never remove one to get green.
+helperNotAtBoot
+capture
+captureActiveDisplay
+regionCapture
+regionSharper
+regionPointTarget
+regionSelectorCancels
+regionEscape
+captureFailNull
+dpiRoundTrip
+glassTier
+glassLoaded
+snapCost
+glassCost
+lensFirstDraw
+lensWhyClear
+buddyPoints
+buddyPointsDone
+walkthrough
+
+lensReady
+backdropIdle
+pointResolved
+onboardingSteps
+buddyReuse
+buddyReload

@@ -8,9 +8,13 @@
 //! Schedule: 20 s after launch (2 s with a test feed), every 4 h, 15 s after
 //! a resume if stale or failing, when the network returns; never while an
 //! answer streams (deferred 60 s); no background check under smoke or shots.
-//! Failures retry on 2, 5, 15, 30, 60, 120 min then 4 h, +0..10 % jitter, and
-//! are told in one plain sentence; the raw error goes to updater.log.
+//! Failures retry on 2, 5, 15, 30, 60, then every 120 min, +0..10 % jitter,
+//! and are told in one plain sentence; the raw error goes to updater.log.
+//! Every failed attempt counts and schedules the next one, even when its
+//! message matches the last (B-017). Nothing is installed without a sha512
+//! that matches (B-079).
 
+use std::ffi::OsStr;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -347,7 +351,10 @@ fn version() -> String {
 struct Inner {
     state: Map<String, Value>,
     failures: u32,
-    last_error: String,
+    /// The id the next check or download takes.
+    next_attempt: u64,
+    /// The attempt that failed last: one attempt is counted once.
+    last_failed_attempt: u64,
     announce_pending: bool,
     announced_version: String,
     in_flight: bool,
@@ -387,7 +394,8 @@ fn inner() -> &'static Mutex<Inner> {
         Mutex::new(Inner {
             state: initial_state(),
             failures: 0,
-            last_error: String::new(),
+            next_attempt: 1,
+            last_failed_attempt: 0,
             announce_pending: false,
             announced_version: String::new(),
             in_flight: false,
@@ -467,15 +475,49 @@ fn is_busy() -> bool {
         .unwrap_or(false)
 }
 
-/// LIFE-13, LIFE-17: `AEVAL_OFFLINE` forces offline; an API failure is online.
+/// LIFE-13, LIFE-17: a non-empty `AEVAL_OFFLINE` forces offline (an empty
+/// one does not, as in Electron); otherwise the OS says.
 pub fn online() -> bool {
-    if std::env::var_os("AEVAL_OFFLINE").is_some() {
+    online_from(std::env::var_os("AEVAL_OFFLINE").as_deref(), connected)
+}
+
+fn online_from(offline_env: Option<&OsStr>, connected: impl FnOnce() -> bool) -> bool {
+    if offline_env.is_some_and(|v| !v.is_empty()) {
         return false;
     }
+    connected()
+}
+
+fn connected() -> bool {
     use windows_sys::Win32::Networking::WinInet::InternetGetConnectedState;
     let mut flags = 0u32;
     // SAFETY: an out-parameter and a reserved zero.
     unsafe { InternetGetConnectedState(&mut flags, 0) != 0 }
+}
+
+/// A fresh id for one check or one download.
+fn next_attempt() -> u64 {
+    let mut i = inner().lock();
+    let id = i.next_attempt;
+    i.next_attempt += 1;
+    id
+}
+
+/// `in_flight` for as long as one check runs, cleared however it ends.
+struct InFlight;
+
+impl InFlight {
+    /// None while another check is in flight.
+    fn take() -> Option<InFlight> {
+        let already = std::mem::replace(&mut inner().lock().in_flight, true);
+        (!already).then_some(InFlight)
+    }
+}
+
+impl Drop for InFlight {
+    fn drop(&mut self) {
+        inner().lock().in_flight = false;
+    }
 }
 
 fn pending_dir() -> PathBuf {
@@ -558,15 +600,23 @@ fn wait_for_network() {
     });
 }
 
-fn fail(message: &str, http: Option<u16>) {
-    let failures = {
-        let mut i = inner().lock();
-        if i.last_error == message {
-            return;
-        }
-        i.last_error = message.to_string();
-        i.failures += 1;
-        i.failures
+/// Counts attempt `attempt` as failed, once: a download that fails after
+/// its check did is still one attempt, while two attempts that fail with
+/// the same message are two. None when this attempt was already counted.
+fn count_failure(i: &mut Inner, attempt: u64) -> Option<u32> {
+    if attempt == i.last_failed_attempt {
+        return None;
+    }
+    i.last_failed_attempt = attempt;
+    i.failures += 1;
+    Some(i.failures)
+}
+
+/// Every failed attempt is told and schedules the next, so a manual check
+/// that fails ends in `retrying` or `offline`, never `checking`.
+fn fail(attempt: u64, message: &str, http: Option<u16>) {
+    let Some(failures) = count_failure(&mut inner().lock(), attempt) else {
+        return;
     };
     let kind = classify(message, http);
     log("warn", &format!("{kind} (attempt {failures}): {message}"));
@@ -733,22 +783,18 @@ pub async fn check(app: &AppHandle) -> Value {
     if s == "ready" || s == "downloading" {
         return get();
     }
-    let already = {
-        let mut i = inner().lock();
-        std::mem::replace(&mut i.in_flight, true)
-    };
-    if already {
+    let Some(_flight) = InFlight::take() else {
         // Wait for the check in flight to settle.
         while inner().lock().in_flight {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
         return get();
-    }
+    };
+    let attempt = next_attempt();
     clear_timer();
     if !online() {
         set(json!({ "status": "offline", "problem": problem_text("offline", 0), "nextCheck": 0 }));
         wait_for_network();
-        inner().lock().in_flight = false;
         return get();
     }
     set(json!({ "status": "checking", "problem": "" }));
@@ -758,7 +804,6 @@ pub async fn check(app: &AppHandle) -> Value {
             {
                 let mut i = inner().lock();
                 i.failures = 0;
-                i.last_error.clear();
                 i.state
                     .insert("lastChecked".into(), json!(crate::state::now_ms()));
             }
@@ -779,7 +824,6 @@ pub async fn check(app: &AppHandle) -> Value {
                     "total": 0,
                     "problem": "",
                 }));
-                inner().lock().in_flight = false;
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     download(&app, c, latest, url).await;
@@ -789,13 +833,13 @@ pub async fn check(app: &AppHandle) -> Value {
             schedule(RECHECK_MS);
             set(json!({ "status": "current", "problem": "" }));
         }
-        Err(e) => fail(&e.message, e.status),
+        Err(e) => fail(attempt, &e.message, e.status),
     }
-    inner().lock().in_flight = false;
     get()
 }
 
 async fn download(app: &AppHandle, c: reqwest::Client, latest: Latest, url: String) {
+    let attempt = next_attempt();
     match download_inner(&c, &latest, &url).await {
         Ok(file) => {
             {
@@ -837,7 +881,7 @@ async fn download(app: &AppHandle, c: reqwest::Client, latest: Latest, url: Stri
         }
         Err(e) => {
             set(json!({ "status": "idle" }));
-            fail(&e.message, e.status);
+            fail(attempt, &e.message, e.status);
         }
     }
 }
@@ -855,6 +899,10 @@ async fn download_inner(
         .unwrap_or_else(|| "AevalBuddy-Setup.exe".into());
     let target = dir.join(&name);
     let part = dir.join(format!("{name}.part"));
+    // Nothing to check it against: not worth the download.
+    if latest.sha512.is_empty() {
+        verify("", "")?;
+    }
     let mut res = c.get(url).send().await?;
     let status = res.status();
     if !status.is_success() {
@@ -882,15 +930,9 @@ async fn download_inner(
     }
     drop(out);
     let got = B64.encode(hasher.finalize());
-    if !latest.sha512.is_empty() && got != latest.sha512 {
+    if let Err(e) = verify(&latest.sha512, &got) {
         let _ = fs::remove_file(&part);
-        return Err(NetError {
-            message: format!(
-                "sha512 checksum mismatch, expected {}, got {got}",
-                latest.sha512
-            ),
-            status: None,
-        });
+        return Err(e);
     }
     let _ = fs::remove_file(&target);
     fs::rename(&part, &target).map_err(|e| NetError {
@@ -898,6 +940,22 @@ async fn download_inner(
         status: None,
     })?;
     Ok(target)
+}
+
+/// The download matches latest.yml's sha512. A feed without one is refused:
+/// nothing unverified is installed.
+fn verify(expected: &str, got: &str) -> Result<(), NetError> {
+    let message = if expected.is_empty() {
+        "no sha512 checksum in latest.yml; the update is not installed".to_string()
+    } else if got != expected {
+        format!("sha512 checksum mismatch, expected {expected}, got {got}")
+    } else {
+        return Ok(());
+    };
+    Err(NetError {
+        message,
+        status: None,
+    })
 }
 
 /// One menu rebuild per visible change, not one per chunk.
@@ -1186,5 +1244,63 @@ mod tests {
             "3a81oZNherrMQXNJriBBMRLm+k6JqX6iCp7u5ktV05ohkpkqJ0/BqDa6PCOj/uu9RU1EI2Q86A4qmslPpUyknw=="
         );
         assert_eq!(feed_config()["owner"], "aevalmere");
+    }
+
+    #[test]
+    fn identical_failures_both_reschedule() {
+        let dir = std::env::temp_dir().join(format!("aeval-upd-{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let _ = DIR.set(dir);
+        let message = "503 Service Unavailable for https://example.invalid/latest.yml";
+        let (before, gen) = {
+            let i = inner().lock();
+            (i.failures, i.timer_gen)
+        };
+        let first = next_attempt();
+        fail(first, message, Some(503));
+        let second = next_attempt();
+        fail(second, message, Some(503));
+        // The same attempt reporting again is not a new failure.
+        fail(second, message, Some(503));
+        let i = inner().lock();
+        assert_eq!(i.failures - before, 2);
+        assert!(i.timer_gen >= gen + 2, "each failure schedules a retry");
+        assert_eq!(i.state["status"], "retrying");
+        let next = i.state["nextCheck"].as_u64().unwrap_or(0);
+        assert!(next > crate::state::now_ms());
+    }
+
+    #[test]
+    fn in_flight_clears_on_panic() {
+        let crashed = std::panic::catch_unwind(|| {
+            let _flight = InFlight::take().expect("nothing in flight");
+            assert!(InFlight::take().is_none(), "a second check waits");
+            panic!("the check failed");
+        });
+        assert!(crashed.is_err());
+        assert!(!inner().lock().in_flight);
+        assert!(InFlight::take().is_some());
+        assert!(!inner().lock().in_flight);
+    }
+
+    #[test]
+    fn missing_sha512_refuses() {
+        let message = |r: Result<(), NetError>| r.err().map(|e| e.message).unwrap_or_default();
+        let none = message(verify("", "abc"));
+        assert!(none.contains("no sha512"), "{none}");
+        assert_eq!(classify(&none, None), "corrupt");
+        let bad = message(verify("abc==", "xyz=="));
+        assert!(bad.starts_with("sha512 checksum mismatch"), "{bad}");
+        assert!(verify("abc==", "abc==").is_ok());
+    }
+
+    #[test]
+    fn empty_offline_env_is_online() {
+        assert!(online_from(None, || true));
+        assert!(online_from(Some(OsStr::new("")), || true));
+        assert!(!online_from(Some(OsStr::new("1")), || true));
+        assert!(!online_from(None, || false));
+        // Forced offline never asks the OS.
+        assert!(!online_from(Some(OsStr::new("1")), || panic!("asked")));
     }
 }

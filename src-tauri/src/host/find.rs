@@ -12,7 +12,7 @@ use crate::find::{self as engine, FindHost, FindSettings, Related};
 use crate::lens;
 use crate::llm::catalogue::Kind;
 use crate::llm::client::Llm;
-use crate::llm::settings::{self as llm_settings, Active};
+use crate::llm::settings::{self as llm_settings, model_for, Active, LlmSettings};
 use crate::state::{shared, Rect};
 use crate::windows::{self, outputs};
 use crate::{buddy, region, store};
@@ -75,8 +75,7 @@ impl FindHost for Host {
     }
 
     fn model(&self) -> String {
-        let id = store::get().get_find_model();
-        self.llm.resolve_known(Kind::Find, &id)
+        find_model(&StoreSettings, &self.llm)
     }
 
     fn emit(&self, channel: &str, payload: Value) {
@@ -93,6 +92,18 @@ impl FindHost for Host {
 }
 
 // ------------------------------------------------------------ pure helpers
+
+/// The Find model for the provider that will answer: a native provider's
+/// own pick or default (never an OpenRouter id, which it would refuse), else
+/// the stored OpenRouter choice against the catalogue.
+fn find_model(settings: &dyn LlmSettings, llm: &Llm) -> String {
+    match llm_settings::active(settings).map(|a| a.provider) {
+        Some(p) if p.is_native() => {
+            llm.known_native(p, Kind::Find, &model_for(settings, p, Kind::Find))
+        }
+        _ => llm.resolve_known(Kind::Find, &settings.model(Kind::Find)),
+    }
+}
 
 /// setBarMode's normalisation: find and agent stay, anything else is ask.
 fn next_mode(mode: &str) -> &'static str {
@@ -300,7 +311,24 @@ pub fn open_find(app: &AppHandle) {
     tauri::async_runtime::spawn(async move {
         services().find.open(Some(scope.as_str()), region).await;
     });
+    tauri::async_runtime::spawn(heal_find_model());
     apply_registrations(app);
+}
+
+/// Opening Find checks its OpenRouter model against the live catalogue, so
+/// the stages do not start on a retired id (B-044). Native picks are left
+/// alone.
+async fn heal_find_model() {
+    let sv = services();
+    let native = llm_settings::active(&*sv.settings).is_some_and(|a| a.provider.is_native());
+    if native {
+        return;
+    }
+    let stored = sv.settings.model(Kind::Find);
+    let live = sv.llm.resolve_live(Kind::Find, &stored).await;
+    if live != stored {
+        sv.settings.heal_model(Kind::Find, &live);
+    }
 }
 
 /// main.js closeFind.
@@ -413,6 +441,63 @@ pub async fn route(app: &AppHandle, channel: &str, p: &Value) -> Option<Result<V
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::client::{Meta, Reply, Transport};
+    use crate::llm::errors::ApiError;
+    use crate::llm::fake::Fake;
+    use crate::llm::provider::Provider;
+    use crate::llm::settings::MemorySettings;
+    use crate::llm::wire::HttpRequest;
+    use async_trait::async_trait;
+    use tokio_util::sync::CancellationToken;
+
+    struct NoNetwork;
+
+    #[async_trait]
+    impl Transport for NoNetwork {
+        async fn send(&self, _: HttpRequest, _: &CancellationToken) -> Result<Reply, ApiError> {
+            Err(ApiError::network("no network in tests"))
+        }
+    }
+
+    #[tokio::test]
+    async fn native_only_find_body_uses_native_default() {
+        let fake = Arc::new(Fake::from_fixtures(Vec::new()));
+        let mut llm = Llm::new(Arc::new(NoNetwork), Some(fake.clone()));
+        llm.set_offline(false);
+        let s = MemorySettings::with_key("sk-ant-api03-x");
+        let model = find_model(&s, &llm);
+        assert_eq!(model, "claude-haiku-5-5");
+        let act = llm_settings::active(&s).unwrap();
+        let meta = Meta::purpose("find-expand");
+        let cancel = CancellationToken::new();
+        let sent = llm
+            .stream_text(
+                &act,
+                &model,
+                "sys",
+                "user",
+                &meta,
+                None,
+                &cancel,
+                &mut |_| {},
+            )
+            .await;
+        assert!(sent.is_ok());
+        let log = fake.requests();
+        assert_eq!(log[0].provider, "anthropic");
+        assert_eq!(log[0].model.as_deref(), Some("claude-haiku-5-5"));
+        assert!(log[0].url.contains("anthropic.com"), "{}", log[0].url);
+
+        // The person's own pick wins over the default.
+        let pick = (Provider::Anthropic, Kind::Find);
+        s.native.lock().insert(pick, "claude-opus-5-5".into());
+        assert_eq!(find_model(&s, &llm), "claude-opus-5-5");
+
+        // OpenRouter reads its own stored choice.
+        let s = MemorySettings::with_key("sk-or-v1-x");
+        let want = crate::llm::catalogue::default_for(Kind::Find);
+        assert_eq!(find_model(&s, &llm), want);
+    }
 
     #[test]
     fn modes_fall_back_to_ask() {
