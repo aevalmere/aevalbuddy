@@ -327,7 +327,10 @@ fn snapshot(app: &AppHandle) -> (Vec<Item>, String) {
         manual: &m,
         now: crate::state::now_ms(),
     };
-    (template(&input), tooltip(&update, agent_running, &shortcuts))
+    (
+        template(&input),
+        tooltip(&update, agent_running, &shortcuts),
+    )
 }
 
 /// A live row: the menu item for a label, or a separator.
