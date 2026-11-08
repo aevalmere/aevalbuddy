@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42509160898,
+  "run_id": 42509614141,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509160898",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509614141",
   "event": "push",
-  "sha": "8add4494733087fe03349626f4a2e9877f15d3d9",
+  "sha": "8886c022ee6559c304e66ee513ab7869c8dbdcdf",
   "ref": "rust/windows",
   "ref_dir": "rust-windows",
-  "conclusion": "cancelled",
+  "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T18:21:41Z",
+  "finished": "2026-11-08T18:31:20Z",
   "error_lines": 0,
   "steps": [
     {
@@ -80,27 +80,27 @@
     },
     {
       "name": "Build installer",
-      "outcome": "cancelled",
+      "outcome": "success",
       "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "desktop.log"
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
