@@ -100,6 +100,7 @@ function render(prevMode) {
       readyPending = true;
       input.focus();
       input.select();
+      typeEarlyKeys();
       barOpened();
       if (document.activeElement === input && document.hasFocus()) sendReady();
     }
@@ -133,6 +134,49 @@ document.addEventListener(
   },
   true
 );
+
+// The character itself, for the two cases keydown cannot handle. Typed while
+// the window still shows the orb: the hotkey fired and the bar's state is on
+// its way, or the bar just folded and the window kept the focus. Those keys
+// are held for a moment and typed into the field when the bar opens. And a
+// key whose keydown did not name its character (injected text arrives as
+// VK_PACKET): it goes into the field here.
+const EARLY_MS = 600;
+let earlyKeys = [];
+document.addEventListener(
+  'keypress',
+  (e) => {
+    if (e.ctrlKey || e.altKey || e.metaKey || !e.key || e.key.length !== 1) return;
+    if (state.mode === 'pill') {
+      earlyKeys.push({ key: e.key, at: performance.now() });
+      e.preventDefault();
+      return;
+    }
+    if (state.mode !== 'panel') return;
+    const a = document.activeElement;
+    if (a === input || (a && a.closest && a.closest('#intent-menu, #model-menu, input, textarea'))) return;
+    if (e.key === ' ' && a && a.closest && a.closest('button, [role="option"], [role="menuitem"]')) return;
+    e.preventDefault();
+    input.focus();
+    typeIntoField(e.key);
+  },
+  true
+);
+
+function typeIntoField(text) {
+  input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function typeEarlyKeys() {
+  const now = performance.now();
+  const text = earlyKeys
+    .filter((k) => now - k.at < EARLY_MS)
+    .map((k) => k.key)
+    .join('');
+  earlyKeys = [];
+  if (text) typeIntoField(text);
+}
 
 // ----------------------------------------------------------------- morphs
 
