@@ -37,7 +37,11 @@ use tauri::webview::PageLoadEvent;
 use tauri::{Manager, RunEvent};
 
 fn quiet_run() -> bool {
-    std::env::var_os("AEVAL_SMOKE").is_some() || std::env::var_os("AEVAL_SHOT").is_some()
+    // The CI checks too: a first-run tour would put the buddy's full-screen
+    // window over the points the desktop selfcheck probes.
+    ["AEVAL_SMOKE", "AEVAL_SHOT", "AEVAL_CAPTURE_CHECK", "AEVAL_DESKTOP_CHECK"]
+        .iter()
+        .any(|k| std::env::var_os(k).is_some())
 }
 
 /// main.js presenceToast (LIFE-12): once per fresh install, or whenever the
@@ -117,39 +121,29 @@ pub fn run() {
             if selftest::smoke_enabled() {
                 let _ = webview.eval(selftest::PING);
             }
-            eprintln!("[trace] page loaded {}", webview.label());
             windows::on_page_loaded(webview.app_handle(), webview.label());
-            eprintln!("[trace] page handled {}", webview.label());
         })
         .on_window_event(windows::on_window_event)
         .setup(move |app| {
             let handle = app.handle().clone();
-            eprintln!("[trace] before windows::boot(&handle)?;");
             windows::boot(&handle)?;
             // Desktop helper client, glass backdrop, CI checks (split c).
-            eprintln!("[trace] before desktop::setup(&handle);");
             desktop::setup(&handle);
             // Ask, Find, the agent and the hooks between the splits.
-            eprintln!("[trace] before host::setup(&handle);");
             host::setup(&handle);
             let h2 = handle.clone();
             instance::serve(lock.name.clone(), move || {
                 let h3 = h2.clone();
                 let _ = h2.run_on_main_thread(move || windows::trigger_capture(&h3));
             });
-            eprintln!("[trace] before store::get().decide_presence();");
             store::get().decide_presence();
-            eprintln!("[trace] before autostart::apply();");
             autostart::apply();
             // Before hotkeys::apply, which refreshes the tray labels.
             if let Err(e) = tray::init(&handle) {
                 crash::write("tray", &e.to_string());
             }
-            eprintln!("[trace] before hotkeys::apply(&handle);");
             hotkeys::apply(&handle);
-            eprintln!("[trace] before updater::init(&handle, &paths::user_data_dir());");
             updater::init(&handle, &paths::user_data_dir());
-            eprintln!("[trace] before presence_toast(&handle);");
             presence_toast(&handle);
             let s = store::get();
             if !s.has_api_key() && !s.get_walkthrough_auto_shown() && !quiet_run() {
@@ -173,7 +167,6 @@ pub fn run() {
                 let h = handle.clone();
                 std::thread::spawn(move || selftest::scaffold(h));
             }
-            eprintln!("[trace] setup done");
             Ok(())
         })
         .build(tauri::generate_context!())

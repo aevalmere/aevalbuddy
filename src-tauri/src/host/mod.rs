@@ -287,23 +287,18 @@ pub fn bar_context() -> &'static Mutex<Option<BarContext>> {
 /// setup, after the windows exist and before the first page can invoke.
 pub fn setup(app: &AppHandle) {
     let llm = Arc::new(Llm::from_env());
-    eprintln!("[trace] host::setup after let llm = Arc::new(Llm::from_env());");
     let skills_dir = std::env::current_exe()
         .ok()
         .and_then(|e| e.parent().map(|p| p.join("skills")));
     let skills = Skills::load(skills_dir.as_deref());
-    eprintln!("[trace] host::setup after let skills = Skills::load(skills_dir.as_");
     let settings = Arc::new(StoreSettings);
     let desktop = Arc::new(DesktopAdapter::new(crate::desktop::client().clone()));
-    eprintln!("[trace] host::setup after let desktop = Arc::new(DesktopAdapter::n");
     let rt = tokio::runtime::Handle::try_current()
         .unwrap_or_else(|_| tauri::async_runtime::handle().inner().clone());
     let find_host = Arc::new(find::Host::new(app.clone(), llm.clone()));
     let find = Find::new(desktop.clone(), llm.clone(), find_host, rt.clone());
-    eprintln!("[trace] host::setup after let find = Find::new(desktop.clone(), ll");
     let agent_host = Arc::new(agent::Host::new(app.clone(), llm.clone()));
     let agent = Agent::new(desktop.clone(), llm.clone(), agent_host, rt);
-    eprintln!("[trace] host::setup after let agent = Agent::new(desktop.clone(), ");
     let _ = SERVICES.set(Services {
         llm,
         skills,
@@ -314,9 +309,7 @@ pub fn setup(app: &AppHandle) {
     });
 
     desktop_ops::init_desktop_deps(app);
-    eprintln!("[trace] host::setup after desktop_ops::init_desktop_deps(app);");
     menu::init(app);
-    eprintln!("[trace] host::setup after menu::init(app);");
 
     let a = app.clone();
     buddy::init(
@@ -358,7 +351,6 @@ pub fn setup(app: &AppHandle) {
         user_surface: Arc::new(|| store::get().get_surface().to_string()),
     });
     crate::backdrop::set_intensity(store::get().get_glass_intensity());
-    eprintln!("[trace] host::setup after crate::backdrop::set_intensity(store::ge");
 
     {
         let a = app.clone();
