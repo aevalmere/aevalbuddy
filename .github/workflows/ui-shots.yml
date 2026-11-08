@@ -18,6 +18,7 @@ on:
       - "src-tauri/bridge/**"
       - "tools/ui-shots/**"
       - "lib/backdrop-fixture.html"
+      - "src-tauri/src/**/*.css"
       - ".github/workflows/ui-shots.yml"
   workflow_dispatch:
 

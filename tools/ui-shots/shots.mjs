@@ -32,7 +32,8 @@
 //
 //   {
 //     name: '14-thinking',              // unique; the default shot name
-//     backdrop: 'wallpaper',            // wallpaper | white
+//     backdrop: 'wallpaper',            // kit.mjs BACKDROPS: wallpaper, white,
+//                                       // black, dark-editor, photo-busy
 //     windows: [                        // one frame per window, CSS px
 //       { name: 'overlay', src: '/renderer/index.html', x: 480, y: 24, w: 680, h: 240, z: 1 },
 //       { name: 'out1', src: '/renderer/output.html', x: 560, y: 92, w: 520, h: 520, z: 2,
@@ -42,8 +43,13 @@
 //     ],
 //     textScale: true,                  // also run with --text-scale: 2 (-ts200)
 //     scales: [1, 1.5],                 // the default; 1.5 adds -150 to names
-//     clock: true,                      // virtual clock: timers, rAF and
-//                                       // performance.now move only by t.tick
+//     clock: true,                      // virtual clock (page.clock): timers,
+//                                       // Date, requestAnimationFrame and
+//                                       // performance.now. run(t) starts with it
+//                                       // paused; only t.tick, t.settle and
+//                                       // t.shot move it. The scene runs in a
+//                                       // browser context of its own, since
+//                                       // the clock belongs to the context
 //     media: { reducedMotion: 'reduce' }, // page.emulateMedia
 //     async run(t) { ... },             // drive it, shoot it, check it
 //   }
@@ -55,10 +61,20 @@
 //   t.emit(name, channel, payload)   an event from Rust to that window
 //   t.respond(name, channel, value)  change that window's answer from now on
 //   t.calls(name, channel?)     what that window invoked, [{channel, payload}]
-//   t.settle(ms = 450)          wait (on the virtual clock too, when on)
-//   t.tick(ms)                  move the virtual clock (needs clock: true)
-//   t.shot(name?, clip?)        <outDir>/<name><suffix>.png; clip in CSS px,
-//                               default every window plus 20 px
+//   t.settle(ms = 450)          wait ms of real time. On a clock scene it
+//                               runs the virtual clock by ms instead, so
+//                               never call it between frames you are timing:
+//                               use t.tick there, and t.settle only to let
+//                               something run out first
+//   t.tick(ms)                  run the virtual clock by exactly ms, firing
+//                               what falls due (needs clock: true)
+//   t.shot(name?, clip?)        settle 120 ms, then <outDir>/<name><suffix>.png;
+//                               clip in CSS px, default every window plus
+//                               20 px. On a clock scene those 120 ms are
+//                               virtual: count them when you time frames
+//
+// On a clock scene, page.waitForFunction polls on the virtual clock and hangs
+// while it is paused; poll from here with t.page.waitForTimeout, which is real.
 //   t.check(name, ok, why)      `[UI] <name><suffix>=ok|FAIL:<why>`
 //   t.backdrop                  { kind, full, small } data URLs
 // kit.mjs has the shared fixtures and helpers (BAR, ANSWER, openBar, ...).
@@ -69,7 +85,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { W, H, COMMON, deepMerge } from './kit.mjs';
+import { W, H, BACKDROPS, COMMON, deepMerge } from './kit.mjs';
 import { LANES, shapeProblems } from './lanes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -80,7 +96,6 @@ const OUT = path.resolve(args.find((a) => !a.startsWith('--')) || path.join(ROOT
 const CHANNEL = flag('channel', 'msedge');
 const ONLY = flag('lane', '');
 const SCALES = [1, 1.5];
-const BACKDROPS = ['wallpaper', 'white'];
 const CLOCK_START = new Date('2026-03-02T09:30:00Z');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -125,6 +140,12 @@ const browser = await chromium.launch(CHANNEL === 'chromium' ? {} : { channel: C
 const bridge = fs.readFileSync(path.join(HERE, 'mock-bridge.js'), 'utf8');
 const errors = [];
 const written = new Map();
+
+async function newContext(scale) {
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
+  await ctx.addInitScript({ content: bridge });
+  return ctx;
+}
 
 // ------------------------------------------------------------ the desktop
 
@@ -174,7 +195,11 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
 </head><body>${spec.windows.map(frameTag).join('')}</body></html>`,
   });
   console.log(`[UI] scene ${lane}/${spec.name}${suffix}`);
-  const page = await ctx.newPage();
+  // page.clock is the context's clock, not the page's: a clock scene paused
+  // in the shared context would freeze every scene after it. It gets a
+  // context of its own.
+  const own = spec.clock ? await newContext(scale) : null;
+  const page = await (own || ctx).newPage();
   const tag = `${spec.name}${suffix}`;
   page.on('pageerror', (e) => errors.push(`${tag}: ${e.message}`));
   page.on('console', (m) => {
@@ -213,6 +238,14 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
         },
         { small: back.small, ts: textScale }
       );
+    }
+    // Playwright's clock keeps running in real time after install (its
+    // injected clock calls controller.resume()), so runFor only adds to it
+    // and a slow runner sees a different scene. Paused here, the scene's time
+    // is exactly what t.tick, t.settle and t.shot gave it.
+    if (spec.clock) {
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.pauseAt(now + 1000);
     }
     await settle(250);
     const t = {
@@ -253,6 +286,7 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
     check(`scene.${spec.name}${suffix}`, false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' ') : e);
   } finally {
     await page.close();
+    if (own) await own.close();
   }
 }
 
@@ -260,8 +294,7 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
 
 const counts = {};
 for (const scale of SCALES) {
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
-  await ctx.addInitScript({ content: bridge });
+  const ctx = await newContext(scale);
   const backs = {};
   for (const kind of BACKDROPS) backs[kind] = await backdrop(ctx, kind, scale);
   for (const [lane, m] of Object.entries(LANES)) {

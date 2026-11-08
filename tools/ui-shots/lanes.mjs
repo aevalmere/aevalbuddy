@@ -1,5 +1,6 @@
 // Every lane's ui-shots file, in the order shots.mjs runs them. The shape of
 // a lane file is documented at the top of shots.mjs.
+import { BACKDROPS } from './kit.mjs';
 import * as harness from './lanes/harness.mjs';
 import * as platform from './lanes/platform.mjs';
 import * as windows from './lanes/windows.mjs';
@@ -28,6 +29,8 @@ export function shapeProblems(lanes = LANES) {
       else names.set(id, lane);
       if (!s || typeof s.run !== 'function') out.push(`${lane}: scene ${id} has no run(t)`);
       if (!s || !Array.isArray(s.windows) || !s.windows.length) out.push(`${lane}: scene ${id} has no windows`);
+      if (s && s.backdrop !== undefined && !BACKDROPS.includes(s.backdrop)) out.push(`${lane}: scene ${id} has backdrop ${JSON.stringify(s.backdrop)}, not one of ${BACKDROPS.join(', ')}`);
+      if (s && s.scales !== undefined && !(Array.isArray(s.scales) && s.scales.every((x) => x === 1 || x === 1.5))) out.push(`${lane}: scene ${id} scales must be a list of 1 and 1.5`);
       for (const w of (s && s.windows) || []) {
         if (!w.name || !w.src || ![w.x, w.y, w.w, w.h].every(Number.isFinite)) out.push(`${lane}: scene ${id} has a window without name, src, x, y, w, h`);
       }
