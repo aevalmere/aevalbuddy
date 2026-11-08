@@ -1,20 +1,20 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42465202390,
+  "run_id": 42466259458,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465202390",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466259458",
   "event": "push",
-  "sha": "9f3adb9c66873f353b8610887dcd0c9ae98b61fa",
+  "sha": "511ed8116a7c8b1c667bc698a347ce9b2829ae85",
   "ref": "rust/capture",
   "ref_dir": "rust-capture",
   "conclusion": "failure",
   "failed": [
-    "Clippy",
-    "Unit tests"
+    "Format",
+    "Clippy"
   ],
-  "finished": "2026-11-08T09:04:34Z",
-  "error_lines": 37,
+  "finished": "2026-11-08T09:20:04Z",
+  "error_lines": 23,
   "steps": [
     {
       "name": "Checkout",
@@ -48,13 +48,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -63,7 +63,7 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "test.log"
     },
     {
@@ -72,7 +72,7 @@
       "log": ""
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "skipped",
       "log": ""
     },

@@ -1,0 +1,11 @@
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\desktop\checks.rs:348:
+                 rep.must(
+                     &format!("{backend}ExcludesOwnWithoutBlanking"),
+                     ok,
+-                    &format!(
+-                        "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
+-                    ),
++                    &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"),
+                 );
+                 passed_any |= ok;
+             }
