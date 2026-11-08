@@ -37,6 +37,7 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 20 | bar | checkpoint | `688cb40` | see `git log` | pending | pending | Lane finished. Rust (`styleStable=ok`) and ui-shots green at the lane sha. The log commit corrects `lanes/bar.md` Progress and Blockers lines that still said `styleStable` waited on windows |
 | 21 | sheet | checkpoint | `f660cd0` | see `git log` | pending | pending | Lane finished; rust and ui-shots green at the lane sha. Bar's B-156 placeholder `Answer the task’s question` still matches sheet's `/question/i` (`barAnswersTask`), so no seam fix was needed |
 | 22 | capture | checkpoint | `96b569f` | see `git log` | pending | pending | Rust green at the lane sha (run 42509614984, `lensFirstDraw=ok`); ui-shots green at `27f4063`. `bf07bec` on top is Progress only |
+| 23 | platform | checkpoint | `f045fc2` | see `git log` | pending | pending | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
 
 ## Reverts
 
@@ -45,6 +46,7 @@ None.
 ## Seam fixes
 
 - `f90f883` (after #22): `84e2bd9` was red on Clippy and Unit tests (E0063, missing `key` in `windows::screen::Display` at `src/windows/motion.rs:227`) and on ui-shots `cssLint` (4 raw `rgb()` colours in `renderer/lens.css`). Both came in with the capture merge: capture added `Display::key` without seeing windows' motion.rs test helper, and capture's lens.css had not met harness's new css-lint. Fix: `key: id as u32` in the helper (windows should know), and the lens colours moved into `:root` tokens with unchanged values (`--loupe-light`, `--loupe-shadow`, `--chip-fill`, `--chip-light`, `--plate-rim`; capture should know).
+- After #23 (B-112): lib.rs's `aeval-frame` handler calls `backdrop::serve_request(&request)` instead of `backdrop::serve(request.uri().path())`, so a request from a foreign origin gets the 403; the `#[allow(dead_code)]` moved from `serve_request` to `serve`, which only the tests now call. Platform's lib.rs, capture's `serve_request`, done at the seam on the coordinator's call.
 
 ## Open integration issues
 
@@ -60,7 +62,7 @@ None.
 - Queued: platform `f045fc2` (rust and ui-shots pending; `5f6b541` rust green, ui-shots pending; carries the harness-approved `bridge.test.mjs` `editMenuInFields` change and the B-085 one-click installer.nsi; on conflict in that file keep harness's side unless harness adopted it).
 - Red at last check: agent `fe650d1` and `8fa0e89` (rust fails), so agent stays at `771d149`.
 - Follow-up, not a blocker: sheet B-164 sends `output:resize` until windows' B-027 lands.
-- Finished lanes: settings (`493483b`), harness (`76c8c95`), bar (`688cb40`), sheet (`f660cd0`).
+- Finished lanes: settings (`493483b`), harness (`76c8c95`), bar (`688cb40`), sheet (`f660cd0`), platform (`f045fc2`).
 
 ## Base
 
