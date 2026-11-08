@@ -590,6 +590,8 @@ pub fn hello(label: &str) {
 }
 
 /// Something changed that the windows should see now (a window was shown).
+// backdrop.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn kick() {
     schedule(Some(0));
 }
@@ -599,10 +601,14 @@ pub fn forget(label: &str) {
 }
 
 /// While content protection is off for a live photograph, no frames.
+// backdrop.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn pause() {
     lock().paused += 1;
 }
 
+// backdrop.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn resume() {
     {
         let mut g = lock();

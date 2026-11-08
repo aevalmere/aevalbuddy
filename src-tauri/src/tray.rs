@@ -203,6 +203,7 @@ fn icon() -> Option<Image<'static>> {
 }
 
 fn current_input_parts(app: &AppHandle) -> (Value, bool, bool, Map<String, Value>) {
+    crate::state::refresh(app);
     let (running, hidden) = {
         let st = shared(app);
         let s = st.lock();

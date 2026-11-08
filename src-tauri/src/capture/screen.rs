@@ -61,6 +61,8 @@ impl Rect {
         dx * dx + dy * dy
     }
 
+    // (c)'s geometry API; index.js exported it.
+    #[allow(dead_code)]
     pub fn contains(&self, px: f64, py: f64) -> bool {
         px >= self.x && py >= self.y && px < self.x + self.width && py < self.y + self.height
     }
@@ -123,6 +125,8 @@ impl Display {
     }
 
     /// DIP rect on this display to physical pixels.
+    // (c)'s geometry API; index.js exported it.
+    #[allow(dead_code)]
     pub fn rect_to_phys(&self, r: Rect) -> PxRect {
         let s = self.scale_factor;
         PxRect {
@@ -294,6 +298,8 @@ pub fn screen_to_dip_rect(list: &[Display], r: PxRect) -> Rect {
 }
 
 /// DIP rect to physical (`screen.dipToScreenRect(null, rect)`).
+// (c)'s geometry API; index.js exported it.
+#[allow(dead_code)]
 pub fn dip_to_screen_rect(list: &[Display], r: Rect) -> PxRect {
     matching(list, &r).rect_to_phys(r)
 }

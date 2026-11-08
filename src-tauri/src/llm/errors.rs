@@ -124,12 +124,6 @@ fn mentions(detail: &str, words: &[&str]) -> bool {
     words.iter().any(|w| lower.contains(w))
 }
 
-/// Maps an error to a message that names the failure and one next action,
-/// exactly as lib/openrouter.js words it. `None` for aborts, which need no
-/// message. `err == None` is the JS `friendlyError(undefined)` case.
-pub fn friendly_error(err: Option<&ApiError>, model: &str) -> Option<String> {
-    friendly_error_for(Provider::OpenRouter, err, model)
-}
 
 /// The same mapping for any provider. OpenRouter keeps the Electron wording
 /// byte for byte; the native providers get the same sentences with their own

@@ -639,6 +639,8 @@ impl Agent {
     }
 
     /// `stats()`: how many calls reached the desktop.
+    // `stats()`; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub fn dispatched(&self) -> u64 {
         self.inner.dispatched.load(Ordering::Relaxed)
     }
@@ -800,6 +802,8 @@ impl Agent {
         true
     }
 
+// Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
     pub fn pause(&self, message: &str) {
         if let Some(ctx) = self.ctx() {
             ctx.pause(message);

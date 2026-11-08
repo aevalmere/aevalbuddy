@@ -307,6 +307,7 @@ fn register(app: &AppHandle, acc: &str, action: &str) -> bool {
 
 /// main.js applyRegistrations: re-derives every global shortcut from state.
 pub fn apply(app: &AppHandle) {
+    crate::state::refresh(app);
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
     bound().lock().clear();

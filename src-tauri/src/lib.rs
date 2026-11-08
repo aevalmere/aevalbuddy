@@ -174,6 +174,7 @@ pub fn run() {
         if !matches!(event, RunEvent::Exit) {
             return;
         }
+        state::refresh(app);
         let st = state::shared(app);
         if st.lock().agent.running {
             st.call(app, |k| k.stop_agent.as_ref());

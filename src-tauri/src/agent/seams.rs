@@ -25,6 +25,8 @@ impl DeskError {
         }
     }
 
+// For the smoke harness.
+#[allow(dead_code)]
     pub fn to_json(&self) -> Value {
         json!({ "code": self.code, "message": self.message })
     }

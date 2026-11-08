@@ -202,10 +202,6 @@ pub fn is_active() -> bool {
     with(|s| s.active)
 }
 
-pub fn is_agent() -> bool {
-    with(|s| s.active && s.mode == Mode::Agent)
-}
-
 pub fn step_index() -> i64 {
     with(|s| {
         if s.active && s.mode == Mode::Steps {

@@ -277,6 +277,8 @@ pub fn clear(app: &AppHandle) {
     redraw(app);
 }
 
+// lens.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn set_hidden(app: &AppHandle, on: bool) {
     with(|s| s.hidden = on);
     redraw(app);
@@ -291,6 +293,8 @@ pub fn windows(app: &AppHandle) -> Vec<tauri::WebviewWindow> {
         .collect()
 }
 
+// lens.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn destroy(app: &AppHandle) {
     for w in windows(app) {
         let _ = w.destroy();
@@ -299,6 +303,8 @@ pub fn destroy(app: &AppHandle) {
 }
 
 /// Per-display DIP to display id map, for callers that place hits.
+// lens.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+#[allow(dead_code)]
 pub fn display_ids() -> HashMap<u32, Rect> {
     screen::all_displays()
         .into_iter()

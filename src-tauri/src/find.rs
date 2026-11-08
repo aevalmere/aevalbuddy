@@ -675,6 +675,8 @@ struct Snapshot {
     spans: Vec<Span>,
     source: String,
     windows: Vec<Value>,
+    // Kept as lib/find.js returned it; nothing reads it yet.
+    #[allow(dead_code)]
     ocr_error: Value,
     ocr_used: bool,
     text: String,

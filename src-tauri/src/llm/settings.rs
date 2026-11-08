@@ -70,6 +70,8 @@ pub fn model_for(s: &dyn LlmSettings, provider: Provider, kind: Kind) -> String 
 
 /// An in-memory store for tests and for the self-test harness.
 #[derive(Default)]
+// Test seam.
+#[allow(dead_code)]
 pub struct MemorySettings {
     pub keys: Mutex<HashMap<Provider, String>>,
     pub provider: Mutex<Option<Provider>>,
@@ -80,6 +82,8 @@ pub struct MemorySettings {
 }
 
 impl MemorySettings {
+    // Test seam.
+    #[allow(dead_code)]
     pub fn with_key(key: &str) -> Self {
         let s = MemorySettings::default();
         if let Some(p) = Provider::detect(key) {

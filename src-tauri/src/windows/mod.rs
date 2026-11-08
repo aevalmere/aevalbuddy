@@ -248,6 +248,7 @@ pub fn bar_rect(app: &AppHandle) -> Rect {
 /// `glassIntensity`, `hasSentFirstRequest`, `keys`, and for an output
 /// window its own `label` and `outputFixedHeight`.
 pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
+    crate::state::refresh(app);
     let store = store::get();
     let wa = screen::work_area();
     let height = shared(app).lock().input_height;
@@ -257,11 +258,18 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     let s = st.lock();
     let focused = s.focused_output.clone();
     let any_chat = s.outputs.values().any(|o| !o.chat.messages.is_empty());
-    let region = focused
-        .as_ref()
-        .and_then(|l| s.outputs.get(l))
-        .and_then(|o| o.chat.region)
-        .map(|r| json!({ "width": r.width, "height": r.height }))
+    // main.js sent `activeRegion`: the area picked for the next question,
+    // or the one the focused conversation is about.
+    let picked = crate::region::active_region().map(|r| (r.width, r.height));
+    let region = picked
+        .or_else(|| {
+            focused
+                .as_ref()
+                .and_then(|l| s.outputs.get(l))
+                .and_then(|o| o.chat.region)
+                .map(|r| (r.width, r.height))
+        })
+        .map(|(w, h)| json!({ "width": w, "height": h }))
         .unwrap_or(Value::Null);
     let own = for_label.and_then(|l| s.outputs.get(l));
     let fixed = own.map(|o| o.user_height > 0.0).unwrap_or(false);
@@ -471,6 +479,7 @@ pub fn expand_panel(app: &AppHandle) {
 
 /// POS-09. Output windows hide with the bar unless `keep_output`.
 pub fn collapse_panel(app: &AppHandle, keep_output: bool) {
+    crate::state::refresh(app);
     let Some(w) = window(app, OVERLAY) else {
         return;
     };
@@ -581,6 +590,7 @@ pub fn open_bar(app: &AppHandle, mode: Option<&str>, prefill: Option<String>) {
 
 /// The pill and the tray: the trail while the agent works, else the bar.
 pub fn trigger_or_trail(app: &AppHandle) {
+    crate::state::refresh(app);
     if shared(app).lock().agent.running {
         if !shared(app).call(app, |h| h.show_trail.as_ref()) {
             outputs::show_trail(app, false);
@@ -592,6 +602,7 @@ pub fn trigger_or_trail(app: &AppHandle) {
 
 /// KEY-06.
 pub fn toggle_visibility(app: &AppHandle) {
+    crate::state::refresh(app);
     let Some(w) = window(app, OVERLAY) else {
         return;
     };
@@ -627,6 +638,7 @@ pub fn toggle_visibility(app: &AppHandle) {
 
 /// Global Escape, in main.js's priority order (KEY-08).
 pub fn on_escape(app: &AppHandle) {
+    crate::state::refresh(app);
     let (agent, find, region, buddy, mode) = {
         let st = shared(app);
         let s = st.lock();
@@ -670,6 +682,7 @@ pub fn on_escape(app: &AppHandle) {
 
 /// A global shortcut fired (hotkeys.rs).
 pub fn on_hotkey(app: &AppHandle, action: &str) {
+    crate::state::refresh(app);
     match action {
         "captureQuery" => open_bar(app, None, None),
         "findOnScreen" => open_bar(app, Some("find"), None),
@@ -725,6 +738,7 @@ pub fn overlay_set_ignore(app: &AppHandle, ignore: bool) {
 
 /// POS-14 with NEW-04: the layout editor places the bar only.
 pub fn enter_hud(app: &AppHandle) {
+    crate::state::refresh(app);
     let Some(w) = window(app, OVERLAY) else {
         return;
     };
@@ -1045,6 +1059,7 @@ fn on_moved(app: &AppHandle, label: &str) {
 
 fn on_destroyed(app: &AppHandle, label: &str) {
     flags::forget(label);
+    crate::backdrop::forget(label);
     lowered().lock().remove(label);
     if label == SETTINGS {
         let app = app.clone();

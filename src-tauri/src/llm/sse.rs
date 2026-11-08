@@ -24,12 +24,6 @@ impl LineBuffer {
         out
     }
 
-    /// Whatever is left after the last newline.
-    pub fn rest(&mut self) -> String {
-        let rest = String::from_utf8_lossy(&self.buf).into_owned();
-        self.buf.clear();
-        rest
-    }
 }
 
 /// The payload of a `data:` line, trimmed; `None` for any other line.

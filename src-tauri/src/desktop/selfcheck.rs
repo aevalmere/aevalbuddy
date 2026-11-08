@@ -66,6 +66,8 @@ impl Report {
         self.inner.lock().map(|g| g.1.clone()).unwrap_or_default()
     }
 
+    // Test seam.
+    #[allow(dead_code)]
     pub fn value(&self, label: &str) -> Option<String> {
         self.inner
             .lock()

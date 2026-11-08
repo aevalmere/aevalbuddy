@@ -24,6 +24,7 @@ use crate::agent::run::Agent;
 use crate::find::Find;
 use crate::llm::catalogue::Kind;
 use crate::llm::client::Llm;
+use crate::llm::settings::LlmSettings;
 use crate::skills::Skills;
 use crate::state::{shared, Rect};
 use crate::windows::{self, outputs};
@@ -34,7 +35,6 @@ use self::settings::StoreSettings;
 
 /// The services main.js built at `app.whenReady`.
 pub struct Services {
-    pub app: AppHandle,
     pub llm: Arc<Llm>,
     pub skills: Skills,
     pub settings: Arc<StoreSettings>,
@@ -47,7 +47,9 @@ static SERVICES: OnceLock<Services> = OnceLock::new();
 
 /// The services, once `setup` has run (it runs before any window loads).
 pub fn services() -> &'static Services {
-    SERVICES.get().expect("host::setup runs before the first IPC call")
+    SERVICES
+        .get()
+        .expect("host::setup runs before the first IPC call")
 }
 
 /// `services()` when setup has run; `None` in unit tests and before boot.
@@ -74,7 +76,9 @@ pub fn active_region() -> Option<Rect> {
 pub fn active_region_px() -> Option<Value> {
     let r = active_region()?;
     let p = windows::screen::dip_to_px(r);
-    Some(json!({ "x": p.x.round(), "y": p.y.round(), "width": p.width.round(), "height": p.height.round() }))
+    Some(
+        json!({ "x": p.x.round(), "y": p.y.round(), "width": p.width.round(), "height": p.height.round() }),
+    )
 }
 
 /// Physical rect JSON -> DIP rect (`screen.screenToDipRect`).
@@ -84,14 +88,12 @@ pub fn px_rect_to_dip(v: &Value) -> Option<Rect> {
     Some(windows::screen::px_to_dip(Rect::new(x, y, w, h)))
 }
 
-/// The output window events of the current Ask or run go to.
-pub fn target_label(app: &AppHandle) -> Option<String> {
-    outputs::target(app)
-}
 
 /// Saves one conversation to history (main.js rememberChat).
 pub fn remember_chat(app: &AppHandle, label: &str, model: &str) {
-    let Some((id, messages)) = outputs::with(app, label, |o| (o.chat.id.clone(), o.chat.messages.clone())) else {
+    let Some((id, messages)) =
+        outputs::with(app, label, |o| (o.chat.id.clone(), o.chat.messages.clone()))
+    else {
         return;
     };
     crate::history::get().save(&id, model, &messages);
@@ -127,9 +129,8 @@ pub fn refresh_flags(app: &AppHandle) {
     }
 }
 
-/// `applyRegistrations` with the flags refreshed first.
+/// `applyRegistrations` (the core refreshes the flags first).
 pub fn apply_registrations(app: &AppHandle) {
-    refresh_flags(app);
     hotkeys::apply(app);
 }
 
@@ -163,7 +164,8 @@ pub fn start_walkthrough(app: &AppHandle) {
 /// retired stored choice (main.js liveModels). `wait` false answers from the
 /// cached catalogue and never blocks.
 pub async fn live_models(wait: bool) -> (String, String) {
-    let llm = &services().llm;
+    let sv = services();
+    let llm = &sv.llm;
     let s = store::get();
     let stored = (s.get_model(), s.get_brain());
     let (model, brain) = if wait {
@@ -178,12 +180,18 @@ pub async fn live_models(wait: bool) -> (String, String) {
         )
     };
     if model != stored.0 {
-        eprintln!("[aevalbuddy] {} left the catalogue; using {model}", stored.0);
-        s.heal_model(&model);
+        eprintln!(
+            "[aevalbuddy] {} left the catalogue; using {model}",
+            stored.0
+        );
+        sv.settings.heal_model(Kind::Vision, &model);
     }
     if brain != stored.1 {
-        eprintln!("[aevalbuddy] {} left the catalogue; using {brain}", stored.1);
-        s.heal_brain(&brain);
+        eprintln!(
+            "[aevalbuddy] {} left the catalogue; using {brain}",
+            stored.1
+        );
+        sv.settings.heal_model(Kind::Text, &brain);
     }
     (model, brain)
 }
@@ -293,7 +301,6 @@ pub fn setup(app: &AppHandle) {
     let agent_host = Arc::new(agent::Host::new(app.clone(), llm.clone()));
     let agent = Agent::new(desktop.clone(), llm.clone(), agent_host, rt);
     let _ = SERVICES.set(Services {
-        app: app.clone(),
         llm,
         skills,
         settings,
@@ -312,7 +319,8 @@ pub fn setup(app: &AppHandle) {
             ensure_step_prereq: Arc::new(move |step: &buddy::Step| {
                 if step.needs == "settings-key" {
                     windows::open_settings(&a, Some("sec-key"));
-                } else if step.win == "overlay" && shared(&a).lock().mode == crate::state::Mode::Hud {
+                } else if step.win == "overlay" && shared(&a).lock().mode == crate::state::Mode::Hud
+                {
                     windows::exit_hud(&a);
                 }
             }),
@@ -356,7 +364,8 @@ pub fn setup(app: &AppHandle) {
             services().agent.stop(None);
         }));
         h.close_find = Some(Box::new(|app| find::close_find(app, false)));
-        h.cancel_region = Some(Box::new(|app| region::cancel(app)));
+        h.refresh_flags = Some(Box::new(refresh_flags));
+        h.cancel_region = Some(Box::new(region::cancel));
         h.cancel_tour = Some(Box::new(|_| buddy::cancel()));
         h.start_region = Some(Box::new(|app| {
             let a = app.clone();

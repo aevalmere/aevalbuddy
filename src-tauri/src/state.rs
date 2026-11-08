@@ -265,6 +265,10 @@ pub struct Hooks {
     /// Extra `settings:get` fields (models resolved from the catalogue,
     /// skills, glass tier), merged over the core's.
     pub settings_extra: Option<ValueHook>,
+    /// Copies the live buddy, region, Find and agent state into `AppState`
+    /// (`find_open`, `buddy_active`, `region_active`, `agent`). The core
+    /// calls it through `refresh` before it reads those flags.
+    pub refresh_flags: Option<Hook>,
 }
 
 /// One event as the windows saw it, mirrored for the smoke run (main.js
@@ -344,6 +348,12 @@ impl Shared {
 /// The shared state of a running app.
 pub fn shared(app: &AppHandle) -> tauri::State<'_, Shared> {
     app.state::<Shared>()
+}
+
+/// Brings the flags other modules own up to date. Never call it with the
+/// state lock held.
+pub fn refresh(app: &AppHandle) {
+    shared(app).call(app, |k| k.refresh_flags.as_ref());
 }
 
 /// Milliseconds since the Unix epoch.

@@ -20,6 +20,8 @@ pub const DEATH_LIMIT: usize = 3;
 pub const REPLY_GRACE: u64 = 2000;
 
 /// Every code a call can reject with (DESK-10).
+// The DESK-10 list, checked by the tests.
+#[allow(dead_code)]
 pub const CODES: &[&str] = &[
     "STALE_REF",
     "NOT_FOUND",

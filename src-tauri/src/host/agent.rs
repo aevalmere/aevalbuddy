@@ -134,7 +134,12 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
         if let Some(label) = outputs::target(app) {
             set_view_chat(app, &label, true);
             outputs::show(app, &label);
-            windows::emit(app, &label, "agent:consent-request", json!({ "task": task }));
+            windows::emit(
+                app,
+                &label,
+                "agent:consent-request",
+                json!({ "task": task }),
+            );
             if let Some(w) = windows::window(app, &label) {
                 flags::show_focused(&w);
             }
@@ -149,7 +154,9 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
     if let Some(l) = &label {
         outputs::with(app, l, |o| {
             o.kind = OutputKind::Trail;
-            o.chat.messages.push(json!({ "role": "user", "text": task }));
+            o.chat
+                .messages
+                .push(json!({ "role": "user", "text": task }));
         });
         let gen = {
             let st = shared(app);
@@ -426,7 +433,11 @@ impl AgentHost for Host {
             .webview_windows()
             .into_values()
             .find(|w| w.is_focused().unwrap_or(false))
-            .map(|w| w.url().map(|u| page_name(u.path())).unwrap_or_else(|_| "window".into()))?;
+            .map(|w| {
+                w.url()
+                    .map(|u| page_name(u.path()))
+                    .unwrap_or_else(|_| "window".into())
+            })?;
         if let Some(sv) = super::try_services() {
             if let Ok(list) = sv.desktop.op("listWindows", json!({})).await {
                 let front = list
@@ -453,6 +464,15 @@ impl AgentHost for Host {
     /// main.js finishAgentRun.
     fn on_finish(&self, run: &RunReport) {
         let app = &self.app;
+        if run.focus_violations > 0 {
+            eprintln!(
+                "[agent] run {} ({:?}) left the target window {} time(s): {}",
+                run.id,
+                run.task,
+                run.focus_violations,
+                run.focus_detail.as_deref().unwrap_or("")
+            );
+        }
         buddy::agent_clear();
         lens::set_frame(app, None, "");
         if let Some(label) = run_label() {

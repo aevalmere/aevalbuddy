@@ -33,6 +33,8 @@ pub fn is_visual(question: &str) -> bool {
     re.is_match(question)
 }
 
+// The Electron id format; ids now come from state::new_chat_id.
+#[allow(dead_code)]
 fn base36(mut n: u128) -> String {
     const DIGITS: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     if n == 0 {
@@ -48,6 +50,8 @@ fn base36(mut n: u128) -> String {
 }
 
 /// `'c' + Date.now().toString(36) + six random base-36 characters`.
+// The Electron id format; ids now come from state::new_chat_id.
+#[allow(dead_code)]
 pub fn new_chat_id() -> String {
     let since = SystemTime::now().duration_since(UNIX_EPOCH);
     let now = since.map_or(0, |d| d.as_millis());

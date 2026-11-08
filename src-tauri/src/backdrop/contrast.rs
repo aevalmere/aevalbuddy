@@ -7,6 +7,8 @@
 //! colour over each background pixel, the 5th-percentile worst background,
 //! 4.5:1 for body text and 3:1 for large text.
 
+#![allow(dead_code)] // The contrast gate's caller is the shot harness (agent e), not merged yet.
+
 use serde::{Deserialize, Serialize};
 
 /// Runs in the page; resolves to `[{x, y, w, h, color, size, weight, text, sel}]`.

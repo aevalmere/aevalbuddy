@@ -46,7 +46,13 @@ fn items_for(p: &Value) -> Vec<(&'static str, Action)> {
         Some("answer") => {
             let sel = text_of(&p["selection"]);
             let from = if sel.is_empty() { &text } else { &sel };
-            let first: String = from.split('\n').next().unwrap_or("").chars().take(60).collect();
+            let first: String = from
+                .split('\n')
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(60)
+                .collect();
             let question = text_of(&p["question"]);
             items.push(("Copy", Action::Copy(text.clone())));
             items.push(("Find this on screen", Action::FindThis(first)));
@@ -144,8 +150,10 @@ pub fn popup(app: &AppHandle, label: &str, p: &Value) -> Value {
             }
         }
     }
-    let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
-        built.iter().map(|m| m as &dyn tauri::menu::IsMenuItem<tauri::Wry>).collect();
+    let refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = built
+        .iter()
+        .map(|m| m as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+        .collect();
     match Menu::with_items(app, &refs) {
         Ok(menu) => {
             let w = win.clone();
@@ -179,7 +187,8 @@ mod tests {
 
     #[test]
     fn menus_match_main_js() {
-        let answer = items_for(&json!({ "kind": "answer", "text": "line one\nline two", "question": "q" }));
+        let answer =
+            items_for(&json!({ "kind": "answer", "text": "line one\nline two", "question": "q" }));
         let labels: Vec<&str> = answer.iter().map(|(l, _)| *l).collect();
         assert_eq!(labels, ["Copy", "Find this on screen", "Do it"]);
         match &answer[1].1 {
@@ -188,7 +197,8 @@ mod tests {
         }
         let row = items_for(&json!({ "kind": "row", "text": "Typed", "ended": true, "task": "t" }));
         assert_eq!(row.len(), 2);
-        let open = items_for(&json!({ "kind": "row", "text": "Typed", "ended": false, "task": "t" }));
+        let open =
+            items_for(&json!({ "kind": "row", "text": "Typed", "ended": false, "task": "t" }));
         assert_eq!(open.len(), 1);
         assert!(items_for(&json!({ "kind": "other" })).is_empty());
     }

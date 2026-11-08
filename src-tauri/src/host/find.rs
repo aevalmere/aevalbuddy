@@ -247,8 +247,8 @@ fn find_emit(app: &AppHandle, channel: &str, payload: Value) {
                         windows::emit(app, &label, "find:hits", h);
                     }
                 }
-                let (view, active) = outputs::with(app, &label, |o| (o.view.clone(), o.active))
-                    .unwrap_or_default();
+                let (view, active) =
+                    outputs::with(app, &label, |o| (o.view.clone(), o.active)).unwrap_or_default();
                 if view != "find" {
                     set_view(app, &label, "find");
                 }
@@ -434,7 +434,9 @@ mod tests {
     #[test]
     fn results_show_once_there_is_something_to_say() {
         assert!(!has_content(&json!({ "open": false, "status": "Reading" })));
-        assert!(!has_content(&json!({ "open": true, "status": "", "lines": [] })));
+        assert!(!has_content(
+            &json!({ "open": true, "status": "", "lines": [] })
+        ));
         assert!(has_content(&json!({ "open": true, "status": "Reading" })));
         assert!(has_content(&json!({ "open": true, "lines": ["x"] })));
     }

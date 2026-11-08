@@ -249,6 +249,8 @@ impl Desktop {
     }
 
     /// `ready`, `fatal` and `user-input` lines, as index.js's `events`.
+    // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub fn subscribe(&self) -> broadcast::Receiver<Value> {
         self.events.subscribe()
     }
@@ -1045,6 +1047,8 @@ impl Desktop {
     }
 
     /// Turns the physical-input watch on or off now, instead of on next call.
+    // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub async fn watch_user_input(self: &Arc<Self>, on: bool) -> DResult<Value> {
         self.st().watch_override = Some(on);
         self.call(None, Value::Null, p::OP_TIMEOUT).await?;
@@ -1052,6 +1056,8 @@ impl Desktop {
     }
 
     /// Test hook: makes the helper emit one user-input event.
+    // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub async fn simulate_user_input(self: &Arc<Self>, kind: &str) -> DResult<Value> {
         self.op("testUserInput", json!({ "kind": kind })).await
     }
@@ -1063,6 +1069,8 @@ impl Desktop {
     // ------------------------------------------------------------ DIP
 
     /// Physical rect (or point, with no width) to DIP.
+    // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub fn to_dip(&self, r: &Value) -> Value {
         let d = screen::all_displays();
         let rect = p::rect_obj(r);
@@ -1079,6 +1087,8 @@ impl Desktop {
     }
 
     /// DIP rect (or point) to physical.
+    // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub fn to_physical(&self, r: &Value) -> Value {
         let d = screen::all_displays();
         let rect = p::rect_obj(r);

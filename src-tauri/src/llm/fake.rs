@@ -189,12 +189,16 @@ impl Fake {
 
     /// Fills `{{name}}` in later answers (a window handle the test only
     /// learns once Notepad is open).
+    // Test seam.
+    #[allow(dead_code)]
     pub fn set_var(&self, name: &str, value: Value) {
         self.vars.lock().insert(name.to_string(), value);
     }
 
     /// Every request body so far, newest last. The smoke run reads it to
     /// prove a password never reached a model.
+    // Test seam.
+    #[allow(dead_code)]
     pub fn requests(&self) -> Vec<FakeRequest> {
         self.requests.lock().iter().cloned().collect()
     }

@@ -304,6 +304,8 @@ pub enum Class {
 }
 
 impl Class {
+    // For logs and the smoke harness.
+    #[allow(dead_code)]
     pub fn as_str(self) -> &'static str {
         match self {
             Class::Read => "read",

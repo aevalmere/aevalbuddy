@@ -252,10 +252,14 @@ impl Llm {
     }
 
     /// Forces the offline state regardless of `AEVAL_OFFLINE` (tests).
+    // Test seam.
+    #[allow(dead_code)]
     pub fn set_offline(&mut self, offline: bool) {
         self.offline = Some(offline);
     }
 
+    // Test seam.
+    #[allow(dead_code)]
     pub fn fake(&self) -> Option<&Arc<Fake>> {
         self.fake.as_ref()
     }
@@ -605,12 +609,6 @@ impl Llm {
         self.catalogue.lock().data.clone()
     }
 
-    /// Seeds the cache (tests, and a catalogue fetched elsewhere).
-    pub fn set_catalogue(&self, data: Vec<Value>) {
-        let mut c = self.catalogue.lock();
-        c.at = Some(Instant::now());
-        c.data = Some(Arc::new(data));
-    }
 
     /// `pickLive` against the live catalogue, fetching it if the cache is
     /// cold.

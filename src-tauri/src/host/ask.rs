@@ -12,7 +12,9 @@ use serde_json::{json, Value};
 use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::ask::{is_visual, point_fraction, AUTO_SKILL, CHAT_HISTORY_LIMIT, DEFAULT_PROMPT, TEXT_ONLY_CHARS};
+use crate::ask::{
+    is_visual, point_fraction, AUTO_SKILL, CHAT_HISTORY_LIMIT, DEFAULT_PROMPT, TEXT_ONLY_CHARS,
+};
 use crate::capture::{self, Shot};
 use crate::llm::catalogue::Kind;
 use crate::llm::client::{ChatTurn, QueryOpts, ReaderOpts};
@@ -22,7 +24,7 @@ use crate::llm::failover::{short_model, with_failover};
 use crate::llm::points::{Point, PointExtractor};
 use crate::llm::prompt::{extract_task, ExactText};
 use crate::llm::provider::Provider;
-use crate::llm::settings::{active, model_for, Active};
+use crate::llm::settings::{active, model_for, Active, LlmSettings};
 use crate::llm::sse::Meter;
 use crate::state::{shared, Mode};
 use crate::windows::{self, outputs};
@@ -110,7 +112,11 @@ pub async fn read_exact_text(region: Option<crate::state::Rect>) -> Option<Exact
         let title = text_of(&fg["title"]);
         let g = d.get_text(Some(&handle), &rect, 16000, false).await.ok()?;
         let text = text_of(&g["text"]);
-        let text = if text.trim().is_empty() { String::new() } else { text };
+        let text = if text.trim().is_empty() {
+            String::new()
+        } else {
+            text
+        };
         Some(ExactText {
             handle: text_of(&handle),
             title,
@@ -163,7 +169,10 @@ pub fn prefetch_bar_context(app: &AppHandle) {
         if !still {
             return;
         }
-        let process = fg.as_ref().map(|f| text_of(&f["process"])).unwrap_or_default();
+        let process = fg
+            .as_ref()
+            .map(|f| text_of(&f["process"]))
+            .unwrap_or_default();
         let title = exact
             .as_ref()
             .map(|e| e.title.clone())
@@ -188,14 +197,25 @@ async fn fresh_bar_text(region: Option<crate::state::Rect>) -> Option<Option<Exa
     if ctx.at.elapsed() > Duration::from_secs(8) || ctx.region != region {
         return None;
     }
-    Some(ctx.read.get_or_init(|| read_exact_text(region)).await.clone())
+    Some(
+        ctx.read
+            .get_or_init(|| read_exact_text(region))
+            .await
+            .clone(),
+    )
 }
 
 fn norm_name(s: &str) -> String {
     let mapped: String = s
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect();
     mapped.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -236,13 +256,19 @@ async fn resolve_uia_point(label: &str, handle: &str) -> Option<(f64, f64, Strin
         }
     }
     let n = |k: &str| rect[k].as_f64().unwrap_or(0.0);
-    let (x, y) = windows::screen::px_to_dip_point(n("x") + n("width") / 2.0, n("y") + n("height") / 2.0);
+    let (x, y) =
+        windows::screen::px_to_dip_point(n("x") + n("width") / 2.0, n("y") + n("height") / 2.0);
     Some((x.round(), y.round(), text_of(&a["name"])))
 }
 
 /// main.js showModelPoints: directives to screen points, on the display the
 /// shot came from.
-async fn show_model_points(app: &AppHandle, points: &[Point], shot: Option<&Shot>, report: Option<&str>) {
+async fn show_model_points(
+    app: &AppHandle,
+    points: &[Point],
+    shot: Option<&Shot>,
+    report: Option<&str>,
+) {
     let Some(shot) = shot.filter(|s| s.width > 0 && s.height > 0) else {
         return;
     };
@@ -258,7 +284,11 @@ async fn show_model_points(app: &AppHandle, points: &[Point], shot: Option<&Shot
     let to_screen = |fx: f64, fy: f64, label: &str| buddy::Point {
         x: (b.x + fx * b.width).round(),
         y: (b.y + fy * b.height).round(),
-        label: if label.is_empty() { "Here".into() } else { label.to_string() },
+        label: if label.is_empty() {
+            "Here".into()
+        } else {
+            label.to_string()
+        },
     };
     let exact_handle = last_exact().lock().as_ref().map(|e| e.handle.clone());
     let mut mapped = Vec::new();
@@ -272,13 +302,21 @@ async fn show_model_points(app: &AppHandle, points: &[Point], shot: Option<&Shot
             _ => {
                 if let Some(h) = &exact_handle {
                     if let Some((x, y, name)) = resolve_uia_point(&p.label, h).await {
-                        let label = if p.label.is_empty() { name } else { p.label.clone() };
+                        let label = if p.label.is_empty() {
+                            name
+                        } else {
+                            p.label.clone()
+                        };
                         mapped.push(buddy::Point { x, y, label });
                         continue;
                     }
                 }
                 if let Some(el) = match_element(&p.label, &elements) {
-                    let label = if p.label.is_empty() { el.label.clone() } else { p.label.clone() };
+                    let label = if p.label.is_empty() {
+                        el.label.clone()
+                    } else {
+                        p.label.clone()
+                    };
                     mapped.push(to_screen(el.x / 1000.0, el.y / 1000.0, &label));
                 }
             }
@@ -312,7 +350,12 @@ async fn models_now() -> (Option<Active>, String, String) {
 
 /// One conversation turn (main.js handleQuerySubmit). `label` is the output
 /// the question came from (a retry), or None for the bar's target.
-pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o: SubmitOpts) -> Value {
+pub async fn submit_to(
+    app: &AppHandle,
+    label: Option<String>,
+    question: &str,
+    o: SubmitOpts,
+) -> Value {
     let q = question.trim().to_string();
     let help = {
         static RE: OnceLock<regex::Regex> = OnceLock::new();
@@ -341,15 +384,24 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
         },
     };
     shared(app).lock().focused_output = Some(label.clone());
-    let text = if q.is_empty() { DEFAULT_PROMPT.to_string() } else { q };
+    let text = if q.is_empty() {
+        DEFAULT_PROMPT.to_string()
+    } else {
+        q
+    };
     let region = super::active_region();
     let (resume, prior) = outputs::with(app, &label, |out| {
         out.chat.last_question = text.clone();
         out.chat.region = region;
         let last = out.chat.messages.last();
         let resume = o.retry
-            && last.is_some_and(|m| m["role"] == "user" && m["text"].as_str() == Some(text.as_str()));
-        let upto = if resume { out.chat.messages.len() - 1 } else { out.chat.messages.len() };
+            && last
+                .is_some_and(|m| m["role"] == "user" && m["text"].as_str() == Some(text.as_str()));
+        let upto = if resume {
+            out.chat.messages.len() - 1
+        } else {
+            out.chat.messages.len()
+        };
         let from = upto.saturating_sub(CHAT_HISTORY_LIMIT);
         let prior: Vec<ChatTurn> = out.chat.messages[from..upto]
             .iter()
@@ -360,7 +412,9 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
             })
             .collect();
         if !resume {
-            out.chat.messages.push(json!({ "role": "user", "text": text }));
+            out.chat
+                .messages
+                .push(json!({ "role": "user", "text": text }));
         }
         (resume, prior)
     })
@@ -398,7 +452,11 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
         }
     };
     let cap_region = region.map(|r| capture::Rect::new(r.x, r.y, r.width, r.height));
-    let pending = if region.is_some() { pending_shot().lock().take() } else { None };
+    let pending = if region.is_some() {
+        pending_shot().lock().take()
+    } else {
+        None
+    };
     let shot_f = async move {
         match pending {
             Some(s) => Some(s),
@@ -410,7 +468,10 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
     shared(app).lock().capture_ok = shot_taken.is_some();
     super::send_overlay_state(app);
 
-    let exact_len = exact.as_ref().map(|e| e.text.encode_utf16().count()).unwrap_or(0);
+    let exact_len = exact
+        .as_ref()
+        .map(|e| e.text.encode_utf16().count())
+        .unwrap_or(0);
     let text_only = shot_taken.is_some()
         && !use_brain
         && !o.with_image
@@ -418,7 +479,10 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
         && !is_visual(&text);
     let shot = if text_only { None } else { shot_taken };
     let via_region = shot.as_ref().is_some_and(|s| s.region.is_some());
-    let provider = act.as_ref().map(|a| a.provider).unwrap_or(Provider::OpenRouter);
+    let provider = act
+        .as_ref()
+        .map(|a| a.provider)
+        .unwrap_or(Provider::OpenRouter);
     let act = act.unwrap_or(Active {
         provider: Provider::OpenRouter,
         key: String::new(),
@@ -580,7 +644,9 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
     let status = match result {
         Ok(report) => {
             outputs::with(app, &label, |out| {
-                out.chat.messages.push(json!({ "role": "assistant", "text": answer }));
+                out.chat
+                    .messages
+                    .push(json!({ "role": "assistant", "text": answer }));
             });
             let m = meter.lock().clone();
             send(
@@ -608,13 +674,22 @@ pub async fn submit_to(app: &AppHandle, label: Option<String>, question: &str, o
         Err(err) => {
             if !answer.is_empty() {
                 outputs::with(app, &label, |out| {
-                    out.chat.messages.push(json!({ "role": "assistant", "text": answer }));
+                    out.chat
+                        .messages
+                        .push(json!({ "role": "assistant", "text": answer }));
                 });
                 super::remember_chat(app, &label, &answering);
             }
-            let named = if err.stage == Some("reader") { &model } else { &answering };
+            let named = if err.stage == Some("reader") {
+                &model
+            } else {
+                &answering
+            };
             match friendly_error_for(provider, Some(&err), named) {
-                Some(message) => send("query:error", json!({ "message": message, "question": text })),
+                Some(message) => send(
+                    "query:error",
+                    json!({ "message": message, "question": text }),
+                ),
                 None => send("query:done", json!({})),
             }
             "error"
@@ -652,7 +727,10 @@ async fn models_list(p: &Value) -> Value {
         .and_then(Provider::from_id)
         .or_else(|| active(settings).map(|a| a.provider))
         .unwrap_or(Provider::OpenRouter);
-    let mut result = sv.llm.list_models(provider, kind, store::get().get_show_paid_models()).await;
+    let mut result = sv
+        .llm
+        .list_models(provider, kind, settings.show_paid())
+        .await;
     let current = if provider.is_native() {
         model_for(settings, provider, kind)
     } else {
@@ -674,7 +752,10 @@ async fn models_list(p: &Value) -> Value {
 /// `settings:test-key`: the named provider's key, else the one in use.
 async fn test_key(p: &Value) -> Value {
     let sv = services();
-    let named = p.get("provider").and_then(Value::as_str).and_then(Provider::from_id);
+    let named = p
+        .get("provider")
+        .and_then(Value::as_str)
+        .and_then(Provider::from_id);
     let provider = named
         .or_else(|| active(&*sv.settings).map(|a| a.provider))
         .unwrap_or(Provider::OpenRouter);
@@ -684,7 +765,12 @@ async fn test_key(p: &Value) -> Value {
 
 /// IPC rows query:submit, query:cancel, query:retry, models:list,
 /// settings:test-key; None for any other channel.
-pub async fn route(app: &AppHandle, label: &str, channel: &str, p: &Value) -> Option<Result<Value, String>> {
+pub async fn route(
+    app: &AppHandle,
+    label: &str,
+    channel: &str,
+    p: &Value,
+) -> Option<Result<Value, String>> {
     let out = match channel {
         "query:submit" => {
             let q = text_of(&p["question"]);

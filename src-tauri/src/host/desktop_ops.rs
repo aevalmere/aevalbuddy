@@ -51,18 +51,16 @@ fn uint(v: &Value, default: u64) -> u64 {
 /// them: split (b) computes counts and amounts in f64 as JS did.
 fn whole(v: &Value) -> Value {
     match v {
-        Value::Number(n) if n.as_u64().is_none() && n.as_i64().is_none() => {
-            match n.as_f64() {
-                Some(f) if f.is_finite() && f.fract() == 0.0 && f.abs() < 9.0e15 => {
-                    if f >= 0.0 {
-                        json!(f as u64)
-                    } else {
-                        json!(f as i64)
-                    }
+        Value::Number(n) if n.as_u64().is_none() && n.as_i64().is_none() => match n.as_f64() {
+            Some(f) if f.is_finite() && f.fract() == 0.0 && f.abs() < 9.0e15 => {
+                if f >= 0.0 {
+                    json!(f as u64)
+                } else {
+                    json!(f as i64)
                 }
-                _ => v.clone(),
             }
-        }
+            _ => v.clone(),
+        },
         Value::Object(o) => {
             let m: Map<String, Value> = o.iter().map(|(k, x)| (k.clone(), whole(x))).collect();
             Value::Object(m)
@@ -206,12 +204,8 @@ pub fn init_desktop_deps(app: &AppHandle) {
                 s.find.nudge();
             }
         })),
-        before_synthetic_key: Some(Arc::new(move || {
-            crate::hotkeys::suspend_escape(&before)
-        })),
-        after_synthetic_key: Some(Arc::new(move || {
-            crate::hotkeys::resume_escape(&after)
-        })),
+        before_synthetic_key: Some(Arc::new(move || crate::hotkeys::suspend_escape(&before))),
+        after_synthetic_key: Some(Arc::new(move || crate::hotkeys::resume_escape(&after))),
         ..Deps::default()
     });
 }
@@ -222,7 +216,8 @@ mod tests {
 
     #[test]
     fn click_spreads_options_over_the_target() {
-        let a = json!({ "t": { "x": 10.0, "y": 20.0 }, "opts": { "count": 2.0, "button": "right" } });
+        let a =
+            json!({ "t": { "x": 10.0, "y": 20.0 }, "opts": { "count": 2.0, "button": "right" } });
         let s = whole(&spread(&a));
         assert_eq!(s["x"], json!(10));
         assert_eq!(s["count"].as_u64(), Some(2));
