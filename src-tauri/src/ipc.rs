@@ -579,6 +579,18 @@ pub fn settings_data(app: &AppHandle) -> Value {
     v
 }
 
+/// K-24: a conversation's whole first question. A row's `title` is cut at
+/// 90 characters, which would truncate what Ask again re-asks.
+fn first_question(entry: &Value) -> String {
+    let empty = Vec::new();
+    let messages = entry["messages"].as_array().unwrap_or(&empty);
+    let asked = messages.iter().find(|m| m["role"] == "user");
+    asked
+        .and_then(|m| m["text"].as_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
 /// `history:list`'s reply (K-24).
 pub fn history_list(rows: Vec<Value>, enabled: bool) -> Value {
     json!({ "rows": rows, "enabled": enabled })
@@ -674,7 +686,8 @@ async fn route(
             let done = output_for(app, &label, &p).is_some_and(|l| outputs::undo_reset(app, &l));
             return Ok(json!({ "ok": done }));
         }
-        // `{top, height}`: the visible sheet inside the glass, glass DIPs.
+        // `{top, height}`: the visible sheet as the page measures it, `top`
+        // from the window's edge; `set_sheet` keeps it in glass DIPs.
         "output:glass" => outputs::set_sheet(app, &label, p_num(&p, "top"), p_num(&p, "height")),
         // `{dx, dy, dw, dh}` in DIPs -> `{ok}`.
         "window:nudge" => {
@@ -727,7 +740,12 @@ async fn route(
         "overlay:open-history" => windows::open_history(app),
         // K-24: `{rows, enabled}`; `enabled` is whether saving is on.
         "history:list" => {
-            let rows = history::get().list(&p_str(&p, "query"));
+            let hist = history::get();
+            let mut rows = hist.list(&p_str(&p, "query"));
+            for row in &mut rows {
+                let entry = hist.entry(row["id"].as_str().unwrap_or_default());
+                row["question"] = json!(entry.as_ref().map_or_else(String::new, first_question));
+            }
             return Ok(history_list(rows, s.get_save_history()));
         }
         "history:open" => {
@@ -1246,6 +1264,18 @@ mod tests {
         s.busy = true;
         settle_after_panic(&mut s, "overlay", true);
         assert!(s.busy);
+    }
+
+    #[test]
+    fn history_row_question_is_the_whole_first_message() {
+        let long = "why ".repeat(60);
+        let entry = json!({ "messages": [
+            { "role": "assistant", "text": "hello" },
+            { "role": "user", "text": long },
+            { "role": "user", "text": "later" },
+        ] });
+        assert_eq!(first_question(&entry), long);
+        assert_eq!(first_question(&json!({})), "");
     }
 
     #[test]
