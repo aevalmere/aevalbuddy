@@ -22,10 +22,12 @@ pub const TYPED: &str = "AevalBuddy smoke 4271";
 pub const SET: &str = "Replaced by setValue 9137";
 
 /// `[SMOKE] k=v` lines and the failed invariants, as main.js's log/must.
+type Lines = (Vec<(String, String)>, Vec<String>);
+
 #[derive(Clone, Default)]
 pub struct Report {
     pub prefix: &'static str,
-    inner: Arc<Mutex<(Vec<(String, String)>, Vec<String>)>>,
+    inner: Arc<Mutex<Lines>>,
 }
 
 impl Report {

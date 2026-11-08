@@ -77,9 +77,11 @@ pub fn type_timeout(chars: usize) -> u64 {
 /// One request line.
 pub fn request_line(id: u64, op: &str, args: &Value, timeout_ms: u64) -> String {
     let args = if args.is_null() { json!({}) } else { args.clone() };
-    let mut s = json!({ "id": id, "op": op, "args": args, "timeoutMs": timeout_ms }).to_string();
-    s.push('\n');
-    s
+    // Field order as main.js's JSON.stringify (serde_json sorts map keys).
+    format!(
+        "{{\"id\":{id},\"op\":{},\"args\":{args},\"timeoutMs\":{timeout_ms}}}\n",
+        Value::from(op)
+    )
 }
 
 /// What one stdout line from the helper means.

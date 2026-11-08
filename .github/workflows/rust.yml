@@ -53,9 +53,17 @@ jobs:
           cmd /c "$Command 2>&1" | Tee-Object -FilePath $out
           $code = $LASTEXITCODE
           if ($code -ne 0) {
-            $tail = (Get-Content $out -Tail 120) -join "`n"
-            $enc = $tail.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
-            Write-Output "::error title=$Title::$enc"
+            # An annotation holds 4096 characters and a step keeps 10 errors,
+            # so the last ~36 KB goes out in up to nine pieces, in order.
+            $tail = ((Get-Content $out -Tail 600) -join "`n").Replace("`r", '')
+            $size = 4000
+            $start = [Math]::Max(0, $tail.Length - 9 * $size)
+            $n = [Math]::Ceiling(($tail.Length - $start) / $size)
+            for ($i = 0; $i -lt $n; $i++) {
+              $c = $tail.Substring($start + $i * $size, [Math]::Min($size, $tail.Length - $start - $i * $size))
+              $enc = $c.Replace('%', '%25').Replace("`n", '%0A')
+              Write-Output "::error title=$Title $($i + 1) of $n::$enc"
+            }
             exit $code
           }
           '@ | Set-Content (Join-Path $env:RUNNER_TEMP 'gate.ps1')
@@ -86,7 +94,7 @@ jobs:
           $gz.Write($bytes, 0, $bytes.Length)
           $gz.Close()
           $b64 = [Convert]::ToBase64String($ms.ToArray())
-          $size = 30000
+          $size = 4000
           $n = [Math]::Ceiling($b64.Length / $size)
           for ($i = 0; $i -lt $n; $i++) {
             $c = $b64.Substring($i * $size, [Math]::Min($size, $b64.Length - $i * $size))
