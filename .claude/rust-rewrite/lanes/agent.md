@@ -274,6 +274,8 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-048: unit test green at 3918098 (`run::tests::pause_during_dodge_drops_the_action`); SMOKE+ `takeoverStopsStep` is printed by `agent/smoke.rs`; SMOKE `agentTakeover` is in the Notepad batch.
 - B-050: unit tests green at 3918098 (`client::tests::key_timeout_scales_with_repeat`, `run::tests::stop_while_typing_cancels_the_helper`, `run::tests::a_timed_out_step_is_an_unknown_outcome`); SMOKE+ `cancelStopsTyping`, `helperTimeoutNoLateInput` and SMOKE `agentStopMs` are in the Notepad batch.
 
+- 0db3912 carries B-047, B-130 to B-143 with their unit tests; its CI failed only on `dialect_switch_rewrites_system_prompt` and `overload_529_retries` (the fixture answered 429/529 on every retry of the same turn). The next push scripts the busy reply once and adds `agent/smoke_live.rs`, which prints `agentRun`, `agentFocusKept`, `agentJsonMode`, `agentStopMs`, `agentTakeover`, `agentMaxSteps`, `agentConfirmGate`, `passwordRedacted`, `cancelStopsTyping`, `helperTimeoutNoLateInput` and `clickExact` on CI (Notepad plus a WinForms password form of its own). Merged origin/rust-rewrite at 075577b.
+
 ## Blockers
 
-(None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+- B-132 (180 s native turns): `llm::client::Llm` now caps every non-streamed call at `OVERALL_TIMEOUT` (90 s) in `request_json`, and the agent shares the app's one `Llm`, so `agent/run.rs`'s `NATIVE_TURN_MS` (180 s) never gets past 90 s. Needs a per-call cap in `src-tauri/src/llm/client.rs` (llm lane), for example an `overall: Option<Duration>` on `Meta` that `chat_turn` honours; the agent would then pass 180 s for native providers. Retry-After and 529 retries are unaffected.
