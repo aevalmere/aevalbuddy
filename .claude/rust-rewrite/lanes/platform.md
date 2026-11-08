@@ -306,6 +306,8 @@ Stop when every item below and the standing labels task is green on CI at your b
 - fef3044 ui-shots failed `editMenuInFields`: the bridge check still expected the WebView2 menu in fields, which B-077 replaces with the app's own edit menu. The check now asserts the B-077 behaviour (browser menu prevented and `ui:context-menu` asked for) in tools/ui-shots/bridge.test.mjs, a harness file, changed at the coordinator's request.
 - B-085: installer.nsi (copy of tauri-bundler 2.10.4) wired as bundle.windows.nsis.template; pushed with the bridge check fix.
 - B-015, B-016: code done (lib.rs force_shot_scale, installer-hooks.nsh); acceptance lives in harness's installer job (B-052), see Blockers.
+- 941a42d: ui-shots bridge checks green (editMenuInFields=ok, harness approved the check change); Screenshots step failed only on globSmooth "longest frame 50.0 ms" in sheet's timing check, which passes on every other branch and on rust-rewrite; this diff touches no renderer or shots code, so it is a runner stall. The rust run for 941a42d was still running when the session was cut off.
+- Next step: node tools/ci-wait.mjs 941a42d rust --timeout-min 70 (expect green; the only new build input is installer.nsi). For a fresh ui-shots run push a change under a ui-shots path, or ask the coordinator to re-run 42508910504. Then send main the final green sha. Do not start new items: remaining work is the Blockers below.
 
 ## Blockers
 
