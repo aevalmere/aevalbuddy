@@ -1,0 +1,8 @@
+== shots.log ==
+[UI] streamingKeepsEarlierNodes=FAIL:{"same":true,"tail":false}
+[UI] selectionSurvivesStream=FAIL:{"selection":"","wanted":""}
+[UI] sheetReportsGlassRect=FAIL:{"glass":null,"rect":{"top":20,"height":446}}
+[UI] longErrorFixesWrap=FAIL:{"long":false,"credit":{"url":"https://openrouter.ai/settings/credits"},"models":{"section":"pg-models"},"copied":{"text":"Gemma 3 27B could not answer: the free endpoint on OpenRouter has used up its daily allowance for this key. Paid models still work, or the free ones come back after midnight UTC.\nquota\nopenrouter\ngoogle/gemma-3-27b-it:free"}}
+[UI] outputTitleBarIsSheetBar=FAIL:{"shared":true,"height":41,"kind":false,"font":"600 13px","glyphs":4,"svgs":0}
+[UI] outputShortcutsInvoke=FAIL:{"missed":["Ctrl+W"],"tips":["Close (Ctrl+W)|Control+W","Copy conversation (Ctrl+Shift+C)|Control+Shift+C","History (Ctrl+H)|Control+H","Stop (Ctrl+.)|Control+."]}
+[UI] textInsetIs16InEveryKind=FAIL:{"answer":17,"find":17,"plan":17,"status":17}

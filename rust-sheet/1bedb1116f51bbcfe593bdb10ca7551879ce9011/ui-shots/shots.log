@@ -1,0 +1,169 @@
+[UI] laneFiles=ok
+[UI] scene bar/bar
+[UI] shot 01-bar-first-run.png
+[UI] suggestionsBeforeFirst=ok
+[UI] noLegend=ok
+[UI] hintOnLeftButton=ok
+[UI] suggestionsGoneAfterFirst=ok
+[UI] barSends=ok
+[UI] suggestionsNeverAgain=ok
+[UI] shot 02-bar-after-first.png
+[UI] scene sheet/output
+[UI] shot 03-output-answer.png
+[UI] noOutputInput=ok
+[UI] outputTitleBar=ok
+[UI] outputControls=ok
+[UI] noDockUi=ok
+[UI] resizeZones=ok
+[UI] globFrameCost=ok
+[UI] globShapeMs=0.021
+[UI] shot 04a-glob-08.png
+[UI] shot 04b-glob-30.png
+[UI] shot 04c-glob-52.png
+[UI] shot 04d-glob-70.png
+[UI] shot 04e-glob-90.png
+[UI] globOpen ms=493 frames=24 longestFrameMs=33.4
+[UI] globOpens=ok
+[UI] globSmooth=ok
+[UI] globReducedMotion=ok
+[UI] scene sheet/multi
+[UI] shot 05-outputs-multi.png
+[UI] barAnswersTask=ok
+[UI] askUserRoutedFromBar=ok
+[UI] noInputInAnyOutput=ok
+[UI] scene sheet/white
+[UI] shot 10-white-bar-output.png
+[UI] scene sheet/glob-open
+[UI] globBudArea=ok
+[UI] shot glob-open-0.png
+[UI] shot glob-open-4.png
+[UI] shot glob-open-10.png
+[UI] shot glob-open-18.png
+[UI] shot glob-open-30.png
+[UI] shot glob-open-45.png
+[UI] shot glob-open-62.png
+[UI] shot glob-open-72.png
+[UI] shot glob-open-82.png
+[UI] shot glob-open-90.png
+[UI] shot glob-open-100.png
+[UI] globWordsNeverOutsideShape=ok
+[UI] globOpenOnClock=ok
+[UI] scene sheet/glob-close
+[UI] shot glob-close-0.png
+[UI] shot glob-close-25.png
+[UI] shot glob-close-50.png
+[UI] shot glob-close-75.png
+[UI] shot glob-close-100.png
+[UI] globCloseEndsInBar=ok
+[UI] scene sheet/glob-above-bar
+[UI] shot glob-above-bar.png
+[UI] globGrowsUpFromBar=ok
+[UI] scene sheet/glob-side
+[UI] shot glob-side.png
+[UI] globFromBarSide=ok
+[UI] scene sheet/glob-cascaded
+[UI] shot glob-cascaded.png
+[UI] globFallsBackToScale=ok
+[UI] scene sheet/sheet-markdown-fixture
+[UI] shot sheet-markdown-fixture.png
+[UI] looseListIsOneOl=ok
+[UI] tableRenders=ok
+[UI] headingsAreHeadings=ok
+[UI] linksShowHost=ok
+[UI] linkOpensThroughRust=ok
+[UI] codeCopyButtonCopies=ok
+[UI] scene sheet/sheet-markdown-inert
+[UI] answerHtmlIsInert=ok
+[UI] scene sheet/sheet-mid-stream
+[UI] shot sheet-mid-stream.png
+[UI] streamingKeepsEarlierNodes=FAIL:{"same":true,"tail":false}
+[UI] selectionSurvivesStream=FAIL:{"selection":"","wanted":""}
+[UI] streamTailDotGoesOnDone=ok
+[UI] scene sheet/sheet-first-answer
+[UI] shot sheet-first-answer.png
+[UI] questionNotShownTwice=ok
+[UI] answerAnnounceIsShort=ok
+[UI] sheetReportsGlassRect=FAIL:{"glass":null,"rect":{"top":20,"height":446}}
+[UI] copyAllWaitsForTwoAnswers=ok
+[UI] scene sheet/sheet-done
+[UI] shot sheet-done.png
+[UI] usageLineIsShort=ok
+[UI] shot sheet-sent-panel.png
+[UI] sentPanelSaysWhatWasSent=ok
+[UI] scene sheet/sheet-error-short
+[UI] shot sheet-error-short.png
+[UI] errorActionsInvoke=ok
+[UI] scene sheet/sheet-error-long
+[UI] shot sheet-error-long.png
+[UI] longErrorFixesWrap=FAIL:{"long":false,"credit":{"url":"https://openrouter.ai/settings/credits"},"models":{"section":"pg-models"},"copied":{"text":"Gemma 3 27B could not answer: the free endpoint on OpenRouter has used up its daily allowance for this key. Paid models still work, or the free ones come back after midnight UTC.\nquota\nopenrouter\ngoogle/gemma-3-27b-it:free"}}
+[UI] scene sheet/sheet-busy-countdown
+[UI] shot sheet-busy-countdown.png
+[UI] busyCountsDown=ok
+[UI] scene sheet/sheet-paid-hop
+[UI] shot sheet-paid-hop.png
+[UI] paidHopAsksFirst=ok
+[UI] scene sheet/sheet-retry-menu
+[UI] shot sheet-retry-menu.png
+[UI] retryWithModelInvokes=ok
+[UI] scene sheet/sheet-started-over
+[UI] shot sheet-started-over.png
+[UI] startOverOffersUndo=ok
+[UI] scene sheet/sheet-title
+[UI] shot sheet-title-rest.png
+[UI] shot sheet-title-hover.png
+[UI] titleToolsWhenWanted=ok
+[UI] outputTitleBarIsSheetBar=FAIL:{"shared":true,"height":41,"kind":false,"font":"600 13px","glyphs":4,"svgs":0}
+[UI] scene sheet/sheet-front-back
+[UI] shot sheet-front-back.png
+[UI] frontBackDiffer=ok
+[UI] shot sheet-target-rim.png
+[UI] targetWearsRim=ok
+[UI] scene sheet/sheet-maximized
+[UI] shot sheet-maximized-1600.png
+[UI] readingMeasure640=ok
+[UI] scene sheet/find-empty
+[UI] shot find-empty.png
+[UI] findEmptyOffersNextSteps=ok
+[UI] scene sheet/find-results
+[UI] shot find-results.png
+[UI] findListboxArrows=ok
+[UI] scene sheet/sheet-task-running
+[UI] shot sheet-task-running.png
+[UI] planChecksOff=ok
+[UI] trailRowsHaveSrPrefixes=ok
+[UI] scene sheet/sheet-task-done-expanded
+[UI] shot sheet-task-done-expanded.png
+[UI] planChecksOffByCount=ok
+[UI] scene sheet/sheet-task-asking
+[UI] shot sheet-task-asking.png
+[UI] taskAskSaysItOnce=ok
+[UI] scene sheet/sheet-task-failed
+[UI] shot sheet-task-failed.png
+[UI] failureShownOnce=ok
+[UI] scene sheet/sheet-task-heard
+[UI] stepAnnouncesThrottled=ok
+[UI] scene sheet/sheet-confirm-long-text
+[UI] shot sheet-confirm-long-text.png
+[UI] confirmAllowWaitsForFullText=ok
+[UI] confirmSweepThenEnable=ok
+[UI] scene sheet/sheet-consent
+[UI] shot sheet-consent.png
+[UI] consentNamesProvider=ok
+[UI] scene sheet/sheet-keys
+[UI] outputEscNeverCollapses=ok
+[UI] outputShortcutsInvoke=FAIL:{"missed":["Ctrl+W"],"tips":["Close (Ctrl+W)|Control+W","Copy conversation (Ctrl+Shift+C)|Control+Shift+C","History (Ctrl+H)|Control+H","Stop (Ctrl+.)|Control+."]}
+[UI] scene sheet/sheet-kinds
+[UI] doItOnlyForSteps=ok
+[UI] shot sheet-kinds.png
+[UI] textInsetIs16InEveryKind=FAIL:{"answer":17,"find":17,"plan":17,"status":17}
+[UI] scene settings/settings
+[UI] shot 08-settings-account.png
+[UI] glassLive.0=ok
+[UI] glassTier.0=ok
+[UI] shot 06-settings-glass-000.png
+[UI] glassLive.0.5=ok
+[UI] glassTier.0.5=ok
+[UI] shot 06-settings-glass-050.png
+[UI] glassLive.1=ok
+[UI] glassTier.1=ok
+[UI] shot 06-settings-glass-100.png
