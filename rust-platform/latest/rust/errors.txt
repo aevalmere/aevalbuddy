@@ -1,14 +1,3 @@
-== fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\tray.rs:327:
-         manual: &m,
-         now: crate::state::now_ms(),
-     };
--    (template(&input), tooltip(&update, agent_running, &shortcuts))
-+    (
-+        template(&input),
-+        tooltip(&update, agent_running, &shortcuts),
-+    )
- }
- 
- /// A live row: the menu item for a label, or a separator.
-
+== desktop.log ==
+[DESKTOP] desktopReady=FAIL:ready=true ms=5912
+[DESKTOP] failed: desktopReady
