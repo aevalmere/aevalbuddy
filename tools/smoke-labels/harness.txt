@@ -1,0 +1,23 @@
+# Every label src-tauri/src/selftest/probes/harness.rs and the runner print
+# under AEVAL_SMOKE, one per line. The rust workflow's Smoke step
+# (tools/smoke-gate.mjs) fails when a listed label never prints or prints
+# =FAIL. List a label in the same commit that makes it print; never remove one
+# to get green.
+version
+scaffold.bridge
+selftest.eval
+selftest.input
+probe.harness
+probe.platform
+probe.windows
+probe.capture
+probe.llm
+probe.agent
+probe.bar
+probe.sheet
+probe.settings
+v2basics
+v21basics
+glassGates
+v2desktop
+done
