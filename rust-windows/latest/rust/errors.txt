@@ -1,23 +1,13 @@
 == fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\ipc.rs:424:
-         Ok(r) => r,
-         Err(cause) => {
-             on_panic();
--            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
-+            Err(format!(
-+                "{channel} failed: {}",
-+                crate::crash::message(&*cause)
-+            ))
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\windows\mod.rs:1131:
          }
-     }
- }
-
-
-== test.log ==
-test ipc::tests::pages_may_call_what_they_call ... FAILED
-thread 'ipc::tests::pages_may_call_what_they_call' (872) panicked at src\ipc.rs:1205:9:
-refused: ["Buddy settings:get", "Buddy settings:set-text-scale"]
-
-test result: FAILED. 310 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
-error: test failed, to rerun pass `--lib`
+         s.hud_pending.take()
+     };
+-    let pos = pending
+-        .unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
++    let pos =
++        pending.unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
+     store::get().set_overlay_pos(&pos);
+     apply_input_limits(app);
+     collapse_panel(app, false);
 

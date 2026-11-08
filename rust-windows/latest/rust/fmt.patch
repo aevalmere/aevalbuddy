@@ -1,16 +1,15 @@
-diff --git a/src-tauri/src/ipc.rs b/src-tauri/src/ipc.rs
-index dc54ebd..8022947 100644
---- a/src-tauri/src/ipc.rs
-+++ b/src-tauri/src/ipc.rs
-@@ -424,7 +424,10 @@ where
-         Ok(r) => r,
-         Err(cause) => {
-             on_panic();
--            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
-+            Err(format!(
-+                "{channel} failed: {}",
-+                crate::crash::message(&*cause)
-+            ))
+diff --git a/src-tauri/src/windows/mod.rs b/src-tauri/src/windows/mod.rs
+index 79fb750..aa6a167 100644
+--- a/src-tauri/src/windows/mod.rs
++++ b/src-tauri/src/windows/mod.rs
+@@ -1131,8 +1131,8 @@ pub fn exit_hud(app: &AppHandle) {
          }
-     }
- }
+         s.hud_pending.take()
+     };
+-    let pos = pending
+-        .unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
++    let pos =
++        pending.unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
+     store::get().set_overlay_pos(&pos);
+     apply_input_limits(app);
+     collapse_panel(app, false);

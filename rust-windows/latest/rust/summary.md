@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42491645192](https://github.com/aevalmere/aevalbuddy/actions/runs/42491645192), attempt 1, on push
-- Commit: bbb2d19800ac23c88e0160b35ff08aeab462e983
+- Run: [42493679802](https://github.com/aevalmere/aevalbuddy/actions/runs/42493679802), attempt 1, on push
+- Commit: ce171b472e1033fa2a44b3020bbe9b1fddf722f4
 - Ref: rust/windows
 - Conclusion: **failure**
-- Failed: Format, Unit tests, Capture check, Desktop selfcheck
-- Finished: 2026-11-08T14:55:52Z
+- Failed: Format, Capture check, Desktop selfcheck
+- Finished: 2026-11-08T15:17:30Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,7 +19,7 @@
 | Format | failure | [fmt.log](fmt.log) |
 | Format patch | success | [fmt.patch](fmt.patch) |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | failure | [test.log](test.log) |
+| Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | skipped |  |
 | Seed NSIS toolset | skipped |  |
 | Save NSIS toolset | skipped |  |
@@ -29,4 +29,4 @@
 | Desktop selfcheck | failure | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 17 error and warning lines from the logs.
+errors.txt: 11 error and warning lines from the logs.
