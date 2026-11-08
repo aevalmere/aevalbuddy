@@ -1,8 +1,10 @@
-# Cuts a release. Push a tag like v1.1.0 and this builds the Windows
-# installer and publishes a GitHub release of the same name holding three
-# files: AevalBuddy-Setup.exe, its blockmap, and latest.yml. Installed copies
-# read latest.yml on their next check, and the README's download link serves
-# the exe. Bump the version in package.json first; the tag has to match it.
+# Cuts a release. Push a tag like v1.1.0 and this builds the Tauri app's
+# Windows installer and publishes a GitHub release of the same name holding
+# two files: AevalBuddy-Setup.exe and latest.yml (electron-builder's feed
+# format, which both the Rust updater and installed Electron copies read).
+# The README's download link serves the exe, so its name never carries a
+# version. Bump the version in package.json first; the tag has to match it
+# (tauri.conf.json reads its version from package.json).
 #
 # A tag with a hyphen (v2.0.0-beta.1) is published as a prerelease and never
 # marked latest. electron-updater on a stable version ignores prereleases,
@@ -35,9 +37,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-          cache: npm
-      # electron-builder names the release after package.json, not the tag,
-      # so a mismatch would publish somewhere this run is not looking.
+      # The app reports package.json's version, so a mismatch would publish a
+      # build that offers itself as an update forever.
       - name: Tag matches package.json
         run: |
           want="v$(node -p "require('./package.json').version")"
@@ -45,7 +46,10 @@ jobs:
             echo "::error::tag $TAG does not match package.json ($want)"
             exit 1
           fi
-      - run: npm ci
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
       # The first lines of the notes are what an installed copy shows under
       # "New in 1.2.0" in Settings > About, so they say what changed. How to
       # install comes after, for whoever arrives from the README.
@@ -70,12 +74,9 @@ jobs:
             echo 'On first launch a pointer walks you to Settings to paste an OpenRouter key, free at https://openrouter.ai/keys. Already installed? It updates itself.'
           } > notes.md
           cat notes.md
-      # electron-builder uploads with more than one publisher at once, and
-      # each one that finds no release for the tag creates its own. Left to
-      # itself it made two v1.1.0 releases, the exe in one and the blockmap
-      # in the other, and the download link 404'd. A draft made first is
-      # found by every publisher, and nobody sees it until it is complete.
-      # A re-run finds the draft from the failed attempt and reuses it.
+      # A draft made first, and published only once every file is attached:
+      # nobody sees a release with a missing file (v1.1.0's split release
+      # 404'd the download link). A re-run reuses the draft.
       - name: Create the release as a draft
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -87,7 +88,50 @@ jobs:
           else
             gh release create "$TAG" --draft --verify-tag --title "AevalBuddy ${TAG#v}" --notes-file notes.md
           fi
-      - run: npm run build -- --publish always
+      # The desktop helper ships prebuilt (DESK-12): compile host.cs once,
+      # bundle build/desktop-<hash>.dll, and pin its SHA-256 into the exe so
+      # a swapped file beside it is never loaded.
+      - name: Prebuild the desktop helper
+        run: |
+          node tools/build-desktop.js
+          sha=$(node -p "require('./lib/desktop/prebuilt.json').sha256")
+          if ! [[ "$sha" =~ ^[0-9a-f]{64}$ ]]; then echo "::error::no prebuilt sha: $sha"; exit 1; fi
+          echo "AEVAL_DESKTOP_DLL_SHA=$sha" >> "$GITHUB_ENV"
+      - name: Build the installer
+        working-directory: src-tauri
+        run: npx --yes @tauri-apps/cli@2 build --bundles nsis
+      # Tauri names the installer AevalBuddy_<version>_x64-setup.exe; the
+      # README link and every installed copy want AevalBuddy-Setup.exe.
+      - name: Name the installer and write latest.yml
+        run: |
+          mkdir -p dist
+          src=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n 1)
+          [ -n "$src" ] || { echo "::error::no NSIS installer was built"; exit 1; }
+          cp "$src" dist/AevalBuddy-Setup.exe
+          node - <<'EOF'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const file = 'AevalBuddy-Setup.exe';
+          const buf = fs.readFileSync(`dist/${file}`);
+          const sha512 = crypto.createHash('sha512').update(buf).digest('base64');
+          const version = process.env.TAG.replace(/^v/, '');
+          const yml = [
+            `version: ${version}`,
+            'files:',
+            `  - url: ${file}`,
+            `    sha512: ${sha512}`,
+            `    size: ${buf.length}`,
+            `path: ${file}`,
+            `sha512: ${sha512}`,
+            `releaseDate: '${new Date().toISOString()}'`,
+            '',
+          ].join('
+');
+          fs.writeFileSync('dist/latest.yml', yml);
+          console.log(yml);
+          EOF
+      - name: Attach the files
+        run: gh release upload "$TAG" dist/AevalBuddy-Setup.exe dist/latest.yml --clobber
       # Every file latest.yml names must be attached, under that name, with
       # the bytes it describes. An installed copy that finds latest.yml but
       # 404s on the exe, or gets bytes whose sha512 differs, fails every
@@ -105,10 +149,12 @@ jobs:
           const file = field('path');
           const want = field('sha512');
           const version = field('version');
-          const names = process.env.NAMES.split(/\r?\n/);
+          const names = process.env.NAMES.split(/?
+/);
           const fail = (m) => { console.log(`::error::${m}`); process.exitCode = 1; };
           if (version !== process.env.TAG.replace(/^v/, '')) fail(`latest.yml says ${version}, tag is ${process.env.TAG}`);
-          for (const n of [file, `${file}.blockmap`, 'latest.yml']) {
+          if (file !== 'AevalBuddy-Setup.exe') fail(`latest.yml points at ${file}, not AevalBuddy-Setup.exe`);
+          for (const n of [file, 'latest.yml']) {
             if (!names.includes(n)) fail(`${n} is missing from the ${process.env.TAG} release`);
           }
           const got = crypto.createHash('sha512').update(fs.readFileSync(`dist/${file}`)).digest('base64');
