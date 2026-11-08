@@ -194,6 +194,11 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- Batch 1 (all twelve items, renderer side): Settings and History rewritten (`settings/*`, `history/*`), one CSS layer each. ui-shots green at bba8a89 (existing scenes 06-09 and their checks). Batch 2 merges bar C1 (K-40..K-43) and moves both pages onto it: shared tokens, `.sheet-bar`, `.g-menu` rows and `.g-check`, sprite icons (`ico i-<name>`); the status glyphs the sprite lacks (ring, spinner, circled check, cross, alert, clock, dash, grip) are drawn inline on its grid. ui-shots green at 17fedee. Batch 3 merges harness C1 (5af0a7b) and adds the acceptance to `tools/ui-shots/lanes/settings.mjs`: design-visual states 41-50 as 33 scenes (Providers in every state, every page, hover, slider stops, maximized, text size, models, shortcuts, History list/search/empty/off/delete/undo), their checks, the B-145 lint as `cssOnSystem.*` with both stylesheets in `cssLintEnforce`, and `oneCssLayer` and `iconsFromSprite`. No probe labels: the brief names none.
+- Built against contracts not yet on `rust-rewrite`; each degrades to one missing feature, never a broken page (`call` and `listen` in both scripts): K-19 (`settings:get.providers/failover/keyHints/keyStorage`, `set-provider-order`, `set-failover`, `provider:status`, save-key and test-key `status`), K-18 `recipients`, K-22 (`textScale`, `osTextScale`, `set-text-scale`, `ui:text-scale`), K-23 `bar:prefill-open`, K-24 (`history:list.enabled`, `overlayPos`), llm `skills:open-folder` and skill `truncated`, `auth:openrouter-connect`, K-40/K-41 (`.sheet-bar`, `.g-menu`, `html[data-maximized]`).
+- Kept for other lanes until they move: `#sec-key` wraps the provider list and the OpenRouter field keeps id `api-key-input` (buddy.rs tour step 1, host/mod.rs); `settings:section` accepts `sec-key`, `pg-account`, `providers`, `prov-<id>`, any page or row id.
+- Integrator note: `history:list` rows would ideally carry `question` (the full first user message) for Ask again and Copy question; until then the title (first line, 90 chars) is used.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
