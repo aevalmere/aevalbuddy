@@ -1,0 +1,104 @@
+{
+  "workflow": "rust",
+  "workflow_name": "rust",
+  "run_id": 42465476955,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465476955",
+  "event": "push",
+  "sha": "b684715f24f31cac20872ae31b60398d575d4149",
+  "ref": "rust/harness",
+  "ref_dir": "rust-harness",
+  "conclusion": "failure",
+  "failed": [
+    "Format"
+  ],
+  "finished": "2026-11-08T09:09:03Z",
+  "error_lines": 10,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Rust toolchain",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Cache cargo",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Gate helper",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Prebuild desktop helper",
+      "outcome": "success",
+      "log": "prebuild.log"
+    },
+    {
+      "name": "Format",
+      "outcome": "failure",
+      "log": "fmt.log"
+    },
+    {
+      "name": "Format patch",
+      "outcome": "success",
+      "log": "fmt.patch"
+    },
+    {
+      "name": "Clippy",
+      "outcome": "success",
+      "log": "clippy.log"
+    },
+    {
+      "name": "Unit tests",
+      "outcome": "success",
+      "log": "test.log"
+    },
+    {
+      "name": "Tauri CLI version",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Cache Tauri bundler tools",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Build installer",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Smoke",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Capture check",
+      "outcome": "success",
+      "log": "capture.log"
+    },
+    {
+      "name": "Desktop selfcheck",
+      "outcome": "success",
+      "log": "desktop.log"
+    },
+    {
+      "name": "Upload installer",
+      "outcome": "skipped",
+      "log": ""
+    }
+  ]
+}

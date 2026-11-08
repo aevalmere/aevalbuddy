@@ -1,5 +1,5 @@
     Updating crates.io index
-     Locking 556 packages to highest compatible versions
+     Locking 566 packages to highest compatible versions
       Adding aes-gcm v0.10.3 (available: v0.11.1)
       Adding base64 v0.22.1 (available: v0.23.1)
       Adding fancy-regex v0.14.0 (available: v0.20.0)
@@ -7,6 +7,7 @@
       Adding generic-array v0.14.7 (available: v0.14.9)
       Adding jpeg-encoder v0.6.1 (available: v0.7.1)
       Adding parking_lot v0.12.5 (available: v0.13.0)
+      Adding png v0.17.16 (available: v0.18.1)
       Adding rand v0.8.8 (available: v0.10.3)
       Adding reqwest v0.12.28 (available: v0.13.5)
       Adding sha2 v0.10.9 (available: v0.11.1)
@@ -16,5 +17,50 @@
       Adding toml_edit v0.20.2 (available: v0.20.7)
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
+ Downloading crates ...
+  Downloaded rustls-native-certs v0.8.5
+  Downloaded bitflags v1.3.2
+  Downloaded schannel v0.1.30
+  Downloaded png v0.17.16
+  Downloaded windows-registry v0.6.1
+    Checking windows-sys v0.61.2
+    Checking windows v0.62.2
+    Checking windows-registry v0.6.1
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.87s
+    Checking bitflags v1.3.2
+    Checking png v0.17.16
+    Checking socket2 v0.6.5
+    Checking mio v1.2.4
+    Checking winapi-util v0.1.11
+    Checking same-file v1.0.6
+    Checking walkdir v2.5.0
+    Checking muda v0.20.0
+    Checking tauri-utils v2.10.2
+    Checking tokio v1.54.1
+    Checking softbuffer v0.4.8
+    Checking dirs-sys v0.5.0
+    Checking dirs v7.0.0
+    Checking tray-icon v0.25.1
+    Checking window-vibrancy v0.8.1
+    Checking schannel v0.1.30
+    Checking rustls-native-certs v0.8.5
+    Checking arboard v3.7.0
+    Checking hyper v1.12.0
+    Checking tower v0.5.3
+    Checking tokio-rustls v0.26.6
+    Checking hyper-util v0.1.21
+    Checking tower-http v0.6.11
+    Checking tokio-util v0.7.20
+    Checking hyper-rustls v0.27.10
+    Checking reqwest v0.12.28
+    Checking webview2-com-sys v0.39.1
+    Checking tao v0.37.2
+    Checking webview2-com v0.39.1
+    Checking wry v0.57.1
+    Checking tauri-runtime v2.12.2
+    Checking tauri-runtime-wry v2.12.3
+    Checking tauri v2.12.5
+    Checking tauri-plugin-clipboard-manager v2.5.0
+    Checking tauri-plugin-opener v2.7.2
+    Checking tauri-plugin-global-shortcut v2.4.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 58.45s
