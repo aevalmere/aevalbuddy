@@ -295,6 +295,8 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- C1 (K-01, K-02, K-08, K-09, B-087, capabilities, Cargo.toml lane blocks): at 3e74cba Format, Clippy, Unit tests, Capture check and Desktop selfcheck passed; Build installer failed on `http status: 504` downloading nsis_tauri_utils.dll (a network error, not the code). This commit changes only this file, to run CI on the same code again.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)

@@ -104,5 +104,15 @@ const menu = (target) => {
 check('noBrowserMenu', menu({ closest: () => null }));
 check('editMenuInFields', !menu({ closest: () => ({}) }));
 
+// The ui-shots lane files (K-31): all nine import, and each is in the shape
+// shots.mjs documents, with every cssLintEnforce file present.
+const { LANES, shapeProblems } = await import('./lanes.mjs');
+const shape = shapeProblems(LANES);
+check('laneFiles', Object.keys(LANES).length === 9 && shape.length === 0, shape.join('; '));
+const ROOT = path.join(HERE, '..', '..');
+const listed = Object.values(LANES).flatMap((m) => m.cssLintEnforce || []);
+const absent = listed.filter((f) => !fs.existsSync(path.join(ROOT, f)));
+check('cssLintFilesExist', absent.length === 0, absent.join(', '));
+
 console.log(`[BRIDGE] done failed=${failed}`);
 process.exit(failed ? 1 : 0);

@@ -7,22 +7,33 @@
 //! hidden, loaded window is always kept warm so the next answer opens with
 //! no page load.
 //!
-//! The bar's follow-ups go to the focused output; the bar's `chat:new`
-//! detaches it so the next question opens a new window. ARCHITECTURE.md
-//! sections 9 and 10.
+//! The bar's follow-ups go to the target (the focused output); the bar's
+//! `chat:new` detaches it so the next question opens a new window. Find
+//! results and task trails open a window of their own (`fresh`). Each
+//! window owns its Ask: closing or resetting one stops only its own
+//! (`AppState::queries`, K-03). ARCHITECTURE.md sections 9 and 10.
 
+use std::cmp::Reverse;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::OnceLock;
+
+use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
 use super::layout::{self, Anchor};
 use super::{
     app_driven, bar_rect, create_page, emit, flags, hwnd, mark_app, motion, overlay_state, screen,
-    send_overlay_state, stage, window, Meta, Resize,
+    send_overlay_state, stage, window, Meta, Resize, OVERLAY,
 };
-use crate::state::{now_ms, shared, Chat, Output, OutputKind, Rect};
+use crate::state::{now_ms, shared, AppState, Chat, Output, OutputKind, Rect};
 use crate::store;
 
 pub const PAGE: &str = "renderer/output.html";
+/// D-32: a seventh window closes the least recently touched idle one.
+pub const MAX_OPEN: usize = 6;
+/// D-31: how long "Start over" can be undone.
+pub const UNDO_MS: u64 = 10_000;
 
 pub fn is_output(label: &str) -> bool {
     label.starts_with("output-")
@@ -69,44 +80,39 @@ pub fn create(app: &AppHandle) -> tauri::Result<String> {
     }
 }
 
+/// Hidden, empty and showing a conversation: free to take the next answer.
+fn is_idle(o: &Output) -> bool {
+    !o.active && o.chat.messages.is_empty() && o.kind == OutputKind::Chat
+}
+
 /// Keeps one hidden, unused output window around.
 pub fn create_spare(app: &AppHandle) -> tauri::Result<()> {
-    let have = shared(app)
-        .lock()
-        .outputs
-        .values()
-        .any(|o| !o.active && o.chat.messages.is_empty() && o.kind == OutputKind::Chat);
+    let have = shared(app).lock().outputs.values().any(is_idle);
     if !have {
         create(app)?;
     }
     Ok(())
 }
 
-fn spare(app: &AppHandle) -> Option<String> {
-    let found = shared(app)
-        .lock()
-        .outputs
+/// The idle window to reuse, a loaded one first, never `except`.
+pub fn pick_spare(outputs: &BTreeMap<String, Output>, except: Option<&str>) -> Option<String> {
+    let free = |o: &&Output| is_idle(o) && except != Some(o.label.as_str());
+    outputs
         .values()
-        .find(|o| !o.active && o.chat.messages.is_empty() && o.kind == OutputKind::Chat)
-        .map(|o| o.label.clone());
+        .filter(free)
+        .find(|o| o.ready)
+        .or_else(|| outputs.values().find(free))
+        .map(|o| o.label.clone())
+}
+
+fn spare(app: &AppHandle, except: Option<&str>) -> Option<String> {
+    let found = pick_spare(&shared(app).lock().outputs, except);
     found.or_else(|| create(app).ok())
 }
 
-/// The output the next answer goes to: the focused one if it is still open,
-/// else a fresh window (which becomes focused). Agent b calls this when a
-/// question is submitted.
-pub fn target(app: &AppHandle) -> Option<String> {
-    let focused = {
-        let st = shared(app);
-        let s = st.lock();
-        s.focused_output
-            .clone()
-            .filter(|l| s.outputs.get(l).map(|o| o.active).unwrap_or(false))
-    };
-    if focused.is_some() {
-        return focused;
-    }
-    let label = spare(app)?;
+/// A spare (or new) window becomes the target and is shown.
+fn open_spare(app: &AppHandle, except: Option<&str>) -> Option<String> {
+    let label = spare(app, except)?;
     {
         let st = shared(app);
         let mut s = st.lock();
@@ -125,12 +131,37 @@ pub fn target(app: &AppHandle) -> Option<String> {
     Some(label)
 }
 
+/// The output the next answer goes to: the target if it is still open,
+/// else a fresh window (which becomes the target). The Ask calls this when
+/// a question is submitted.
+pub fn target(app: &AppHandle) -> Option<String> {
+    let focused = {
+        let st = shared(app);
+        let s = st.lock();
+        s.focused_output
+            .clone()
+            .filter(|l| s.outputs.get(l).map(|o| o.active).unwrap_or(false))
+    };
+    if focused.is_some() {
+        return focused;
+    }
+    open_spare(app, None)
+}
+
+/// K-04: a window for a Find result or a task trail. Always a spare or a
+/// new window, never the conversation the bar is continuing. It becomes
+/// the target, so follow-ups typed while it is in front go to it.
+pub fn fresh(app: &AppHandle) -> Option<String> {
+    let except = focused(app);
+    open_spare(app, except.as_deref())
+}
+
 /// The focused output's label, if any.
 pub fn focused(app: &AppHandle) -> Option<String> {
     shared(app).lock().focused_output.clone()
 }
 
-/// Runs `f` on an output's state (agent b: messages, region, busy text).
+/// Runs `f` on an output's state (the Ask: messages, region, busy text).
 pub fn with<R>(app: &AppHandle, label: &str, f: impl FnOnce(&mut Output) -> R) -> Option<R> {
     let st = shared(app);
     let mut s = st.lock();
@@ -169,8 +200,12 @@ pub fn show(app: &AppHandle, label: &str) {
     let Some(o) = shared(app).lock().outputs.get(label).cloned() else {
         return;
     };
+    let opening = !o.active;
     if shared(app).lock().hidden {
         with(app, label, |o| o.active = true);
+        if opening {
+            enforce_cap(app, label);
+        }
         return;
     }
     let size = size_for(&o);
@@ -200,6 +235,10 @@ pub fn show(app: &AppHandle, label: &str) {
         motion::animate(h, None, to, layout::T_OUT_GROW, None);
     }
     emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    if opening {
+        enforce_cap(app, label);
+    }
+    send_meta(app);
 }
 
 /// IPC-05: the transcript's height changed. A window whose bottom edge is
@@ -227,7 +266,7 @@ pub fn resize(app: &AppHandle, label: &str, height: f64) {
     }
     let wa = screen::work_area();
     let bar = bar_rect(app);
-    let grow_up = have.y + have.height / 2.0 < bar.y + bar.height / 2.0;
+    let grow_up = grow_of(have, bar) == "up";
     let mut to = Rect::new(have.x, have.y, have.width, want_h);
     if grow_up {
         to.y = have.y + have.height - want_h;
@@ -238,8 +277,15 @@ pub fn resize(app: &AppHandle, label: &str, height: f64) {
     motion::animate(h, None, to, layout::T_OUT_GROW, None);
 }
 
-/// Hides every output (the bar collapsed). Conversations stay; the next
-/// open brings back the ones that have content.
+/// `output:glass {top, height}`: where the visible sheet sits inside the
+/// glass, in glass DIPs. The page sends it at most once a frame.
+pub fn set_sheet(app: &AppHandle, label: &str, top: f64, height: f64) {
+    let sheet = (top.max(0.0), height.max(0.0));
+    with(app, label, |o| o.sheet = Some(sheet));
+}
+
+/// Hides every output: the layout editor shows the bar alone.
+/// Conversations stay; the next open brings back the ones with content.
 pub fn hide_all(app: &AppHandle) {
     let labels: Vec<String> = shared(app)
         .lock()
@@ -320,16 +366,40 @@ pub fn show_trail(app: &AppHandle, _focus: bool) {
     }
 }
 
+/// Whether an Ask is streaming into `label`. Until the Ask reports per
+/// window (K-03), its single busy flag counts for the target window.
+fn running_in(app: &AppHandle, label: &str) -> bool {
+    let st = shared(app);
+    let s = st.lock();
+    s.query_running(label)
+        || (s.queries.is_empty() && s.busy && s.focused_output.as_deref() == Some(label))
+}
+
+/// Stops the Ask streaming into `label`, and only that one.
+fn abort_in(app: &AppHandle, label: &str) {
+    let st = shared(app);
+    if st.call_str(app, label, |h| h.abort_query_for.as_ref()) {
+        return;
+    }
+    // No per-window abort: the single Ask is this window's (running_in).
+    if !st.call(app, |h| h.abort_query.as_ref()) {
+        st.lock().busy = false;
+    }
+}
+
 /// `output:close` (ARCHITECTURE.md 10.1): the page has played its close
 /// glob, so the window goes at once with its conversation (history already
-/// has it). A query streaming into it stops; follow-ups go to the most
-/// recently focused output still open.
+/// has it). Only its own Ask stops; follow-ups go to the most recently
+/// focused output still open.
 pub fn close(app: &AppHandle, label: &str) {
-    let busy_here = {
+    if running_in(app, label) {
+        abort_in(app, label);
+    }
+    {
         let st = shared(app);
         let mut s = st.lock();
-        let busy_here = s.busy && s.focused_output.as_deref() == Some(label);
         s.outputs.remove(label);
+        s.query_forget(label);
         if s.focused_output.as_deref() == Some(label) {
             s.focused_output = s
                 .outputs
@@ -338,10 +408,6 @@ pub fn close(app: &AppHandle, label: &str) {
                 .max_by_key(|o| o.touched)
                 .map(|o| o.label.clone());
         }
-        busy_here
-    };
-    if busy_here && !shared(app).call(app, |h| h.abort_query.as_ref()) {
-        shared(app).lock().busy = false;
     }
     if let Some(w) = window(app, label) {
         if let Some(h) = flags::hwnd_of(&w) {
@@ -352,30 +418,74 @@ pub fn close(app: &AppHandle, label: &str) {
     send_overlay_state(app);
 }
 
-/// `chat:new` from an output window: that window starts over; no new
-/// window opens (ARCHITECTURE.md 10.3).
-pub fn reset(app: &AppHandle, label: &str) {
-    let busy_here = {
-        let st = shared(app);
-        let s = st.lock();
-        s.busy && s.focused_output.as_deref() == Some(label)
-    };
-    if busy_here && !shared(app).call(app, |h| h.abort_query.as_ref()) {
-        shared(app).lock().busy = false;
+/// K-04: every window with a conversation closes (the tray's "Close all
+/// answer windows", `output:close-all`); each stops only its own Ask. The
+/// warm spare stays.
+pub fn close_all(app: &AppHandle) {
+    let labels: Vec<String> = shared(app)
+        .lock()
+        .outputs
+        .values()
+        .filter(|o| o.active || !o.chat.messages.is_empty())
+        .map(|o| o.label.clone())
+        .collect();
+    for l in labels {
+        close(app, &l);
     }
+}
+
+/// `chat:new` from an output window: that window starts over and no new
+/// window opens (ARCHITECTURE.md 10.3). The old conversation can come back
+/// for 10 s (`output:undo-reset`), and the picked area is dropped (IPC-18).
+///
+/// `chat:reset {undoMs}`: how long Undo is offered, 0 when there was
+/// nothing to undo.
+pub fn reset(app: &AppHandle, label: &str) {
+    if running_in(app, label) {
+        abort_in(app, label);
+    }
+    let until = now_ms() + UNDO_MS;
     let found = with(app, label, |o| {
-        o.chat = Chat::fresh();
+        let old = std::mem::replace(&mut o.chat, Chat::fresh());
+        o.undo = (!old.messages.is_empty()).then_some((old, until));
         o.user_height = 0.0;
         o.content_height = layout::DEFAULT_OUTPUT_HEIGHT;
         o.kind = OutputKind::Chat;
+        o.undo.is_some()
     });
-    if found.is_none() {
+    let Some(undoable) = found else {
         return;
-    }
+    };
+    crate::region::clear_active();
     store::get().set_output_height(0.0);
     shared(app).lock().focused_output = Some(label.to_string());
-    emit(app, label, "chat:reset", json!({}));
+    let undo_ms = if undoable { UNDO_MS } else { 0 };
+    emit(app, label, "chat:reset", json!({ "undoMs": undo_ms }));
     send_overlay_state(app);
+}
+
+/// Puts back the conversation "Start over" replaced, if its 10 s are not
+/// up and nothing new was asked since.
+pub fn restore(o: &mut Output, now: u64) -> bool {
+    match o.undo.take() {
+        Some((chat, until)) if now <= until && o.chat.messages.is_empty() => {
+            o.chat = chat;
+            true
+        }
+        _ => false,
+    }
+}
+
+/// `output:undo-reset`: restores and replays the conversation.
+pub fn undo_reset(app: &AppHandle, label: &str) -> bool {
+    let now = now_ms();
+    let back = with(app, label, |o| restore(o, now).then(|| o.clone()));
+    let Some(Some(o)) = back else {
+        return false;
+    };
+    emit(app, label, "chat:sync", chat_payload(&o));
+    send_overlay_state(app);
+    true
 }
 
 /// main.js openConversation: a saved conversation reopens in its own
@@ -405,9 +515,12 @@ pub fn open_conversation(app: &AppHandle, entry: &Value) -> bool {
         .values()
         .find(|o| o.chat.id == id)
         .map(|o| o.label.clone());
-    let Some(label) = existing.or_else(|| spare(app)) else {
+    let Some(label) = existing.or_else(|| spare(app, None)) else {
         return false;
     };
+    if running_in(app, &label) {
+        abort_in(app, &label);
+    }
     let o = with(app, &label, |o| {
         o.chat.id = id.to_string();
         o.chat.messages = messages;
@@ -436,7 +549,7 @@ pub fn detach_focus(app: &AppHandle) {
     shared(app).lock().focused_output = None;
 }
 
-/// The window got focus: follow-ups now go to it.
+/// The window got focus: follow-ups now go to it, and it is in front.
 pub fn touch(app: &AppHandle, label: &str) {
     let changed = {
         let st = shared(app);
@@ -454,7 +567,203 @@ pub fn touch(app: &AppHandle, label: &str) {
     };
     if changed {
         send_overlay_state(app);
+    } else {
+        send_meta(app);
     }
+}
+
+/// Visible outputs, most recently touched first.
+pub fn visible_order(s: &AppState) -> Vec<String> {
+    if s.hidden {
+        return Vec::new();
+    }
+    let mut open: Vec<&Output> = s.outputs.values().filter(|o| o.active).collect();
+    open.sort_by_key(|o| (Reverse(o.touched), o.label.clone()));
+    open.into_iter().map(|o| o.label.clone()).collect()
+}
+
+/// The next target when cycling by `dir` (1 or -1) from `current`.
+pub fn next_in_cycle(order: &[String], current: Option<&str>, dir: i64) -> Option<String> {
+    if order.is_empty() {
+        return None;
+    }
+    let n = order.len() as i64;
+    let i = match current.and_then(|c| order.iter().position(|l| l == c)) {
+        Some(at) => (at as i64 + dir.signum()).rem_euclid(n),
+        None => 0,
+    };
+    order.get(i as usize).cloned()
+}
+
+/// `output:cycle-target {dir}`: the target moves through the visible
+/// outputs in `touched` order. Returns the new target.
+pub fn cycle_target(app: &AppHandle, dir: i64) -> Option<String> {
+    let next = {
+        let st = shared(app);
+        let mut s = st.lock();
+        let order = visible_order(&s);
+        let next = next_in_cycle(&order, s.focused_output.as_deref(), dir)?;
+        s.focused_output = Some(next.clone());
+        next
+    };
+    send_overlay_state(app);
+    Some(next)
+}
+
+/// `chat`, `find` or `trail`.
+pub fn kind_of(o: &Output) -> &'static str {
+    if o.kind == OutputKind::Trail {
+        "trail"
+    } else if o.view == "find" {
+        "find"
+    } else {
+        "chat"
+    }
+}
+
+/// What a window with no question yet is called.
+fn untitled(kind: &str) -> &'static str {
+    match kind {
+        "find" => "Find",
+        "trail" => "Task",
+        _ => "New conversation",
+    }
+}
+
+/// The window's title: its first question, else what it shows.
+pub fn title_of(o: &Output) -> String {
+    o.chat
+        .messages
+        .iter()
+        .find(|m| m["role"] == "user")
+        .and_then(|m| m["text"].as_str())
+        .map(crate::history::first_line)
+        .filter(|t| !t.is_empty())
+        .unwrap_or_else(|| untitled(kind_of(o)).to_string())
+}
+
+/// K-05: `overlay:state.target` (`{label, title, kind}` of the window the
+/// bar's next question continues, or null) and `visibleOutputs`.
+pub fn target_fields(s: &AppState) -> (Value, usize) {
+    let target = s
+        .focused_output
+        .as_ref()
+        .and_then(|l| s.outputs.get(l))
+        .filter(|o| o.active)
+        .map(|o| json!({ "label": o.label, "title": title_of(o), "kind": kind_of(o) }))
+        .unwrap_or(Value::Null);
+    (target, visible_order(s).len())
+}
+
+/// `output:last-answer`: the text of the window's last answer, '' if none.
+pub fn last_answer_of(messages: &[Value]) -> String {
+    messages
+        .iter()
+        .rev()
+        .find(|m| m["role"] == "assistant" && m["kind"] != "trail")
+        .and_then(|m| m["text"].as_str())
+        .unwrap_or_default()
+        .to_string()
+}
+
+pub fn last_answer(app: &AppHandle, label: &str) -> String {
+    let text = with(app, label, |o| last_answer_of(&o.chat.messages));
+    text.unwrap_or_default()
+}
+
+/// Which way the sheet grows: away from the bar, so it never covers it.
+pub fn grow_of(r: Rect, bar: Rect) -> &'static str {
+    if r.y + r.height / 2.0 < bar.y + bar.height / 2.0 {
+        "up"
+    } else {
+        "down"
+    }
+}
+
+/// K-06: `output:meta {grow, front, target}` for every output. `grow` is
+/// `down` or `up`; `front` is true for the most recently touched open
+/// window; `target` for the window the bar's next question continues.
+pub fn metas(s: &AppState, bar: Rect) -> Vec<(String, Value)> {
+    let front = s
+        .outputs
+        .values()
+        .filter(|o| o.active)
+        .max_by_key(|o| o.touched)
+        .map(|o| o.label.as_str());
+    let target = s.focused_output.as_deref();
+    s.outputs
+        .values()
+        .map(|o| {
+            let me = Some(o.label.as_str());
+            let meta = json!({
+                "grow": o.rect.map_or("down", |r| grow_of(r, bar)),
+                "front": o.active && front == me,
+                "target": o.active && target == me,
+            });
+            (o.label.clone(), meta)
+        })
+        .collect()
+}
+
+fn sent_meta() -> &'static Mutex<HashMap<String, Value>> {
+    static M: OnceLock<Mutex<HashMap<String, Value>>> = OnceLock::new();
+    M.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Sends `output:meta` to each output whose values changed since the last.
+pub fn send_meta(app: &AppHandle) {
+    let bar = bar_rect(app);
+    let all = metas(&shared(app).lock(), bar);
+    for (label, meta) in all {
+        let last = sent_meta().lock().insert(label.clone(), meta.clone());
+        if last.as_ref() != Some(&meta) {
+            emit(app, &label, "output:meta", meta);
+        }
+    }
+}
+
+/// The open window to close when a new one would make seven: the least
+/// recently touched one with no Ask streaming into it, never `keep`.
+pub fn pick_to_close(s: &AppState, keep: &str) -> Option<String> {
+    let open = s.outputs.values().filter(|o| o.active).count();
+    if open <= MAX_OPEN {
+        return None;
+    }
+    // Until the Ask reports per window, its busy flag belongs to the target.
+    let legacy_running = if s.queries.is_empty() && s.busy {
+        s.focused_output.as_deref()
+    } else {
+        None
+    };
+    s.outputs
+        .values()
+        .filter(|o| o.active && o.label != keep && !s.query_running(&o.label))
+        .filter(|o| legacy_running != Some(o.label.as_str()))
+        .min_by_key(|o| o.touched)
+        .map(|o| o.label.clone())
+}
+
+/// D-32: at most six windows. The one that goes is said on the bar
+/// (`bar:note {text}`).
+fn enforce_cap(app: &AppHandle, keep: &str) {
+    let victim = {
+        let st = shared(app);
+        let s = st.lock();
+        pick_to_close(&s, keep).map(|l| {
+            let title = s.outputs.get(&l).map(title_of).unwrap_or_default();
+            (l, title)
+        })
+    };
+    let Some((label, title)) = victim else {
+        return;
+    };
+    close(app, &label);
+    let text = if store::get().get_save_history() {
+        format!("Closed \"{title}\". It is in History.")
+    } else {
+        format!("Closed \"{title}\".")
+    };
+    emit(app, OVERLAY, "bar:note", json!({ "text": text }));
 }
 
 /// The page loaded: replay its conversation and state.
@@ -468,11 +777,33 @@ pub fn on_loaded(app: &AppHandle, label: &str) {
     emit(app, label, "view:set", json!({ "view": o.view }));
     emit(app, label, "chat:sync", chat_payload(&o));
     emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    sent_meta().lock().remove(label);
+    send_meta(app);
 }
 
 /// `chat:sync` for one window: the whole transcript, as main.js sent it.
 pub fn chat_payload(o: &Output) -> Value {
     json!({ "id": o.chat.id, "messages": o.chat.messages })
+}
+
+/// A drag (or `window:nudge`) put the window at `r`: it stays there, and a
+/// new height is the person's.
+pub fn keep_user_rect(app: &AppHandle, label: &str, r: Rect, resized: bool) {
+    with(app, label, |o| {
+        o.rect = Some(r);
+        if resized {
+            o.user_height = r.height;
+        }
+    });
+    if resized {
+        store::get().set_output_width(r.width);
+        store::get().set_output_height(r.height);
+        emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    } else {
+        let pos = layout::pos_from_rect(screen::work_area(), r);
+        store::get().set_output_pos(&pos.to_value());
+    }
+    send_meta(app);
 }
 
 /// A drag on the window's edge ended: that height is now the user's.
@@ -483,14 +814,7 @@ pub fn on_user_resize(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
     };
-    let r = motion::glass(h);
-    with(app, label, |o| {
-        o.user_height = r.height;
-        o.rect = Some(r);
-    });
-    store::get().set_output_width(r.width);
-    store::get().set_output_height(r.height);
-    emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    keep_user_rect(app, label, motion::glass(h), true);
 }
 
 /// A title-bar drag ended: the window stays where it was dropped.
@@ -501,10 +825,7 @@ pub fn on_user_move(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
     };
-    let r = motion::glass(h);
-    with(app, label, |o| o.rect = Some(r));
-    let pos = layout::pos_from_rect(screen::work_area(), r);
-    store::get().set_output_pos(&pos.to_value());
+    keep_user_rect(app, label, motion::glass(h), false);
 }
 
 pub fn on_destroyed(app: &AppHandle, label: &str) {
@@ -512,10 +833,12 @@ pub fn on_destroyed(app: &AppHandle, label: &str) {
         let st = shared(app);
         let mut s = st.lock();
         s.outputs.remove(label);
+        s.query_forget(label);
         if s.focused_output.as_deref() == Some(label) {
             s.focused_output = None;
         }
     }
+    sent_meta().lock().remove(label);
     let a = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = create_spare(&a);
@@ -526,6 +849,31 @@ pub fn on_destroyed(app: &AppHandle, label: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn out(label: &str, active: bool, touched: u64) -> Output {
+        Output {
+            label: label.into(),
+            active,
+            touched,
+            view: "chat".into(),
+            ..Output::default()
+        }
+    }
+
+    fn with_chat(mut o: Output, question: &str) -> Output {
+        o.chat
+            .messages
+            .push(json!({ "role": "user", "text": question }));
+        o
+    }
+
+    fn state(list: Vec<Output>) -> AppState {
+        let mut s = AppState::default();
+        for o in list {
+            s.outputs.insert(o.label.clone(), o);
+        }
+        s
+    }
 
     #[test]
     fn output_labels() {
@@ -546,5 +894,149 @@ mod tests {
         let m = p["messages"].as_array().unwrap();
         assert_eq!(m.len(), 40);
         assert_eq!(m.last().unwrap()["text"], "39");
+    }
+
+    #[test]
+    fn fresh_never_returns_the_focused_chat() {
+        // The focused window was emptied and hidden: idle, but the bar is
+        // still continuing it.
+        let mut s = state(vec![out("output-1", false, 9), out("output-2", false, 1)]);
+        s.focused_output = Some("output-1".into());
+        assert_eq!(
+            pick_spare(&s.outputs, s.focused_output.as_deref()),
+            Some("output-2".into())
+        );
+        // A loaded spare goes first.
+        s.outputs.get_mut("output-2").unwrap().ready = false;
+        s.outputs.insert("output-3".into(), {
+            let mut o = out("output-3", false, 0);
+            o.ready = true;
+            o
+        });
+        assert_eq!(
+            pick_spare(&s.outputs, Some("output-1")),
+            Some("output-3".into())
+        );
+        // Open windows and windows with a conversation are never spares.
+        let busy = state(vec![
+            out("output-1", true, 1),
+            with_chat(out("output-2", false, 1), "hi"),
+        ]);
+        assert_eq!(pick_spare(&busy.outputs, None), None);
+    }
+
+    #[test]
+    fn close_of_other_window_keeps_running_query() {
+        let mut s = state(vec![out("output-1", true, 1), out("output-2", true, 2)]);
+        s.query_started("output-1", 7);
+        s.focused_output = Some("output-2".into());
+        // Closing output-2 forgets only its own entry.
+        assert!(!s.query_running("output-2"));
+        s.outputs.remove("output-2");
+        s.query_forget("output-2");
+        assert!(s.query_running("output-1"));
+        assert!(s.busy);
+    }
+
+    #[test]
+    fn titles_and_kinds() {
+        let mut o = out("output-1", true, 1);
+        assert_eq!(title_of(&o), "New conversation");
+        o.view = "find".into();
+        assert_eq!((kind_of(&o), title_of(&o).as_str()), ("find", "Find"));
+        o.kind = OutputKind::Trail;
+        assert_eq!((kind_of(&o), title_of(&o).as_str()), ("trail", "Task"));
+        let o = with_chat(out("output-2", true, 1), "  open   notepad ");
+        assert_eq!(title_of(&o), "open notepad");
+    }
+
+    #[test]
+    fn cycling_follows_touch_order_and_wraps() {
+        let s = state(vec![
+            out("output-1", true, 30),
+            out("output-2", true, 10),
+            out("output-3", true, 20),
+            out("output-4", false, 99),
+        ]);
+        let order = visible_order(&s);
+        assert_eq!(order, vec!["output-1", "output-3", "output-2"]);
+        let next = |c: &str, d: i64| next_in_cycle(&order, Some(c), d).unwrap();
+        assert_eq!(next("output-1", 1), "output-3");
+        assert_eq!(next("output-2", 1), "output-1");
+        assert_eq!(next("output-1", -1), "output-2");
+        assert_eq!(next_in_cycle(&order, None, 1).unwrap(), "output-1");
+        assert_eq!(next_in_cycle(&[], Some("output-1"), 1), None);
+    }
+
+    #[test]
+    fn front_follows_touch() {
+        let mut s = state(vec![out("output-1", true, 5), out("output-2", true, 9)]);
+        s.focused_output = Some("output-1".into());
+        s.outputs.get_mut("output-1").unwrap().rect = Some(Rect::new(0.0, 0.0, 400.0, 100.0));
+        let bar = Rect::new(0.0, 300.0, 400.0, 76.0);
+        let m: BTreeMap<String, Value> = metas(&s, bar).into_iter().collect();
+        assert_eq!(m["output-2"]["front"], true);
+        assert_eq!(m["output-1"]["front"], false);
+        assert_eq!(m["output-1"]["target"], true);
+        assert_eq!(m["output-2"]["target"], false);
+        // Above the bar: the sheet grows up, away from it.
+        assert_eq!(m["output-1"]["grow"], "up");
+        assert_eq!(m["output-2"]["grow"], "down");
+        s.outputs.get_mut("output-1").unwrap().touched = 20;
+        let m: BTreeMap<String, Value> = metas(&s, bar).into_iter().collect();
+        assert_eq!(m["output-1"]["front"], true);
+        assert_eq!(m["output-2"]["front"], false);
+    }
+
+    #[test]
+    fn seventh_closes_least_recent_idle() {
+        let mut list: Vec<Output> = (1..=7)
+            .map(|i| out(&format!("output-{i}"), true, i))
+            .collect();
+        list.push(out("output-8", false, 0));
+        let mut s = state(list);
+        // output-1 is the oldest but is still answering.
+        s.query_started("output-1", 1);
+        assert_eq!(pick_to_close(&s, "output-7"), Some("output-2".into()));
+        // Six open: nothing closes.
+        s.outputs.get_mut("output-3").unwrap().active = false;
+        assert_eq!(pick_to_close(&s, "output-7"), None);
+    }
+
+    #[test]
+    fn close_all_and_last_answer() {
+        let messages = vec![
+            json!({ "role": "user", "text": "q1" }),
+            json!({ "role": "assistant", "text": "a1" }),
+            json!({ "role": "user", "text": "q2" }),
+            json!({ "role": "assistant", "text": "a2" }),
+            json!({ "role": "assistant", "kind": "trail", "text": "steps" }),
+        ];
+        assert_eq!(last_answer_of(&messages), "a2");
+        assert_eq!(last_answer_of(&messages[..1]), "");
+    }
+
+    #[test]
+    fn undo_reset_within_10s() {
+        let mut o = with_chat(out("output-1", true, 1), "old question");
+        let old = std::mem::replace(&mut o.chat, Chat::fresh());
+        o.undo = Some((old, 1_000 + UNDO_MS));
+        assert!(restore(&mut o, 1_000 + UNDO_MS));
+        assert_eq!(o.chat.messages.len(), 1);
+        assert!(o.undo.is_none());
+        // Too late.
+        let old = std::mem::replace(&mut o.chat, Chat::fresh());
+        o.undo = Some((old, 1_000));
+        assert!(!restore(&mut o, 1_001));
+        assert!(o.chat.messages.is_empty());
+        // Something new was asked since: the new conversation stays.
+        let mut o = with_chat(out("output-1", true, 1), "old");
+        let old = std::mem::replace(&mut o.chat, Chat::fresh());
+        o.undo = Some((old, u64::MAX));
+        o.chat
+            .messages
+            .push(json!({ "role": "user", "text": "new" }));
+        assert!(!restore(&mut o, 0));
+        assert_eq!(o.chat.messages[0]["text"], "new");
     }
 }
