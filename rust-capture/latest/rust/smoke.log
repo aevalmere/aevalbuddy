@@ -4,4 +4,4 @@
 [SMOKE] scaffold.pages=output-1,overlay
 [SMOKE] scaffold.bridge=ok
 [SMOKE] done
-[1108/062640.810:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/084200.460:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
