@@ -143,6 +143,38 @@ fn edge_energy(img: &Rgb) -> f64 {
     e / (img.width as f64 * (img.height as f64 / 3.0)).max(1.0)
 }
 
+/// RMSE (0..255) of Lanczos3 and of `box_resize` against the ideal samples
+/// of a 1-D sine (period 8 px, amplitude 100 around 128) shrunk by 0.625.
+fn stripe_errors() -> (f64, f64) {
+    let (sw, sh, tw, th) = (512u32, 16u32, 320u32, 10u32);
+    let wave = |x: f64| 128.0 + 100.0 * (x * std::f64::consts::TAU / 8.0).sin();
+    let mut data = Vec::with_capacity((sw * sh * 3) as usize);
+    for _ in 0..sh {
+        for x in 0..sw {
+            let v = wave(x as f64 + 0.5).round() as u8;
+            data.extend_from_slice(&[v, v, v]);
+        }
+    }
+    let src = Rgb {
+        width: sw,
+        height: sh,
+        data,
+    };
+    let rmse = |img: &Rgb| {
+        let (mut e, mut n) = (0f64, 0f64);
+        let y = th / 2;
+        // Skip the borders, where every filter clamps.
+        for x in 8..tw - 8 {
+            let ideal = wave((x as f64 + 0.5) * sw as f64 / tw as f64);
+            let d = img.pixel(x, y)[1] as f64 - ideal;
+            e += d * d;
+            n += 1.0;
+        }
+        (e / n).sqrt()
+    };
+    (rmse(&src.resize(tw, th)), rmse(&box_resize(&src, tw, th)))
+}
+
 /// Area-average downscale (the blurry baseline Lanczos must beat).
 fn box_resize(img: &Rgb, w: u32, h: u32) -> Rgb {
     let mut data = Vec::with_capacity((w * h * 3) as usize);
@@ -340,13 +372,16 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 "display bounds or region wrong",
             );
             let v = serde_json::to_value(&shot).unwrap_or_default();
-            let keys: Vec<&str> = v
+            // The field set main.js returned (serde_json's Value orders keys
+            // alphabetically; the page reads fields by name).
+            let mut keys: Vec<&str> = v
                 .as_object()
                 .map(|o| o.keys().map(String::as_str).collect())
                 .unwrap_or_default();
+            keys.sort_unstable();
             rep.must(
                 "captureShape",
-                keys == ["base64", "bytes", "width", "height", "display", "region"],
+                keys == ["base64", "bytes", "display", "height", "region", "width"],
                 &keys.join(","),
             );
         }
@@ -402,12 +437,21 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 full.width, full.height
             ),
         );
-        rep.must(
-            "fidelityLanczos",
-            el >= eb,
-            &format!("lanczos {el:.2} < box {eb:.2}"),
-        );
     }
+    // Edge energy on a real screen rewards aliasing as much as detail, so the
+    // gate is a signal with a known answer: fine stripes (8 px period, 4 px
+    // at 1600/2560 is still above Nyquist) shrunk by 0.625. Lanczos3 must
+    // land close to the ideal samples and beat the crude area average.
+    let (lz_err, bx_err) = stripe_errors();
+    rep.log(
+        "fidelityStripes",
+        format!("lanczosRmse={lz_err:.2} boxRmse={bx_err:.2}"),
+    );
+    rep.must(
+        "fidelityLanczos",
+        lz_err < 6.0 && lz_err < bx_err,
+        &format!("lanczos rmse {lz_err:.2}, box {bx_err:.2}"),
+    );
 
     // ---------------------------------------------- backdrop (GLASS-01/06)
     match backdrop::grab_all() {
@@ -500,5 +544,16 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
     rep.log("desktopStatus", desktop::client().status());
     if let Some(w) = own {
         let _ = w.destroy();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lanczos_keeps_fine_stripes() {
+        let (lz, bx) = stripe_errors();
+        assert!(lz < 6.0 && lz < bx, "lanczos {lz:.2} box {bx:.2}");
     }
 }

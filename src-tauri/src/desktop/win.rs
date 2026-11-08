@@ -87,8 +87,10 @@ pub fn place<R: tauri::Runtime>(win: &tauri::WebviewWindow<R>, r: PxRect) {
     ));
 }
 
-/// Every process descended from ours: the WebView2 browser, renderer and
-/// GPU processes stand where Electron's child pids stood (DESK-06).
+/// Ours and the WebView2 processes under it: the browser, renderer and GPU
+/// processes stand where Electron's child pids stood (DESK-06). Only
+/// msedgewebview2.exe is followed: a Notepad the selfcheck (or the person,
+/// through the agent) launches is a child too, and must stay visible.
 pub fn own_pids() -> Vec<u32> {
     let me = std::process::id();
     let mut pairs: Vec<(u32, u32)> = Vec::new();
@@ -102,7 +104,11 @@ pub fn own_pids() -> Vec<u32> {
         };
         if Process32FirstW(snap, &mut e).is_ok() {
             loop {
-                pairs.push((e.th32ProcessID, e.th32ParentProcessID));
+                let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(0);
+                let exe = String::from_utf16_lossy(&e.szExeFile[..len]);
+                if exe.eq_ignore_ascii_case("msedgewebview2.exe") {
+                    pairs.push((e.th32ProcessID, e.th32ParentProcessID));
+                }
                 if Process32NextW(snap, &mut e).is_err() {
                     break;
                 }

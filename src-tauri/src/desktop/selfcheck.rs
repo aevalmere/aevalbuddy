@@ -270,6 +270,15 @@ async fn notepad(desktop: &Arc<Desktop>, rep: &Report) {
         win.is_some(),
         "no new window titled with the temp file appeared",
     );
+    if win.is_none() {
+        // What was there instead, for the CI log.
+        let now = list(&desktop.list_windows(true).await.unwrap_or(Value::Null));
+        let seen: Vec<String> = now
+            .iter()
+            .map(|w| format!("{}:{}", s(&w["process"]), s(&w["title"])))
+            .collect();
+        rep.log("notepadWindowsSeen", seen.join(" | "));
+    }
     if let Some(win) = &win {
         steps(desktop, rep, win).await;
         let closed = close_without_saving(desktop, win, &tag, had_notepad, rep).await;
