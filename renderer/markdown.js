@@ -82,16 +82,10 @@
 
   // ------------------------------------------------------------ code blocks
 
-  // The copy and check glyphs of renderer/icons.svg (20 px grid, 1.5 px
-  // stroke), inline so the button draws before the sprite is fetched.
-  const GLYPH = (cls, body) =>
-    `<svg class="${cls}" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  // The copy and check glyphs of renderer/icons.svg (glass.css masks them).
   const COPY_SVG =
-    GLYPH(
-      'md-copy-idle',
-      '<rect vector-effect="non-scaling-stroke" x="7.5" y="7.5" width="8.5" height="8.5" rx="2"></rect>' +
-        '<path vector-effect="non-scaling-stroke" d="M12.5 7.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4.5a2 2 0 0 0 2 2h1.5"></path>'
-    ) + GLYPH('md-copy-done', '<path vector-effect="non-scaling-stroke" d="M5 10.5l3.5 3.5L15 6.5"></path>');
+    '<span class="ico i-copy md-copy-idle" aria-hidden="true"></span>' +
+    '<span class="ico i-check md-copy-done" aria-hidden="true"></span>';
 
   function codeBlock(lang, lines) {
     const head = lang ? `<div class="md-code-head"><span class="md-lang">${lang}</span></div>` : '';

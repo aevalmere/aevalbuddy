@@ -188,34 +188,26 @@ document.addEventListener('keydown', (e) => {
 
 // --------------------------------------------------------------- the title
 
-// The kind is a glyph from the one icon family (renderer/icons.svg), the
-// word in aria-label: Ask, Find and Do.
-const KIND_GLYPH = {
-  answer:
-    '<path vector-effect="non-scaling-stroke" d="M10 3.75c3.73 0 6.5 2.55 6.5 5.75s-2.77 5.75-6.5 5.75c-.8 0-1.55-.11-2.25-.33L4.25 16.25l.95-2.85C4.27 12.36 3.5 11 3.5 9.5c0-3.2 2.77-5.75 6.5-5.75z"></path>',
-  find:
-    '<path vector-effect="non-scaling-stroke" d="M3.75 7.25V5.75a2 2 0 0 1 2-2h1.5M12.75 3.75h1.5a2 2 0 0 1 2 2v1.5M16.25 12.75v1.5a2 2 0 0 1-2 2h-1.5M7.25 16.25h-1.5a2 2 0 0 1-2-2v-1.5"></path><circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="2.25"></circle>',
-  task:
-    '<g transform="translate(3.4 2.1) scale(0.6)"><path vector-effect="non-scaling-stroke" d="M2.6 1.6L2.6 20.4Q2.6 22.6 4.3 21.2L8.6 17.5L11.5 24.6Q12.2 26.3 13.9 25.6L15.6 24.9Q17.3 24.2 16.6 22.5L13.9 15.9L19.4 15.6Q21.6 15.5 20.1 13.9L4.8 0.9Q2.6 -0.6 2.6 1.6Z"></path></g>',
-};
-
-function glyphSvg(kind) {
-  return (
-    '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
-    `${KIND_GLYPH[kind] || KIND_GLYPH.answer}</svg>`
-  );
+// An icon from the one family (renderer/icons.svg, K-40): a span glass.css
+// masks with the sprite, filled with currentColor.
+function icon(name, cls) {
+  const el = document.createElement('span');
+  el.className = `ico i-${name}${cls ? ` ${cls}` : ''}`;
+  el.setAttribute('aria-hidden', 'true');
+  return el;
 }
+
+// The kind is the bar token's glyph, the word in aria-label: Ask, Find, Do.
+const KIND_GLYPH = { answer: 'bubble', find: 'viewfinder', task: 'pointer' };
 
 // The title bar names the conversation by its first question, the way a
 // document is named by its first line; a run is named by its task.
 let titled = false;
 function setTitle(kind, text) {
   const k = String(kind || 'Answer');
-  const key = k.toLowerCase();
-  if (sheetKind.dataset.kind !== key) {
-    sheetKind.innerHTML = glyphSvg(key);
-    sheetKind.dataset.kind = key;
-  }
+  const glyph = KIND_GLYPH[k.toLowerCase()] || KIND_GLYPH.answer;
+  for (const c of [...sheetKind.classList]) if (c.startsWith('i-')) sheetKind.classList.remove(c);
+  sheetKind.classList.add(`i-${glyph}`);
   sheetKind.setAttribute('aria-label', k);
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   sheetTitle.textContent = t || k;
@@ -626,11 +618,6 @@ function addSentDisclosure(entry, sent, msgId) {
 
 // Retry, and a chevron that lists the models of every ready provider (U20):
 // a pick sends query:retry {label, provider, model}.
-const CHEVRON =
-  '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M6 8l4 4 4-4"></path></svg>';
-const RETRY_GLYPH =
-  '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M16.25 10a6.25 6.25 0 1 1-1.83-4.42"></path><path vector-effect="non-scaling-stroke" d="M16.25 3.75v3.5h-3.5"></path></svg>';
-
 function retryHere(provider, model) {
   const payload = { label: winLabel };
   if (provider) payload.provider = provider;
@@ -642,12 +629,12 @@ function retrySplit(onRetry, iconOnly) {
   const wrap = document.createElement('span');
   wrap.className = 'retry-split';
   const main = button(`retry-btn${iconOnly ? ' icon-only' : ''}`, iconOnly ? '' : 'Retry', iconOnly ? 'Retry' : '');
-  if (iconOnly) main.innerHTML = RETRY_GLYPH;
+  if (iconOnly) main.appendChild(icon('retry'));
   main.title = 'Retry (Ctrl+Shift+R)';
   main.setAttribute('aria-keyshortcuts', 'Control+Shift+R');
   main.addEventListener('click', () => onRetry(null, null));
   const more = button('retry-more', '', 'Retry with another model');
-  more.innerHTML = CHEVRON;
+  more.appendChild(icon('chevron'));
   more.setAttribute('aria-haspopup', 'listbox');
   more.setAttribute('aria-expanded', 'false');
   more.addEventListener('click', () => openRetryMenu(more, onRetry));
@@ -808,11 +795,6 @@ function placeAnswerRetry(entry) {
 
 // --------------------------------------------------------------- error rows
 
-const ERROR_GLYPH =
-  '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="6.5"></circle><path vector-effect="non-scaling-stroke" d="M12.25 7.75l-4.5 4.5M7.75 7.75l4.5 4.5"></path></svg>';
-const CLOCK_GLYPH =
-  '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="6.5"></circle><path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.5 1.5"></path></svg>';
-
 const CREDIT_URL = {
   openrouter: 'https://openrouter.ai/settings/credits',
   anthropic: 'https://console.anthropic.com/settings/billing',
@@ -856,7 +838,7 @@ function addErrorRow(message, question, actions, tone, extra) {
   const note = tone === 'note';
   const row = document.createElement('div');
   row.className = `msg error-row${note ? ' note' : ''}`;
-  row.insertAdjacentHTML('afterbegin', note ? CLOCK_GLYPH : ERROR_GLYPH);
+  row.appendChild(icon(note ? 'clock' : 'info', 'row-glyph'));
   const span = document.createElement('span');
   span.className = 'error-text';
   span.textContent = message;

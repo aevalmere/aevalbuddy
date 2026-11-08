@@ -40,44 +40,24 @@
     <!-- The title bar is what you hold the window by: the kind as a glyph,
          the title, and its tools. At rest only Close shows. -->
     <header id="sheet-bar" class="sheet-bar interactive" data-drag>
-      <span id="sheet-kind" class="sheet-kind" role="img" aria-label="Answer">
-        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
-             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path vector-effect="non-scaling-stroke" d="M10 3.75c3.73 0 6.5 2.55 6.5 5.75s-2.77 5.75-6.5 5.75c-.8 0-1.55-.11-2.25-.33L4.25 16.25l.95-2.85C4.27 12.36 3.5 11 3.5 9.5c0-3.2 2.77-5.75 6.5-5.75z"></path>
-        </svg>
-      </span>
+      <span id="sheet-kind" class="sheet-kind ico i-bubble" role="img" aria-label="Answer"></span>
       <h1 id="sheet-title" class="sheet-title sheet-bar-title">Answer</h1>
       <div class="sheet-tools sheet-bar-tools">
         <button id="copy-all" class="g-icon small tool-quiet" type="button" aria-label="Copy this conversation"
                 title="Copy conversation (Ctrl+Shift+C)" aria-keyshortcuts="Control+Shift+C">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect vector-effect="non-scaling-stroke" x="7.5" y="7.5" width="8.5" height="8.5" rx="2"></rect>
-            <path vector-effect="non-scaling-stroke" d="M12.5 7.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4.5a2 2 0 0 0 2 2h1.5"></path>
-          </svg>
+          <span class="ico i-copy" aria-hidden="true"></span>
         </button>
         <button id="history-btn" class="g-icon small tool-quiet" type="button" aria-label="Open past conversations"
                 title="History (Ctrl+H)" aria-keyshortcuts="Control+H">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path vector-effect="non-scaling-stroke" d="M3.75 10a6.25 6.25 0 1 0 6.25-6.25 6.77 6.77 0 0 0-4.68 1.91L3.75 7.25"></path>
-            <path vector-effect="non-scaling-stroke" d="M3.75 3.75v3.5h3.5"></path>
-            <path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.75 1.4"></path>
-          </svg>
+          <span class="ico i-history" aria-hidden="true"></span>
         </button>
         <button id="new-chat" class="g-icon small tool-quiet" type="button" aria-label="Start over in this window"
                 title="Start over">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path vector-effect="non-scaling-stroke" d="M10 4.5v11M4.5 10h11"></path>
-          </svg>
+          <span class="ico i-plus" aria-hidden="true"></span>
         </button>
         <button id="close-out" class="g-icon small" type="button" aria-label="Close this window"
                 title="Close (Ctrl+W)" aria-keyshortcuts="Control+W">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path vector-effect="non-scaling-stroke" d="M5.5 5.5l9 9M14.5 5.5l-9 9"></path>
-          </svg>
+          <span class="ico i-x" aria-hidden="true"></span>
         </button>
       </div>
     </header>

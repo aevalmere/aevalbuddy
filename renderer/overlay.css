@@ -590,23 +590,12 @@ body[data-grow="up"] #opanel {
   pointer-events: none;
 }
 
-/* The kind is a glyph (Ask, Find, Do), its word in aria-label. */
+/* The kind is the bar token's glyph (Ask, Find, Do) at 16 px, its word in
+   aria-label. */
 .sheet-kind {
-  flex: 0 0 auto;
-  display: inline-flex;
-  width: var(--ico-s, 16px);
-  height: var(--ico-s, 16px);
+  width: var(--ico-s);
+  height: var(--ico-s);
   color: var(--label-2);
-}
-
-.sheet-kind > svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.sheet-kind:empty {
-  display: none;
 }
 
 .sheet-title {
@@ -625,11 +614,6 @@ body[data-grow="up"] #opanel {
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-}
-
-#opanel .sheet-tools > .g-icon > svg {
-  width: var(--ico-s, 16px);
-  height: var(--ico-s, 16px);
 }
 
 /* At rest only Close shows. Copy, History and Start over come in on hover,
@@ -1083,12 +1067,6 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   color: var(--label);
 }
 
-.retry-split svg {
-  width: var(--ico-i, 14px);
-  height: var(--ico-i, 14px);
-  overflow: visible;
-}
-
 /* The model list for a retry: the shared menu's look, solid, because it
    opens on glass (never glass on glass). */
 .retry-menu {
@@ -1199,19 +1177,15 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   box-shadow: var(--chip-rim);
 }
 
-.error-row > svg {
-  flex: 0 0 auto;
-  width: var(--ico-i, 14px);
-  height: var(--ico-i, 14px);
+.error-row > .row-glyph {
   color: var(--danger);
   align-self: flex-start;
   /* Centred on the first line of 20 px text. */
   margin-top: 3px;
-  overflow: visible;
 }
 
 /* Busy is not a failure: a clock, in the label colour. */
-.error-row.note > svg {
+.error-row.note > .row-glyph {
   color: var(--label-2);
 }
 
@@ -1523,12 +1497,6 @@ body[data-fixed-height="1"] #chat {
   transition: opacity var(--d-fast) ease, background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
-.md-body .md-copy > svg {
-  width: var(--ico-s, 16px);
-  height: var(--ico-s, 16px);
-  overflow: visible;
-}
-
 .md-body .md-code:hover .md-copy,
 .md-body .md-code:focus-within .md-copy,
 .md-body > .md-code:last-child .md-copy,
@@ -1542,7 +1510,7 @@ body[data-fixed-height="1"] #chat {
 }
 
 .md-body .md-copy[data-done] .md-copy-done {
-  display: block;
+  display: inline-block;
 }
 
 .md-body .md-copy[data-done] {
@@ -2173,7 +2141,7 @@ body[data-fixed-height="1"] #chat {
   box-shadow: var(--chip-rim);
 }
 
-.trail-banner span {
+.trail-banner .banner-text {
   flex: 1;
 }
 
