@@ -63,8 +63,7 @@ pub async fn open() -> Result<Notepad, String> {
         .unwrap_or(0);
     let tag = format!("aeval-v2-{}-{stamp:x}", std::process::id());
     let file = std::env::temp_dir().join(format!("{tag}.txt"));
-    std::fs::write(&file, format!("{TEXT}\r\n"))
-        .map_err(|e| format!("temp file: {e}"))?;
+    std::fs::write(&file, format!("{TEXT}\r\n")).map_err(|e| format!("temp file: {e}"))?;
     let before: HashSet<String> = windows(true)
         .await
         .iter()
