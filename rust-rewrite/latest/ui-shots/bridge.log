@@ -40,16 +40,10 @@
 [CSSLINT] self-test keyframes colours fail=ok
 [CSSLINT] self-test a local custom property colour fails=ok
 [BRIDGE] cssLintSelfTest=ok
-[BRIDGE] css-lint renderer/lens.css:100 colour: box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.35), 0 0 0 1.5px var(--accent-bright),
-    0 0 0 2.5px var(--hit-rim), 0 6px 16px rgb(0 0 0 / 0.35) (rgb(...) outside a :root token block; use a colour token)
-[BRIDGE] css-lint renderer/lens.css:114 colour: background: rgb(var(--tint) / 0.9) (rgb(...) outside a :root token block; use a colour token)
-[BRIDGE] css-lint renderer/lens.css:115 colour: box-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.16), inset 0 0 0 var(--px) var(--hairline),
-    var(--shadow-menu) (rgb(...) outside a :root token block; use a colour token)
-[BRIDGE] css-lint renderer/lens.css:154 colour: box-shadow: 0 0 0 var(--px) rgb(0 0 0 / 0.5) (rgb(...) outside a :root token block; use a colour token)
-[BRIDGE] css-lint: 4 files enforced, 4 violations
-[BRIDGE] cssLint=FAIL:4 violations in src-tauri/src/backdrop/contrast-hide.css, renderer/lens.css, settings/settings.css, history/history.css
+[BRIDGE] css-lint: 4 files enforced, 0 violations
+[BRIDGE] cssLint=ok
 [BRIDGE] css-lint report renderer/cursor-buddy.css: 32 violations (not enforced yet)
 [BRIDGE] css-lint report renderer/glass.css: 29 violations (not enforced yet)
 [BRIDGE] css-lint report renderer/overlay.css: 11 violations (not enforced yet)
 [BRIDGE] css-lint report renderer/region.css: 6 violations (not enforced yet)
-[BRIDGE] done failed=1
+[BRIDGE] done failed=0
