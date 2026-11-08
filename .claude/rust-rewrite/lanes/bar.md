@@ -248,7 +248,9 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 - C1 green at c114f4a (rust and ui-shots). K-40 tokens, `.sheet-bar`, `.g-menu`, `AevalGlass.scrimFor`, `--text-scale`, `--accent-text`; K-41 `html[data-maximized]`; K-42 `AevalA11y.say`.
 - C1 follow-up (icons): at c114f4a, 0319420 and 8c73071 every icon was blank (ui-shots 01 and 10 show empty buttons). The cause was that `renderer/icons.svg` was not well-formed XML: its header comment contained a double hyphen (`--ico`), so the whole image failed to load. 0319420 and 8c73071 changed how glyphs are drawn without fixing that. The fix commit removes the double hyphen and was checked with an XML parser. Icons are now a CSS mask of the whole sprite strip, slid to glyph `--i` and filled with currentColor (an image, allowed by `img-src 'self'`). Markup is `<span class="ico i-<name>" aria-hidden="true"></span>` or `AevalGlass.icon(name)`. Consumers should take the fix sha (recorded below once green), not c114f4a.
-- In progress: B-055 (glass levels), kept aside as a patch while the icon follow-up runs.
+- C1 icons fixed at d84a9d3: ui-shots green, with icons visible in 01-bar-first-run and 10-white-bar-output. rust failed only at Build installer, because the NSIS download returned HTTP 504 (runner network). The Rust sources are the same as 8c73071, whose rust run was green.
+- B-059: code landed in C1 (c114f4a): `ui:text-scale`, Ctrl+= / Ctrl+- / Ctrl+0 stepping 1.0..2.0 and invoking `settings:set-text-scale`, with a localStorage fallback. Acceptance (`zoomKeysInvokeTextScale`, the 200% scene variant) waits for harness C1 (`tools/ui-shots/lanes/bar.mjs`).
+- In progress (S1 batch): B-055 (level table in glass.css/glass.js, D-21 entries), B-056 (textarea, seven rows, Shift+Enter, recall only from the first or last row), B-057 (target chip, Ctrl+Tab; shows once K-05 lands), B-058 (the bar speaks through `AevalA11y.say`; capture failure and a taken shortcut are assertive), B-060 (Esc clears, then closes; `Close the bar` / `Close (Esc)`), and B-157 (forced-colors working outline).
 
 ## Blockers
 

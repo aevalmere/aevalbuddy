@@ -9,6 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rand::Rng;
 use regex::Regex;
 
+use crate::llm::client::ChatTurn;
+
 /// What an empty question asks.
 pub const DEFAULT_PROMPT: &str = "What's on my screen and what should I do?";
 /// Earlier turns sent with each question.
@@ -60,6 +62,22 @@ pub fn new_chat_id() -> String {
     format!("c{}{tail}", base36(now))
 }
 
+/// The earlier turns that go with a question: user and assistant text,
+/// starting at a user turn. History cut to its last twelve messages can open
+/// with an answer, and Anthropic and Gemini refuse a conversation that
+/// starts with the assistant (B-125).
+pub fn sendable_history(turns: &[ChatTurn]) -> Vec<&ChatTurn> {
+    turns
+        .iter()
+        .filter(|t| spoken(&t.role, &t.text))
+        .skip_while(|t| t.role == "assistant")
+        .collect()
+}
+
+fn spoken(role: &str, text: &str) -> bool {
+    (role == "user" || role == "assistant") && !text.is_empty()
+}
+
 /// A pointer directive's place as a fraction of the shot: the 0-1000 grid,
 /// or pixels of the shot when a model gave those instead.
 pub fn point_fraction(x: f64, y: f64, width: f64, height: f64) -> Option<(f64, f64)> {
@@ -98,6 +116,43 @@ mod tests {
         assert!(id.chars().all(|c| c.is_ascii_alphanumeric()));
         assert_eq!(base36(35), "z");
         assert_eq!(base36(36), "10");
+    }
+
+    fn turn(role: &str, text: &str) -> ChatTurn {
+        ChatTurn {
+            role: role.into(),
+            text: text.into(),
+            kind: None,
+        }
+    }
+
+    #[test]
+    fn history_never_starts_with_assistant() {
+        let turns = [
+            turn("assistant", "the answer before the cut"),
+            turn("user", ""),
+            turn("assistant", "an answer to nothing"),
+            turn("user", "q1"),
+            turn("assistant", "a1"),
+            turn("trail", "clicked Save"),
+            turn("user", "q2"),
+        ];
+        let sent = sendable_history(&turns);
+        let roles: Vec<&str> = sent.iter().map(|t| t.role.as_str()).collect();
+        assert_eq!(roles, ["user", "assistant", "user"]);
+        assert_eq!(sent[0].text, "q1");
+        assert!(sendable_history(&[turn("assistant", "only")]).is_empty());
+        // The request itself: system prompt, then the person's turn.
+        let o = crate::llm::client::QueryOpts {
+            question: "q3",
+            history: &turns,
+            ..Default::default()
+        };
+        let msgs = crate::llm::client::Llm::query_messages(&o);
+        assert_eq!(msgs[0]["role"], "system");
+        assert_eq!(msgs[1]["role"], "user");
+        assert_eq!(msgs[1]["content"], "q1");
+        assert_eq!(msgs.len(), 5);
     }
 
     #[test]

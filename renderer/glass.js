@@ -38,14 +38,15 @@
     filters: 0,
   };
 
-  // Scrim from the brightness behind (0..1, sRGB luma, 90th percentile).
-  // Chosen so --label-3 holds 4.5:1 over a white page (DESIGN.md, Palette).
-  // More liquid glass lets more of a dark desktop through; over a bright one
-  // (y near 1) the scrim does not move, so the contrast floor holds at every
-  // setting.
+  // Scrim from the brightness behind (0..1, sRGB luma, 90th percentile, or
+  // the 98th above 0.5, where thinner blur lets bright detail through).
+  // Chosen so --label-3 holds 4.5:1 over a white page (DESIGN.md, Palette);
+  // thin reads as the same glass as thick, a touch lighter. More liquid glass
+  // lets more of a dark desktop through; over a bright one (y near 1) the
+  // scrim does not move, so the contrast floor holds at every setting.
   const SCRIM = {
-    thin: (y, k) => 0.46 + 0.32 * y + (0.5 - k) * 0.24 * (1 - y),
-    thick: (y, k) => 0.72 + 0.16 * y + (0.5 - k) * 0.16 * (1 - y),
+    thin: (y, k) => 0.58 + 0.24 * y + (0.5 - k) * 0.32 * (1 - y),
+    thick: (y, k) => 0.72 + 0.16 * y + (0.5 - k) * 0.30 * (1 - y),
   };
 
   // ---------------------------------------------------------- liquidness
@@ -159,6 +160,9 @@
     const gs = document.createElement('span');
     gs.className = 'gs';
     gl.appendChild(gs);
+    const gsc = document.createElement('span');
+    gsc.className = 'gsc';
+    gl.appendChild(gsc);
     el.prepend(gl);
     el.__gl = { gl, gs, mapKey: '', fid: '', y: -1 };
     S.layers.add(el);
@@ -239,11 +243,13 @@
   document.addEventListener('transitionrun', () => track(450), true);
   document.addEventListener('animationstart', () => track(450), true);
 
-  // The window itself moved (a drag in the layout editor, a dock).
+  // The window itself moved (a title-bar drag, the layout editor, a dock):
+  // the displacement is dropped while it moves, as for a morph.
   setInterval(() => {
     if (window.screenX !== S.sx || window.screenY !== S.sy) {
       S.sx = window.screenX;
       S.sy = window.screenY;
+      morph(200);
       placeAll();
     }
   }, 250);
@@ -278,7 +284,7 @@
 
   // The luma the scrim is computed from.
   function scrimLuma(l) {
-    return l.p90;
+    return S.k > 0.5 ? l.p98 : l.p90;
   }
 
   function scrimOf(kind, y) {
@@ -391,17 +397,23 @@
       if (!w || !h) return;
       const radius = parseFloat(getComputedStyle(g.gl).borderTopLeftRadius) || 0;
       // The edge band widens and the bend deepens as the glass gets more
-      // liquid; at 0.5 they are the v2.1 values (14 px, scale 22 thin and 28
-      // thick). None has no refraction at all.
-      const band = Math.round(6 + 16 * S.k);
-      const scale = Math.round((el.classList.contains('thick') ? 28 : 22) * 2 * S.k);
+      // liquid, and again past 0.5 (spec): 9 px / 11 / 14 at Subtle, the
+      // v2.1 14 px / 22 thin / 28 thick at Liquid, 32 px / 56 / 68 at Very
+      // very. None has no refraction at all. The band is also where the
+      // scrim clears (glass.css, .gsc).
+      const spec = Math.max(0, 2 * S.k - 1);
+      const band = Math.round(4 + 20 * S.k + 8 * spec);
+      const base = el.classList.contains('thick') ? 28 : 22;
+      const scale = Math.round(base * 2 * S.k + 12 * spec);
       const key = `${w}x${h}r${radius}b${band}s${scale}`;
       if (key === g.mapKey && !force) return;
       g.mapKey = key;
       if (!scale) {
         g.gs.style.removeProperty('--gfr');
+        g.gl.style.removeProperty('--band');
         return;
       }
+      g.gl.style.setProperty('--band', `${band}px`);
       if (!g.fid) g.fid = `rf${(S.filters += 1)}`;
       const host = svgHost();
       let f = host.querySelector(`#${g.fid}`);
@@ -576,6 +588,8 @@
     if (s === 1) root.style.removeProperty('--text-scale');
     else root.style.setProperty('--text-scale', String(s));
     root.dataset.textScale = String(Math.round(s * 100));
+    // Pages that size things from text metrics (the bar's rows) refit.
+    window.dispatchEvent(new CustomEvent('aeval:text-scale', { detail: { scale: s } }));
   }
 
   function localFactor() {

@@ -194,6 +194,26 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- Batch 1 (all twelve items, renderer side): Settings and History rewritten (`settings/*`, `history/*`), one CSS layer each. ui-shots green at bba8a89 (existing scenes 06-09 and their checks). Batch 2 merges bar C1 (K-40..K-43) and moves both pages onto it: shared tokens, `.sheet-bar`, `.g-menu` rows and `.g-check`, sprite icons (`ico i-<name>`); the status glyphs the sprite lacks (ring, spinner, circled check, cross, alert, clock, dash, grip) are drawn inline on its grid. ui-shots green at 17fedee. Batch 3 merges harness C1 (5af0a7b) and adds the acceptance to `tools/ui-shots/lanes/settings.mjs`: design-visual states 41-50 as 33 scenes (Providers in every state, every page, hover, slider stops, maximized, text size, models, shortcuts, History list/search/empty/off/delete/undo), their checks, the B-145 lint as `cssOnSystem.*` with both stylesheets in `cssLintEnforce`, and `oneCssLayer` and `iconsFromSprite`. No probe labels: the brief names none.
+- Batch 4 merges the llm and windows C1 contracts and the NSIS seeding (9e01918). ui-shots green at bf5e553 and d818ddc (68 scene runs, every check ok). rust at bf5e553 failed only at the installer's NSIS download (504), before the seeding landed. The harness css-lint from `origin/rust/harness` (B-145) reports 0 violations on both stylesheets, run by hand; `cssLintEnforce` lists them for when it merges.
+- Green at e415b9c: rust (run 42491942749: fmt, clippy, tests, installer, smoke) and ui-shots (run 42491942841: 68 settings scene runs, 0 failures). Acceptance runs on mocked K-19 payloads, as the backlog specifies:
+- B-069: green at e415b9c; scenes `settings-providers-{none,ready-two,rejected,no-credit,busy,blocked,testing,removing,wrong-provider}`, checks `providerRowsHaveExpandedState.<state>`, `removeSendsProvider`, `reorderInvokesOrder`, `keyNeverEchoed`.
+- B-070: green at e415b9c; `noButtonNamedEdit`, `everyDisclosureHasExpanded`, scene `settings-row-hover-disclosing`.
+- B-071: green at e415b9c; `noNestedButtons`, `deleteIsUndoable`, scenes `history-row-hover`, `history-deleted-undo`.
+- B-072: green at e415b9c; `sliderLabelsCentredOnStops`, `sliderSnapsToStop`, shots `settings-glass-{0,25,50,75,100}`.
+- B-073: green at e415b9c; scenes `settings-maximized`, `history-maximized`, `oneTitleBarSystem`.
+- B-074: green at e415b9c; scene `settings-text-size`, `textSizeRowInvokes`.
+- B-075: green at e415b9c; `privacyNamesRecipients`, `tasksSayWhatStopsThem`.
+- B-173: green at e415b9c; scenes `settings-models-automatic`, `settings-models-anthropic`, shot `settings-models-combo-open`, `modelSaveSendsProvider`.
+- B-174: green at e415b9c; scenes `history-list`, `history-search-results`, `history-empty`, `history-off`, `history-delete-all`, `historyArrowsMove`, `historyOffSaysOff`.
+- B-175: every Settings page at default size green at e415b9c (shots `settings-page-*`); the named `css-lint` gate is under Blockers.
+- B-176: green at e415b9c; `radiosRoveWithArrows`, `deleteAllConfirmsInline`, scene `settings-combo-open`.
+- B-184: green at e415b9c; shots `settings-shortcuts-capturing`, `settings-shortcuts-conflict`, scene `settings-general`, `shortcutConflictOffersFree`.
+- Standing labels: none to port and no new ones; the smoke gate passes at e415b9c.
+- Live on `rust-rewrite` at 6d34ad7: K-18 `recipients`, K-22, K-23 `bar:prefill-open`, K-24, K-40..K-43, `models:list {provider}`. Still missing on the Rust side, and shown only with mocks until then; each degrades to one missing feature, never a broken page (`call` and `listen` in both scripts): `settings:get.providers/failover/keyHints/keyStorage`, `settings:set-provider-order`, `settings:set-failover`, `provider:status`, save-key `status`/`keyHint`/`detected` and clip-key `provider` for all four prefixes (llm B-038); `settings:save-model* {provider}`, which `save_model` ignores today (llm B-036); `auth:openrouter-connect`, `skills:open-folder` and skill `truncated`. Until `providers` arrives the page has no order, so grips, `Move up` and the `Models for:` segment stay hidden.
+- Kept for other lanes until they move: `#sec-key` wraps the provider list and the OpenRouter field keeps id `api-key-input` (buddy.rs tour step 1, host/mod.rs); `settings:section` accepts `sec-key`, `pg-account`, `providers`, `prov-<id>`, any page or row id.
+- Integrator note: `history:list` rows would ideally carry `question` (the full first user message) for Ask again and Copy question; until then the title (first line, 90 chars) is used.
+
 ## Blockers
 
-(None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+- B-175: the named acceptance `css-lint` cannot print on this branch; `tools/ui-shots/css-lint.mjs` (B-145) is on `origin/rust/harness` and not yet on `rust-rewrite`, and the lane may not take a harness file early; merging harness B-145 unblocks it. Both stylesheets are already in `cssLintEnforce`, and that linter run by hand gives 0 violations; the lane's own `cssOnSystem.settings` and `cssOnSystem.history` are green at e415b9c meanwhile.
