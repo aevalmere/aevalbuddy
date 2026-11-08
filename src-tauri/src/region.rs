@@ -80,7 +80,11 @@ fn settle(rect: Option<Rect>) {
 /// Resolves pick `gen` only, so a closing selector's late `Destroyed` or
 /// focus loss never touches the pick that replaced it.
 fn settle_gen(gen: u64, rect: Option<Rect>) {
-    let mine = pending().take_if(|p| p.gen == gen);
+    let mine = {
+        let mut g = pending();
+        let ours = g.as_ref().is_some_and(|p| p.gen == gen);
+        if ours { g.take() } else { None }
+    };
     if let Some(p) = mine {
         let _ = p.tx.send(rect);
     }
@@ -144,12 +148,7 @@ pub async fn select(app: &AppHandle, display: Option<screen::Display>) -> Option
     if is_active(app) {
         cancel(app);
         // The label is free again only once the old window is gone.
-        for _ in 0..50 {
-            if !is_active(app) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
+        gone(app).await;
     }
     let target = display.unwrap_or_else(|| screen::primary(&screen::all_displays()));
     let (tx, rx) = oneshot::channel();
@@ -167,7 +166,21 @@ pub async fn select(app: &AppHandle, display: Option<screen::Display>) -> Option
             settle_gen(gen, None);
         }
     }
-    rx.await.ok().flatten()
+    let got = rx.await.ok().flatten();
+    // Once the window is gone, Escape is let go and the overlay hears it.
+    gone(app).await;
+    changed();
+    got
+}
+
+/// Waits up to a second for the selector window to be gone.
+async fn gone(app: &AppHandle) {
+    for _ in 0..50 {
+        if !is_active(app) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
 }
 
 /// After `LOAD_LIMIT`, a pick whose page never loaded is closed and
@@ -327,11 +340,8 @@ pub async fn pick(app: &AppHandle) -> Option<bool> {
     }
     let display = screen::active_display(&screen::all_displays());
     let device = display.device.clone();
-    let rect = select(app, Some(display)).await;
-    let Some(rect) = rect else {
-        changed();
-        return None;
-    };
+    // A cancel was announced by `select`.
+    let rect = select(app, Some(display)).await?;
     *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(rect);
     *ACTIVE_DEVICE.lock().unwrap_or_else(|e| e.into_inner()) = Some(device);
     let shot = capture::capture_screen_async(Some(rect)).await;

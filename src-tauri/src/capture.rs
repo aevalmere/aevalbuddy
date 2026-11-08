@@ -133,6 +133,13 @@ fn run_on<T: Send + 'static>(
     }
 }
 
+/// The smoke's CAP-06 probe (B-110): keeps the capture thread busy for `d`,
+/// as a driver hang would, without waiting for it.
+pub fn stall_worker(d: Duration) {
+    let job: Job = Box::new(move |_| std::thread::sleep(d));
+    let _ = worker().lock().unwrap_or_else(|e| e.into_inner()).send(job);
+}
+
 /// Drops the duplication of `display`, so the next grab opens a new one
 /// (the capture check's first-frame test, B-029).
 pub fn reset_dxgi(display: &Display) -> Result<(), String> {

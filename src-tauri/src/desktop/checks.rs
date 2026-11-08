@@ -348,9 +348,7 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 rep.must(
                     &format!("{backend}ExcludesOwnWithoutBlanking"),
                     ok,
-                    &format!(
-                        "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
-                    ),
+                    &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"),
                 );
                 passed_any |= ok;
             }
