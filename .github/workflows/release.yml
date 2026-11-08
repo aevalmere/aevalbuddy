@@ -125,8 +125,7 @@ jobs:
             `sha512: ${sha512}`,
             `releaseDate: '${new Date().toISOString()}'`,
             '',
-          ].join('
-');
+          ].join('\n');
           fs.writeFileSync('dist/latest.yml', yml);
           console.log(yml);
           EOF
@@ -149,8 +148,7 @@ jobs:
           const file = field('path');
           const want = field('sha512');
           const version = field('version');
-          const names = process.env.NAMES.split(/?
-/);
+          const names = process.env.NAMES.split(/\r?\n/);
           const fail = (m) => { console.log(`::error::${m}`); process.exitCode = 1; };
           if (version !== process.env.TAG.replace(/^v/, '')) fail(`latest.yml says ${version}, tag is ${process.env.TAG}`);
           if (file !== 'AevalBuddy-Setup.exe') fail(`latest.yml points at ${file}, not AevalBuddy-Setup.exe`);
