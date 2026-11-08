@@ -4,6 +4,7 @@
 // Nothing calls into this module until ipc.rs routes (b)'s channels.
 #![allow(dead_code)]
 
+pub mod describe;
 pub mod gate;
 pub mod seams;
 pub mod tools;
