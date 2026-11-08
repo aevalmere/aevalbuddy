@@ -16,13 +16,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.018
+[UI] globShapeMs=0.022
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=457 frames=28 longestFrameMs=16.7
+[UI] globOpen ms=461 frames=27 longestFrameMs=33.4
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -87,6 +87,7 @@
 [UI] scene settings/settings-providers-wrong-provider
 [UI] wrongProviderSaysWhose=ok
 [UI] wrongProviderSavesNothing=ok
+[UI] oneProminentAction=ok
 [UI] shot settings-providers-wrong-provider-found.png
 [UI] wrongProviderSavesUnderItsOwn=ok
 [UI] keyNeverEchoed=ok
@@ -148,6 +149,7 @@
 [UI] shot settings-delete-all.png
 [UI] scene settings/settings-shortcuts
 [UI] shot settings-shortcuts-capturing.png
+[UI] freeChordsOnOneLine=ok
 [UI] shot settings-shortcuts-conflict.png
 [UI] shortcutConflictOffersFree=ok
 [UI] f1OpensShortcuts=ok
@@ -199,7 +201,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=462 frames=28 longestFrameMs=16.7
+[UI] globOpen-150 ms=481 frames=28 longestFrameMs=16.8
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -263,6 +265,7 @@
 [UI] scene settings/settings-providers-wrong-provider-150
 [UI] wrongProviderSaysWhose-150=ok
 [UI] wrongProviderSavesNothing-150=ok
+[UI] oneProminentAction-150=ok
 [UI] shot settings-providers-wrong-provider-found-150.png
 [UI] wrongProviderSavesUnderItsOwn-150=ok
 [UI] keyNeverEchoed-150=ok
@@ -324,6 +327,7 @@
 [UI] shot settings-delete-all-150.png
 [UI] scene settings/settings-shortcuts-150
 [UI] shot settings-shortcuts-capturing-150.png
+[UI] freeChordsOnOneLine-150=ok
 [UI] shot settings-shortcuts-conflict-150.png
 [UI] shortcutConflictOffersFree-150=ok
 [UI] f1OpensShortcuts-150=ok
