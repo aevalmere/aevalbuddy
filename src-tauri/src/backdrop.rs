@@ -404,6 +404,7 @@ fn send_frame(app: &AppHandle, label: &str, img: &str, full: Option<&str>, displ
             "tier": tier,
             "reasons": reasons,
             "fixture": fixture,
+            "intensity": intensity(),
         }),
     );
 }
@@ -526,10 +527,25 @@ pub fn broadcast_tier() {
     };
     if let Some(app) = app {
         for l in labels {
-            let _ = app.emit_to(l.as_str(), "glass:tier", json!({ "tier": tier, "reasons": reasons }));
+            let _ = app.emit_to(l.as_str(), "glass:tier", json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }));
         }
     }
     schedule(Some(0));
+}
+
+/// Stored `glassIntensity` (0..1, default 0.5), as bits. The page renders
+/// glass from it (`--glass-k`, ARCHITECTURE.md 10); settings owns the value
+/// and calls `set_intensity`, which rebroadcasts the tier.
+static INTENSITY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x3FE0_0000_0000_0000);
+
+pub fn intensity() -> f64 {
+    f64::from_bits(INTENSITY.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+pub fn set_intensity(k: f64) {
+    let k = if k.is_finite() { (k.clamp(0.0, 1.0) * 100.0).round() / 100.0 } else { 0.5 };
+    INTENSITY.store(k.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    broadcast_tier();
 }
 
 /// `glass:hello`: the page loaded glass.js and wants frames. It gets the
@@ -542,7 +558,7 @@ pub fn hello(label: &str) {
         (g.app.clone(), t, r)
     };
     if let Some(app) = app {
-        let _ = app.emit_to(label, "glass:tier", json!({ "tier": tier, "reasons": reasons }));
+        let _ = app.emit_to(label, "glass:tier", json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }));
     }
     schedule(Some(0));
 }
@@ -769,6 +785,11 @@ pub fn status() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn intensity_defaults_to_half() {
+        assert_eq!(intensity(), 0.5);
+    }
 
     #[test]
     fn transparency_setting_is_not_a_reason() {

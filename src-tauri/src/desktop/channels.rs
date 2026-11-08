@@ -20,7 +20,7 @@ pub fn route(window: &WebviewWindow, channel: &str, payload: &Value) -> Option<R
     match channel {
         "glass:hello" => {
             backdrop::hello(window.label());
-            ok
+            Some(Ok(serde_json::json!({ "intensity": backdrop::intensity() })))
         }
         "region:pick" => {
             let app = window.app_handle().clone();
