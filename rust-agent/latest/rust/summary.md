@@ -1,12 +1,11 @@
-# rust: failure
+# rust: success
 
 - Workflow: rust
-- Run: [42522753998](https://github.com/aevalmere/aevalbuddy/actions/runs/42522753998), attempt 1, on push
-- Commit: 5af02f5842689bbd67420e0cecc2b9684f9c6070
+- Run: [42524337034](https://github.com/aevalmere/aevalbuddy/actions/runs/42524337034), attempt 1, on push
+- Commit: 9a32c008d72b2a89ead95425374762d06daa8841
 - Ref: rust/agent
-- Conclusion: **failure**
-- Failed: Smoke
-- Finished: 2026-11-08T21:14:10Z
+- Conclusion: **success**
+- Finished: 2026-11-08T21:32:45Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -22,11 +21,11 @@
 | Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | success |  |
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
-| Save NSIS toolset | success |  |
+| Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
-| Smoke | failure | [smoke.log](smoke.log) |
+| Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
-| Upload installer | skipped |  |
+| Upload installer | success |  |
 
-errors.txt: 6 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.

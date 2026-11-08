@@ -1,7 +1,0 @@
-== smoke.log ==
-[SMOKE] cancelStopsTyping=FAIL:typed=203 first=203 later=360
-[SMOKE] helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=159 first=519 later=648
-[SMOKE] failed: cancelStopsTyping, helperTimeoutNoLateInput
-[GATE] fail cancelStopsTyping=FAIL:typed=203 first=203 later=360
-[GATE] fail helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=159 first=519 later=648
-[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: cancelStopsTyping, helperTimeoutNoLateInput; 1 listed label(s) never printed

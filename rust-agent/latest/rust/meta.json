@@ -1,19 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42522753998,
+  "run_id": 42524337034,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42522753998",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42524337034",
   "event": "push",
-  "sha": "5af02f5842689bbd67420e0cecc2b9684f9c6070",
+  "sha": "9a32c008d72b2a89ead95425374762d06daa8841",
   "ref": "rust/agent",
   "ref_dir": "rust-agent",
-  "conclusion": "failure",
-  "failed": [
-    "Smoke"
-  ],
-  "finished": "2026-11-08T21:14:10Z",
-  "error_lines": 6,
+  "conclusion": "success",
+  "failed": [],
+  "finished": "2026-11-08T21:32:45Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -77,7 +75,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
@@ -87,7 +85,7 @@
     },
     {
       "name": "Smoke",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "smoke.log"
     },
     {
@@ -102,7 +100,7 @@
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
