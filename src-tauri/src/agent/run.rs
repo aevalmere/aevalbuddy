@@ -75,6 +75,8 @@ approves it first.";
 const MODEL_SLOW: &str = "the model took over 60 seconds to answer";
 const NOT_RUN: &str = "Not executed: an earlier action in this turn failed.";
 const TAKEN_OVER: &str = "Not executed: the user took over.";
+const UNKNOWN_OUTCOME: &str = "It is not known how much of it happened. The window was read \
+    again; check it before doing this again.";
 const RESTARTING: &str = "Desktop control stopped responding. Restarting it\u{2026}";
 
 /// `getAgentSettings()`, the parts the run reads.
@@ -540,6 +542,11 @@ fn bad_args(message: &str) -> DeskError {
     DeskError::new("BAD_ARGS", message)
 }
 
+/// The run ended between two desktop ops of one step.
+fn stopped() -> DeskError {
+    DeskError::new("CANCELLED", "stopped before it acted")
+}
+
 fn friendly_err(e: &DeskError) -> String {
     friendly(&e.code, &e.message)
 }
@@ -936,12 +943,21 @@ impl Ctx {
             s.ended = true;
             s.end_state = state.to_string();
             s.final_text = text.to_string();
-            Some((s.confirming.take(), s.asking.take(), s.plan_wait.take()))
+            let waits = (s.confirming.take(), s.asking.take(), s.plan_wait.take());
+            Some((waits, s.acting))
         });
-        let Some((confirming, asking, plan_wait)) = taken else {
+        let Some(((confirming, asking, plan_wait), acting)) = taken else {
             return;
         };
         self.r.cancel.cancel();
+        if acting {
+            // A step is in the helper right now, typing perhaps: Stop (Esc)
+            // tells it to send nothing more (B-050).
+            let desktop = self.a.desktop.clone();
+            self.a.rt.spawn(async move {
+                let _ = desktop.op("cancel", json!({})).await;
+            });
+        }
         if let Some((_, tx)) = confirming {
             let _ = tx.send(false);
         }
@@ -1379,6 +1395,9 @@ impl Ctx {
                         return Err(DeskError::new("NOT_FOUND", message));
                     };
                     handle = w["handle"].clone();
+                    if self.ended() {
+                        return Err(stopped());
+                    }
                 }
                 self.op("focusWindow", json!({ "handle": handle })).await?;
                 let key = text_of(&handle);
@@ -1676,6 +1695,9 @@ impl Ctx {
         let new_ref = same[0]["ref"].clone();
         let mut again = call.clone();
         again.args["ref"] = new_ref.clone();
+        if self.ended() {
+            return Err(stopped());
+        }
         let mut done = self.dispatch(&again, info).await?;
         let used = text_of(&new_ref);
         done.text = format!("{} ({ref_} had changed; used {used})", done.text);
@@ -1819,7 +1841,7 @@ impl Ctx {
                 self.set_state("running", json!({}));
                 self.a.host.show_trail(false);
                 let run_target = self.target();
-                if truthy(&run_target) {
+                if truthy(&run_target) && !self.ended() {
                     let handle = match truthy(&info.t.window_handle) {
                         true => info.t.window_handle.clone(),
                         false => run_target,
@@ -1909,7 +1931,16 @@ impl Ctx {
             self.update_row(rw, json!({ "state": "skipped", "why": "you took over" }));
             return Outcome::text(TAKEN_OVER);
         }
-        self.st(|s| s.acting = true);
+        // Stop may have come while the window list was read. Checked under
+        // the same lock that marks the step acting, so a Stop from here on
+        // finds it acting and cancels it in the helper (B-050).
+        let go = self.st(|s| {
+            s.acting = !s.ended;
+            s.acting
+        });
+        if !go {
+            return Outcome::text("Stopped.");
+        }
         let res = self.dispatch_rebinding(call, &info).await;
         self.st(|s| {
             s.acting = false;
@@ -1917,6 +1948,9 @@ impl Ctx {
         });
         let res = match res {
             Ok(res) => res,
+            Err(err) if err.code == "TIMEOUT" && kind == "action" => {
+                return self.unknown_outcome(rw, err, t0).await;
+            }
             Err(err) => return self.failed(rw, err, t0).await,
         };
         if kind == "action" {
@@ -1952,6 +1986,28 @@ impl Ctx {
         let ms = t0.elapsed().as_millis() as u64;
         self.update_row(rw, json!({ "state": "done", "ms": ms }));
         out
+    }
+
+    /// An input step that timed out may or may not have landed: the helper
+    /// stopped it from sending more, but part of it may be done. The model
+    /// gets a fresh read and is told to check it before trying again, and
+    /// the rest of the turn does not run (B-050).
+    async fn unknown_outcome(&self, rw: u64, err: DeskError, t0: Instant) -> Outcome {
+        if self.ended() {
+            return Outcome::text("Stopped.");
+        }
+        let msg = friendly_err(&err);
+        let ms = t0.elapsed().as_millis() as u64;
+        let patch = json!({ "state": "failed", "ms": ms, "error": msg });
+        self.update_row(rw, patch);
+        let o = self.observe(&self.target(), false).await;
+        Outcome {
+            text: format!("Error: {msg}\n{UNKNOWN_OUTCOME}\n\n{}", o.text),
+            summary: Some(format!("Error: {msg} {UNKNOWN_OUTCOME}")),
+            image: o.image,
+            observed: true,
+            failed: true,
+        }
     }
 
     async fn failed(&self, rw: u64, err: DeskError, t0: Instant) -> Outcome {
@@ -2743,6 +2799,62 @@ mod tests {
         let rows = done["rows"].as_array().cloned().unwrap_or_default();
         let skipped = |r: &Value| r["kind"] == "action" && r["state"] == "skipped";
         assert!(rows.iter().any(skipped));
+    }
+
+    /// Attack on timing: Stop lands while the helper is still typing. The
+    /// run ends at once and the helper is told to send nothing more.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn stop_while_typing_cancels_the_helper() {
+        let d = notepad_desktop();
+        d.slow("type", 3000);
+        let typed = json!({ "name": "type", "args": { "text": "hello" } });
+        let fixture = script("type hello", &[typed], "Typed it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("type hello"));
+        let sent = |m: &str| d.methods().iter().any(|x| x == m);
+        for _ in 0..300 {
+            if sent("type") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(sent("type"));
+        assert!(!sent("cancel"));
+        assert!(agent.stop(None));
+        for _ in 0..100 {
+            if sent("cancel") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(sent("cancel"));
+        let done = host.events.last("agent:done").expect("done");
+        assert_eq!(done["state"], "stopped");
+    }
+
+    /// Attack on timing: a typing step times out in the helper after part
+    /// of it landed. The model must not read that as a clean failure and
+    /// type it all again blind; it is told the outcome is unknown and gets
+    /// a fresh read.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_timed_out_step_is_an_unknown_outcome() {
+        let d = notepad_desktop();
+        d.fail("type", "TIMEOUT");
+        let typed = json!({ "name": "type", "args": { "text": "hello" } });
+        let fixture = script("type once", &[typed], "Checked.");
+        let fake = Arc::new(Fake::from_fixtures(vec![fixture]));
+        let mut llm = Llm::new(Arc::new(NoNet), Some(fake.clone()));
+        llm.set_offline(false);
+        let host = Arc::new(Host::default());
+        let agent = Agent::new(d.clone(), Arc::new(llm), host.clone(), Handle::current());
+        agent.start(opts("type once"));
+        let done = finished(&agent, &host, true).await;
+        assert_eq!(done["state"], "done");
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let failed = |r: &Value| r["kind"] == "action" && r["state"] == "failed";
+        assert!(rows.iter().any(failed));
+        let reqs = fake.requests();
+        assert!(reqs.iter().any(|r| r.body.contains("not known how much")));
     }
 
     #[tokio::test(flavor = "multi_thread")]

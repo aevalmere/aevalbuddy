@@ -168,6 +168,7 @@ impl DesktopAdapter {
                 d.invoke(str_of(&a, "ref").unwrap_or(""), action).await
             }
             "restoreCursor" => d.restore_cursor().await,
+            "cancel" => d.cancel().await,
             "start" => d.start().await.map(|_| json!({ "ok": true })),
             "ping" => d.ping().await,
             _ => Err(DesktopError::new(

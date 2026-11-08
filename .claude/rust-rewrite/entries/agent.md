@@ -28,3 +28,19 @@ The helper reports a Pane, Group or Custom element whose localized control type 
 ## ARCHITECTURE · Agent · D-27
 Add:
 The safety gate (`agent/gate.rs`) is an allowlist (decision D-27): a step runs without a card only when no check finds a reason to ask, and a click passes only on a readable, named control whose role or name is on the harmless list. Space, Enter and typed spaces are judged by the control with keyboard focus, which `inspect` reads through the helper's `focused` op (falling back to the tree) and passes to the gate as `Touches.focused`, with the tree it read as `Touches.tree` so the gate reads it once.
+
+## PARITY · DESK-03 · B-050
+Add:
+`key` waits 2 s plus 40 ms a press (repeat, capped at 100, times the chords), never under 4 s, so a long repeat is not abandoned while the helper is still pressing keys.
+
+## PARITY · DESK-02 · B-050
+Add:
+host.cs reads stdin on its own thread. Every request carries a cancel flag: the helper sets it when the request times out, and a `cancel` line (answered at once, `{ok, cancelled}`) sets it on every request running or queued. Every input primitive (SendInput, SetCursorPos, SetFocus, Invoke, Toggle, Select, SetValue, scroll patterns, focusWindow, closeWindow) checks it before acting and rejects with CANCELLED; key and button releases still go out, so nothing stays held. `type` and `key` check it per chunk and per chord. A drag stopped half way lets go where the pointer is. `Desktop::cancel()` writes the line past the op queue.
+
+## PARITY · AGENT-10 · B-048
+status: DIFF; evidence: UNIT agent::run::tests::pause_during_dodge_drops_the_action; SMOKE agentTakeover, SMOKE+ takeoverStopsStep (when the agent probe lands)
+Note: a takeover that lands after the gate passed a step (while the pointer travels or the window list is read) drops that step (row `skipped`, why `you took over`) and the rest of the turn; each dropped call answers `Not executed: the user took over.` after the person hands back. A takeover between two calls of one turn drops the calls left. Electron acted on the screen the person had changed.
+
+## PARITY · AGENT-12 · B-050
+Add:
+A step that ends in TIMEOUT is reported to the model as an unknown outcome, with the window read again, and the rest of the turn does not run. The run checks that it has not ended right before every op that acts (after the window list is read, after a stale ref is re-read, between finding a window by title and focusing it), and when a run ends while a step is in the helper (Stop, Esc, the tray, the wall clock) it sends `cancel`.

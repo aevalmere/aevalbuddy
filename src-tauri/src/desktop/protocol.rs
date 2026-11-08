@@ -76,6 +76,14 @@ pub fn type_timeout(chars: usize) -> u64 {
     OP_TIMEOUT.max(2000 + chars as u64 * 2)
 }
 
+/// Keys wait 2 s plus 40 ms a press, never under the op timeout: host.cs
+/// sends each chord with a 15 ms pause and a focus check, and caps the
+/// repeat at 100 (B-050).
+pub fn key_timeout(keys: &str, repeat: u64) -> u64 {
+    let chords = keys.split_whitespace().count().max(1) as u64;
+    OP_TIMEOUT.max(2000 + repeat.clamp(1, 100) * chords * 40)
+}
+
 /// One request line.
 pub fn request_line(id: u64, op: &str, args: &Value, timeout_ms: u64) -> String {
     let args = if args.is_null() {
