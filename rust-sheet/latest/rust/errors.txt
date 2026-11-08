@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] markdownStructure=FAIL:Ok(Object {"heads": Bool(true), "items": Number(4), "nested": Bool(true), "table": String(""), "host": String("(doc.rust-lang.org)"), "inert": Bool(true)})
+[SMOKE] failed: markdownStructure
+[GATE] fail markdownStructure=FAIL:Ok(Object {"heads": Bool(true), "items": Number(4), "nested": Bool(true), "table": String(""), "host": String("(doc.rust-lang.org)"), "inert": Bool(true)})
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: markdownStructure; 1 listed label(s) never printed
