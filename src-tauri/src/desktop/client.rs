@@ -1161,6 +1161,13 @@ impl Desktop {
         Ok(json!({ "watching": self.st().watching }))
     }
 
+    /// Hands the watch back to the app after [`Desktop::watch_user_input`].
+    pub async fn release_watch(self: &Arc<Self>) -> DResult<Value> {
+        self.st().watch_override = None;
+        self.call(None, Value::Null, p::OP_TIMEOUT).await?;
+        Ok(json!({ "watching": self.st().watching }))
+    }
+
     /// Test hook: makes the helper emit one user-input event.
     // index.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
     #[allow(dead_code)]

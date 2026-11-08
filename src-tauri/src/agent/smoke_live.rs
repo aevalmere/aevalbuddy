@@ -38,17 +38,21 @@ const SECRET: &str = "hunter2-secret-9154";
 const CONFIRM: &str = "agent:confirm-request";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-const NOTEPAD_LABELS: [&str; 8] = [
+const NOTEPAD_LABELS: [&str; 6] = [
     "agentRun",
     "agentFocusKept",
     "agentJsonMode",
-    "cancelStopsTyping",
-    "helperTimeoutNoLateInput",
     "agentStopMs",
     "agentTakeover",
     "agentMaxSteps",
 ];
-const FORM_LABELS: [&str; 3] = ["agentConfirmGate", "passwordRedacted", "clickExact"];
+const FORM_LABELS: [&str; 5] = [
+    "agentConfirmGate",
+    "passwordRedacted",
+    "clickExact",
+    "cancelStopsTyping",
+    "helperTimeoutNoLateInput",
+];
 
 /// Answers the model-list fetch, so a run gets native tools as the shipped
 /// app does. Chat goes to the fake model.
@@ -317,39 +321,75 @@ async fn json_mode(r: &Rig, h: &Value) -> Line {
     line("agentJsonMode", ok, why)
 }
 
+/// The form's text box length, which the form writes into its title after
+/// `len=` on every change. getText reads only the lines on screen, so it
+/// cannot count what was typed.
+async fn typed_len(r: &Rig, h: &Value) -> usize {
+    let title = r.title(h).await;
+    let tail = title.rsplit(" len=").next().unwrap_or_default();
+    tail.trim().parse().unwrap_or(0)
+}
+
+/// Clicks the middle of a node of the form; true when the click went out.
+async fn click_node(r: &Rig, node: &Value) -> bool {
+    let n = |k: &str| node["rect"][k].as_f64().unwrap_or(0.0);
+    let x = (n("x") + n("width") / 2.0).floor() as i64;
+    let y = (n("y") + n("height") / 2.0).floor() as i64;
+    let opts = json!({ "button": "left", "count": 1, "modifiers": "" });
+    let click = json!({ "t": { "x": x, "y": y }, "opts": opts });
+    r.d.op("click", click).await.is_ok()
+}
+
+/// Puts the keyboard in the form's text box, away from the password.
+async fn focus_box(r: &Rig, h: &Value) -> bool {
+    r.focus(h).await;
+    let Some(field) = r.node(h, "edit", "Typed").await else {
+        return false;
+    };
+    let clicked = click_node(r, &field).await;
+    let _ = r.d.op("restoreCursor", json!({})).await;
+    sleep(200).await;
+    clicked
+}
+
 /// B-050: Stop while the helper is typing leaves part of the text, and
 /// nothing more arrives afterwards.
 async fn cancel_stops_typing(r: &Rig, h: &Value) -> Line {
-    r.focus(h).await;
-    let before = r.text(h).await.chars().count();
+    if !focus_box(r, h).await {
+        return line("cancelStopsTyping", false, "no Typed box in the form".into());
+    }
+    let before = typed_len(r, h).await;
     let d = r.d.clone();
     let args = json!({ "text": "x".repeat(2000), "windowHandle": h });
     let typing = tokio::spawn(async move { d.op("type", args).await });
     sleep(200).await;
     let cancelled = r.d.op("cancel", json!({})).await;
     let _ = typing.await;
-    let first = r.text(h).await.chars().count();
+    sleep(100).await;
+    let first = typed_len(r, h).await;
     sleep(500).await;
-    let later = r.text(h).await.chars().count();
+    let later = typed_len(r, h).await;
     let typed = first.saturating_sub(before);
-    let ok = cancelled.is_ok() && typed < 2000 && first == later;
+    let ok = cancelled.is_ok() && typed > 0 && typed < 2000 && first == later;
     let why = format!("typed={typed} first={first} later={later}");
     line("cancelStopsTyping", ok, why)
 }
 
 /// B-050: a request the helper gave up on stops sending input too.
 async fn timeout_no_late_input(r: &Rig, h: &Value) -> Line {
-    r.focus(h).await;
-    let before = r.text(h).await.chars().count();
+    if !focus_box(r, h).await {
+        return line("helperTimeoutNoLateInput", false, "no Typed box".into());
+    }
+    let before = typed_len(r, h).await;
     let window = handle_of(h).map_or(Value::Null, |n| json!(n));
     let args = json!({ "text": "y".repeat(2000), "windowHandle": window });
     let got = r.d.inner().call(Some("type"), args, 150).await;
     let code = got.err().map(|e| e.code).unwrap_or_default();
     // A chunk already sent can still be landing.
     sleep(100).await;
-    let first = r.text(h).await.chars().count();
+    let first = typed_len(r, h).await;
     sleep(800).await;
-    let later = r.text(h).await.chars().count();
+    let later = typed_len(r, h).await;
     let typed = first.saturating_sub(before);
     let ok = code == "TIMEOUT" && typed < 2000 && first == later;
     let why = format!("code={code} typed={typed} first={first} later={later}");
@@ -384,6 +424,8 @@ async fn takeover(r: &Rig) -> Line {
             }
         }
     });
+    // The app watches input only while its own agent runs.
+    let _ = desktop.watch_user_input(true).await;
     let began = r.begin(opts("smoke takeover"));
     sleep(500).await;
     let sent = desktop.simulate_user_input("key").await;
@@ -392,6 +434,7 @@ async fn takeover(r: &Rig) -> Line {
     r.agent.stop(None);
     r.finished(3000).await;
     forward.abort();
+    let _ = desktop.release_watch().await;
     let ok = began && sent.is_ok() && paused;
     line("agentTakeover", ok, format!("state={state}"))
 }
@@ -421,8 +464,6 @@ async fn notepad_lines(r: &Rig, out: &mut Vec<Line>) {
     r.fake.set_var("notepad", h.clone());
     out.extend(agent_run(r, &h).await);
     out.push(json_mode(r, &h).await);
-    out.push(cancel_stops_typing(r, &h).await);
-    out.push(timeout_no_late_input(r, &h).await);
     out.push(stop_ms(r).await);
     out.push(takeover(r).await);
     out.push(max_steps(r).await);
@@ -444,7 +485,11 @@ fn form_script(tag: &str) -> String {
         "Add-Type -AssemblyName System.Windows.Forms".to_string(),
         "$f = New-Object Windows.Forms.Form".to_string(),
         format!("$f.Text = '{tag}'"),
-        "$f.Width = 360; $f.Height = 200; $f.TopMost = $true".to_string(),
+        "$f.Width = 360; $f.Height = 240; $f.TopMost = $true".to_string(),
+        "$t = New-Object Windows.Forms.TextBox".to_string(),
+        "$t.Left = 20; $t.Top = 140; $t.Width = 300; $t.AccessibleName = 'Typed'".to_string(),
+        format!("$t.Add_TextChanged({{ $f.Text = '{tag} len=' + $t.Text.Length }})"),
+        "$f.Controls.Add($t)".to_string(),
         "$p = New-Object Windows.Forms.TextBox".to_string(),
         format!("$p.UseSystemPasswordChar = $true; $p.Text = '{SECRET}'"),
         "$p.Left = 20; $p.Top = 20; $p.Width = 200; $p.AccessibleName = 'Password'".to_string(),
@@ -559,6 +604,8 @@ async fn form_lines(r: &Rig, out: &mut Vec<Line>) {
             let h = form["handle"].clone();
             out.extend(confirm_gate(r, &h).await);
             out.push(click_exact(r, &h).await);
+            out.push(cancel_stops_typing(r, &h).await);
+            out.push(timeout_no_late_input(r, &h).await);
             let _ = r.d.op("closeWindow", json!({ "handle": h })).await;
         }
         None => {
