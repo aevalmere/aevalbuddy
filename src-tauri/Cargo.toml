@@ -41,11 +41,10 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 winreg = "0.55"
 tauri-winrt-notification = "0.7"
 # The WebView2 COM types behind PlatformWebview::controller(). Must be the
-# version wry uses, and windows-core the version that webview2-com builds on,
-# or the types do not match (crash::guard_webview, harness Cx::eval and
-# CapturePreview).
+# version wry uses; it builds on the same windows 0.62 as the windows crate
+# below, so use windows::core with it (crash::guard_webview, harness Cx::eval
+# and CapturePreview).
 webview2-com = "0.39"
-windows-core = "0.61"
 # ---- end ----
 
 # ---- lane: harness ----

@@ -311,7 +311,7 @@ mod webview {
         COREWEBVIEW2_PROCESS_FAILED_REASON,
     };
     use webview2_com::ProcessFailedEventHandler;
-    use windows_core::Interface;
+    use windows::core::Interface;
 
     use super::{announce, failure_of, guard, reason_of, write, Failure, OnBrowserExit};
 
@@ -322,7 +322,7 @@ mod webview {
         app: tauri::AppHandle,
         label: String,
         on_exit: OnBrowserExit,
-    ) -> windows_core::Result<()> {
+    ) -> windows::core::Result<()> {
         // SAFETY: COM calls on the webview's own thread; the controller is
         // alive for the duration of `with_webview`.
         let core = unsafe { pw.controller().CoreWebView2()? };
@@ -447,7 +447,10 @@ mod tests {
         assert_eq!(toast_for(true, true), Toast::ByGuard);
         assert_eq!(toast_for(false, true), Toast::HasToRestart);
         assert_eq!(toast_for(false, false), Toast::StillRunning);
-        assert_eq!(HAS_TO_RESTART.0, "AevalBuddy hit a problem and has to restart.");
+        assert_eq!(
+            HAS_TO_RESTART.0,
+            "AevalBuddy hit a problem and has to restart."
+        );
     }
 
     #[test]
