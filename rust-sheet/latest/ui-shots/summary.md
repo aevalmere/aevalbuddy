@@ -1,12 +1,12 @@
 # ui-shots: success
 
 - Workflow: ui-shots
-- Run: [42509289650](https://github.com/aevalmere/aevalbuddy/actions/runs/42509289650), attempt 1, on push
-- Commit: f660cd0264c9d09475480d41ac3ecca7706b8703
+- Run: [42514322099](https://github.com/aevalmere/aevalbuddy/actions/runs/42514322099), attempt 1, on push
+- Commit: 49f1eeb2c46e1fcffdd088e50466c71890aae497
 - Ref: rust/sheet
 - Conclusion: **success**
-- Finished: 2026-11-08T18:25:27Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/sheet/f660cd0264c9d09475480d41ac3ecca7706b8703 (/ in the ref becomes -)
+- Finished: 2026-11-08T19:25:18Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/sheet/49f1eeb2c46e1fcffdd088e50466c71890aae497 (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|

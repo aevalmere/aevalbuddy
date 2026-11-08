@@ -22,7 +22,7 @@
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=520 frames=25 longestFrameMs=33.4
+[UI] globOpen ms=518 frames=25 longestFrameMs=33.5
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -367,7 +367,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=519 frames=23 longestFrameMs=33.4
+[UI] globOpen-150 ms=518 frames=24 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
