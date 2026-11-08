@@ -19,6 +19,10 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+    env:
+      # The bundler pins its NSIS toolset per CLI release; tools/seed-nsis.ps1
+      # holds this release's hashes, so the two move together.
+      TAURI_CLI: '2.12.4'
     defaults:
       run:
         shell: pwsh
@@ -127,34 +131,40 @@ jobs:
         if: success() || failure()
         run: '& "$env:RUNNER_TEMP\gate.ps1" test "cargo test --color never"'
 
-      # The bundler fetches NSIS and its plugins from github.com into
-      # %LOCALAPPDATA%\tauri on first use. Cached per tauri-cli version (the
-      # build runs that exact version), so a 5xx on that download cannot turn
-      # green code red; when it still happens, the build retries.
-      - name: Tauri CLI version
-        id: tauricli
-        run: |
-          $v = ''
-          try { $v = @(npm view '@tauri-apps/cli@2' version --json | Out-String | ConvertFrom-Json)[-1] } catch { }
-          if ($v -notmatch '^2\.\d+\.\d+$') { Write-Output "::warning::npm view gave '$v'; building with @tauri-apps/cli@2"; $v = '2' }
-          "tauri-cli $v"
-          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Cache Tauri bundler tools
-        id: tauricache
-        uses: actions/cache@v4
+      # The bundler downloads NSIS and nsis_tauri_utils.dll from github.com
+      # release assets into %LOCALAPPDATA%\tauri\NSIS when that folder is not
+      # complete, and that endpoint answers 504 for days at a time. The
+      # folder comes from the cache, else tools/seed-nsis.ps1 builds it
+      # (NSIS from SourceForge, the vendored DLL) with the hashes the
+      # bundler checks, so the build downloads nothing. Saved as soon as it
+      # is seeded, whatever the later steps do.
+      - name: Restore NSIS toolset
+        id: nsiscache
+        uses: actions/cache/restore@v4
         with:
-          path: ~/AppData/Local/tauri
-          key: tauri-tools-${{ runner.os }}-${{ steps.tauricli.outputs.version }}
-          restore-keys: tauri-tools-${{ runner.os }}-
+          path: ~/AppData/Local/tauri/NSIS
+          key: tauri-nsis-${{ runner.os }}-${{ env.TAURI_CLI }}-${{ hashFiles('tools/seed-nsis.ps1', 'tools/nsis/*') }}
+
+      - name: Seed NSIS toolset
+        id: nsis
+        run: '& "$env:RUNNER_TEMP\gate.ps1" nsis "pwsh -NoProfile -File ../tools/seed-nsis.ps1"'
+
+      - name: Save NSIS toolset
+        id: nsissave
+        if: steps.nsis.outcome == 'success' && steps.nsiscache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/AppData/Local/tauri/NSIS
+          key: ${{ steps.nsiscache.outputs.cache-primary-key }}
 
       # Retried only when the log ends on a bundler download failure (an
       # HTTP status, a refused or timed-out request), never on a compile
-      # error; the retry reuses the compiled target, so it only bundles.
+      # error; the retry reuses the compiled target, so it only bundles. With
+      # the toolset seeded there should be no download at all: a bundler that
+      # still verified or replaced NSIS means seed-nsis.ps1 is out of date.
       - name: Build installer
         id: build
-        env:
-          TAURI_CLI: ${{ steps.tauricli.outputs.version }}
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\build.log'
           $download = 'failed to bundle project.*(http status|error sending request|timed out|timeout|connection|dns error|download)'
@@ -168,6 +178,11 @@ jobs:
             $notes += "build try $try failed on a bundler download, retrying: $($hit.Line.Trim())"
             Write-Output "::warning title=Build installer::$($notes[-1].Replace('%', '%25'))"
             Start-Sleep -Seconds (20 * $try)
+          }
+          $redo = Select-String -Path $log -Pattern 'Verifying NSIS package|NSIS directory (is missing|contains mis-hashed)|NSIS\.exe is (outdated|missing)' | Select-Object -First 1
+          if ($redo) {
+            $notes += "the bundler did not take the seeded NSIS toolset ($($redo.Line.Trim())); tools/seed-nsis.ps1 no longer matches tauri-cli $env:TAURI_CLI"
+            Write-Output "::warning title=Build installer::$($notes[-1].Replace('%', '%25'))"
           }
           if ($notes) { @($notes) + @('') + @(Get-Content $log) | Set-Content $log }
           exit $code
@@ -320,8 +335,9 @@ jobs:
             Format patch|${{ steps.fmtpatch.outcome }}|fmt.patch
             Clippy|${{ steps.clippy.outcome }}|clippy.log
             Unit tests|${{ steps.test.outcome }}|test.log
-            Tauri CLI version|${{ steps.tauricli.outcome }}
-            Cache Tauri bundler tools|${{ steps.tauricache.outcome }}
+            Restore NSIS toolset|${{ steps.nsiscache.outcome }}
+            Seed NSIS toolset|${{ steps.nsis.outcome }}|nsis.log
+            Save NSIS toolset|${{ steps.nsissave.outcome }}
             Build installer|${{ steps.build.outcome }}|build.log
             Smoke|${{ steps.smoke.outcome }}|smoke.log
             Capture check|${{ steps.capture.outcome }}|capture.log
