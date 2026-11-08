@@ -148,11 +148,12 @@ chatEl.addEventListener(
 
 let markQueued = false;
 new ResizeObserver(() => {
-  if (markQueued || !window.AevalMarkdown) return;
+  if (markQueued) return;
   markQueued = true;
   requestAnimationFrame(() => {
     markQueued = false;
-    window.AevalMarkdown.markScroll(chatEl);
+    markOverflow();
+    if (window.AevalMarkdown) window.AevalMarkdown.markScroll(chatEl);
   });
 }).observe(chatEl);
 
@@ -857,12 +858,16 @@ function addErrorRow(message, question, actions, tone, extra) {
     const id = String((a && (a.id || a.action)) || '').toLowerCase();
     const label = (a && a.label) || '';
     if (id === 'never-ask') {
-      const lab = document.createElement('label');
-      lab.className = 'row-check';
-      neverAsk = document.createElement('input');
-      neverAsk.type = 'checkbox';
-      lab.append(neverAsk, document.createTextNode(label || "Don't ask again"));
-      acts.appendChild(lab);
+      // A checkbox drawn as a button: an output holds no input element, the
+      // bar is the app's one input (NEW-06).
+      const box = button('row-check', label || "Don't ask again");
+      box.setAttribute('role', 'checkbox');
+      box.setAttribute('aria-checked', 'false');
+      box.addEventListener('click', () => {
+        box.setAttribute('aria-checked', String(box.getAttribute('aria-checked') !== 'true'));
+      });
+      neverAsk = box;
+      acts.appendChild(box);
       continue;
     }
     if (id === 'retry' && question) {
@@ -890,7 +895,7 @@ function addErrorRow(message, question, actions, tone, extra) {
           done();
           retryHere(a.provider, a.model);
         };
-        if (neverAsk && neverAsk.checked) send('settings:set-failover', { askBeforePaid: false }).then(go);
+        if (neverAsk && neverAsk.getAttribute('aria-checked') === 'true') send('settings:set-failover', { askBeforePaid: false }).then(go);
         else go();
       } else if (id === 'wait' || id === 'keep-waiting') {
         if (a.channel) send(a.channel, a.payload);
@@ -952,14 +957,16 @@ function requestResize() {
   requestAnimationFrame(() => {
     resizeQueued = false;
     markOverflow();
-    const r = opanel.getBoundingClientRect();
-    const glass = `${Math.round(r.top)},${Math.ceil(r.height)}`;
+    // The layout box, not the painted one: while the sheet scales in, its
+    // transform would report it 6% short and no later resize corrects that.
+    const top = opanel.offsetTop;
+    const height = opanel.offsetHeight;
+    const glass = `${top},${height}`;
     if (glass !== lastGlass) {
       lastGlass = glass;
-      send('output:glass', { top: Math.round(r.top), height: Math.ceil(r.height) });
+      send('output:glass', { top, height });
     }
     if (fixedHeight) return;
-    const height = Math.ceil(r.height);
     if (height < lastSentHeight && liveMsg) return;
     if (Math.abs(height - lastSentHeight) < 8) return;
     lastSentHeight = height;
@@ -1183,7 +1190,8 @@ function emptySheet() {
   return p;
 }
 
-listen('chat:reset', () => {
+listen('chat:reset', (p) => {
+  const undoMs = p && Number.isFinite(p.undoMs) ? p.undoMs : UNDO_MS;
   closeRetryMenu(false);
   stopCountdown();
   clearInterval(waitTimer);
@@ -1194,6 +1202,16 @@ listen('chat:reset', () => {
   titled = false;
   setTitle('Answer', '');
   syncOrbit();
+  clearTimeout(resetTimer);
+  opanel.hidden = false;
+  // Nothing to undo (the window was empty): the empty sheet at once.
+  if (undoMs <= 0) {
+    chatEl.appendChild(emptySheet());
+    syncCopyAll();
+    markOverflow();
+    requestResize();
+    return;
+  }
   const row = document.createElement('div');
   row.className = 'msg note-row reset-row';
   const text = document.createElement('span');
@@ -1208,21 +1226,25 @@ listen('chat:reset', () => {
     } catch (err) {
       p = Promise.reject(err);
     }
-    // Rust restores the conversation and replays it (chat:sync).
-    Promise.resolve(p).catch(() => {
+    // Rust restores the conversation and replays it (chat:sync); {ok: false}
+    // when something new was asked since, or the time ran out.
+    const failed = () => {
       undo.remove();
       text.textContent = "Couldn't bring it back here. It is in History.";
-    });
+    };
+    Promise.resolve(p)
+      .then((r) => {
+        if (r && r.ok === false) failed();
+      })
+      .catch(failed);
   });
   row.append(text, undo);
   chatEl.appendChild(row);
   say('Started over. The last conversation is in History.');
-  clearTimeout(resetTimer);
   resetTimer = setTimeout(() => {
     if (row.isConnected) row.replaceWith(emptySheet());
     requestResize();
-  }, UNDO_MS);
-  opanel.hidden = false;
+  }, undoMs);
   syncCopyAll();
   markOverflow();
   requestResize();

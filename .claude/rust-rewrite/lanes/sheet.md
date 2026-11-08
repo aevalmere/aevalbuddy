@@ -276,6 +276,37 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+Built in 2add4c5 (answers), 91b2881 (glob), d537e9e (trail, confirm, Find), 57cf07d (scenes and checks), 1bedb11 (probe labels). Every item below is verified by the push that adds this section; its sha is the one reported to main as "sheet green".
+
+- Standing labels: noOutputInput, markdown, markdownStructure, readingMeasure, transcriptScroll, transcriptWheel, chatCeiling, scrollThumb, moreIndicator, globMorphMs printed by probes/sheet.rs and listed in tools/smoke-labels/sheet.txt.
+- B-007: confirmAllowWaitsForFullText; sheet-confirm-long-text.
+- B-061: glob-open-*; globWordsNeverOutsideShape, globOpenOnClock; SMOKE globMorphMs.
+- B-062: glob-close-*, glob-above-bar, glob-side, glob-cascaded; globBudArea, globSmooth, globFallsBackToScale.
+- B-063: sheet-markdown-fixture; markdownNeverInjects, looseListIsOneOl, tableRenders, headingsAreHeadings, linksShowHost; SMOKE markdown, markdownStructure.
+- B-064: sheet-maximized-1600; readingMeasure640; SMOKE readingMeasure.
+- B-065: sheet-title-rest, sheet-title-hover; outputTitleBarIsSheetBar, oneTitleBarSystem.
+- B-066: sheet-first-answer, sheet-task-asking, sheet-task-failed; questionNotShownTwice, failureShownOnce.
+- B-067: outputEscNeverCollapses (escKeepsAnswer is the windows lane's label).
+- B-068: answerAnnounceIsShort.
+- B-160: sheet-mid-stream, sheet-mid-stream-fence; streamingKeepsEarlierNodes, selectionSurvivesStream.
+- B-161: codeCopyButtonCopies.
+- B-162: sheet-done, sheet-sent-panel; usageLineIsShort.
+- B-163: sheet-front-back, sheet-target-rim.
+- B-164: sheetReportsGlassRect (output:resize still sent until windows' B-027 lands).
+- B-165: sheet-task-running, sheet-task-done-expanded; planChecksOff.
+- B-166: sheet-error-short, sheet-error-long, sheet-busy-countdown, sheet-paid-hop; errorActionsInvoke, longErrorFixesWrap.
+- B-167: outputShortcutsInvoke.
+- B-168: sheet-started-over; startOverOffersUndo.
+- B-169: find-empty, find-results; findListboxArrows.
+- B-170: trailRowsHaveSrPrefixes, stepAnnouncesThrottled.
+- B-171: sheet-consent; consentNamesProvider.
+- B-172: sheet-retry-menu; retryWithModelInvokes.
+- B-183: doItOnlyForSteps, confirmSweepThenEnable, textInsetIs16InEveryKind, sheetCssLint (B-145's rules run inline on the sheet's regions of overlay.css; the shared gate in bridge.test.mjs takes over at B-148).
+
+Notes for the next agent and the integrator:
+- 1bedb11 failed only because a paused ui-shots clock leaked into every later scene (the context owns page.clock). sheet.mjs now resumes the clock when each paused scene ends (onStoppedClock); harness 76c8c95 (on rust/harness, not yet on rust-rewrite) gives clock scenes their own context, and the two are compatible.
+- The markdownStructure probe's table used a two-dash separator, which B-063's spec (`-{3,}`) does not accept; the probe now uses three.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)

@@ -9,7 +9,9 @@
 //! window is excluded from capture like every other, so it never appears in
 //! the shot it triggers.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 
 use serde_json::Value;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
@@ -17,17 +19,28 @@ use tokio::sync::oneshot;
 
 use crate::capture::{self, screen, Rect};
 use crate::desktop::win;
+use crate::state::{shared, Mode};
 
 /// A drag shorter than this on either axis is a click that missed.
 pub const MIN_EDGE: f64 = 12.0;
 pub const LABEL: &str = "region";
 
+/// How long the selector page may take to load before the pick gives up
+/// (B-028): an invisible modal pick must never stay open.
+const LOAD_LIMIT: Duration = Duration::from_secs(5);
+
+/// One open pick. `gen` tells it apart from the pick it replaced, whose
+/// window may still be closing.
 struct Pending {
     tx: oneshot::Sender<Option<Rect>>,
     origin: (f64, f64),
+    gen: u64,
 }
 
 static PENDING: Mutex<Option<Pending>> = Mutex::new(None);
+/// The newest pick's generation, and the newest whose page has loaded.
+static GEN: AtomicU64 = AtomicU64::new(0);
+static LOADED: AtomicU64 = AtomicU64::new(0);
 
 fn pending() -> std::sync::MutexGuard<'static, Option<Pending>> {
     PENDING.lock().unwrap_or_else(|e| e.into_inner())
@@ -37,8 +50,46 @@ pub fn is_active(app: &AppHandle) -> bool {
     app.get_webview_window(LABEL).is_some()
 }
 
+/// The newest pick's selector is open and its page has loaded.
+pub fn ready(app: &AppHandle) -> bool {
+    is_active(app) && LOADED.load(Ordering::Relaxed) == GEN.load(Ordering::Relaxed)
+}
+
+/// Opens a pick and returns its generation. A pick still open resolves
+/// `None`: a second request replaces the first.
+fn begin(tx: oneshot::Sender<Option<Rect>>, origin: (f64, f64)) -> u64 {
+    let gen = GEN.fetch_add(1, Ordering::Relaxed) + 1;
+    let old = pending().replace(Pending { tx, origin, gen });
+    if let Some(p) = old {
+        let _ = p.tx.send(None);
+    }
+    gen
+}
+
+fn current() -> Option<u64> {
+    pending().as_ref().map(|p| p.gen)
+}
+
+/// Resolves the open pick, whichever it is.
 fn settle(rect: Option<Rect>) {
     if let Some(p) = pending().take() {
+        let _ = p.tx.send(rect);
+    }
+}
+
+/// Resolves pick `gen` only, so a closing selector's late `Destroyed` or
+/// focus loss never touches the pick that replaced it.
+fn settle_gen(gen: u64, rect: Option<Rect>) {
+    let mine = {
+        let mut g = pending();
+        let ours = g.as_ref().is_some_and(|p| p.gen == gen);
+        if ours {
+            g.take()
+        } else {
+            None
+        }
+    };
+    if let Some(p) = mine {
         let _ = p.tx.send(rect);
     }
 }
@@ -51,8 +102,16 @@ fn close(app: &AppHandle) {
 
 /// Closes the selector; the pick resolves with `None`.
 pub fn cancel(app: &AppHandle) {
-    close(app);
     settle(None);
+    close(app);
+}
+
+/// `cancel` for pick `gen` only.
+fn cancel_gen(app: &AppHandle, gen: u64) {
+    if current() == Some(gen) {
+        settle_gen(gen, None);
+        close(app);
+    }
 }
 
 /// The page reports window coordinates; the display origin (DIP) is added
@@ -77,11 +136,13 @@ pub fn finish_rect(origin: (f64, f64), r: &Value) -> Option<Rect> {
     ))
 }
 
-/// `region:done`.
+/// `region:done`. The answer is settled before the window closes: closing
+/// fires `Destroyed`, which would otherwise resolve the pick as a cancel
+/// first and lose the area (B-028).
 pub fn finish(app: &AppHandle, r: &Value) {
     let origin = pending().as_ref().map(|p| p.origin).unwrap_or((0.0, 0.0));
-    close(app);
     settle(finish_rect(origin, r));
+    close(app);
 }
 
 /// Opens the selector on one display and resolves with the chosen DIP
@@ -90,22 +151,57 @@ pub fn finish(app: &AppHandle, r: &Value) {
 pub async fn select(app: &AppHandle, display: Option<screen::Display>) -> Option<Rect> {
     if is_active(app) {
         cancel(app);
+        // The label is free again only once the old window is gone.
+        gone(app).await;
     }
     let target = display.unwrap_or_else(|| screen::primary(&screen::all_displays()));
     let (tx, rx) = oneshot::channel();
-    *pending() = Some(Pending {
-        tx,
-        origin: (target.bounds.x, target.bounds.y),
-    });
+    let gen = begin(tx, (target.bounds.x, target.bounds.y));
     // Built off the event loop thread: WebView2 creation waits on it.
-    if let Err(e) = open_window(app, target.phys) {
-        eprintln!("region selector failed to open: {e}");
-        settle(None);
+    match open_window(app, target.phys, gen) {
+        Ok(()) => {
+            // Only now is there a selector: Escape is claimed and the
+            // overlay hears it (CAP-10).
+            changed();
+            give_up_unless_loaded(app, gen);
+        }
+        Err(e) => {
+            eprintln!("region selector failed to open: {e}");
+            settle_gen(gen, None);
+        }
     }
-    rx.await.ok().flatten()
+    let got = rx.await.ok().flatten();
+    // Once the window is gone, Escape is let go and the overlay hears it.
+    gone(app).await;
+    changed();
+    got
 }
 
-fn open_window(app: &AppHandle, phys: screen::PxRect) -> tauri::Result<()> {
+/// Waits up to a second for the selector window to be gone.
+async fn gone(app: &AppHandle) {
+    for _ in 0..50 {
+        if !is_active(app) {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+/// After `LOAD_LIMIT`, a pick whose page never loaded is closed and
+/// resolves `None`.
+fn give_up_unless_loaded(app: &AppHandle, gen: u64) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(LOAD_LIMIT).await;
+        if LOADED.load(Ordering::Relaxed) < gen && current() == Some(gen) {
+            let s = LOAD_LIMIT.as_secs();
+            eprintln!("region selector did not load in {s} s");
+            cancel_gen(&app, gen);
+        }
+    });
+}
+
+fn open_window(app: &AppHandle, phys: screen::PxRect, gen: u64) -> tauri::Result<()> {
     // Unlike every other surface this one wants the keyboard and the mouse:
     // it is a modal gesture, not an overlay.
     let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/region.html".into()))
@@ -120,8 +216,9 @@ fn open_window(app: &AppHandle, phys: screen::PxRect) -> tauri::Result<()> {
         .visible(false)
         .data_directory(crate::paths::webview_data_dir())
         .initialization_script(crate::ipc::bridge_script())
-        .on_page_load(|w, p| {
+        .on_page_load(move |w, p| {
             if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+                LOADED.fetch_max(gen, Ordering::Relaxed);
                 let raw = capture::hwnd_of(&w);
                 capture::exclude_window(raw);
                 let _ = w.show();
@@ -133,16 +230,15 @@ fn open_window(app: &AppHandle, phys: screen::PxRect) -> tauri::Result<()> {
     win::tool_window(capture::hwnd_of(&win), false);
     win::place(&win, phys);
     capture::exclude_window(capture::hwnd_of(&win));
+    crate::crash::guard_webview(&win, move |app, _| cancel_gen(app, gen));
     // Losing focus means the user clicked into something else; a full-screen
     // scrim they did not ask to keep must not survive that.
     let a = app.clone();
-    let had_focus = std::sync::atomic::AtomicBool::new(false);
+    let seen = AtomicBool::new(false);
     win.on_window_event(move |e| match e {
-        WindowEvent::Focused(true) => had_focus.store(true, std::sync::atomic::Ordering::Relaxed),
-        WindowEvent::Focused(false) if had_focus.load(std::sync::atomic::Ordering::Relaxed) => {
-            cancel(&a)
-        }
-        WindowEvent::Destroyed => settle(None),
+        WindowEvent::Focused(true) => seen.store(true, Ordering::Relaxed),
+        WindowEvent::Focused(false) if seen.load(Ordering::Relaxed) => cancel_gen(&a, gen),
+        WindowEvent::Destroyed => settle_gen(gen, None),
         _ => {}
     });
     Ok(())
@@ -243,17 +339,14 @@ pub fn clear_active() {
 /// display; on a pick the area is captured at once. A cancel leaves
 /// everything as it was. Returns whether the capture worked.
 pub async fn pick(app: &AppHandle) -> Option<bool> {
-    if is_active(app) {
+    // As main.js: never over the HUD, never two at once.
+    if is_active(app) || shared(app).lock().mode == Mode::Hud {
         return None;
     }
     let display = screen::active_display(&screen::all_displays());
     let device = display.device.clone();
-    changed();
-    let rect = select(app, Some(display)).await;
-    let Some(rect) = rect else {
-        changed();
-        return None;
-    };
+    // A cancel was announced by `select`.
+    let rect = select(app, Some(display)).await?;
     *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(rect);
     *ACTIVE_DEVICE.lock().unwrap_or_else(|e| e.into_inner()) = Some(device);
     let shot = capture::capture_screen_async(Some(rect)).await;
@@ -295,6 +388,25 @@ mod tests {
         clear_active();
         assert_eq!(device_for(&r), None);
         assert_eq!(active_region(), None);
+    }
+
+    #[test]
+    fn stale_close_does_not_settle_new_pick() {
+        let (tx1, mut rx1) = oneshot::channel();
+        let first = begin(tx1, (0.0, 0.0));
+        // A second request replaces the first, which resolves as a cancel.
+        let (tx2, mut rx2) = oneshot::channel();
+        let second = begin(tx2, (1280.0, 0.0));
+        assert_eq!(rx1.try_recv(), Ok(None));
+        // The first selector's window closing late leaves the new pick open.
+        settle_gen(first, None);
+        assert!(rx2.try_recv().is_err());
+        assert_eq!(current(), Some(second));
+        // Its own answer resolves it.
+        let area = Rect::new(1290.0, 10.0, 100.0, 50.0);
+        settle_gen(second, Some(area));
+        assert_eq!(rx2.try_recv(), Ok(Some(area)));
+        assert_eq!(current(), None);
     }
 
     #[test]
