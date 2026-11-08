@@ -121,10 +121,10 @@ terms HWND_TOPMOST re-asserted), visible on all workspaces, content protected (W
 | KEY-06 | toggleVisibility hides/shows overlay and (if active) output, cancels the tour, refreshes the tray label. | main.js:1285-1309 | SMOKE+:toggleVisibility |
 | KEY-07 | Global Escape is registered ONLY while the agent runs, the tour or pointer is active, the area selector is open, or the HUD editor is open; never while idle or with only the bar open. Enter is never global. | main.js:1385-1397 | SMOKE:noGlobalEnter, noGlobalEscWithBar, keySwallow |
 | KEY-08 | Escape priority: stop agent > close Find > cancel region > cancel tour > exit HUD > close focused Settings > close focused History > collapse panel. | main.js:1311-1356 | SMOKE:regionEscape |
-| KEY-09 | While the engine injects a synthetic Escape, the global Escape is unregistered and retaken 60 ms after (RegisterHotKey fires on injected input). | main.js:2782-2794 | SMOKE+:escapeSuspend |
+| KEY-09 | While the engine injects a synthetic Escape, the global Escape is unregistered and retaken 60 ms after (RegisterHotKey fires on injected input). Suspensions nest: Escape comes back only when the last overlapping synthetic key is done. Every registration change runs on the main thread, one at a time, and an apply that changes nothing touches nothing (opening the bar registers Escape alone). | main.js:2782-2794 | SMOKE+:escapeSuspend |
 | KEY-10 | Registration result per action: true, false (owned by another app), null (unbound). A failed main chord shows in the bar (`hotkeyFailed`) and triggers the toast. An unparseable stored accelerator counts as false, never a crash. | main.js:1362-1384,804 | SMOKE:shortcut.* |
 | KEY-11 | Capture mode (Settings recording a combo) suspends every global shortcut. | main.js:1365,2689-2692 | SMOKE+:captureMode |
-| KEY-12 | `shortcuts:set` validation: action must be known ("Unknown action."); must include Ctrl/Alt/Super plus a non-modifier key ("Include Ctrl, Alt, or Win plus a key, for example Ctrl+Shift+A."); no clash with another action ("Already used by "<label>". Pick a different combo."); probe with ours unregistered, "That shortcut is already in use - try another." Returns shortcuts and active map. | main.js:1399-1407,2694-2731 | UNIT + SMOKE+:shortcutSet |
+| KEY-12 | `shortcuts:set` validation: action must be known ("Unknown action."); must include Ctrl/Alt/Super plus a non-modifier key ("Include Ctrl, Alt, or Win plus a key, for example Ctrl+Shift+A."); no clash with another action ("Already used by "<label>". Pick a different combo."); probe with ours unregistered; a taken chord answers `{ok: false, error: "Another app already uses that shortcut. Try another." (C-56), free: [...]}`, where `free` lists those of Ctrl+Alt+A, Super+Shift+Space, Ctrl+Shift+Space that no other app holds and none of ours uses (U48). Returns shortcuts and active map. | main.js:1399-1407,2694-2731 | UNIT + SMOKE+:shortcutSet |
 | KEY-13 | `shortcuts:reset` restores defaults and re-registers. | main.js:2733-2737 | SMOKE+:shortcutReset |
 | KEY-14 | Accelerator strings are stored in Electron syntax (`Ctrl+Alt+Space`, `CommandOrControl`, `Super`, `AltGr`...). Rust parses that syntax into RegisterHotKey modifiers/VK; stored strings are never rewritten. | store.js:255-268 | UNIT (every Electron accelerator form) + MIGRATE |
 | KEY-15 | Action labels: captureQuery "Ask, find, or do", captureRegion "Ask about an area", findOnScreen "Find on screen", agentTask "Do a task", toggleVisibility "Hide or show the overlay". | main.js:129-135 | UNIT |
@@ -149,8 +149,10 @@ renderer files are byte-identical apart from the changes listed in ARCHITECTURE.
 
 | ID | What | Source | Verify |
 |---|---|---|---|
-| TRAY-01 | Tray icon is the pointer arrow, 16 px and 32 px PNGs embedded (base64 in tray.js). | tray.js:19-48 | SMOKE:tray |
-| TRAY-02 | Left click and double click: trail if the agent runs, else the bar. | tray.js:69-78, main.js:2854 | SMOKE+:trayClick |
+| TRAY-01 | Tray icon is the pointer arrow: 16 px and 32 px PNGs from tray.js plus 20 px and 24 px resampled from the 32 px one; the smallest at least 16 px times the primary display's scale is used, so Windows only scales it down. | tray.js:19-48 | SMOKE:tray |
+| TRAY-02 | Left click: trail if the agent runs, else the bar. A double click opens once (D-07).
+Add (note to the row):
+D-07: the DoubleClick arm is dropped, and the second click of a double click (within the system double-click time of the last open) is ignored. Reason: Windows reports one double click as two clicks and a double click; Electron opened on all three, which flickered open, closed, open. | tray.js:69-78, main.js:2854 | SMOKE+:trayClick |
 | TRAY-03 | Menu order (as labels, `-` separators): [`Restarting after this answer…` disabled, `-`] or [`Restart to update to X`, `-`] when an update is ready; [`Stop agent` (Esc), `-`] while running; `Ask, find, or do…`, `Ask about an area…`, `Find on screen…`, `Do a task…`, `-`, `Hide the overlay`/`Show the overlay`, `New chat`, `History…`, `-`, `Settings…`, `Help and feedback…`, check item, `-`, `Quit AevalBuddy`. | tray.js:122-165 | SMOKE (smoke-v2 tray order check via `labels()`), keep the data function |
 | TRAY-04 | Each item shows its current accelerator without registering it. | tray.js:127-132 | SMOKE+:trayAccel |
 | TRAY-05 | Check item states: `Checking…` (disabled), `Downloading X… N%` (disabled), `Up to date (X)` for 10 s, `Update failed, try again`, `Check for updates`. | tray.js:80-116 | SMOKE+:trayCheckStates |
@@ -326,7 +328,7 @@ MIGRATE (round trip) + UNIT (getter semantics).
 | STORE-11 | `shortcuts` | DEFAULT_SHORTCUTS | Merged over defaults on read. | store.js:73,255-268 |
 | STORE-12 | `overlayPos` | {h:'right', v:'top', offX:16, offY:16} | Sanitised: h in left/center/right, v in top/center/bottom, offsets rounded and clamped 0..8000 else 16. | store.js:74,270-287 |
 | STORE-13 | `outputPos` | {docked:true, h:'right', v:'top', offX:16, offY:240} | Same sanitising; docked unless explicitly false. | store.js:75,289-300 |
-| STORE-14 | `inputWidth` | 420 | Clamped 320..900. | store.js:79,302-318 |
+| STORE-14 | `inputWidth` | 600 on a new profile (D-16; Electron 420). A stored width is kept. | Clamped 320..900. | store.js:79,302-318 |
 | STORE-15 | `outputWidth` | 420 | Clamped 320..900. | store.js:80 |
 | STORE-16 | `outputHeight` | 0 | 0 = auto; positive = user-dragged height. | store.js:81,331-340 |
 | STORE-17 | `settingsSize` | {width:660, height:560} | Width 380..900, height 360..1400; note setter falls back to 460x470 on bad input (keep). | store.js:82,409-428 |
@@ -352,11 +354,11 @@ MIGRATE (round trip) + UNIT (getter semantics).
 | STORE-37 | `agentReturnCursor` | true | | store.js:116 |
 | STORE-38 | `agentConsent` | false | | store.js:117 |
 | STORE-39 | Migration v2 | If shortcutsVersion < 2: any shortcut equal to its old default (Ctrl+Shift+Space/A/G/U/H) or missing moves to the new default; `findRelated:false` becomes `findRelatedMode:'off'`; `findRelated` and `lastMode` deleted; version set to 2. | store.js:121-134 | MIGRATE (v1.0 profile fixture) |
-| STORE-40 | API key encryption compatibility | Electron `safeStorage` on Windows is Chromium OSCrypt: blob = `v10` + 12-byte nonce + AES-256-GCM ciphertext+tag, key = `os_crypt.encrypted_key` in `%APPDATA%\aevalbuddy\Local State` (base64, `DPAPI` prefix, then CryptUnprotectData). Rust decrypts exactly that and encrypts the same way (so a rollback to Electron still reads it). Decrypt failure -> '' (user re-enters), never a crash. | store.js:136-168 | MIGRATE (key set by Electron is read by Rust and vice versa) |
+| STORE-40 | API key encryption compatibility | Electron `safeStorage` on Windows is Chromium OSCrypt: blob = `v10` + 12-byte nonce + AES-256-GCM ciphertext+tag, key = `os_crypt.encrypted_key` in `%APPDATA%\aevalbuddy\Local State` (base64, `DPAPI` prefix, then CryptUnprotectData). Rust decrypts exactly that and encrypts the same way (so a rollback to Electron still reads it). Decrypt failure -> '' (user re-enters), never a crash. A new key is minted only when `Local State` is missing or is a JSON object with no `os_crypt.encrypted_key`; a file that cannot be read or parsed is left alone (copied to `Local State.corrupt`) and keys are stored in plain text that session. A UTF-8 BOM is skipped. The file is rewritten durably with every other key kept. | store.js:136-168 | MIGRATE (key set by Electron is read by Rust and vice versa) |
 | STORE-41 | `hasApiKey` = decrypted key non-empty. | store.js:175-177 | UNIT |
 | STORE-42 | heal*: a chosen model that left the catalogue is rewritten in place; a non-chosen default is swapped in memory only. Same for brain, find, agent. | store.js:205-218,465-471 | SMOKE:healRetired |
 | STORE-43 | Unknown keys in the file are preserved on write (Electron writes the whole object). | electron-store | MIGRATE |
-| STORE-44 | Write is atomic (electron-store uses write-file-atomic). | electron-store | UNIT |
+| STORE-44 | Write is atomic and durable: one save at a time with the snapshot taken under the save lock, a unique temp name, fsync, then `MoveFileExW(REPLACE_EXISTING \| WRITE_THROUGH)`; the previous good file is kept as `aevalbuddy.json.bak`. A file that does not parse is copied to `.corrupt` and `.bak` is used in its place; a file that exists but cannot be read (after three retries) is never written over that session; invalid UTF-8 is decoded lossily, as Node did. | electron-store | UNIT |
 
 ## 10. Files on disk (FILE)
 
@@ -364,7 +366,7 @@ MIGRATE (round trip) + UNIT (getter semantics).
 |---|---|---|---|---|
 | FILE-01 | `%APPDATA%\aevalbuddy\` | userData (Electron default for package name `aevalbuddy`). The Rust app must use this exact folder, NOT Tauri's `%APPDATA%\com.aevalbuddy.app`. | Electron | MIGRATE |
 | FILE-02 | `...\aevalbuddy.json` | Settings (section 9). | store.js:42-44 | MIGRATE |
-| FILE-03 | `...\history.json` | `{version:1, conversations:[{id, at, title, model, messages:[{role, text, kind?}]}]}`; written via `.tmp` then rename; 400 ms debounce. | history.js:34-84 | SMOKE:historySaved + MIGRATE |
+| FILE-03 | `...\history.json` | `{version:1, conversations:[{id, at, title, model, messages:[{role, text, kind?}]}]}`; written durably (unique temp, fsync, write-through replace) 400 ms after the first change by one writer thread (a throttle, as history.js:55-63 did; later changes ride along); a file that does not parse is renamed to `history.json.corrupt-<unix ms>` first. | history.js:34-84 | SMOKE:historySaved + MIGRATE |
 | FILE-04 | `...\errors.log` | `[ISO] scope\nstack\n\n`; when > 256 KB keep the last 128 KB. | crash.js:25-52 | SMOKE:crashLogged |
 | FILE-05 | `...\updater.log` | `[ISO] level message`; > 256 KB keeps the last 128 KB; smoke reads its last warn/error line. | updater.js:85-103 | SMOKE:update.cause |
 | FILE-06 | `...\updater.json` | {lastChecked, lastRunVersion}. | updater.js:112-133 | UPDATE |
@@ -575,7 +577,7 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 | HIST-02 | Upsert by id (same id = edit, not a new row); only user/assistant turns with text; trail kind kept. | history.js:115-138 | SMOKE:historySaved |
 | HIST-03 | Search over title and every message, case-insensitive. | history.js:146-172 | SMOKE:historySearch |
 | HIST-04 | Disabled = no writes, nothing deleted. | history.js:86-88,116 | SMOKE:historyRespectsSwitch |
-| HIST-05 | Unreadable/missing file = empty list, never a failed start. Write failures ignored. | history.js:39-75 | UNIT |
+| HIST-05 | Missing file = empty list; a file that does not parse is renamed aside, then an empty list; a file that exists but cannot be read = empty list and no writes this session. Never a failed start. A failed write is retried on the next change and on quit. | history.js:39-75 | UNIT |
 | HIST-06 | Saved after every answer and every agent run; flushed on quit. | main.js:1858-1861,2253,2955 | SMOKE+ |
 
 ## 21. Updates (UPD)
@@ -585,7 +587,7 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 | UPD-01 | Feed: newest published (non-draft, non-prerelease) GitHub release of aevalmere/aevalbuddy, read without the rate-limited API (atom feed + `releases/download/v<ver>/latest.yml`). | updater.js:1-35; electron-builder.yml publish | SMOKE:updateFeed |
 | UPD-02 | Schedule: first check 20 s after launch (2 s with a test feed), every 4 h, 15 s after resume if stale (> 30 min) or failing, on network return; never while an answer streams (defer 60 s). No background check under smoke/shots. | updater.js:41-50,263-300,456-489 | UPDATE |
 | UPD-03 | States: dev, idle, checking, current, downloading, ready, offline, retrying; state object fields as listed. | updater.js:66-83 | UNIT |
-| UPD-04 | Backoff 2, 5, 15, 30, 60, 120 min then 4 h, +0..10 % jitter. | updater.js:50,254-259 | UNIT |
+| UPD-04 | Backoff 2, 5, 15, 30, 60, then 120 min for every later failure (it stays at 120 min plus jitter), +0..10 % jitter. | updater.js:50,254-259 | UNIT |
 | UPD-05 | classify: offline (net/DNS/connection error family), limited (429/rate limit), corrupt (checksum), server (else). | updater.js:227-240 | SMOKE:updateClassify |
 | UPD-06 | Notes snippet: up to 3 `<li>` items joined ` · `, else first paragraph; entities decoded; 180 chars max cut at a word with ellipsis. | updater.js:190-218 | SMOKE:updateNotes |
 | UPD-07 | Download in background; sha512 (base64) verified against latest.yml; re-hash logged with match=; full installer, never web stub. | updater.js:326-411 | UPDATE |
@@ -604,7 +606,10 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 |---|---|---|---|
 | SYS-01 | Presence toast once per fresh install, or whenever the main chord is taken; click opens Settings > Shortcuts (taken) or the bar (fresh). Never under smoke. | main.js:2353-2368 | SMOKE+ (toast as data) |
 | SYS-02 | decidePresence: the first boot with no key and no tour shown turns on launch at login and queues the notice; upgrades keep their setting. | store.js:358-366 | MIGRATE |
-| SYS-03 | Launch at login: HKCU Run entry pointing at the installed exe with no args, written at boot and when toggled; only when packaged (`launchAtLoginLive`). Same value name as Electron (`com.aevalbuddy.app`, Electron's default `name` is the AppUserModelID) so upgrades replace rather than duplicate; StartupApproved respected. | main.js:1946-1958 | RUNNER (reg query after toggle) |
+| SYS-03 | Launch at login: HKCU Run entry pointing at the installed exe with no args, written at boot and when toggled; only when packaged (`launchAtLoginLive`). Same value name as Electron (`com.aevalbuddy.app`, Electron's default `name` is the AppUserModelID) so upgrades replace rather than duplicate; StartupApproved respected at boot; turning the setting on in Settings marks it enabled (D-11).
+
+Add (note to the row):
+The Settings switch writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run` value `com.aevalbuddy.app` = REG_BINARY `02` and eleven zero bytes (Task Manager's "Enabled"), as Electron's `setLoginItemSettings` did. Boot (`autostart::sync`) writes only the Run value. D-11: an explicit toggle means the person wants it to run, while a Task Manager disable must survive every restart (Electron rewrote StartupApproved on every launch). | main.js:1946-1958 | RUNNER (reg query after toggle) |
 | SYS-04 | Clipboard read/write (key detection, copy buttons, agent tools). | main.js:2567-2683 | UNIT |
 | SYS-05 | Open external URLs in the default browser. | main.js:2499-2504 | UNIT |
 
@@ -747,3 +752,131 @@ will no longer force the solid tier.
 Item count: 457 numbered items in sections 1-23, 25 and 26 (9 NEW, superseding 11 earlier items), plus
 about 196 distinct smoke labels in section 24, about 653 checks in all. Any item added later takes the next free number in its section; numbers are
 never reused.
+
+## 27. Rust port: status, evidence and notes
+
+Folded from the lanes' entries files at the final merges. Each line names the backlog item (B-xxx) or decision (D-xx) and what it changed or proved for that row; the row above stays the Electron behaviour unless a replacement was folded into it.
+
+### LIFE-01
+
+- B-012: The second copy calls AllowSetForegroundWindow(ASFW_ANY) before it writes `open`, and keeps trying for 15 s. The first copy serves the pipe from before the app is built (an `open` during boot is answered when setup is done), reads one line with a 2 s limit on its own task (a client that says nothing holds up nobody), and retries a failed pipe creation, 100 ms doubling to 5 s.
+- B-012: status: UNIT instance::tests::stalled_client_does_not_block_server, instance::tests::an_open_during_boot_is_answered_once_ready; SMOKE+ singleInstance pending the platform probe (K-30)
+
+### LIFE-03
+
+- B-015: `run()` appends `--force-device-scale-factor=<AEVAL_SHOT_SCALE>` to WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS (keeping any value already there) before any webview exists. The window-maths half is B-025 (windows).
+
+### LIFE-05
+
+- B-013: Every main-thread entry point the platform owns runs inside `crash::guard` (page load, window events, global shortcuts, tray and context-menu clicks, main-thread tasks, exit), so a panic there is logged and survived. A panic on the main thread outside a guard cannot be survived (it would unwind into a window procedure): the toast says "AevalBuddy hit a problem and has to restart." and is shown before the process ends.
+- B-013: status: UNIT crash::tests::guard_catches_and_logs, crash::tests::toast_follows_the_thread; SMOKE crashLogged and SMOKE+ crashMainThread pending the platform probe (K-30)
+
+### LIFE-06
+
+- B-011: After the boot apply, each action whose chord could not be registered is written to stderr (`hotkeys::report_failures`).
+
+### LIFE-10
+
+- B-086: `lib.rs` `stop_for_exit()` stops a running task through the agent service with "Stopped because AevalBuddy quit." on RunEvent::Exit (the port used the reasonless stop hook).
+- B-086: status: code done; SMOKE+ quitStopReason pending the platform probe (K-26, K-30)
+
+### WIN-14
+
+- B-077: The bridge shows the menu wherever a page did not handle `contextmenu`: `ui:context-menu {kind:'edit'}` on a text field, `{kind:'selection'}` on a non-empty selection; `menu::edit_template` is the template as data (Electron roles). The context menu's pending actions are swapped in after the items are made and taken out with one lock, never held across a main-thread round trip (B-076).
+- B-077: status: UNIT menu::tests::edit_and_selection_templates_match_main_js, menu::tests::pending_lock_not_held_while_building; SMOKE+ contextMenuEditable pending the platform probe (K-30)
+
+### KEY-09
+
+- B-011: status: done; evidence: UNIT hotkeys::tests::escape_depth_counter, hotkeys::tests::apply_skips_unchanged_set, hotkeys::tests::a_taken_chord_is_retried_alone, hotkeys::tests::capture_mode_lets_go_and_keeps_results
+
+### KEY-12
+
+- B-177: status: done (Rust half); evidence: UNIT hotkeys::tests::taken_returns_free_alternatives, hotkeys::tests::validation_matches_main_js
+
+### TRAY-01
+
+- B-080: status: UNIT tray::tests::icon_matches_scale, tray::tests::icons_decode
+
+### TRAY-02
+
+- B-080, D-07: status: UNIT tray::tests::double_click_opens_once; SMOKE+ trayClick pending the platform probe
+
+### TRAY-03
+
+- B-080: Wording follows tasks and conversations (C-83, C-84): `Stop the task` (Esc) replaces `Stop agent`, `New conversation` replaces `New chat`, and `Close all answer windows` (C-85, U38) follows it and calls `outputs::close_all` (K-04). The idle order is now `Ask, find, or do…`, `Ask about an area…`, `Find on screen…`, `Do a task…`, `-`, `Hide the overlay`, `New conversation`, `Close all answer windows`, `History…`, `-`, `Settings…`, `Help and feedback…`, check item, `-`, `Quit AevalBuddy`.
+- B-080: status: UNIT tray::tests::idle_order, tray::tests::ready_running_hidden; SMOKE trayOrder pending the platform probe
+
+### TRAY-05
+
+- B-080: Each check's 10 s "Up to date" is cleared only by its own timer, so a second check inside the 10 s keeps its full 10 s.
+- B-080: status: UNIT tray::tests::second_check_keeps_its_ten_seconds; SMOKE+ trayCheckStates pending the platform probe
+
+### TRAY-07
+
+- B-080: The menu is made once and edited in place on the main thread: only rows whose text or enabled state changed are touched, rows are replaced inside the same menu when the set changes (never `set_menu`, so an open menu is not swapped), download progress redraws at most once a second, and a refresh never blocks its caller.
+- B-080: status: UNIT tray::tests::refresh_only_touches_changed_items, tray::tests::progress_is_throttled_but_other_edits_are_not
+
+### STORE-01
+
+- B-082: The v1 fields are the OpenRouter key's source of truth in both builds: `get_provider_key("openrouter")` reads `apiKeyEncrypted` / `apiKeyPlain`, and every load rewrites `apiKeys.openrouter` from them when they differ, so a key the Electron build changed or cleared after a rollback stays changed or cleared after the upgrade back.
+- B-082: status: UNIT store::tests::v1_fields_win_after_rollback
+
+### STORE-14
+
+- D-16, B-087: status: done; evidence: UNIT store::tests::fresh_file_gets_every_default_in_order, store::tests::stored_input_width_is_kept
+
+### STORE-26
+
+- B-083: An entry is cut at 500 UTF-16 units, as JavaScript's `slice(0, 500)`; a surrogate pair is kept whole or dropped, never split.
+- B-083: status: UNIT store::tests::input_history
+
+### STORE-40
+
+- B-004: status: done; evidence: UNIT crypto::tests::unreadable_local_state_is_left_alone, crypto::tests::bom_local_state_keeps_its_key, crypto::tests::local_state_is_created_then_reused
+
+### STORE-44
+
+- B-001, B-002: status: done; evidence: UNIT store::tests::concurrent_sets_never_lose_or_corrupt, store::tests::parse_failure_recovers_from_bak, store::tests::invalid_utf8_is_read_lossy_not_reset, store::tests::unreadable_file_disables_saving, durable::tests::replaces_and_leaves_no_temp
+
+### FILE-03
+
+- B-003, D-12: status: done; evidence: UNIT history::tests::corrupt_file_is_kept_aside_not_overwritten, history::tests::steady_saves_still_write_within_400ms, history::tests::flush_now_and_timer_never_overlap
+
+### HIST-01
+
+- B-083: The 4 MB budget counts UTF-16 units of the serialized JSON, as `JSON.stringify(list).length` did (the port counted UTF-8 bytes and dropped CJK history early). Each entry is measured once per trim, so trimming is linear. Titles cut at 89 UTF-16 units plus `…` without splitting a surrogate pair. `history:list` rows carry only what history.js reads (id, at, title, asked, reply).
+- B-083: status: UNIT history::tests::cjk_budget_matches_electron, history::tests::trim_result_serializes_under_4mb, history::tests::emoji_title_cut_on_unit_boundary; SMOKE historyTitle, historySearch pending the platform probe
+
+### HIST-05
+
+- B-003: status: done; evidence: UNIT history::tests::corrupt_file_is_kept_aside_not_overwritten, history::tests::unreadable_file_is_never_written
+
+### HIST-06
+
+- D-12: history writes throttle from the first change (400 ms, never postponed by later changes) on one long-lived writer thread; `flush_now` on quit takes the same write lock, so the two never overlap. Reason: Electron's history.js throttled; the Rust port had become a debounce that a steady stream of saves could postpone forever, with a thread per change.
+
+### UPD-02
+
+- B-017: Every failed check or download is one attempt: it counts toward the backoff and schedules the next timer even when its message matches the last failure's (the port deduped by message and could stop rescheduling, leaving a manual check at `checking`).
+- B-017: status: UNIT updater::tests::identical_failures_both_reschedule
+
+### UPD-04
+
+- B-079: status: done; evidence: UNIT updater::tests::backoff_table
+
+### UPD-07
+
+- B-079: A latest.yml without a sha512 is refused before the download (nothing unverified is installed). `in_flight` is cleared by a drop guard, so a check that panics never blocks the next one. An empty AEVAL_OFFLINE means online, as in Electron (LIFE-13, LIFE-17).
+- B-079: status: UNIT updater::tests::missing_sha512_refuses, updater::tests::in_flight_clears_on_panic, updater::tests::empty_offline_env_is_online
+
+### UPD-15
+
+- B-016: The installer finds the Electron entry by the first ten characters of DisplayName ("AevalBuddy <version>") and its folder from UninstallString, falling back to InstallLocation; it still requires "Uninstall AevalBuddy.exe" in that folder, runs it silently and waits.
+
+### SYS-03
+
+- B-081, D-11: status: SMOKE+ launchAtLogin pending the platform probe
+
+### PKG-01
+
+- B-085: status: ported (one click via the copied template); evidence: installer job `[INSTALL] oneClick=ok` (harness B-052)

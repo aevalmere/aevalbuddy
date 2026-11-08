@@ -106,6 +106,8 @@ keycaps, capsule (999) for chips, buttons and the search field. The bar is a 56 
 Borders: none. A glass edge is its rim and its shadow. Separators inside a group are hairlines inset
 from the text's left edge, `--px` high, so they stay one physical pixel at 100%, 125% and 150%.
 
+New profiles start with a 600 px bar (the `inputWidth` default; windows' `PANEL_WIDTH` matches). At 420 px the close button was hidden and a question had about 200 px after the token and the icons; Spotlight is about 680 px and Raycast 750. A width a person already stored is kept.
+
 ## Motion
 
 | Token | Value | Used for |
@@ -942,3 +944,11 @@ morph curve). 200 ms fits inside the window's own wait before it shrinks to the 
 - `-webkit-app-region` is gone from the stylesheets; `data-drag` and `frame.js` do its job under WebView2.
 - The bridge takes back WebView2 behaviour Electron never had: its context menu, reload, find bar, print,
   zoom and back keys, and navigation by a dropped file.
+
+## Rust rewrite: decisions and notes from the lanes
+
+Folded from the lanes' entries files at the final merges: entries for a section this document did not have.
+
+### Decisions
+
+D-03: The NSIS installer is one click like Electron's oneClick build. `src-tauri/installer.nsi` is a copy of tauri-bundler 2.10.4's template (tauri-cli 2.12.4) with the welcome, license, folder and finish pages removed; a run without `/S` or `/P` takes Tauri's passive path (progress bar, per-user folder) and starts the app when it finishes. Reason: an existing Electron user re-running the download expects no wizard, and the passive path is code Tauri already ships and tests. Re-copy the template whenever TAURI_CLI moves.

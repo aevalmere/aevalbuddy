@@ -474,6 +474,9 @@ No new listen channels.
   WebView2 context menu outside text fields, F5/Ctrl+R reload, Ctrl+F find bar, Ctrl+P print, Ctrl+S/U/J/H/
   O/N/T/W/L/D/E, F3/F7/F11/F12, Alt+Left/Right/Home, Ctrl+wheel zoom and drop-to-navigate.
 
+- **Security surface (D-37).** `capabilities/default.json` grants the pages only event listen/unlisten and the window calls `frame.js` makes; `core:default` and every menu, tray, path, image and app permission are gone. `app.security.csp` repeats the pages' own meta CSP, so the header and the meta tag agree and frames still load over both forms of `aeval-frame`. An internal `aeval-navigation` plugin refuses any navigation away from `tauri.localhost` in every webview. Under a test run (`quiet_run`) one runtime capability adds `core:event:allow-emit`, because `Cx::eval` answers through an event; a shipped run never has it. Reason: a page that is ever made to run hostile content can only listen, move its own window and call the allowlisted channels.
+Status (B-078, D-37): UNIT tests::navigation_stays_in_the_app; SMOKE+ navigationBlocked pending the platform probe
+
 ### 10.4 Verification
 
 `.github/workflows/ui-shots.yml` runs `tools/ui-shots/bridge.test.mjs` (the bridge under node with a fake
