@@ -1,10 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Every AevalBuddy page: core events for the window.aeval bridge, and the window moves renderer/frame.js starts (title-bar drag, edge and corner resize, double-click to maximise).",
+  "description": "Every AevalBuddy page: core events for the window.aeval bridge, and what renderer/frame.js calls (title-bar drag, edge and corner resize, double-click to maximise, the maximized state and its resize events).",
   "windows": ["*"],
   "permissions": [
     "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
     "core:window:allow-toggle-maximize",
