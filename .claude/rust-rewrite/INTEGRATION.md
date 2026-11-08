@@ -70,12 +70,13 @@ How the folds are applied: an exact `Replace "..." with:` is replaced in place. 
 | windows | `8886c02` (#19) | `0069af0` | yes |
 | capture | `2734165` (#27, rust/capture-fix) | `bf07bec` | yes |
 | llm | `4e95f64` (#24) | `535f6bb` | yes |
-| agent | waiting for its final green sha (main forwards it) | | |
+| agent | `9a32c00` (final merge; green in run 42524337034) | `9a32c00` | yes |
 | bar | `688cb40` (#20) | `688cb40` (no newer tip) | yes |
 | sheet | `49f1eeb` (#25) | `49f1eeb` (no newer tip) | yes |
 | settings | `493483b` (#17) | `493483b` (no newer tip) | yes |
 | harness | `76c8c95` (#18) | `b01e049` | yes |
 
+- All nine lanes are final-merged and `entries/` is empty. Pushes: `fc4fbed` (platform, windows, capture, llm; green in run 42522288599), `60f7382` (bar, sheet, settings, harness; green in run 42523176242), then agent.
 - Not merged, on purpose: harness's uncommitted B-010/B-052 work, left as `git stash@{0}` in the harness worktree and as `harness-wip-b010-b052.patch` in the coordinator's scratchpad. It needs its own lane run to finish.
 - Follow-ups, not blockers: sheet B-164 sends `output:resize` until windows' B-027 lands. `uiaTree` timed out once on `88bf490` and passed on `8f0524e`.
 - When rust is green with Build installer and Smoke passing, the installer is the `aevalbuddy-tauri-nsis` artifact on that sha's rust workflow run (the "Run:" line `ci-wait` prints). `8f0524e`'s is in run 42520232253.
