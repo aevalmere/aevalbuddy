@@ -106,8 +106,12 @@ fn retry_after_of(x: &Value) -> Option<String> {
 
 /// The reply's body arrives only after `ms` of silence.
 fn stall(reply: Reply, ms: u64) -> Reply {
-    let quiet = futures_util::stream::once(tokio::time::sleep(Duration::from_millis(ms)))
-        .filter_map(|_| async { None::<Result<Vec<u8>, ApiError>> });
+    // The timer starts when the body is first read, on whichever runtime
+    // reads it.
+    let quiet = futures_util::stream::once(async move {
+        tokio::time::sleep(Duration::from_millis(ms)).await;
+    })
+    .filter_map(|_| async { None::<Result<Vec<u8>, ApiError>> });
     Reply {
         status: reply.status,
         retry_after: reply.retry_after,
@@ -699,12 +703,16 @@ mod tests {
         let body = json!({ "model": "m", "stream": true });
         let cancel = CancellationToken::new();
         let meta = Meta::purpose("answer");
-        let reply = block(fake.respond(Provider::OpenRouter, &body, &cancel, &meta)).unwrap();
-        assert_eq!(reply.status, 200);
-        let mut stream = reply.body;
-        let first = block(async {
-            tokio::time::timeout(Duration::from_millis(50), stream.next()).await
+        // One runtime for the reply and the read: the stall's timer belongs
+        // to the runtime that polls it.
+        let (status, first) = block(async {
+            let reply = fake.respond(Provider::OpenRouter, &body, &cancel, &meta).await;
+            let reply = reply.unwrap();
+            let mut stream = reply.body;
+            let wait = Duration::from_millis(50);
+            (reply.status, tokio::time::timeout(wait, stream.next()).await)
         });
+        assert_eq!(status, 200);
         assert!(first.is_err(), "the body arrived during the stall");
     }
 
