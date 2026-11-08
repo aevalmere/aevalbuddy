@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42464806600,
+  "run_id": 42465016142,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464806600",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465016142",
   "event": "push",
-  "sha": "db41550a7aa4c4f56cd163acfdb261b1f175d9e4",
+  "sha": "183ade6829bc4a995ffcc13f6244a801251f79fa",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
   "conclusion": "cancelled",
   "failed": [],
-  "finished": "2026-11-08T08:56:12Z",
+  "finished": "2026-11-08T09:00:04Z",
   "error_lines": 0,
   "steps": [
     {
@@ -60,12 +60,12 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "success",
+      "outcome": "cancelled",
       "log": "test.log"
     },
     {
       "name": "Build installer",
-      "outcome": "cancelled",
+      "outcome": "skipped",
       "log": ""
     },
     {

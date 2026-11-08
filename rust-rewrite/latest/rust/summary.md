@@ -1,11 +1,11 @@
 # rust: cancelled
 
 - Workflow: rust
-- Run: [42464806600](https://github.com/aevalmere/aevalbuddy/actions/runs/42464806600), attempt 1, on push
-- Commit: db41550a7aa4c4f56cd163acfdb261b1f175d9e4
+- Run: [42465016142](https://github.com/aevalmere/aevalbuddy/actions/runs/42465016142), attempt 1, on push
+- Commit: 183ade6829bc4a995ffcc13f6244a801251f79fa
 - Ref: rust-rewrite
 - Conclusion: **cancelled**
-- Finished: 2026-11-08T08:56:12Z
+- Finished: 2026-11-08T09:00:04Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -18,8 +18,8 @@
 | Format | success |  |
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | success | [test.log](test.log) |
-| Build installer | cancelled |  |
+| Unit tests | cancelled | [test.log](test.log) |
+| Build installer | skipped |  |
 | Scaffold smoke | skipped |  |
 | Capture check | skipped |  |
 | Desktop selfcheck | skipped |  |
