@@ -99,6 +99,11 @@ fn items_for(p: &Value) -> Vec<(&'static str, Action)> {
     items
 }
 
+/// The labels one right-click would show (smoke `contextMenus`).
+pub fn item_labels(p: &Value) -> Vec<&'static str> {
+    items_for(p).into_iter().map(|(label, _)| label).collect()
+}
+
 /// main.js attachContextMenu, by Electron role (`-` is a separator): a
 /// text field gets the edit commands, a selection Copy and Select all.
 pub fn edit_template(kind: &str) -> &'static [&'static str] {

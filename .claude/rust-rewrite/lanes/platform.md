@@ -300,10 +300,13 @@ Stop when every item below and the standing labels task is green on CI at your b
 - d7e5e5f (P0 and P1 batch): Unit tests passed; Format failed on one assert in hotkeys.rs and Clippy on `fetch_update` (deprecated in Rust 1.99, renamed `try_update`) and a `manual_contains` in a test; Capture check and Desktop selfcheck only failed because no exe was built behind Clippy. Fixed in the next push.
 - 8cdeb18: Format and Unit tests passed (including the B-081..B-083 tests); Clippy failed on `try_update`, which is newer than the crate's MSRV 1.77 (`incompatible_msrv`). Replaced by a compare-exchange loop.
 - ea9eefe: every step green, Build installer and Smoke included (run 42490753900). Green there on their UNIT acceptance: B-001, B-002 (all of B-001/2 acceptance), B-004, B-079, B-082, B-177 fully; B-003, B-011, B-012, B-013, B-017, B-076, B-077, B-083 on UNIT only, their SMOKE labels wait for the probe port below.
-- In progress: B-080, B-078 (pushed next); the smoke-label port; B-081 and B-086 (code done, SMOKE+ probes pending); B-014, B-015, B-016, B-085, B-088.
+- ca684b5 (run 42492499739): Format, Clippy, Unit tests, Build installer, Smoke and Capture check passed, so the narrowed capabilities, the CSP and the tray rewrite hold in the real exe (`glassLoaded`, `scaffold.pages`). Desktop selfcheck failed only on `desktopReady` at 5912 ms against its 5000 ms budget; the same check took 830 ms at ea9eefe and 823 ms at f32ffa8, and ca684b5 differs from f32ffa8 by one rustfmt reflow, so this is a runner stall.
+- Green on UNIT at ca684b5, SMOKE labels in the port below: B-078 (`navigation_stays_in_the_app`), B-080 (`refresh_only_touches_changed_items`, `double_click_opens_once`), B-084 (`key_storage`).
+- In progress: the smoke-label port (B-003, B-011, B-012, B-013, B-017, B-076, B-077, B-078, B-080, B-081, B-083, B-088 wait on it); B-085; B-014, B-015, B-016, B-086.
 
 ## Blockers
 
 (Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
 
-- Every SMOKE acceptance (C1 counts as green under the coordinator's rule): the rust workflow's Build installer step fails with `failed to bundle project: http status: 504` while the Tauri bundler downloads nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll (runs for 3e74cba and caadb51), and Scaffold smoke is skipped behind it; a GitHub release download outside my files; unblocked when the download succeeds again, or by caching %LOCALAPPDATA%\tauri\NSIS in rust.yml (not mine).
+- B-014 (`rendererReload`): `crash::guard_webview` is not called from `create_page` on rust-rewrite; the windows lane owns that call (its B-090, on origin/rust/windows only), and attaching it from the probe would prove nothing about the shipped wiring; unblocked when windows B-090 merges into rust-rewrite.
+- B-086 (`quitStopReason`): the Smoke step does not set `AEVAL_FAKE_LLM`, and `Llm::from_env()` reads it once at boot, so a probe cannot start a fake run; rust.yml belongs to harness; unblocked by `AEVAL_FAKE_LLM` in the Smoke step, or by the child-process route if that proves workable.

@@ -558,10 +558,20 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     let Some(action) = action else {
         return;
     };
+    if action == ESCAPE {
+        ESCAPE_FIRED.fetch_add(1, SeqCst);
+    }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         crate::windows::on_hotkey(&app, &action);
     });
+}
+
+/// How many times the global Escape has fired (smoke `escapeSuspend`).
+static ESCAPE_FIRED: AtomicU32 = AtomicU32::new(0);
+
+pub fn escape_fired() -> u32 {
+    ESCAPE_FIRED.load(SeqCst)
 }
 
 /// KEY-09: while the engine injects a synthetic Escape, ours lets go. Waits

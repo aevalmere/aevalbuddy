@@ -501,10 +501,48 @@ fn on_icon(tray: &tauri::tray::TrayIcon, event: &TrayIconEvent) {
     // SAFETY: GetDoubleClickTime takes no arguments and only reads a setting.
     let double_click_ms = u64::from(unsafe { GetDoubleClickTime() });
     if opens(&LAST_OPEN, crate::state::now_ms(), double_click_ms) {
+        CLICK_OPENS.fetch_add(1, SeqCst);
         let app = tray.app_handle().clone();
         tauri::async_runtime::spawn(async move {
             crate::windows::trigger_or_trail(&app);
         });
+    }
+}
+
+/// How many clicks have opened the bar (smoke `trayClick`).
+static CLICK_OPENS: AtomicU64 = AtomicU64::new(0);
+
+pub fn click_opens() -> u64 {
+    CLICK_OPENS.load(SeqCst)
+}
+
+/// Delivers what Windows sends for one double click on the icon, in order:
+/// a click, the double click, and a second click (smoke `trayClick`).
+pub fn deliver_double_click(app: &AppHandle) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let id = tray.id().clone();
+    let position = tauri::PhysicalPosition::new(0.0, 0.0);
+    let rect = || tauri::Rect {
+        position: tauri::Position::Physical(tauri::PhysicalPosition::new(0, 0)),
+        size: tauri::Size::Physical(tauri::PhysicalSize::new(0, 0)),
+    };
+    let click = TrayIconEvent::Click {
+        id: id.clone(),
+        position,
+        rect: rect(),
+        button: MouseButton::Left,
+        button_state: MouseButtonState::Up,
+    };
+    let double = TrayIconEvent::DoubleClick {
+        id,
+        position,
+        rect: rect(),
+        button: MouseButton::Left,
+    };
+    for event in [&click, &double, &click] {
+        on_icon(&tray, event);
     }
 }
 
