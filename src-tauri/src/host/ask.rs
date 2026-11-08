@@ -749,28 +749,18 @@ async fn models_list(p: &Value) -> Value {
     result
 }
 
-/// `settings:test-key`: the named provider's key, else the one in use.
-async fn test_key(p: &Value) -> Value {
-    let sv = services();
-    let named = p
-        .get("provider")
-        .and_then(Value::as_str)
-        .and_then(Provider::from_id);
-    let provider = named
-        .or_else(|| active(&*sv.settings).map(|a| a.provider))
-        .unwrap_or(Provider::OpenRouter);
-    let key = store::get().get_provider_key(provider.id());
-    sv.llm.test_key(provider, &key).await.to_json()
-}
-
 /// IPC rows query:submit, query:cancel, query:retry, models:list,
-/// settings:test-key; None for any other channel.
+/// settings:test-key, after the Settings rows `host::settings::route` owns
+/// (contract K-15); None for any other channel.
 pub async fn route(
     app: &AppHandle,
     label: &str,
     channel: &str,
     p: &Value,
 ) -> Option<Result<Value, String>> {
+    if let Some(r) = super::settings::route(app, label, channel, p).await {
+        return Some(r);
+    }
     let out = match channel {
         "query:submit" => {
             let q = text_of(&p["question"]);
@@ -805,7 +795,7 @@ pub async fn route(
             }
         }
         "models:list" => models_list(p).await,
-        "settings:test-key" => test_key(p).await,
+        "settings:test-key" => super::settings::test_key(p).await,
         _ => return None,
     };
     Some(Ok(out))

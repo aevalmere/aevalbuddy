@@ -21,7 +21,9 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 4 | bar | C1 follow-up | `d84a9d3` | `f355865` | cancelled by #5's push | green at `db41550` | Icons as CSS masks of a well-formed `icons.svg`. Renderer only. Merged on the coordinator's call with ui-shots green and its rust run red only on an NSIS download 504 in Build installer |
 | 5 | platform | C1 | `caadb51` | `17e55bb` | cancelled by #6's push; covered by `7c88959` | n/a | `040ad93` + `3e74cba` (windows 0.62 core for webview2-com) + a Progress-only commit. At `3e74cba` every gate passed but Build installer (NSIS download 504); merged on the coordinator's rule |
 | 6 | harness | C1 | `3bc261f` | `bd5e3f7` | `7c88959`: Format, Clippy, Unit tests, Capture, Desktop green; Build installer NSIS 504, Smoke skipped | green at `7c88959` | K-30 selftest API and probes per lane, K-31 ui-shots lane files (old scenes moved into bar, sheet, settings), strict smoke step |
-| 7 | windows | C1 | `3127827` | `9c61540` | pending | n/a | `1397118` + rustfmt fix. Lane blocks in both allowlists, K-03..K-07, K-22..K-24; drops `hud:docked`, `buddy:move`, `settings:data` (B-095). At `3127827` only Build installer (NSIS 504) was red |
+| 7 | windows | C1 | `3127827` | `9c61540` | `75d531f`: Format, Clippy, Unit tests, Capture, Desktop green; Build installer NSIS 504, Smoke skipped | n/a | `1397118` + rustfmt fix. Lane blocks in both allowlists, K-03..K-07, K-22..K-24; drops `hud:docked`, `buddy:move`, `settings:data` (B-095). At `3127827` only Build installer (NSIS 504) was red |
+| 8 | llm | C1 | `3eb0c05` | `d5a640f` | pending | n/a | `e3bba78` + rustfmt/stall-test fixes + its merge of windows and harness C1 + `51b3d4e` (registers `llm::recipients` as `Hooks.overlay_extra`, K-07) + a Progress-only commit. K-15 `host::settings::route`, K-16, K-17, K-18, K-19 payload types, K-26 fake scripts. At `51b3d4e` only Build installer (NSIS 504) was red. All seven C1s are now in |
+| 9 | harness | cherry-pick | `d14b471` | `ff9f52c` | pending | n/a | NSIS seeding only (rust.yml, release.yml, `tools/seed-nsis.ps1`, `tools/nsis/nsis_tauri_utils.dll`), on the coordinator's call, because the harness tip's ui-shots fails its own `globOnClock` check. Conflicts: rust.yml took the harness side (all of its delta from rust-rewrite is NSIS and build retry); `lanes/harness.md` kept rust-rewrite's side. The rest of rust/harness merges once its tip has green ui-shots |
 
 ## Reverts
 
@@ -33,7 +35,8 @@ None.
 
 ## Open integration issues
 
-- NSIS downloads from `tauri-apps/binary-releases` return 504 on every request (since about 08:40 UTC), so Build installer fails and Smoke is skipped on every run, rust-rewrite included. Until harness's NSIS seeding fix lands, merges are judged on Format, Clippy, Unit tests, Capture check and Desktop selfcheck. Merge that fix first when it is green, then re-check rust-rewrite with Smoke running.
+- NSIS downloads from `tauri-apps/binary-releases` returned 504 on every request from about 08:40 UTC on 2026-11-08, so Build installer failed and Smoke was skipped on every run. `ff9f52c` (#9) seeds NSIS instead. Lane branches get real smoke results once they merge rust-rewrite at or after `ff9f52c`.
+- harness tip (`d14b471` and before, since `9b90864`): ui-shots fails `globOnClock` and `globOnClock-150` ("done at 336 ms=true, at 536 ms=true (open takes 440 ms)"), harness's own check of the sheet's glob timing. The coordinator has asked harness to stop failing on it; merge the rest of rust/harness only at a tip with green ui-shots.
 - Coordinator rule (standing): a C1 or checkpoint commit whose only red step is a bundler download 504 in Build installer counts as green. If rust-rewrite's own Build installer flakes the same way, push an empty commit to re-run; do not revert.
 
 ## Base

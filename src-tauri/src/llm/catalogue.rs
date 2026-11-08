@@ -218,6 +218,75 @@ fn find<'a>(all: &'a [Value], id: &str) -> Option<&'a Value> {
     all.iter().find(|m| m["id"].as_str() == Some(id))
 }
 
+/// The name people read for a model (design-ux U34): the catalogue's name
+/// without its vendor prefix and "(free)" ("Google: Gemma 4 31B (free)"
+/// reads "Gemma 4 31B"), else one made from the id ("claude-sonnet-5-5"
+/// reads "Claude Sonnet 5.5"). Ids stay in tooltips and Copy details.
+pub fn model_name(id: &str, all: Option<&[Value]>) -> String {
+    let listed = all
+        .and_then(|a| find(a, id))
+        .and_then(|m| m["name"].as_str());
+    if let Some(name) = listed {
+        let name = name.split_once(": ").map_or(name, |(_, rest)| rest);
+        let name = name.trim().trim_end_matches("(free)");
+        let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !name.is_empty() {
+            return name;
+        }
+    }
+    name_from_id(id)
+}
+
+const UPPER_WORDS: [&str; 6] = ["gpt", "glm", "vl", "it", "ai", "lfm"];
+
+fn name_word(part: &str) -> String {
+    let lower = part.to_lowercase();
+    if UPPER_WORDS.contains(&lower.as_str()) {
+        return lower.to_uppercase();
+    }
+    let has_digit = part.chars().any(|c| c.is_ascii_digit());
+    let starts_digit = part.chars().next().is_some_and(|c| c.is_ascii_digit());
+    if has_digit && (starts_digit || part.chars().count() <= 3) {
+        // "30b", "a3b", "5v", "v4"
+        return part.to_uppercase();
+    }
+    let mut chars = part.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+fn name_from_id(id: &str) -> String {
+    let last = id.rsplit('/').next().unwrap_or(id);
+    let last = last.strip_suffix(":free").unwrap_or(last);
+    let mut words: Vec<String> = Vec::new();
+    let mut prev_number = false;
+    for part in last.split('-').filter(|p| !p.is_empty()) {
+        let number = part.chars().all(|c| c.is_ascii_digit() || c == '.');
+        if let Some(prev) = words.last_mut() {
+            if number && prev_number {
+                // "5-5" is version 5.5.
+                prev.push('.');
+                prev.push_str(part);
+                continue;
+            }
+            if number && prev == "GPT" {
+                prev.push('-');
+                prev.push_str(part);
+                prev_number = true;
+                continue;
+            }
+        }
+        prev_number = number;
+        words.push(name_word(part));
+    }
+    if words.is_empty() {
+        return id.to_string();
+    }
+    words.join(" ")
+}
+
 /// True when the catalogue lists native tool calling for this model.
 pub fn supports_tools(all: Option<&[Value]>, id: &str) -> bool {
     all.and_then(|a| find(a, id)).is_some_and(lists_tools)
@@ -498,6 +567,30 @@ mod tests {
             .collect();
         let healed = pick_live(Kind::Vision, "gone", Some(&without_default));
         assert_eq!(healed, "google/gemma-4-26b-a4b-it:free");
+    }
+
+    #[test]
+    fn model_names_people_read() {
+        let all = catalogue();
+        let a = Some(all.as_slice());
+        let gemma = "google/gemma-4-26b-a4b-it:free";
+        assert_eq!(model_name(gemma, a), "Gemma 4 26B A4B");
+        assert_eq!(model_name(DEFAULT_MODEL, a), "Nemotron 3 Nano Omni");
+        assert_eq!(model_name("qwen/qwen3.7-flash", a), "Qwen3.7 Flash");
+        let cases = [
+            ("claude-sonnet-5-5", "Claude Sonnet 5.5"),
+            ("claude-haiku-5-5", "Claude Haiku 5.5"),
+            ("gpt-6.1-terra", "GPT-6.1 Terra"),
+            ("gpt-6-luna", "GPT-6 Luna"),
+            ("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite"),
+            ("gemini-4-argon", "Gemini 4 Argon"),
+            ("z-ai/glm-5v-turbo", "GLM 5V Turbo"),
+            ("nvidia/nemotron-3.5-super-vl:free", "Nemotron 3.5 Super VL"),
+            ("", ""),
+        ];
+        for (id, want) in cases {
+            assert_eq!(model_name(id, None), want, "{id}");
+        }
     }
 
     #[test]
