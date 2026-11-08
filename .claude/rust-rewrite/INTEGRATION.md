@@ -40,6 +40,7 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 23 | platform | checkpoint | `f045fc2` | `f32b46d` | `5541e36`: all green but Smoke (`buddyReload`) | green at `5541e36` | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
 | 24 | llm | checkpoint | `4e95f64` | `89a4f60` | pending | n/a | The real Settings backend (keys, status, Connect OpenRouter, failover, model lists). Merged on the coordinator's call: all green but Smoke `buddyReload`, the same known failure as `5541e36`, not llm's. `535f6bb` on top is Progress only |
 | 25 | sheet | checkpoint | `49f1eeb` | `a0ed3c0` | pending | pending | Rust and ui-shots green at the lane sha; `barAnswersTask` matches bar's exact placeholder |
+| 26 | platform | checkpoint | `b816e2d` | see `git log` | pending | n/a | Fully green at the lane sha (`suggestionsOnce=ok`). Fixes a dropped settings save: MoveFileExW refuses to replace a file another handle has open (antivirus, search indexer), so `durable::replace` falls back to `fs::rename` with a longer backoff. Likely the cause of `suggestionsOnce`'s `disk=false` on windows `0069af0`. Platform's B-112 TODO is already covered by the `ea1a0d0` seam fix. Pushed before capture's fix, superseding `cb1db3c`'s run |
 
 ## Reverts
 
