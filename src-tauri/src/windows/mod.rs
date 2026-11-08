@@ -398,6 +398,9 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
         .unwrap_or(Value::Null);
     let own = for_label.and_then(|l| s.outputs.get(l));
     let fixed = own.map(|o| o.user_height > 0.0).unwrap_or(false);
+    // B-027: what fits in this window's glass under the title bar.
+    let room = layout::output_max_height(wa);
+    let chat_max = own.and_then(|o| o.rect).map_or(room, |r| r.height) - 56.0;
     let pill_state = if s.agent.running {
         "agent"
     } else if s.busy {
@@ -425,7 +428,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
         "inputWidth": input_width,
         "outputWidth": output_width,
         "outputFixedHeight": fixed,
-        "chatMax": layout::output_max_height(wa) - 56.0,
+        "chatMax": chat_max,
         "region": region,
         "busy": s.busy,
         "barMode": s.bar_mode,
@@ -487,6 +490,7 @@ fn create_overlay(app: &AppHandle) -> tauri::Result<()> {
         resize: Resize::None,
         min: layout::PILL,
         max: layout::PILL,
+        sheet: None,
     };
     let w = create_page(app, OVERLAY, SCAFFOLD_WINDOWS[0].1, outer, meta)?;
     if let Some(h) = flags::hwnd_of(&w) {
@@ -1230,6 +1234,7 @@ fn frame_meta() -> Meta {
         resize: Resize::All,
         min: (380.0, 360.0),
         max: (0.0, 0.0),
+        sheet: None,
     }
 }
 
