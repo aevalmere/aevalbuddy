@@ -92,7 +92,7 @@ terms HWND_TOPMOST re-asserted), visible on all workspaces, content protected (W
 | POS-06 | `posFromRect`: a free drop hugs the nearer edge on each axis, keeping the offset. | main.js:340-350 | UNIT |
 | POS-07 | Nine HUD snap anchors (corners, edge midpoints, centre) at margin 16; snap only within 110 px of centre distance, nearest wins. | main.js:353-380 | SMOKE:hudSnapFound |
 | POS-08 | Expand: mode reaches the renderer before the window grows; window takes bar size at once (orb grows in-page); click-through off; focusable on; re-pin; show + focus; re-sync bounds after T_EXPAND; hotkeys re-applied. | main.js:593-619 | SMOKE:mode, SHOT:03-panel |
-| POS-09 | Collapse: aborts query and hides output unless `keepOutput`; closes Find; blur, not focusable, click-through with forwarding, show inactive; window shrinks to the pill only after T_COLLAPSE+30 ms (0 with reduced motion) so the fold plays inside the bar-sized window. | main.js:623-663 | SMOKE:pillWidthHeld, SMOKE:collapseClickable |
+| POS-09 | Collapse (D-01): the answer keeps streaming and output windows stay; closes Find; the foreground goes back to the app that had it, then not focusable, click-through with forwarding, show inactive; window shrinks to the pill only after T_COLLAPSE+30 ms (0 with reduced motion) so the fold plays inside the bar-sized window. | main.js:623-663 | SMOKE:pillWidthHeld, SMOKE:collapseClickable |
 | POS-10 | Show output: first open sets final bounds and shows inactive, then syncs after T_OUT_IN; later opens glide (`resizeOutput`). Hide is immediate, never animated. | main.js:667-732 | SHOT:04-answer |
 | POS-11 | Output growth glides over T_OUT_GROW and re-applies a height reported mid-glide when it lands (the "window stopped growing" bug). | main.js:736-748 | SMOKE:answerFollowsTranscript |
 | POS-12 | Docked output follows the bar immediately, but never cuts short a glide in flight. | main.js:750-760 | SMOKE+:dockFollows |
@@ -169,7 +169,7 @@ same rejection text; the allowlist is unit-tested against preload.js (`ipc::test
 | ID | Channel | Behaviour and return shape | Source | Verify |
 |---|---|---|---|---|
 | IPC-01 | `overlay:trigger` | Trail if agent runs, else open bar unlocked. | main.js:2378-2384 | SMOKE+ |
-| IPC-02 | `overlay:collapse` | Exit HUD if in HUD, else collapse. | 2434-2437 | SMOKE+ |
+| IPC-02 | `overlay:collapse` | Exit HUD if in HUD, else collapse (POS-09 under D-01: no abort, no output hidden). | 2434-2437 | SMOKE+ |
 | IPC-03 | `overlay:resize` {height} | Panel only; remember height; skip while gliding; set bounds; follow docked output. | 2438-2445 | SMOKE:answerFollowsTranscript |
 | IPC-04 | `overlay:set-ignore` {ignore} | Pill/panel only: click-through with forwarding. | 2452-2455 | SMOKE:collapseClickable |
 | IPC-05 | `overlay:open-settings` | Open Settings. | 2469 | SMOKE:settingsWindow |
@@ -185,7 +185,7 @@ same rejection text; the allowlist is unit-tested against preload.js (`ipc::test
 | IPC-15 | `region:cancel` | Cancel selection. | region.js:144-147 | SMOKE:regionSelectorCancels |
 | IPC-16 | `overlay:open-history` | Open History. | 2485 | SHOT:16 |
 | IPC-17 | `history:list` {query} | {rows:[{id, at, title, model, count, asked, reply}]} newest first, query matches title and every message. | 2486-2488, history.js:146-172 | SMOKE:historySearch |
-| IPC-18 | `history:open` {id} | Reopen conversation as live chat; {ok}. | 2489, 1921-1942 | SMOKE+ |
+| IPC-18 | `history:open` {id} | Reopen conversation as live chat, about the whole screen: the picked area is cleared, and only the window it lands in stops its Ask; {ok}. | 2489, 1921-1942 | SMOKE+ |
 | IPC-19 | `history:remove` {id} | {ok}. | 2490 | SMOKE:historyRemove |
 | IPC-20 | `history:clear` | {ok}. | 2491 | SMOKE:historyCleared |
 | IPC-21 | `history:close` | Close window. | 2492 | SMOKE+ |
@@ -262,7 +262,7 @@ synchronously. Payload shapes unchanged. Allowlist: preload.js:98-136, unit-test
 |---|---|---|---|
 | EVT-01 | `overlay:state` | overlay, output | main.js:807-811 |
 | EVT-02 | `hud:snapped` {} | overlay or output | main.js:1027,1052,1059,1083 |
-| EVT-03 | `hud:docked` {docked} | output | main.js:851,1051,1063,1082 |
+| EVT-03 | `hud:docked` {docked} | removed from both allowlists: no page listens and the Tauri port never sends it (output windows float on their own, REQUESTS #11) | main.js:851,1051,1063,1082 |
 | EVT-04 | `query:start` {gen} | output | main.js:1540 |
 | EVT-05 | `query:stage` {gen,label}: `Reading your screen`, `Busy — reading with X`, `Thinking`, `Busy — thinking with X`, `Answering directly`, `Busy — asking X` | output | main.js:1589-1669 |
 | EVT-06 | `query:delta` {gen,text} (directive-free) | output | main.js:1572 |
@@ -277,8 +277,8 @@ synchronously. Payload shapes unchanged. Allowlist: preload.js:98-136, unit-test
 | EVT-15 | `buddy:show` payload | buddy | cursor-buddy.js:84,143,189,280 |
 | EVT-16 | `buddy:hide` | buddy | cursor-buddy.js:297 |
 | EVT-17 | `buddy:done` | buddy | cursor-buddy.js:347 |
-| EVT-18 | `buddy:move` | (allowlisted, currently unsent; keep in allowlist) | preload.js:116 |
-| EVT-19 | `settings:data` | (allowlisted, currently unsent; keep) | preload.js:117 |
+| EVT-18 | `buddy:move` | removed from both allowlists: never sent; `ipc::tests::every_listen_channel_has_a_sender` keeps unsent channels out | preload.js:116 |
+| EVT-19 | `settings:data` | removed from both allowlists: never sent; settings read `settings:get` | preload.js:117 |
 | EVT-20 | `update:state` state | settings | main.js:2872 |
 | EVT-21 | `find:hits` {gen, query, hits, current} | output, overlay | find.js:305 |
 | EVT-22 | `find:state` {gen, open, status, lines, ...} | output, overlay | find.js:306,785 |
@@ -785,6 +785,9 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 - B-077: The bridge shows the menu wherever a page did not handle `contextmenu`: `ui:context-menu {kind:'edit'}` on a text field, `{kind:'selection'}` on a non-empty selection; `menu::edit_template` is the template as data (Electron roles). The context menu's pending actions are swapped in after the items are made and taken out with one lock, never held across a main-thread round trip (B-076).
 - B-077: status: UNIT menu::tests::edit_and_selection_templates_match_main_js, menu::tests::pending_lock_not_held_while_building; SMOKE+ contextMenuEditable pending the platform probe (K-30)
 
+### POS-09
+
+
 ### KEY-09
 
 - B-011: status: done; evidence: UNIT hotkeys::tests::escape_depth_counter, hotkeys::tests::apply_skips_unchanged_set, hotkeys::tests::a_taken_chord_is_retried_alone, hotkeys::tests::capture_mode_lets_go_and_keeps_results
@@ -815,6 +818,21 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 
 - B-080: The menu is made once and edited in place on the main thread: only rows whose text or enabled state changed are touched, rows are replaced inside the same menu when the set changes (never `set_menu`, so an open menu is not swapped), download progress redraws at most once a second, and a refresh never blocks its caller.
 - B-080: status: UNIT tray::tests::refresh_only_touches_changed_items, tray::tests::progress_is_throttled_but_other_edits_are_not
+
+### IPC-02
+
+
+### IPC-18
+
+
+### EVT-03
+
+
+### EVT-18
+
+
+### EVT-19
+
 
 ### STORE-01
 

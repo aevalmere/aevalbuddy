@@ -427,6 +427,9 @@ breaks while the ports land.
 
 No new listen channels.
 
+The per-lane blocks (BACKLOG "Hotspots") follow the split (d) channels in both allowlists, in the order windows, capture, llm, agent, each between `// ---- lane: <name> ----` and `// ---- end: <name> ----`. `ipc::tests::lane_blocks_match_preload` keeps the two files' markers identical.
+Windows lane, invoke: `settings:set-text-scale`, `output:blur`, `output:cycle-target`, `output:close-all`, `output:last-answer`, `output:undo-reset`, `output:glass`, `window:nudge`, `bar:dirty`, `bar:ready`, `bar:prefill-open`, `a11y:announce`. Listen: `output:meta`, `ui:text-scale`, `bar:clear`, `bar:note`, `a11y:say`.
+
 ### 10.2 Extended payloads (fields added, none renamed)
 
 - `overlay:state.hasSentFirstRequest: bool` (REQUESTS.md 3). New store key `hasSentFirstRequest`, default
@@ -440,6 +443,21 @@ No new listen channels.
   into `agent:continue {text}` (asking) or `agent:continue {}` (plan/paused, empty field) for the run in the
   focused output window.
 - `settings:get` gains `glassIntensity`.
+
+- `overlay:state.target`: `{label, title, kind}` of the output the bar's next question continues, or null. `kind` is `chat`, `find` or `trail`; `title` is the first question (whitespace collapsed, 90 characters), else `New conversation`, `Find` or `Task`. `overlay:state.visibleOutputs`: how many output windows are open and not hidden with the app (K-05).
+- `overlay:state` also carries whatever the `overlay_extra` hook returns, merged over the core fields; llm adds `recipients` (K-07).
+- `output:meta {grow, front, target}` to each output when one of its values changes: `grow` is `down`, or `up` when the window sits above the bar, so the sheet grows away from it; `front` is true for the most recently touched open window; `target` for the window the bar continues (K-06).
+- `ui:text-scale {scale}` to every window when the Windows text size or the person's factor changes, and to a page when it says `glass:hello`. `scale` = Windows factor (1.0 to 2.25) times the person's (1.0 to 2.0), at most 2.5, three decimals (K-22).
+- `settings:get` gains `textScale` (the person's factor), `osTextScale` (the Windows factor) and `overlayPos` (the bar's anchor `{h, v, offX, offY}`) (K-22, K-24).
+- `settings:set-text-scale {scale}` -> `{ok, textScale, osTextScale, scale}`; the factor is kept to one decimal between 1.0 and 2.0 (K-22).
+- `history:list {query}` -> `{rows, enabled}`; `enabled` is whether history saving is on (K-24).
+- `output:close {label?}` closes that window, default the calling output, else the bar's target; with no window at all the bar folds as before. `output:close-all` closes every window with a conversation; the warm spare stays (K-04).
+- `output:last-answer {label?}` -> `{text}`: the window's last answer, '' if none. `output:undo-reset {label?}` -> `{ok}`. `output:cycle-target {dir: 1|-1}` -> `{label}`: the new target, or null. `output:blur`: the calling window gives the foreground back. `output:glass {top, height}`: the visible sheet inside the glass, in glass DIPs (K-23).
+- `window:nudge {dx, dy, dw, dh}` -> `{ok}`: the calling window moves or resizes by DIPs inside its work area and size limits; false for the bar, which moves with `hud:nudge` (K-23).
+- `bar:dirty {dirty}`, `bar:ready` (the bar's field has focus after a hotkey), `bar:prefill-open {text}` (K-23).
+- `a11y:announce {text, priority}` -> `{to}`: relayed as `a11y:say {text, priority}` to the focused AevalBuddy window, else the open bar; `priority` is `polite` or `assertive`, text at most 300 characters (K-23).
+- `bar:clear {}`: the bar empties its field. `bar:note {text}`: a one-line note under the bar.
+- `chat:reset {undoMs}`: how long Undo is offered, 0 when there was nothing to undo.
 
 ### 10.3 Behaviour Rust must keep for the pages
 
@@ -502,6 +520,8 @@ Written by agent (a). Everything below is `pub` in `src-tauri/src` and stable fo
   test-then-advance logic here), `settings_extra() -> Value` (merged over `settings:get`; its `glass`
   field is also what `settings:set-glass` returns and broadcasts as the tier).
 
+`AppState.queries` maps an output label to the generation of the Ask streaming into it; `busy` is "any entry". The Ask calls `query_started(label, gen)` and `query_ended(label, gen)` (a stale end for an older generation leaves a newer Ask alone); a closed window's entry goes with `query_forget`. `Hooks.abort_query_for(label)` stops that window's Ask only; closing or resetting a window calls it only when that window's own Ask is running. Until llm reports per window, the single `busy` flag counts for the target window. `Hooks.overlay_extra` returns extra `overlay:state` fields; it is called before the state lock is taken, so it may read the state itself.
+
 ### 11.2 Windows (`windows/`)
 
 - Labels: `overlay`, `output-<n>` (any number), `settings`, `history`. `windows::emit(app, label, channel,
@@ -536,6 +556,8 @@ Written by agent (a). Everything below is `pub` in `src-tauri/src` and stable fo
   (`chat:new` from that window), `outputs::close(app, label)` (`output:close`), `outputs::detach_focus`
   (the bar's `chat:new`: the next question opens a new window), `outputs::open_conversation(app, entry)`
   (history), `outputs::chat_payload(&o)` (`chat:sync`).
+
+`outputs::fresh(app)` is always a new or spare idle window, never the focused chat (Find results and task trails open in it). `outputs::close_all(app)` closes every window with a conversation; each stops only its own Ask.
 
 ### 11.4 Store (`store/`)
 

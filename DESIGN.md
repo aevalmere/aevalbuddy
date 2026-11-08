@@ -855,6 +855,12 @@ too (it was 18). Code blocks take `--r-row`, inline code `--r-key`.
 - **Reading measure.** Past 760 px the transcript centres instead of stretching, so a maximised output reads
   as a document.
 
+Start over keeps the window and offers Undo for 10 s (`chat:reset {undoMs}`, `output:undo-reset`). Undo puts the old conversation back only if nothing new was asked since. The picked area is dropped with the old conversation.
+Reason: Start over is one click away from Send and loses the whole transcript; a short Undo costs nothing and keeps the window where the person put it.
+
+At most six output windows are open. A seventh closes the least recently touched window with no answer streaming into it, and the bar says `Closed "<title>". It is in History.`, or `Closed "<title>".` when history saving is off.
+Reason: each window holds a webview and a conversation; past six they cover the screen they are about. Saying which one went, and where to find it, keeps the close from looking like a lost answer.
+
 ### The glob (request 8)
 
 An output window opens by stretching out of the bar: a bud of glass leaves the bar's edge, grows into the
@@ -952,3 +958,13 @@ Folded from the lanes' entries files at the final merges: entries for a section 
 ### Decisions
 
 D-03: The NSIS installer is one click like Electron's oneClick build. `src-tauri/installer.nsi` is a copy of tauri-bundler 2.10.4's template (tauri-cli 2.12.4) with the welcome, license, folder and finish pages removed; a run without `/S` or `/P` takes Tauri's passive path (progress bar, per-user folder) and starts the app when it finishes. Reason: an existing Electron user re-running the download expects no wizard, and the passive path is code Tauri already ships and tests. Re-copy the template whenever TAURI_CLI moves.
+
+### Keyboard
+
+Esc never stops an answer or hides an output window. Esc in the bar clears the field, then folds the bar; Esc in an output gives the foreground back to the app that had it before the bar opened (or the next app window below). Folding the bar also returns the foreground. While a task waits on the person, the first Esc in a bar holding typed text clears it and says "Cleared. Press Esc again to stop the task."; the next Esc stops the task.
+Reason: output windows float on their own since REQUESTS #11 and free models can queue for 20 to 30 s, so an Esc that aborts throws away a wait the person already paid for. The blur half of Electron's collapse is kept so typing continues where it was.
+
+### Accessibility
+
+Text follows the Windows text size (Settings, Accessibility, Text size) times the person's own 100 to 200% setting, at most 250%. Pages scale their type by `--text-scale` from `ui:text-scale {scale}`.
+Reason: the glass surfaces used fixed pixel sizes and ignored the system setting people with low vision rely on.
