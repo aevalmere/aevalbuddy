@@ -1,2 +1,125 @@
-== build.log ==
-       Error failed to bundle project: `http status: 504`
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:513:
+ /// sendButton, btn_delete: an element's id and help text, split into words.
+ fn id_words(n: &Value) -> String {
+     let p = pats();
+-    let raw = format!("{} {}", js_string(&n["automationId"]), js_string(&n["helpText"]));
++    let raw = format!(
++        "{} {}",
++        js_string(&n["automationId"]),
++        js_string(&n["helpText"])
++    );
+     let spaced = p.camel.replace_all(&raw, "$1 $2");
+     p.joins.replace_all(&spaced, " ").into_owned()
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1050:
+         assert_eq!(risk("ctrl++"), None);
+         let press = "Space presses the focused control";
+         assert_eq!(risk("space").unwrap(), press);
+-        assert_eq!(risk("shift+space").unwrap(), "Shift+Space presses the focused control");
++        assert_eq!(
++            risk("shift+space").unwrap(),
++            "Shift+Space presses the focused control"
++        );
+         assert_eq!(risk("tab").unwrap(), "");
+     }
+ 
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1199:
+         let shift = json!({ "text": "shift+space" });
+         asks(&block(gate("key", &shift, &plain(), &env(&d))), "Send");
+         let held = json!({ "text": "space", "repeat": 5 });
+-        asks(&block(gate("key", &held, &plain(), &env(&d))), "repeated 5 times");
+
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1212:
+         let d = notes(json!([bare]));
+         let v = block(gate("key", &space, &plain(), &env(&d)));
+         asks(&v, "the focused control has no name to check");
+-        asks(&block(gate("key", &space, &plain(), &env(&empty))), FOCUS_UNKNOWN);
++        asks(
++            &block(gate("key", &space, &plain(), &env(&empty))),
++            FOCUS_UNKNOWN,
++        );
+         // Enter always asked; now it also says what it presses.
+         let enter = json!({ "text": "enter" });
+         let d = notes(json!([send]));
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1219:
+-        asks(&block(gate("key", &enter, &plain(), &env(&d))), "named \"Send\"");
++        asks(
++            &block(gate("key", &enter, &plain(), &env(&d))),
++            "named \"Send\"",
++        );
+     }
+ 
+     /// Attack: text whose spaces land on a focused button presses it once
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1236:
+         asks(&v, "it is not known what the focused button \"OK\" does");
+         // No space, nothing pressed.
+         let one = json!({ "text": "x" });
+-        assert_eq!(block(gate("type", &one, &plain(), &env(&d))).cls, Class::Input);
++        assert_eq!(
++            block(gate("type", &one, &plain(), &env(&d))).cls,
++            Class::Input
++        );
+
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1279:
+         let want = "it is not known what button \"Continue\" does";
+         assert_eq!(v, Verdict::new(Class::Consequential, want));
+         let link = named("Learn more", "hyperlink");
+-        asks(&block(gate("left_click", &none, &link, &e)), "link \"Learn more\"");
++        asks(
++            &block(gate("left_click", &none, &link, &e)),
++            "link \"Learn more\"",
++        );
+         let check = named("Keep me posted", "checkbox");
+         asks(&block(gate("triple_click", &none, &check, &e)), "checkbox");
+         let id_only = at(json!({ "role": "button", "name": "", "automationId": "nextStep" }));
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1286:
+-        asks(&block(gate("left_click", &none, &id_only, &e)), "button \"nextStep\"");
++        asks(
++            &block(gate("left_click", &none, &id_only, &e)),
++            "button \"nextStep\"",
++        );
+         #[rustfmt::skip]
+         let harmless = [
+             ("View", "tabitem"), ("Documents", "treeitem"), ("Vertical", "scrollbar"),
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1306:
+         let e = env(&d);
+         let none = json!({});
+         let file = named("setup.exe", "listitem");
+-        asks(&block(gate("double_click", &none, &file, &e)), "opens or runs the file");
++        asks(
++            &block(gate("double_click", &none, &file, &e)),
++            "opens or runs the file",
++        );
+
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1317:
+-        asks(&block(gate("double_click", &none, &icon, &env(&d))), "desktop");
++        asks(
++            &block(gate("double_click", &none, &icon, &env(&d))),
++            "desktop",
++        );
+     }
+ 
+     /// Attack: a page draws its own "delete everything?" dialog. Electron
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\gate.rs:1333:
+         let d = desk("chrome.exe", title, "Chrome_WidgetWin_1", json!(tree));
+         let yes = at(tn(4, 2, "button", "Yes"));
+         let v = block(gate("left_click", &json!({}), &yes, &env(&d)));
+-        asks(&v, "the dialog says \"This will permanently delete your account\"");
++        asks(
++            &v,
++            "the dialog says \"This will permanently delete your account\"",
++        );
+         assert!(!v.why.contains("feedback"));
+         // A window nested in the tree is an app's modal dialog, and its
+         // title counts; Enter on its focused OK reads it.
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\run.rs:2679:
+         assert_eq!(done["state"], "done");
+         let req = host.events.last("agent:confirm-request").expect("asked");
+         let why = req["why"].as_str().unwrap_or_default();
+-        assert!(why.contains("the focused control is named \"Send\""), "{why}");
++        assert!(
++            why.contains("the focused control is named \"Send\""),
++            "{why}"
++        );
+

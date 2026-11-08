@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42464380118,
+  "run_id": 42465345230,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464380118",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465345230",
   "event": "push",
-  "sha": "97d71a9b71967e7f0b440e69a078ed4829695442",
+  "sha": "9f0b3f4aded12cb88da23fb698509ca5fab036e0",
   "ref": "rust/agent",
   "ref_dir": "rust-agent",
   "conclusion": "failure",
   "failed": [
-    "Build installer"
+    "Format"
   ],
-  "finished": "2026-11-08T08:57:26Z",
-  "error_lines": 1,
+  "finished": "2026-11-08T09:05:31Z",
+  "error_lines": 120,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +47,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -67,8 +67,8 @@
     },
     {
       "name": "Build installer",
-      "outcome": "failure",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Scaffold smoke",
