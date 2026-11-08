@@ -1,15 +1,17 @@
-diff --git a/src-tauri/src/desktop/checks.rs b/src-tauri/src/desktop/checks.rs
-index 7a56c27..6f49294 100644
---- a/src-tauri/src/desktop/checks.rs
-+++ b/src-tauri/src/desktop/checks.rs
-@@ -348,9 +348,7 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
-                 rep.must(
-                     &format!("{backend}ExcludesOwnWithoutBlanking"),
-                     ok,
--                    &format!(
--                        "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
--                    ),
-+                    &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"),
-                 );
-                 passed_any |= ok;
-             }
+diff --git a/src-tauri/src/region.rs b/src-tauri/src/region.rs
+index 4db7d33..5062bc4 100644
+--- a/src-tauri/src/region.rs
++++ b/src-tauri/src/region.rs
+@@ -83,7 +83,11 @@ fn settle_gen(gen: u64, rect: Option<Rect>) {
+     let mine = {
+         let mut g = pending();
+         let ours = g.as_ref().is_some_and(|p| p.gen == gen);
+-        if ours { g.take() } else { None }
++        if ours {
++            g.take()
++        } else {
++            None
++        }
+     };
+     if let Some(p) = mine {
+         let _ = p.tx.send(rect);

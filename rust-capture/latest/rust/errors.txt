@@ -1,29 +1,15 @@
 == fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\desktop\checks.rs:348:
-                 rep.must(
-                     &format!("{backend}ExcludesOwnWithoutBlanking"),
-                     ok,
--                    &format!(
--                        "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
--                    ),
-+                    &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"),
-                 );
-                 passed_any |= ok;
-             }
-
-
-== clippy.log ==
-error: current MSRV (Minimum Supported Rust Version) is `1.77.0` but this item is stable since `1.80.0`
-  --> src\region.rs:83:26
-   |
-83 |     let mine = pending().take_if(|p| p.gen == gen);
-   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#incompatible_msrv
-   = note: `-D clippy::incompatible-msrv` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(clippy::incompatible_msrv)]`
-
-error: could not compile `aevalbuddy` (lib) due to 1 previous error
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `aevalbuddy` (lib test) due to 1 previous error
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\region.rs:83:
+     let mine = {
+         let mut g = pending();
+         let ours = g.as_ref().is_some_and(|p| p.gen == gen);
+-        if ours { g.take() } else { None }
++        if ours {
++            g.take()
++        } else {
++            None
++        }
+     };
+     if let Some(p) = mine {
+         let _ = p.tx.send(rect);
 
