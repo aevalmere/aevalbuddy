@@ -1209,7 +1209,7 @@ mod tests {
         assert_eq!(p::key_timeout("ctrl+s", 1), p::OP_TIMEOUT);
         assert_eq!(p::key_timeout("tab", 100), 6000);
         assert_eq!(p::key_timeout("tab tab space", 100), 14000);
-        assert!(p::key_timeout("tab", 50) > p::key_timeout("tab", 25));
+        assert!(p::key_timeout("tab", 100) > p::key_timeout("tab", 75));
         // host.cs caps the repeat at 100, so the wait does too.
         assert_eq!(p::key_timeout("tab", 1000), p::key_timeout("tab", 100));
         assert_eq!(p::key_timeout("", 0), p::OP_TIMEOUT);
