@@ -1,12 +1,11 @@
-# rust: failure
+# rust: success
 
 - Workflow: rust
-- Run: [42466517382](https://github.com/aevalmere/aevalbuddy/actions/runs/42466517382), attempt 1, on push
-- Commit: cc1b2ff46d550e07552696963b685c1334b22a81
+- Run: [42490852023](https://github.com/aevalmere/aevalbuddy/actions/runs/42490852023), attempt 1, on push
+- Commit: 3918098465c200c2ca03f733cce05de913b4a13d
 - Ref: rust/agent
-- Conclusion: **failure**
-- Failed: Unit tests
-- Finished: 2026-11-08T09:22:54Z
+- Conclusion: **success**
+- Finished: 2026-11-08T14:51:06Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,11 +18,11 @@
 | Format | success |  |
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | failure | [test.log](test.log) |
-| Build installer | skipped |  |
-| Smoke | skipped |  |
+| Unit tests | success | [test.log](test.log) |
+| Build installer | success | [build.log](build.log) |
+| Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
-| Upload installer | skipped |  |
+| Upload installer | success |  |
 
-errors.txt: 12 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
