@@ -1,0 +1,53 @@
+diff --git a/src-tauri/src/llm/fake.rs b/src-tauri/src/llm/fake.rs
+index 00a0547..5d8928b 100644
+--- a/src-tauri/src/llm/fake.rs
++++ b/src-tauri/src/llm/fake.rs
+@@ -702,9 +702,8 @@ mod tests {
+         let reply = block(fake.respond(Provider::OpenRouter, &body, &cancel, &meta)).unwrap();
+         assert_eq!(reply.status, 200);
+         let mut stream = reply.body;
+-        let first = block(async {
+-            tokio::time::timeout(Duration::from_millis(50), stream.next()).await
+-        });
++        let first =
++            block(async { tokio::time::timeout(Duration::from_millis(50), stream.next()).await });
+         assert!(first.is_err(), "the body arrived during the stall");
+     }
+ 
+diff --git a/src-tauri/src/llm/settings.rs b/src-tauri/src/llm/settings.rs
+index 75768f3..2809a64 100644
+--- a/src-tauri/src/llm/settings.rs
++++ b/src-tauri/src/llm/settings.rs
+@@ -363,7 +363,9 @@ mod tests {
+     fn mismatched_key_is_skipped() {
+         let s = MemorySettings::default();
+         // An OpenRouter key filed under Anthropic never goes to Anthropic.
+-        s.keys.lock().insert(Provider::Anthropic, "sk-or-v1-x".into());
++        s.keys
++            .lock()
++            .insert(Provider::Anthropic, "sk-or-v1-x".into());
+         assert!(candidates(&s).is_empty());
+         assert_eq!(active(&s), None);
+         assert_eq!(usable_key(&s, Provider::Anthropic), None);
+@@ -390,7 +392,9 @@ mod tests {
+         t.mark_rejected(Provider::Anthropic, "sk-ant-y", "rejected");
+         let got = ids(&candidates_with(&s, Kind::Vision, &t, 0));
+         assert!(!got.contains(&Provider::Anthropic));
+-        s.keys.lock().insert(Provider::Anthropic, "sk-ant-new".into());
++        s.keys
++            .lock()
++            .insert(Provider::Anthropic, "sk-ant-new".into());
+         let got = ids(&candidates_with(&s, Kind::Vision, &t, 0));
+         assert!(got.contains(&Provider::Anthropic));
+         t.mark_rejected(Provider::Anthropic, "sk-ant-new", "rejected");
+@@ -405,7 +409,9 @@ mod tests {
+         t.mark_no_credit(Provider::OpenRouter, "sk-or-v1-x", 0, "empty");
+         let got = ids(&candidates_with(&s, Kind::Vision, &t, 1_000_000));
+         assert_eq!(got[0], Provider::OpenRouter);
+-        s.models.lock().insert(Kind::Vision, "qwen/qwen3.7-flash".into());
++        s.models
++            .lock()
++            .insert(Kind::Vision, "qwen/qwen3.7-flash".into());
+         let got = ids(&candidates_with(&s, Kind::Vision, &t, 1_000_000));
+         assert!(!got.contains(&Provider::OpenRouter));
+         // Free models off: OpenRouter is skipped unless a paid model is
