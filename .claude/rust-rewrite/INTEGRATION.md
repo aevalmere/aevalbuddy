@@ -28,16 +28,16 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 11 | bar | checkpoint | `462b98f` | `ae0d323` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green. Newer tip `e04d998` fails its own new `styleStable` smoke label, so it was not taken |
 | 12 | sheet | checkpoint | `a2ab4d8` | `31e213c` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green |
 | 13 | settings | checkpoint | `bf5e553` | `24a1c0e` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green |
-| 14 | windows | checkpoint | `c8c2a37` | `e825929` | `075577b` run cancelled by #18's push; covered by the #19-#22 head | green at `075577b` | Rust green at the lane sha. Contains `3c071b0`, the WS_EX_NOACTIVATE-after-collapse fix bar's `styleStable` waits on |
-| 15 | llm | checkpoint | `8aacd1c` | `d1a91ec` | pending | green at `075577b` | Rust green at the lane sha |
-| 16 | agent | checkpoint | `771d149` | `caf41ad` | pending | green at `075577b` | Green at the lane sha. Newer `0db3912` failed 2 unit tests, so it was not taken |
-| 17 | settings | checkpoint | `493483b` | `075577b` | pending | green at `075577b` | Lane finished. Final tip; code last changed at `e415b9c` (ui-shots green there) |
-| 18 | harness | checkpoint | `76c8c95` | `85a2f88` | pending (superseded by the #19-#22 push) | pending | Lane finished; rust (Smoke included) and ui-shots green at the lane sha. Brings `tools/ui-shots/css-lint.mjs`, which unblocks settings' B-175. `b01e049` on top is Progress only |
-| 19 | windows | checkpoint | `8886c02` | see `git log` | pending | n/a | Rust green at the lane sha |
-| 20 | bar | checkpoint | `688cb40` | see `git log` | pending | pending | Lane finished. Rust (`styleStable=ok`) and ui-shots green at the lane sha. The log commit corrects `lanes/bar.md` Progress and Blockers lines that still said `styleStable` waited on windows |
-| 21 | sheet | checkpoint | `f660cd0` | see `git log` | pending | pending | Lane finished; rust and ui-shots green at the lane sha. Bar's B-156 placeholder `Answer the task’s question` still matches sheet's `/question/i` (`barAnswersTask`), so no seam fix was needed |
-| 22 | capture | checkpoint | `96b569f` | see `git log` | pending | pending | Rust green at the lane sha (run 42509614984, `lensFirstDraw=ok`); ui-shots green at `27f4063`. `bf07bec` on top is Progress only |
-| 23 | platform | checkpoint | `f045fc2` | see `git log` | pending | pending | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
+| 14 | windows | checkpoint | `c8c2a37` | `e825929` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `075577b` | Rust green at the lane sha. Contains `3c071b0`, the WS_EX_NOACTIVATE-after-collapse fix bar's `styleStable` waits on |
+| 15 | llm | checkpoint | `8aacd1c` | `d1a91ec` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `075577b` | Rust green at the lane sha |
+| 16 | agent | checkpoint | `771d149` | `caf41ad` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `075577b` | Green at the lane sha. Newer `0db3912` failed 2 unit tests, so it was not taken |
+| 17 | settings | checkpoint | `493483b` | `075577b` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `075577b` | Lane finished. Final tip; code last changed at `e415b9c` (ui-shots green there) |
+| 18 | harness | checkpoint | `76c8c95` | `85a2f88` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Lane finished; rust (Smoke included) and ui-shots green at the lane sha. Brings `tools/ui-shots/css-lint.mjs`, which unblocks settings' B-175. `b01e049` on top is Progress only |
+| 19 | windows | checkpoint | `8886c02` | `6e93f2e` | covered by `5541e36` (red only on Smoke `buddyReload`) | n/a | Rust green at the lane sha |
+| 20 | bar | checkpoint | `688cb40` | `ecbbfc3` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Lane finished. Rust (`styleStable=ok`) and ui-shots green at the lane sha. The log commit corrects `lanes/bar.md` Progress and Blockers lines that still said `styleStable` waited on windows |
+| 21 | sheet | checkpoint | `f660cd0` | `f6dc648` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Lane finished; rust and ui-shots green at the lane sha. Bar's B-156 placeholder `Answer the task’s question` still matches sheet's `/question/i` (`barAnswersTask`), so no seam fix was needed |
+| 22 | capture | checkpoint | `96b569f` | `7273f74` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Rust green at the lane sha (run 42509614984, `lensFirstDraw=ok`); ui-shots green at `27f4063`. `bf07bec` on top is Progress only |
+| 23 | platform | checkpoint | `f045fc2` | `f32b46d` | `5541e36`: all green but Smoke (`buddyReload`) | green at `5541e36` | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
 
 ## Reverts
 
@@ -54,15 +54,17 @@ None.
 - harness tip (`d14b471` and before, since `9b90864`): ui-shots fails `globOnClock` and `globOnClock-150` ("done at 336 ms=true, at 536 ms=true (open takes 440 ms)"), harness's own check of the sheet's glob timing. It was a bug in the check (each `t.shot` advances the virtual clock 120 ms) and harness has the fix. Merge the rest of rust/harness only at a tip with green ui-shots. Never merge a harness sha that prints `deliberateFailure=FAIL`: `fc019b1` is B-009's throwaway proof that the gate fails.
 - Coordinator rule (standing): a C1 or checkpoint commit whose only red step is a bundler download 504 in Build installer counts as green. If rust-rewrite's own Build installer flakes the same way, push an empty commit to re-run; do not revert.
 
-## Queue and pending CI (as of the #19-#22 push, 2026-11-08)
+## Queue and pending CI (as of `5541e36`, 2026-11-08)
 
-- Pending: rust and ui-shots for the head carrying #18-#22 (`node tools/ci-wait.mjs origin/rust-rewrite`, plus `ui-shots`; `84e2bd9` was red, see Seam fixes, and `f90f883` carries the fix). Once rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (run URL in `origin/ci-logs:rust-rewrite/<sha>/rust/` metadata).
+- `5541e36` (#18-#23 plus both seam fixes), run 42515162283: Format, Clippy, Unit tests, Build installer, Capture check and Desktop selfcheck green; ui-shots green. Smoke red on `buddyReload` only ("shown=true crash=Ok(()) back=false in 5050ms"), so Upload installer was skipped and there is no `aevalbuddy-tauri-nsis` artifact yet. The `smoke: deliberate ... panic` lines in stderr are platform's guard probe, not failures.
+- `buddyReload` (capture's probe, `selftest/probes/capture.rs` `reload`): after `Page.crash` the buddy page is reloaded (crash.rs logs it) but within 5 s one of `lets_mouse_through`, `is_ready` or "a fresh page" stays false. Both lanes passed it alone, so it is an interaction, most likely with windows' merges (#14, #19: IPC caller checks in `ad2180e`, extended-style handling in `3c071b0`). Sent to capture via the coordinator; not a seam fix.
+- `suggestionsOnce` (bar's probe) failed once on windows `0069af0` (`disk=false`: the flag was in memory but not yet in `aevalbuddy.json`) and passed on `5541e36`. Probably timing against platform's new durable save; platform told, low priority.
+- When rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (the "Run:" line `ci-wait` prints).
 - Coordinator plan: a testable build for Andy. Merge each lane's green tip as it lands; a lane whose tip is not green stays at its last checkpoint; skip re-runs unless a real failure needs one.
-- Red: llm `2619bbc` (real Settings backend, priority for Andy's build) fails Format, `ipc::tests::every_invoke_channel_has_a_label_rule` (`src/ipc.rs:1141`), Capture check and Desktop selfcheck; take its next green tip.
-- Queued: platform `f045fc2` (rust and ui-shots pending; `5f6b541` rust green, ui-shots pending; carries the harness-approved `bridge.test.mjs` `editMenuInFields` change and the B-085 one-click installer.nsi; on conflict in that file keep harness's side unless harness adopted it).
-- Red at last check: agent `fe650d1` and `8fa0e89` (rust fails), so agent stays at `771d149`.
+- Queued: capture's `buddyReload` fix (once green); sheet `49f1eeb` (green; low priority, `barAnswersTask` now matches bar's exact placeholder; ride along with another merge, don't push for it alone).
+- Red at last check: llm `2619bbc` (real Settings backend, wanted for Andy's build): Format, `ipc::tests::every_invoke_channel_has_a_label_rule` (`src/ipc.rs:1141`), Capture check, Desktop selfcheck. Agent `fe650d1`, `8fa0e89`: unit tests; agent stays at `771d149`.
+- Final at their merged sha: settings `493483b`, harness `76c8c95`, bar `688cb40`, sheet `f660cd0` (newer `49f1eeb` queued), platform `f045fc2`, windows `8886c02`.
 - Follow-up, not a blocker: sheet B-164 sends `output:resize` until windows' B-027 lands.
-- Finished lanes: settings (`493483b`), harness (`76c8c95`), bar (`688cb40`), sheet (`f660cd0`), platform (`f045fc2`).
 
 ## Base
 
