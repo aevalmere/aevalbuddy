@@ -71,10 +71,10 @@ pub fn replace(from: &Path, to: &Path) -> io::Result<()> {
         if unsafe { MoveFileExW(src.as_ptr(), dst.as_ptr(), flags) } != 0 {
             return Ok(());
         }
-        last = io::Error::last_os_error();
+        let moved = io::Error::last_os_error();
         match fs::rename(from, to) {
             Ok(()) => return Ok(()),
-            Err(e) => last = e,
+            Err(e) => last = io::Error::new(moved.kind(), format!("{moved}; rename: {e}")),
         }
     }
     Err(last)
