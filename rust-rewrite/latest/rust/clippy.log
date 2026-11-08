@@ -22,4 +22,4 @@
     Checking global-hotkey v0.8.0
     Checking winreg v0.55.0
     Checking tauri-plugin-global-shortcut v2.4.1
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.73s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.75s
