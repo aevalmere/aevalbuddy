@@ -16,13 +16,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.022
+[UI] globShapeMs=0.016
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=475 frames=28 longestFrameMs=16.8
+[UI] globOpen ms=512 frames=27 longestFrameMs=33.3
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -52,6 +52,132 @@
 [UI] shot 07-settings-fullscreen.png
 [UI] scene settings/history
 [UI] shot 09-history.png
+[UI] scene settings/settings-providers-none
+[UI] providerRowsHaveExpandedState.none=ok
+[UI] shot settings-providers-none.png
+[UI] scene settings/settings-providers-ready-two
+[UI] reorderInvokesOrder=ok
+[UI] reorderIsAnnounced=ok
+[UI] reorderKeepsFocus=ok
+[UI] providerRowName=ok
+[UI] providerRowsHaveExpandedState.ready-two=ok
+[UI] shot settings-providers-ready-two.png
+[UI] scene settings/settings-providers-rejected
+[UI] providerRowsHaveExpandedState.rejected=ok
+[UI] shot settings-providers-rejected.png
+[UI] scene settings/settings-providers-no-credit
+[UI] providerRowsHaveExpandedState.no-credit=ok
+[UI] shot settings-providers-no-credit.png
+[UI] scene settings/settings-providers-busy
+[UI] providerRowsHaveExpandedState.busy=ok
+[UI] shot settings-providers-busy.png
+[UI] scene settings/settings-providers-blocked
+[UI] providerRowsHaveExpandedState.blocked=ok
+[UI] shot settings-providers-blocked.png
+[UI] scene settings/settings-providers-testing
+[UI] providerRowsHaveExpandedState.testing=ok
+[UI] shot settings-providers-testing.png
+[UI] scene settings/settings-providers-removing
+[UI] removeFocusesKeep=ok
+[UI] shot settings-providers-removing-confirm.png
+[UI] removeSendsProvider=ok
+[UI] removeReturnsFocus=ok
+[UI] providerRowsHaveExpandedState.removing=ok
+[UI] shot settings-providers-removing.png
+[UI] scene settings/settings-providers-wrong-provider
+[UI] wrongProviderSaysWhose=ok
+[UI] wrongProviderSavesNothing=ok
+[UI] shot settings-providers-wrong-provider-found.png
+[UI] wrongProviderSavesUnderItsOwn=ok
+[UI] keyNeverEchoed=ok
+[UI] providerRowsHaveExpandedState.wrong-provider=ok
+[UI] shot settings-providers-wrong-provider.png
+[UI] scene settings/settings-pages
+[UI] shot settings-page-providers.png
+[UI] shot settings-page-models.png
+[UI] shot settings-page-answers.png
+[UI] shot settings-page-find.png
+[UI] shot settings-page-agent.png
+[UI] shot settings-page-privacy.png
+[UI] shot settings-page-shortcuts.png
+[UI] shot settings-page-general.png
+[UI] everyDisclosureHasExpanded=ok
+[UI] noButtonNamedEdit=ok
+[UI] noNestedButtonsSettings=ok
+[UI] privacyNamesRecipients=ok
+[UI] tasksSayWhatStopsThem=ok
+[UI] scene settings/settings-row-hover-disclosing
+[UI] shot settings-row-hover-disclosing.png
+[UI] openRowSaysExpanded=ok
+[UI] scene settings/settings-glass
+[UI] shot settings-glass-0.png
+[UI] shot settings-glass-25.png
+[UI] shot settings-glass-50.png
+[UI] shot settings-glass-75.png
+[UI] shot settings-glass-100.png
+[UI] sliderLabelsCentredOnStops=ok
+[UI] sliderSnapsToStop=ok
+[UI] scene settings/settings-maximized
+[UI] shot settings-maximized.png
+[UI] settingsFullBleed=ok
+[UI] scene settings/history-maximized
+[UI] shot history-maximized.png
+[UI] historyFullBleed=ok
+[UI] scene settings/settings-history-bars
+[UI] oneTitleBarSystem=ok
+[UI] shot settings-history-bars.png
+[UI] scene settings/settings-text-size
+[UI] textSizeRowInvokes=ok
+[UI] shot settings-text-size.png
+[UI] scene settings/settings-models-automatic
+[UI] shot settings-models-automatic.png
+[UI] scene settings/settings-models-anthropic
+[UI] modelListPerProvider=ok
+[UI] shot settings-models-anthropic.png
+[UI] shot settings-models-anthropic-open.png
+[UI] modelSaveSendsProvider=ok
+[UI] scene settings/settings-combo-open
+[UI] menuIsTheSharedMenu=ok
+[UI] shot settings-combo-open.png
+[UI] scene settings/settings-find-choices
+[UI] radiosRoveWithArrows=ok
+[UI] radiosOneTabStop=ok
+[UI] shot settings-find-choices.png
+[UI] scene settings/settings-delete-all
+[UI] deleteAllConfirmsInline=ok
+[UI] shot settings-delete-all.png
+[UI] scene settings/settings-shortcuts
+[UI] shot settings-shortcuts-capturing.png
+[UI] shot settings-shortcuts-conflict.png
+[UI] shortcutConflictOffersFree=ok
+[UI] f1OpensShortcuts=ok
+[UI] scene settings/settings-general
+[UI] shot settings-general.png
+[UI] barPositionSummary=ok
+[UI] scene settings/settings-general-ts200
+[UI] shot settings-general-ts200.png
+[UI] barPositionSummary-ts200=ok
+[UI] scene settings/history-list
+[UI] shot history-list.png
+[UI] noNestedButtons=ok
+[UI] searchQuietAtRest=ok
+[UI] historyArrowsMove=ok
+[UI] scene settings/history-row-hover
+[UI] shot history-row-hover.png
+[UI] scene settings/history-search-results
+[UI] historySearchAsksRust=ok
+[UI] shot history-search-results.png
+[UI] scene settings/history-empty
+[UI] shot history-empty.png
+[UI] scene settings/history-off
+[UI] historyOffSaysOff=ok
+[UI] shot history-off.png
+[UI] scene settings/history-delete-all
+[UI] historyDeleteAllInline=ok
+[UI] shot history-delete-all.png
+[UI] scene settings/history-deleted-undo
+[UI] shot history-deleted-undo.png
+[UI] deleteIsUndoable=ok
 [UI] scene bar/bar-150
 [UI] shot 01-bar-first-run-150.png
 [UI] suggestionsBeforeFirst-150=ok
@@ -73,7 +199,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=471 frames=26 longestFrameMs=33.3
+[UI] globOpen-150 ms=501 frames=27 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -102,6 +228,132 @@
 [UI] shot 07-settings-fullscreen-150.png
 [UI] scene settings/history-150
 [UI] shot 09-history-150.png
+[UI] scene settings/settings-providers-none-150
+[UI] providerRowsHaveExpandedState.none-150=ok
+[UI] shot settings-providers-none-150.png
+[UI] scene settings/settings-providers-ready-two-150
+[UI] reorderInvokesOrder-150=ok
+[UI] reorderIsAnnounced-150=ok
+[UI] reorderKeepsFocus-150=ok
+[UI] providerRowName-150=ok
+[UI] providerRowsHaveExpandedState.ready-two-150=ok
+[UI] shot settings-providers-ready-two-150.png
+[UI] scene settings/settings-providers-rejected-150
+[UI] providerRowsHaveExpandedState.rejected-150=ok
+[UI] shot settings-providers-rejected-150.png
+[UI] scene settings/settings-providers-no-credit-150
+[UI] providerRowsHaveExpandedState.no-credit-150=ok
+[UI] shot settings-providers-no-credit-150.png
+[UI] scene settings/settings-providers-busy-150
+[UI] providerRowsHaveExpandedState.busy-150=ok
+[UI] shot settings-providers-busy-150.png
+[UI] scene settings/settings-providers-blocked-150
+[UI] providerRowsHaveExpandedState.blocked-150=ok
+[UI] shot settings-providers-blocked-150.png
+[UI] scene settings/settings-providers-testing-150
+[UI] providerRowsHaveExpandedState.testing-150=ok
+[UI] shot settings-providers-testing-150.png
+[UI] scene settings/settings-providers-removing-150
+[UI] removeFocusesKeep-150=ok
+[UI] shot settings-providers-removing-confirm-150.png
+[UI] removeSendsProvider-150=ok
+[UI] removeReturnsFocus-150=ok
+[UI] providerRowsHaveExpandedState.removing-150=ok
+[UI] shot settings-providers-removing-150.png
+[UI] scene settings/settings-providers-wrong-provider-150
+[UI] wrongProviderSaysWhose-150=ok
+[UI] wrongProviderSavesNothing-150=ok
+[UI] shot settings-providers-wrong-provider-found-150.png
+[UI] wrongProviderSavesUnderItsOwn-150=ok
+[UI] keyNeverEchoed-150=ok
+[UI] providerRowsHaveExpandedState.wrong-provider-150=ok
+[UI] shot settings-providers-wrong-provider-150.png
+[UI] scene settings/settings-pages-150
+[UI] shot settings-page-providers-150.png
+[UI] shot settings-page-models-150.png
+[UI] shot settings-page-answers-150.png
+[UI] shot settings-page-find-150.png
+[UI] shot settings-page-agent-150.png
+[UI] shot settings-page-privacy-150.png
+[UI] shot settings-page-shortcuts-150.png
+[UI] shot settings-page-general-150.png
+[UI] everyDisclosureHasExpanded-150=ok
+[UI] noButtonNamedEdit-150=ok
+[UI] noNestedButtonsSettings-150=ok
+[UI] privacyNamesRecipients-150=ok
+[UI] tasksSayWhatStopsThem-150=ok
+[UI] scene settings/settings-row-hover-disclosing-150
+[UI] shot settings-row-hover-disclosing-150.png
+[UI] openRowSaysExpanded-150=ok
+[UI] scene settings/settings-glass-150
+[UI] shot settings-glass-0-150.png
+[UI] shot settings-glass-25-150.png
+[UI] shot settings-glass-50-150.png
+[UI] shot settings-glass-75-150.png
+[UI] shot settings-glass-100-150.png
+[UI] sliderLabelsCentredOnStops-150=ok
+[UI] sliderSnapsToStop-150=ok
+[UI] scene settings/settings-maximized-150
+[UI] shot settings-maximized-150.png
+[UI] settingsFullBleed-150=ok
+[UI] scene settings/history-maximized-150
+[UI] shot history-maximized-150.png
+[UI] historyFullBleed-150=ok
+[UI] scene settings/settings-history-bars-150
+[UI] oneTitleBarSystem-150=ok
+[UI] shot settings-history-bars-150.png
+[UI] scene settings/settings-text-size-150
+[UI] textSizeRowInvokes-150=ok
+[UI] shot settings-text-size-150.png
+[UI] scene settings/settings-models-automatic-150
+[UI] shot settings-models-automatic-150.png
+[UI] scene settings/settings-models-anthropic-150
+[UI] modelListPerProvider-150=ok
+[UI] shot settings-models-anthropic-150.png
+[UI] shot settings-models-anthropic-open-150.png
+[UI] modelSaveSendsProvider-150=ok
+[UI] scene settings/settings-combo-open-150
+[UI] menuIsTheSharedMenu-150=ok
+[UI] shot settings-combo-open-150.png
+[UI] scene settings/settings-find-choices-150
+[UI] radiosRoveWithArrows-150=ok
+[UI] radiosOneTabStop-150=ok
+[UI] shot settings-find-choices-150.png
+[UI] scene settings/settings-delete-all-150
+[UI] deleteAllConfirmsInline-150=ok
+[UI] shot settings-delete-all-150.png
+[UI] scene settings/settings-shortcuts-150
+[UI] shot settings-shortcuts-capturing-150.png
+[UI] shot settings-shortcuts-conflict-150.png
+[UI] shortcutConflictOffersFree-150=ok
+[UI] f1OpensShortcuts-150=ok
+[UI] scene settings/settings-general-150
+[UI] shot settings-general-150.png
+[UI] barPositionSummary-150=ok
+[UI] scene settings/settings-general-150-ts200
+[UI] shot settings-general-150-ts200.png
+[UI] barPositionSummary-150-ts200=ok
+[UI] scene settings/history-list-150
+[UI] shot history-list-150.png
+[UI] noNestedButtons-150=ok
+[UI] searchQuietAtRest-150=ok
+[UI] historyArrowsMove-150=ok
+[UI] scene settings/history-row-hover-150
+[UI] shot history-row-hover-150.png
+[UI] scene settings/history-search-results-150
+[UI] historySearchAsksRust-150=ok
+[UI] shot history-search-results-150.png
+[UI] scene settings/history-empty-150
+[UI] shot history-empty-150.png
+[UI] scene settings/history-off-150
+[UI] historyOffSaysOff-150=ok
+[UI] shot history-off-150.png
+[UI] scene settings/history-delete-all-150
+[UI] historyDeleteAllInline-150=ok
+[UI] shot history-delete-all-150.png
+[UI] scene settings/history-deleted-undo-150
+[UI] shot history-deleted-undo-150.png
+[UI] deleteIsUndoable-150=ok
 [UI] lane harness sceneRuns=0
 [UI] lane platform sceneRuns=0
 [UI] lane windows sceneRuns=0
@@ -110,6 +362,10 @@
 [UI] lane agent sceneRuns=0
 [UI] lane bar sceneRuns=2
 [UI] lane sheet sceneRuns=6
-[UI] lane settings sceneRuns=6
+[UI] lane settings sceneRuns=68
+[UI] cssOnSystem.settings=ok
+[UI] cssOnSystem.history=ok
+[UI] oneCssLayer=ok
+[UI] iconsFromSprite=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=32
+[UI] done failed=0 shots=124
