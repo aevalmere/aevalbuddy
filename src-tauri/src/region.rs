@@ -83,7 +83,11 @@ fn settle_gen(gen: u64, rect: Option<Rect>) {
     let mine = {
         let mut g = pending();
         let ours = g.as_ref().is_some_and(|p| p.gen == gen);
-        if ours { g.take() } else { None }
+        if ours {
+            g.take()
+        } else {
+            None
+        }
     };
     if let Some(p) = mine {
         let _ = p.tx.send(rect);
