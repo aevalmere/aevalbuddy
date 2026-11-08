@@ -1,0 +1,7 @@
+== smoke.log ==
+[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5044ms
+[SMOKE] suggestionsOnce=FAIL:before=false/shown:3 after=hidden:0 disk=false state=true
+[SMOKE] failed: buddyReload, suggestionsOnce
+[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5044ms
+[GATE] fail suggestionsOnce=FAIL:before=false/shown:3 after=hidden:0 disk=false state=true
+[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: buddyReload, suggestionsOnce; 1 listed label(s) never printed

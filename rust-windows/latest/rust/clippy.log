@@ -20,5 +20,9 @@
  Downloading crates ...
   Downloaded jiff-core v0.1.4
   Downloaded jiff v0.2.41
+    Checking windows-sys v0.59.0
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.08s
+    Checking global-hotkey v0.8.0
+    Checking winreg v0.55.0
+    Checking tauri-plugin-global-shortcut v2.4.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.45s
