@@ -1,17 +1,19 @@
 {
   "workflow": "ui-shots",
   "workflow_name": "ui-shots",
-  "run_id": 42464018065,
+  "run_id": 42465476908,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464018065",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465476908",
   "event": "push",
-  "sha": "3bc261fd6e7b1552d3ba687f73aa0b44cec5b252",
+  "sha": "b684715f24f31cac20872ae31b60398d575d4149",
   "ref": "rust/harness",
   "ref_dir": "rust-harness",
-  "conclusion": "success",
-  "failed": [],
-  "finished": "2026-11-08T08:43:13Z",
-  "error_lines": 0,
+  "conclusion": "failure",
+  "failed": [
+    "Screenshots and renderer checks"
+  ],
+  "finished": "2026-11-08T09:05:39Z",
+  "error_lines": 2,
   "steps": [
     {
       "name": "Checkout",
@@ -35,7 +37,7 @@
     },
     {
       "name": "Screenshots and renderer checks",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "shots.log"
     },
     {

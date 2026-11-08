@@ -1,0 +1,3 @@
+== shots.log ==
+[UI] globOnClock=FAIL:done at 336 ms=true, at 536 ms=true (open takes 440 ms)
+[UI] globOnClock-150=FAIL:done at 336 ms=true, at 536 ms=true (open takes 440 ms)
