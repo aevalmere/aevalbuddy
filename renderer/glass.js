@@ -251,17 +251,19 @@
 
   // ---------------------------------------------------------------- scrim
 
-  function measure(el, r) {
+  // The brightness of the desktop under a screen rectangle (DIP), from the
+  // sixth-size frame: the median, the 90th and the 98th percentile luma.
+  function lumaUnder(left, top, right, bottom) {
     const s = S.sample;
     const d = S.display;
-    if (!s || !d) return;
+    if (!s || !d) return null;
     const kx = s.w / d.width;
     const ky = s.h / d.height;
-    const x0 = Math.max(0, Math.floor((window.screenX + r.left - d.x) * kx));
-    const y0 = Math.max(0, Math.floor((window.screenY + r.top - d.y) * ky));
-    const x1 = Math.min(s.w, Math.ceil((window.screenX + r.right - d.x) * kx));
-    const y1 = Math.min(s.h, Math.ceil((window.screenY + r.bottom - d.y) * ky));
-    if (x1 <= x0 || y1 <= y0) return;
+    const x0 = Math.max(0, Math.floor((left - d.x) * kx));
+    const y0 = Math.max(0, Math.floor((top - d.y) * ky));
+    const x1 = Math.min(s.w, Math.ceil((right - d.x) * kx));
+    const y1 = Math.min(s.h, Math.ceil((bottom - d.y) * ky));
+    if (x1 <= x0 || y1 <= y0) return null;
     const ys = [];
     for (let y = y0; y < y1; y += 1) {
       for (let x = x0; x < x1; x += 1) {
@@ -270,13 +272,45 @@
       }
     }
     ys.sort((a, b) => a - b);
-    const y = ys[Math.min(ys.length - 1, Math.floor(ys.length * 0.9))];
+    const at = (p) => ys[Math.min(ys.length - 1, Math.floor(ys.length * p))];
+    return { p50: at(0.5), p90: at(0.9), p98: at(0.98) };
+  }
+
+  // The luma the scrim is computed from.
+  function scrimLuma(l) {
+    return l.p90;
+  }
+
+  function scrimOf(kind, y) {
+    return SCRIM[kind === 'thick' ? 'thick' : 'thin'](y, S.k);
+  }
+
+  function measure(el, r) {
+    const l = lumaUnder(window.screenX + r.left, window.screenY + r.top, window.screenX + r.right, window.screenY + r.bottom);
+    if (!l) return;
+    const y = scrimLuma(l);
     const g = el.__gl;
     if (Math.abs(y - g.y) < 0.02) return;
     g.y = y;
     const kind = el.classList.contains('thick') ? 'thick' : 'thin';
-    el.style.setProperty('--scrim', SCRIM[kind](y, S.k).toFixed(3));
+    el.style.setProperty('--scrim', scrimOf(kind, y).toFixed(3));
     el.dataset.backdropY = y.toFixed(2);
+  }
+
+  // What scrim a glass layer of this kind would get over a screen rectangle
+  // (DIP, {x, y, width, height}): the glob's thin bud takes the bar's scrim
+  // so the two read as one material. Before the first frame, the stylesheet's
+  // starting value.
+  function scrimFor(rect, level) {
+    const kind = level === 'thick' ? 'thick' : 'thin';
+    const r = rect || {};
+    const x = Number(r.x !== undefined ? r.x : r.left);
+    const y = Number(r.y !== undefined ? r.y : r.top);
+    const w = Number(r.width);
+    const h = Number(r.height);
+    const l = [x, y, w, h].every(Number.isFinite) ? lumaUnder(x, y, x + w, y + h) : null;
+    if (!l) return kind === 'thick' ? 0.86 - 0.12 * S.k : 0.66 - 0.12 * S.k;
+    return Math.round(scrimOf(kind, scrimLuma(l)) * 1000) / 1000;
   }
 
   // ----------------------------------------------------------- refraction
@@ -517,6 +551,160 @@
     ignoring = false;
   }
 
+  // Listening on a channel Rust does not send yet throws in the bridge
+  // (its allowlist); a page must still load.
+  function listen(channel, fn) {
+    if (!bridge) return;
+    try {
+      bridge.on(channel, fn);
+    } catch (err) {
+      // Not in this build's allowlist; the feature waits for it.
+    }
+  }
+
+  // ------------------------------------------------------------ text size
+
+  // --text-scale is the Windows text size times the person's own factor
+  // (1.0..2.0); Rust sends the product as ui:text-scale. Ctrl+= and Ctrl+-
+  // step the person's factor by 0.1 and Ctrl+0 puts it back to 1, in any
+  // page: they see the keys before the bridge blocks browser zoom.
+  const TS_KEY = 'aeval.textScale';
+  function applyTextScale(scale) {
+    const v = Number(scale);
+    if (!Number.isFinite(v) || v <= 0) return;
+    const s = Math.round(Math.min(3, Math.max(0.5, v)) * 100) / 100;
+    if (s === 1) root.style.removeProperty('--text-scale');
+    else root.style.setProperty('--text-scale', String(s));
+    root.dataset.textScale = String(Math.round(s * 100));
+  }
+
+  function localFactor() {
+    try {
+      const v = Number(localStorage.getItem(TS_KEY));
+      if (Number.isFinite(v) && v >= 1 && v <= 2) return v;
+    } catch (err) {
+      // Storage off: 100%.
+    }
+    return 1;
+  }
+
+  async function storedFactor() {
+    if (bridge) {
+      try {
+        const s = await bridge.invoke('settings:get');
+        if (s && typeof s.textScale === 'number') return s.textScale;
+      } catch (err) {
+        // This window may not read settings; the shared copy stands.
+      }
+    }
+    return localFactor();
+  }
+
+  let zoomChain = Promise.resolve();
+  function stepTextScale(dir) {
+    zoomChain = zoomChain.then(async () => {
+      const cur = await storedFactor();
+      const next = dir === 0 ? 1 : Math.round(Math.min(2, Math.max(1, cur + dir * 0.1)) * 10) / 10;
+      if (next === cur && dir !== 0) return;
+      try {
+        localStorage.setItem(TS_KEY, String(next));
+      } catch (err) {
+        // Rust keeps the setting either way.
+      }
+      if (!bridge) return;
+      try {
+        await bridge.invoke('settings:set-text-scale', { scale: next });
+      } catch (err) {
+        // A build without the channel: this page at least follows the keys.
+        applyTextScale(next);
+      }
+    });
+    return zoomChain;
+  }
+
+  // On document, so a field that takes the chord itself (Settings' shortcut
+  // recorder) can claim it first with preventDefault.
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || e.altKey || e.metaKey || e.defaultPrevented) return;
+    const k = e.key;
+    let dir = null;
+    if (k === '=' || k === '+') dir = 1;
+    else if (k === '-' || k === '_') dir = -1;
+    else if (k === '0') dir = 0;
+    if (dir === null) return;
+    e.preventDefault();
+    stepTextScale(dir);
+  });
+
+  // ---------------------------------------------------------------- icons
+
+  // A glyph from renderer/icons.svg: a span that glass.css masks with the
+  // sprite's <view> of that name (.ico .i-<name>), filled with currentColor.
+  // Extra classes size it (for example 'g-check').
+  function icon(name, cls) {
+    const el = document.createElement('span');
+    el.className = `ico i-${name}${cls ? ` ${cls}` : ''}`;
+    el.setAttribute('aria-hidden', 'true');
+    return el;
+  }
+
+  // ---------------------------------------------------------- announcements
+
+  // One way to speak (AevalA11y.say): into this page's live region while it
+  // has focus, else through Rust (a11y:announce) to the window that has it,
+  // since a screen reader does not voice a background window's live region.
+  // Rust answers with a11y:say, spoken here. Polite for news, assertive for
+  // errors and a task's question.
+  function liveRegion(priority) {
+    const assertive = priority === 'assertive';
+    const id = assertive ? 'announce-alert' : 'announce';
+    let el = document.getElementById(id);
+    if (el) return el;
+    if (!document.body) return null;
+    el = document.createElement('div');
+    el.id = id;
+    el.setAttribute('role', assertive ? 'alert' : 'status');
+    el.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+    el.setAttribute('aria-atomic', 'true');
+    // CSSOM, not a style attribute: the pages' CSP has no 'unsafe-inline'.
+    Object.assign(el.style, {
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      overflow: 'hidden',
+      clipPath: 'inset(50%)',
+      whiteSpace: 'nowrap',
+    });
+    document.body.appendChild(el);
+    return el;
+  }
+
+  const speakTimers = {};
+  function speak(text, priority) {
+    const p = priority === 'assertive' ? 'assertive' : 'polite';
+    const el = liveRegion(p);
+    if (!el) return;
+    // Emptied first, so the same words said twice are heard twice.
+    el.textContent = '';
+    clearTimeout(speakTimers[p]);
+    speakTimers[p] = setTimeout(() => {
+      el.textContent = String(text || '');
+    }, 30);
+  }
+
+  function say(text, priority) {
+    const t = String(text || '').trim();
+    if (!t) return;
+    const p = priority === 'assertive' ? 'assertive' : 'polite';
+    if (!bridge || document.hasFocus()) {
+      speak(t, p);
+      return;
+    }
+    bridge.invoke('a11y:announce', { text: t, priority: p }).catch(() => speak(t, p));
+  }
+
+  window.AevalA11y = Object.freeze({ say, speak });
+
   // ----------------------------------------------------------------- boot
 
   syncPx();
@@ -533,6 +721,8 @@
       if (typeof t.intensity === 'number') applyK(t.intensity);
       syncTier();
     });
+    listen('ui:text-scale', (t) => applyTextScale(t && t.scale));
+    listen('a11y:say', (m) => m && speak(m.text, m.priority));
   }
   const boot = () => {
     scan(document.body);
@@ -542,6 +732,7 @@
         .invoke('glass:hello')
         .then((r) => {
           if (r && typeof r.intensity === 'number') applyK(r.intensity);
+          if (r && typeof r.textScale === 'number') applyTextScale(r.textScale);
         })
         .catch(() => {});
     }
@@ -556,6 +747,10 @@
     placeAll,
     solidAt,
     resetPassthrough,
+    scrimFor,
+    icon,
+    textScale: () => Number(getComputedStyle(root).getPropertyValue('--text-scale')) || 1,
+    stepTextScale,
     // Settings' slider: applied here at once, shared with every other page.
     setIntensity: (k) => applyK(k, { persist: true }),
     intensity: () => S.k,

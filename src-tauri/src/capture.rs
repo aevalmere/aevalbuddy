@@ -150,13 +150,29 @@ pub struct Shot {
     pub jpeg: Vec<u8>,
 }
 
+/// The display a shot reads: for an area, the display it was chosen on when
+/// that is known (`device`), else the one the rect matches; for the whole
+/// screen, `whole()`.
+pub fn target_display(
+    list: &[Display],
+    region: Option<&Rect>,
+    device: Option<&str>,
+    whole: impl FnOnce() -> Display,
+) -> Display {
+    match region {
+        Some(r) => device
+            .and_then(|dev| list.iter().find(|d| d.device == dev).cloned())
+            .unwrap_or_else(|| screen::matching(list, r)),
+        None => whole(),
+    }
+}
+
 /// The pixels a shot is made from, before encoding.
 pub fn shot_image(region: Option<Rect>) -> Result<(Rgb, Display), String> {
     let list = screen::all_displays();
-    let target = match region {
-        Some(r) => screen::matching(&list, &r),
-        None => screen::active_display(&list),
-    };
+    let device = region.as_ref().and_then(crate::region::device_for);
+    let whole = || screen::active_display(&list);
+    let target = target_display(&list, region.as_ref(), device.as_deref(), whole);
     let frame = grab(&target)?;
     let full = frame.rgb();
     let b = target.bounds;
