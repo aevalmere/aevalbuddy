@@ -1,12 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 20" width="408" height="20">
   <!-- The one icon family (DESIGN.md "One system"): every glyph on a 20 px
        grid, a 1.5 px stroke that stays 1.5 px at any size
-       (non-scaling-stroke), round caps and joins. Each glyph is a <view>
-       24 units apart, so a page shows one as a CSS mask filled with
-       currentColor: glass.css .ico plus .i-<name>, or AevalGlass.icon(name)
-       from script. A mask is a CSS image, which every page's CSP allows
-       (img-src 'self'); an external <use> is not. Sizes: 18 in a 32 px
-       button, 16 in a 28 px button, 14 inline (--ico, --ico-s, --ico-i). -->
+       (non-scaling-stroke), round caps and joins. The glyphs sit in one strip
+       24 units apart; glass.css masks a .ico element with the whole strip and
+       slides it to glyph N (.i-<name> sets --i), filled with currentColor.
+       The mask URL has no fragment on purpose: Chromium reads
+       url(icons.svg#name) in mask-image as a reference to an SVG <mask>
+       element and draws nothing for a <view>. The <view>s stay for <img>.
+       Order is the contract with glass.css: append, never reorder.
+       Sizes: 18 in a 32 px button, 16 in a 28 px button, 14 inline
+       (--ico, --ico-s, --ico-i). -->
   <defs>
     <symbol id="s-x" viewBox="0 0 20 20">
       <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
