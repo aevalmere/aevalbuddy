@@ -482,6 +482,10 @@ Windows lane, invoke: `settings:set-text-scale`, `output:blur`, `output:cycle-ta
 - `bar:clear {}`: the bar empties its field. `bar:note {text}`: a one-line note under the bar.
 - `chat:reset {undoMs}`: how long Undo is offered, 0 when there was nothing to undo.
 
+- `query:error {gen, message, question, code, provider, model, modelName, tone, actions, detail}` (`llm::payloads::QueryError`). `code` is one of `llm::errors::codes`; `tone` is `error` or `note`; `actions` are the buttons in order, `{id, label, provider?, model?, url?, section?}`, with each id's meaning on `payloads::Action`; `detail` is the Copy details text (provider, model id, status, models tried, the provider's message). `retryInMs` joins with B-120.
+- `query:done.usage` gains `modelId`, `modelName`, `provider` and `providerName`; `model` stays the short id for older pages.
+- `query:stage` names a stand-in by its display name: `That model is busy. Trying <model name>…`, `… Reading with <model name>…`, `… Thinking with <model name>…` (C-21..C-23).
+
 ### 10.3 Behaviour Rust must keep for the pages
 
 - **Event before listener.** `window.aeval.invoke` waits for every `on()` registration still in flight
@@ -634,6 +638,49 @@ Native models never fail over (failover is for `:free` ids only). `AEVAL_FAKE_LL
 provider in OpenRouter's dialect from `tools/fixtures/llm`, which are compiled into the binary;
 `AEVAL_FAKE_LLM_DIR` adds more at runtime. Settings stores per-provider keys and model picks; the
 store keys are (a)'s to name.
+
+**Routed by host::settings.**
+`host::settings::route` (K-15) runs first from `host::ask::route`, so each channel below is answered there and the matching core row in `ipc.rs` is never reached. windows deletes those rows under B-107.
+
+- `settings:save-key`
+- `settings:clear-key`
+- `settings:save-model`
+- `settings:save-brain`
+- `settings:save-find-model`
+- `settings:save-agent-model`
+- `settings:clip-key`
+- `settings:use-clip-key`
+- `settings:test-key` (its arm moved here from `host::ask::route` once windows C1 added `host/settings.rs` to the `every_invoke_channel_has_a_route` scan)
+- `settings:set-provider-order` (B-038)
+- `settings:set-failover` (B-038)
+- `auth:openrouter-connect` (B-039)
+- `skills:open-folder` (B-181)
+
+Listen `provider:status {id, status, statusText, busyUntil, notice?}` goes to Settings and the overlay after every key test, save, clear, and any answer that changes a provider's state.
+
+The llm lane's C1 contracts, for the lanes that consume them:
+
+- K-15 `host::settings::route(app, label, channel, args) -> Option<Result<Value, String>>`: the Settings channels about providers, keys and models (list above).
+- K-16 `llm::settings::candidates(&dyn LlmSettings) -> Vec<Candidate>`: the providers a request may go to, in the person's order (`providerOrder`, with the legacy `provider` override migrated to the top), skipping providers without a key, keys whose prefix names another provider, and providers in a cooldown (`llm::status`). `Candidate { provider, key }` with `model(Kind)`; `llm::settings::model_for(s, provider, kind)` is the model id a provider receives.
+- K-17 `ApiError { retry_after_ms: Option<u64>, attempts: u32, code: Option<&'static str> }`, with the codes in `llm::errors::codes`. Defaults (`None`, 1, `None`) until B-042 and B-120 fill them.
+- K-18 `llm::recipients(&dyn LlmSettings) -> Vec<Recipient>`: who receives the screen, first first, as `{id, name, model, modelName, free}`. `settings:get` carries it as `recipients`; the overlay gets it through `Hooks.overlay_extra` once windows C1 has that hook.
+- K-19 the renderer payloads as serde types in `llm::payloads`: `QueryError` (`query:error`), `Sent` (`output:sent`), `Usage` (`output:usage`), `ProviderRow` (`settings_extra.providers`), `FailoverPrefs`, `ProviderStatusEvent` (`provider:status`), `ProviderModels`, `SaveKeyReply`, `TestKeyReply`, `ClipKeyReply`, `Action` and `Pin`.
+- K-26 `Fake::push_fixture(Value)` puts a fixture ahead of all others; `Fake::clear_pushed()` goes back to the embedded set. Besides the lib/fake-llm.js fields a fixture may carry `provider` (matches only that provider id), `model` (only that model id), `status` (answers with that HTTP status and `{"error":{"message":…}}`), `retryAfter` (the `Retry-After` header, seconds), `stallAfterHeadersMs` (headers, then silence for that long before the body) and `times` (matches that many requests, then drops out). Each logged `FakeRequest` records `provider` and the `url` the real request would have gone to.
+
+Timeouts: the HTTP client connects within 10 s and sends TCP keep-alives every 30 s. A stream that sends no bytes for 45 s (keep-alive comments count) ends with `ApiError::http(408)`, which `with_failover` treats like a busy model; a non-streamed call (the reader, agent turns) is capped at 90 s from request to last byte. `AEVAL_LLM_IDLE_MS` shortens the stall timeout for the self-test.
+
+`Llm` remembers the model ids that answered 404 this session (`failover::BadModels`): `first_model` skips a retired free id as the first attempt and `next_free_model` skips it as a stand-in. Once the catalogue is cached, a stand-in must be listed and able to do the job (images for Vision, tool calls for Agent); a cold cache means curated order. An `ApiError` carries `attempts`, the number of models tried, and its text mentions a backup only when that is above 1.
+
+Wire limits: a 200 reply whose body is an `error` object is that error; an SSE line over 1 MB ends the stream with a 502; the history sent with a question starts at a user turn (`ask::sendable_history`); a skill body is cut at 8 KB and `skills.list()` marks it `truncated`. A model that declines (Anthropic `stop_reason: refusal`, a Gemini safety block) is an error with code `refused`, which never fails over. Provider messages pass through `errors::redact_keys`, so a key a provider quotes back never reaches a page or a log.
+
+Gemini requests carry no `temperature`, like OpenAI and Anthropic requests.
+Reason: Google's Gemini 3 guide recommends keeping temperature at its default because lower values can cause looping and worse reasoning, and the 0.2 the answer stream sends was chosen for OpenRouter's free models.
+
+Keys are tested before they are stored: `settings:save-key {provider, key}` answers `{ok, status, message, keyHint, provider, credit}`, or `{ok:false, error, detected}` for a key whose prefix names another provider; a rejected key is not stored, a key that could not be checked is kept as `unchecked`. `settings:test-key {provider}` answers `{ok, status, message, credit, actions}`; for OpenRouter it also sends one `max_tokens: 1` request to the default free vision model, and a data-policy refusal reads `blocked` (C-65) with `Open OpenRouter privacy settings`. `settings:get` carries `providers` (rows in try order), `failover`, `keyHints` and `keyStorage`. Statuses live in `llm::status` (in memory, per key fingerprint) and change on key tests and on answers: 401 rejected, 402 no credit (native), a native 429 busy for Retry-After or 60 s; an answer clears them. `auth:openrouter-connect` runs OAuth PKCE S256 through a loopback listener on 127.0.0.1 (`llm::auth`), 5 min timeout, then stores and tests the key. Checked against openrouter.ai/docs (OAuth PKCE guide) on 2026-11-08: `/auth?callback_url&code_challenge&code_challenge_method=S256`, then `POST /api/v1/auth/keys {code, code_verifier, code_challenge_method}` returning `{key}`.
+
+Native model lists come from the providers (`GET /v1/models` for Anthropic and OpenAI, `GET /v1beta/models` for Gemini), cached 5 minutes and filtered to chat models; the curated table stays the fallback and the source of defaults. A stored native id the cached list lacks goes out as the provider's default for the job, in memory only.
+
+Each output window has its own Ask: a new question cancels only the one running in its window, `query:cancel` stops the caller's window (or the focused output), and `Hooks.abort_query_for` stops one window's Ask. Busy follows `AppState::query_started/ended`.
 
 ## 13. The merge: `host/` glues the splits together
 

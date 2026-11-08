@@ -416,20 +416,20 @@ MIGRATE (round trip) + UNIT (getter semantics).
 | MODEL-06 | listModels: paid hidden unless asked; retired or image-less (vision) models dropped; detail line `$X in / $Y out per million tokens · NK context` or `Free · NM context`; agent entries tagged `Tools`/`JSON mode`. | openrouter.js:186-280 | SMOKE:modelList, modelListPaidHidden, modelListWithPaid |
 | MODEL-07 | pickLive: keep if usable (vision needs image input; others any listed), else kind default, else first free curated usable, else keep id; never moves a paid choice to another paid one. | openrouter.js:318-346 | SMOKE:healRetired + UNIT |
 | MODEL-08 | testKey messages: `No key saved yet.`, `OpenRouter rejected this key. Check it and save again.`, `OpenRouter replied HTTP N.`, `Key works. About $X.XX of credit left.`, `Key works, but the credit is used up. Add credit, or pick a Free model.`, `Key works.`, `Could not reach OpenRouter. Check your connection.` | openrouter.js:366-398 | UNIT (mock) |
-| FAIL-01 | Failover statuses: 404, 408, 429, 500, 502, 503, 504; never on abort. | openrouter.js:840-847 | SMOKE:failoverRateLimit |
+| FAIL-01 | Failover statuses: 404, 408, 429, 500, 502, 503, 504, 529 (Anthropic's overloaded); never on abort, a refusal, or an account-wide limit (the daily free cap, an empty balance), which every model of the account shares. | openrouter.js:840-847 | SMOKE:failoverRateLimit |
 | FAIL-02 | Only `:free` models fail over; paid never switches. Auth (401) and other errors throw immediately. | main.js:1456 | SMOKE:failoverKeepsAuthError |
 | FAIL-03 | At most 3 models per request. | main.js:1414,1457 | SMOKE:failoverCapped |
 | FAIL-04 | No failover once text reached the user (`canRetry`). | main.js:1455,1648,1668 | DIFF |
-| FAIL-05 | nextFreeModel: first untried free in the kind's pool (find uses brains); agent only tools-capable stand-ins when the catalogue is known. | openrouter.js:857-864 | UNIT |
-| FAIL-06 | Short model name in stage labels: last path part, `:free` stripped, 28 chars max with ellipsis. | main.js:1418-1421 | UNIT |
+| FAIL-05 | nextFreeModel: first untried free in the kind's pool (find uses brains), skipping ids that answered 404 this session; when the catalogue is known, only listed stand-ins, and for Vision only ones that take images, for Agent only ones with tool calls. | openrouter.js:857-864 | UNIT |
+| FAIL-06 | Stage labels name the stand-in by its catalogue display name (C-21..C-23). The short name (last path part, `:free` stripped, 28 chars max with ellipsis) stays in `query:done.usage.model` for older pages. | main.js:1418-1421 | UNIT |
 | PROMPT-01 | Reader prompt verbatim (SCREEN/STATE/FOCUS/TASK/TEXT/ELEMENTS, grid rule, copy exactly) + REGION_NOTE for areas; max_tokens 1600, temperature 0, non-streamed; report unfenced; rejected unless >= 40 chars with a SCREEN line (status 204, stage reader). | openrouter.js:423-457,631-752 | DIFF (byte-equal prompt) |
 | PROMPT-02 | System prompt variants (reader-fed brain, screen, region, no screen, exact-text name pointing) verbatim, joined by newlines; skill appended as `--- <name> ---`. Never quotes the image size. | openrouter.js:760-833 | SMOKE:brainPrompt, skillInPrompt, promptShape, gridShared, regionPrompt |
 | PROMPT-03 | Exact-text block wording, 16000-char cap with `[cut]`. | openrouter.js:668-682 | DIFF |
-| PROMPT-04 | Answer stream temperature 0.2; Find text calls temperature 0, max_tokens 800 default; agent turns temperature 0, tool_choice auto, parallel_tool_calls false. | openrouter.js:957,1054-1118 | DIFF |
-| PROMPT-05 | SSE parsing: `data:` lines only (keepalive comments skipped), `[DONE]`, error objects -> ApiError(code), usage accumulated, TTFT measured on first content; empty stream = 204 `empty response` unless allowed. | openrouter.js:995-1048 | UNIT (recorded streams) |
+| PROMPT-04 | Answer stream temperature 0.2; Find text calls temperature 0, max_tokens 800 default; agent turns temperature 0, tool_choice auto, parallel_tool_calls false. Gemini requests omit temperature (D-18). | openrouter.js:957,1054-1118 | DIFF |
+| PROMPT-05 | SSE parsing: `data:` lines only (keepalive comments skipped), `[DONE]`, error objects -> ApiError(code), usage accumulated, TTFT measured on first content; empty stream = 204 `empty response` unless allowed. A line over 1 MB is a 502; 45 s without a byte is a 408 (B-041); a 200 body holding an `error` object is that error. | openrouter.js:995-1048 | UNIT (recorded streams) |
 | POINT-01 | Coordinate directive regex (loose shapes) and named directive regex; malformed `[[point ...]]` swallowed; non-directive `[[...]]` kept; directive held up to 220 chars across deltas; gap whitespace closed. | openrouter.js:1130-1238 | SMOKE:pointExtract, pointShapes, pointNonDirective, pointNamedExtract |
 | POINT-02 | ELEMENTS parsing: bullets, coordinate pair anchored at line end, %, fractions, pixel rescue with view size, max 8 rows, any other FIELD: ends the block. | openrouter.js:472-549 | SMOKE:readerElements, readerRowShapes, readerPixelRow |
-| POINT-03 | matchElement: exact name wins; containment and word-overlap scoring; min 0.5; margin 0.08 against runner-up. | openrouter.js:551-615 | SMOKE:pointByName, pointAmbiguous |
+| POINT-03 | matchElement: exact name wins; containment and word-overlap scoring; min 0.5; margin 0.08 against runner-up. Names compare by Unicode letters and digits, so Cyrillic and CJK labels match. | openrouter.js:551-615 | SMOKE:pointByName, pointAmbiguous |
 | POINT-04 | pointFraction: 0-1000 grid; >1000 read as view pixels if inside the view; negative or outside -> dropped. | main.js:1744-1753 | SMOKE:pointGridMapping, pointPixelRescue, pointBottomEdge, pointOffScreen |
 | POINT-05 | Points map onto the region rect when the shot was an area, else the display. | main.js:1773-1778 | SMOKE:regionPointTarget |
 | POINT-06 | Named point resolved first against the live UI (UIA find, score >= 70, exact unique name or 8-point lead, role words stripped), DIP centre; else against ELEMENTS. | main.js:1838-1853 | SMOKE:pointFromUia |
@@ -541,7 +541,8 @@ over 1.6 MB, floor 62. | main.js:1096-1098,1187-1194 | SMOKE:capture (bytes, siz
 | CAP-06 | Result: base64, bytes, width, height, display bounds (DIP), region (DIP) or null. Failure -> null (query degrades to text-only), never a crash. | main.js:1198-1211 | SMOKE+:captureFailNull |
 | CAP-07 | Display matching on a multi-monitor desk by display id; fallback to the primary; never source order. | main.js:1145-1151 | UNIT |
 | CAP-08 | Our windows never appear in a capture (WDA_EXCLUDEFROMCAPTURE honoured by the Rust capture backend). | DESIGN.md Material | SMOKE+:captureExcludesOwn (capture with the bar open over a known colour; the bar's pixels must be absent) |
-| CAP-09 | Every message captures fresh (follow-ups see the screen now). Region sticks to the conversation until cleared or New chat. | main.js:1544-1551,162-166 | SMOKE+ |
+| CAP-09 | Every message captures fresh (follow-ups see the screen now); the shot taken when an area was picked stands in only while it is under 1 s old. Region sticks to the conversation until cleared or New chat.
+Reason: in Electron the pick-time shot answered the first question however long the person took to type it, so a screen that changed meanwhile was described as it had been. | main.js:1544-1551,162-166 | SMOKE+ |
 | CAP-10 | Region pick: selector on the active display; Escape claimed while open; cancel leaves the panel as it was; result captured immediately, panel expanded, chip shown. | main.js:1232-1260 | SMOKE:regionEscape, regionSelectorCancels |
 | CAP-11 | Region selector: live scrim (not a frozen shot); < 12 px on either axis is a cancel; window coords + display origin; second request replaces the first; blur cancels. | region.js | SMOKE:regionSelectorCancels |
 | CAP-12 | DPI: capture sizes at 100/125/150 % produce the same DIP mapping (points land where the model meant). | main.js:1744-1778 | SMOKE+ at each AEVAL_SHOT_SCALE |
@@ -881,6 +882,34 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 
 - B-003, D-12: status: done; evidence: UNIT history::tests::corrupt_file_is_kept_aside_not_overwritten, history::tests::steady_saves_still_write_within_400ms, history::tests::flush_now_and_timer_never_overlap
 
+### FAIL-01
+
+- B-043: status: changed; evidence: UNIT errors::tests::failover_statuses_are_the_everyday_ones, failover::tests::daily_cap_stays_in_account, errors::tests::daily_cap_is_not_transient
+
+### FAIL-05
+
+- B-042: status: changed; evidence: UNIT catalogue::tests::stand_in_is_live_and_sees_images, failover::tests::bad_model_set_is_skipped, client::tests::retry_after_and_retired_models_are_read
+
+### FAIL-06
+
+- B-119: status: changed; evidence: UNIT failover::tests::short_names
+
+### PROMPT-04
+
+- D-18: status: changed; evidence: UNIT wire::tests::gemini_body_has_no_temperature
+
+### PROMPT-05
+
+- B-125: status: changed; evidence: UNIT sse::tests::buffer_is_capped, client::tests::idle_stream_times_out_as_408, client::tests::error_in_200_body_is_an_error
+
+### POINT-03
+
+- B-127: status: changed; evidence: UNIT elements::tests::cyrillic_and_cjk_names_match
+
+### ERR-01..ERR-12
+
+- B-119: status: replaced by the copy deck (design-ux U14, C-61, C-70..C-74; Decision D-28): each error carries a code, the provider, the model's display name and the actions that fix it, in `tools/fixtures/llm/errors.json`. evidence: UNIT errors::tests::error_table_is_verbatim, errors::tests::codes_and_actions, errors::tests::gemini_invalid_key_is_bad_key, errors::tests::single_attempt_copy_claims_no_stand_in, host::ask::tests::error_rows_name_the_model_and_the_fix
+
 ### CAP-01
 
 - B-032: status: changed (D-09); evidence: UNIT `capture::screen::tests::active_prefers_foreground_monitor`, `capture::screen::tests::latch_finds_its_display_only_while_it_exists`
@@ -900,6 +929,10 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### CAP-07
 
 - B-005: status: done; evidence: UNIT `capture::screen::tests::matching_picks_most_overlap_by_id_not_order`, `capture::screen::tests::ties_go_to_the_primary_then_the_centre`, `capture::tests::area_on_primary_crops_primary`
+
+### CAP-09
+
+- D-08: status: changed; evidence: UNIT host::ask::tests::stale_pick_shot_is_not_reused
 
 ### CAP-11
 
