@@ -11,7 +11,7 @@
 [UI] shot 13-glob-clock-144.png
 [UI] shot 13-glob-clock-240.png
 [UI] shot 13-glob-clock-336.png
-[UI] globOnClock=FAIL:done at 336 ms=true, at 536 ms=true (open takes 440 ms)
+[UI] globOnClock=ok
 [UI] scene bar/bar
 [UI] shot 01-bar-first-run.png
 [UI] suggestionsBeforeFirst=ok
@@ -29,13 +29,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.000
+[UI] globShapeMs=0.027
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=441 frames=28 longestFrameMs=16.0
+[UI] globOpen ms=464 frames=26 longestFrameMs=33.4
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -77,7 +77,7 @@
 [UI] shot 13-glob-clock-144-150.png
 [UI] shot 13-glob-clock-240-150.png
 [UI] shot 13-glob-clock-336-150.png
-[UI] globOnClock-150=FAIL:done at 336 ms=true, at 536 ms=true (open takes 440 ms)
+[UI] globOnClock-150=ok
 [UI] scene bar/bar-150
 [UI] shot 01-bar-first-run-150.png
 [UI] suggestionsBeforeFirst-150=ok
@@ -99,7 +99,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=452 frames=29 longestFrameMs=16.0
+[UI] globOpen-150 ms=472 frames=27 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -138,4 +138,4 @@
 [UI] lane sheet sceneRuns=6
 [UI] lane settings sceneRuns=6
 [UI] noPageErrors=ok
-[UI] done failed=2 shots=46
+[UI] done failed=0 shots=46
