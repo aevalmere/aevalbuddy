@@ -1,0 +1,48 @@
+[UI] shot 01-bar-first-run.png
+[UI] suggestionsBeforeFirst=ok
+[UI] noLegend=ok
+[UI] hintOnLeftButton=ok
+[UI] suggestionsGoneAfterFirst=ok
+[UI] barSends=ok
+[UI] suggestionsNeverAgain=ok
+[UI] shot 02-bar-after-first.png
+[UI] shot 03-output-answer.png
+[UI] noOutputInput=ok
+[UI] outputTitleBar=ok
+[UI] outputControls=ok
+[UI] noDockUi=ok
+[UI] resizeZones=ok
+[UI] globFrameCost=ok
+[UI] globShapeMs=0.027
+[UI] shot 04a-glob-08.png
+[UI] shot 04b-glob-30.png
+[UI] shot 04c-glob-52.png
+[UI] shot 04d-glob-70.png
+[UI] shot 04e-glob-90.png
+[UI] globOpen ms=466 frames=25 longestFrameMs=33.4
+[UI] globOpens=ok
+[UI] globSmooth=ok
+[UI] globReducedMotion=ok
+[UI] shot 05-outputs-multi.png
+[UI] barAnswersTask=ok
+[UI] askUserRoutedFromBar=ok
+[UI] noInputInAnyOutput=ok
+[UI] shot 08-settings-account.png
+[UI] glassLive.0=ok
+[UI] glassTier.0=ok
+[UI] shot 06-settings-glass-000.png
+[UI] glassLive.0.5=ok
+[UI] glassTier.0.5=ok
+[UI] shot 06-settings-glass-050.png
+[UI] glassLive.1=ok
+[UI] glassTier.1=ok
+[UI] shot 06-settings-glass-100.png
+[UI] glassSaved=ok
+[UI] noDuplicateHintInSettings=ok
+[UI] settingsResizeZones=ok
+[UI] settingsDrag=ok
+[UI] shot 07-settings-fullscreen.png
+[UI] shot 09-history.png
+[UI] shot 10-white-bar-output.png
+[UI] noPageErrors=ok
+[UI] done failed=0
