@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42491268076,
+  "run_id": 42492478853,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491268076",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42492478853",
   "event": "push",
-  "sha": "2df7e146efab1c0825858cc0736954bf2fafc076",
+  "sha": "9b0fee8ba82d6c0f8300d723fffb452eaece7ac8",
   "ref": "rust/capture",
   "ref_dir": "rust-capture",
   "conclusion": "failure",
   "failed": [
-    "Format"
+    "Smoke"
   ],
-  "finished": "2026-11-08T14:49:55Z",
-  "error_lines": 13,
+  "finished": "2026-11-08T15:08:16Z",
+  "error_lines": 4,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +47,13 @@
     },
     {
       "name": "Format",
-      "outcome": "failure",
-      "log": "fmt.log"
+      "outcome": "success",
+      "log": ""
     },
     {
       "name": "Format patch",
-      "outcome": "success",
-      "log": "fmt.patch"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Clippy",
@@ -67,28 +67,28 @@
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "nsis.log"
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "failure",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",

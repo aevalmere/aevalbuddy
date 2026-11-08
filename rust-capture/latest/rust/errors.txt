@@ -1,15 +1,5 @@
-== fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\region.rs:83:
-     let mine = {
-         let mut g = pending();
-         let ours = g.as_ref().is_some_and(|p| p.gen == gen);
--        if ours { g.take() } else { None }
-+        if ours {
-+            g.take()
-+        } else {
-+            None
-+        }
-     };
-     if let Some(p) = mine {
-         let _ = p.tx.send(rect);
-
+== smoke.log ==
+[SMOKE] lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
+[SMOKE] failed: lensFirstDraw
+[GATE] fail lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: lensFirstDraw; 1 listed label(s) never printed

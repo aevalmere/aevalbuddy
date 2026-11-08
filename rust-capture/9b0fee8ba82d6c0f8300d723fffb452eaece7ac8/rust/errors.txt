@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
+[SMOKE] failed: lensFirstDraw
+[GATE] fail lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: lensFirstDraw; 1 listed label(s) never printed
