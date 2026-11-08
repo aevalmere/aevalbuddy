@@ -256,7 +256,10 @@ mod tests {
                 Some("other") => Some(ApiError::other(detail)),
                 Some("abort") => Some(ApiError::abort()),
                 Some(_) => None,
-                None => Some(ApiError::http(row["status"].as_u64().unwrap() as u16, detail)),
+                None => {
+                    let status = row["status"].as_u64().unwrap() as u16;
+                    Some(ApiError::http(status, detail))
+                }
             };
             let got = friendly_error_for(provider, err.as_ref(), model);
             assert_eq!(got.as_deref(), row["text"].as_str(), "{row}");

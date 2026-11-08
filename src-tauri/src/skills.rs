@@ -38,7 +38,10 @@ const BUILT_IN: [(&str, &str); 4] = [
     ("debug", include_str!("../../skills/debug.md")),
     ("explain", include_str!("../../skills/explain.md")),
     ("rewrite", include_str!("../../skills/rewrite.md")),
-    ("screen-assist", include_str!("../../skills/screen-assist.md")),
+    (
+        "screen-assist",
+        include_str!("../../skills/screen-assist.md"),
+    ),
 ];
 
 /// Which skill fits which kind of request. The reader can name one of these

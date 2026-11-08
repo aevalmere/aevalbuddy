@@ -387,7 +387,8 @@ impl Llm {
         let turn = wire::parse_turn(dialect, &data, now_ms());
         let report = prompt::unfence(turn.content.trim());
         if !prompt::valid_report(&report) {
-            return Err(stage(ApiError::http(204, "the reader did not describe the screen")));
+            let msg = "the reader did not describe the screen";
+            return Err(stage(ApiError::http(204, msg)));
         }
         Ok(report)
     }
@@ -765,7 +766,10 @@ mod tests {
     #[test]
     fn test_key_messages() {
         let cases = [
-            (Ok((401, String::new())), "OpenRouter rejected this key. Check it and save again."),
+            (
+                Ok((401, String::new())),
+                "OpenRouter rejected this key. Check it and save again.",
+            ),
             (Ok((500, String::new())), "OpenRouter replied HTTP 500."),
             (
                 Ok((200, r#"{"data":{"limit":10,"usage":2.5}}"#.into())),
