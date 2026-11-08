@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -207,6 +208,7 @@ namespace AevalDesktop
             TogglePattern.ToggleStateProperty,
             ExpandCollapsePattern.ExpandCollapseStateProperty,
             SelectionItemPattern.IsSelectedProperty,
+            AutomationElement.LocalizedControlTypeProperty,
         };
 
         static readonly HashSet<int> InteractiveTypes = new HashSet<int> {
@@ -259,13 +261,82 @@ namespace AevalDesktop
             ready["version"] = version;
             Write(ready);
 
-            string line;
-            while ((line = stdin.ReadLine()) != null)
+            // stdin is read on its own thread so a `cancel` line is acted on
+            // while a request is still running; every other line waits its
+            // turn, in order.
+            var queue = new BlockingCollection<Pending>();
+            var reader = new Thread(delegate ()
             {
-                if (line.Trim().Length == 0) continue;
-                if (!Handle(line)) break;
+                try
+                {
+                    string l;
+                    while ((l = stdin.ReadLine()) != null)
+                    {
+                        if (l.Trim().Length == 0) continue;
+                        if (IsCancel(l)) { CancelAll(l); continue; }
+                        var req = new Req();
+                        lock (running) running.Add(req);
+                        queue.Add(new Pending { Line = l, Req = req });
+                    }
+                }
+                catch (Exception) { }
+                finally { queue.CompleteAdding(); }
+            });
+            reader.IsBackground = true;
+            reader.Start();
+            foreach (var p in queue.GetConsumingEnumerable())
+            {
+                if (!Handle(p.Line, p.Req)) break;
             }
             Watch.Stop();
+        }
+
+        // A request's cancel flag (B-050). Handle sets it when the request
+        // times out, and `cancel` sets it on every request read so far, so an
+        // abandoned or stopped request never sends input afterwards. Every
+        // input primitive checks it before it acts.
+        class Req { public volatile bool Cancelled; }
+        class Pending { public string Line; public Req Req; }
+        static readonly List<Req> running = new List<Req>();
+        [ThreadStatic] static Req current;
+
+        static void CheckCancel()
+        {
+            var r = current;
+            if (r != null && r.Cancelled) throw new DesktopError("CANCELLED", "stopped before it acted");
+        }
+
+        // The reader thread parses with its own serializer.
+        static Dictionary<string, object> ParseCancel(string line)
+        {
+            if (line.IndexOf("\"cancel\"", StringComparison.Ordinal) < 0) return null;
+            try
+            {
+                var req = new JavaScriptSerializer().DeserializeObject(line) as Dictionary<string, object>;
+                return req != null && Str(req, "op", "") == "cancel" ? req : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        static bool IsCancel(string line)
+        {
+            return ParseCancel(line) != null;
+        }
+
+        static void CancelAll(string line)
+        {
+            int n = 0;
+            lock (running)
+            {
+                foreach (var r in running) { if (!r.Cancelled) n++; r.Cancelled = true; }
+            }
+            object id = null;
+            var req = ParseCancel(line);
+            if (req != null) req.TryGetValue("id", out id);
+            var res = new Dictionary<string, object>();
+            res["ok"] = true;
+            res["cancelled"] = n;
+            Reply(id, res, null, 0);
         }
 
         internal static void Write(Dictionary<string, object> msg)
@@ -279,7 +350,13 @@ namespace AevalDesktop
         // Each request runs on its own MTA thread so a provider that hangs
         // (a frozen app answering UIA) costs one request, not the helper.
         // The abandoned thread is a background thread and dies with us.
-        static bool Handle(string line)
+        static bool Handle(string line, Req cancel)
+        {
+            try { return HandleOne(line, cancel); }
+            finally { lock (running) running.Remove(cancel); }
+        }
+
+        static bool HandleOne(string line, Req cancel)
         {
             object id = null;
             Dictionary<string, object> req;
@@ -303,6 +380,7 @@ namespace AevalDesktop
             var sw = Stopwatch.StartNew();
             var t = new Thread(delegate ()
             {
+                current = cancel;
                 ThreadDpi();
                 try { slot.Result = Dispatch(op, args); }
                 catch (Exception e) { slot.Error = e; }
@@ -312,6 +390,9 @@ namespace AevalDesktop
             t.Start();
             if (!t.Join(timeout))
             {
+                // The thread keeps running, but it may no longer act: the
+                // caller has been told this request failed.
+                cancel.Cancelled = true;
                 Reply(id, null, new DesktopError("TIMEOUT", op + " did not finish in " + timeout + "ms (the target app may be hung)"), sw.ElapsedMilliseconds);
                 return true;
             }
@@ -379,6 +460,7 @@ namespace AevalDesktop
                 case "getText": return GetText(a);
                 case "elementAt": return At(a);
                 case "resolve": return Resolve(a);
+                case "focused": return FocusedCmd(a);
                 case "ocr": return OcrCmd(a);
                 case "capture": return CaptureCmd(a);
                 case "click": return Click(a);
@@ -889,14 +971,17 @@ namespace AevalDesktop
 
         static string FocusWindow(IntPtr h)
         {
+            CheckCancel();
             if (Native.IsIconic(h)) { Native.ShowWindow(h, 9); Thread.Sleep(150); }
             if (ForegroundRoot() == h) return "already";
+            CheckCancel();
             if (Native.SetForegroundWindow(h) && WaitForeground(h)) return "direct";
             // Windows lets the process that sent the last input take the
             // foreground. A zero-length relative mouse move is input that
             // moves nothing.
             SendMouseRel(0, 0, Native.MOUSEEVENTF_MOVE, 0);
             if (Native.SetForegroundWindow(h) && WaitForeground(h)) return "input";
+            CheckCancel();
             IntPtr fg = Native.GetForegroundWindow();
             uint dummy;
             uint fgThread = Native.GetWindowThreadProcessId(fg, out dummy);
@@ -939,6 +1024,7 @@ namespace AevalDesktop
             IntPtr h = new IntPtr(ParseHandle(Arg(a, "handle")));
             if (!Native.IsWindow(h)) throw new DesktopError("NOT_FOUND", "no such window");
             RefuseExcluded(h);
+            CheckCancel();
             var r = new Dictionary<string, object>();
             r["ok"] = Native.PostMessage(h, Native.WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
             return r;
@@ -1009,6 +1095,14 @@ namespace AevalDesktop
             var ct = Get(el, AutomationElement.ControlTypeProperty, cached) as ControlType;
             i.ControlTypeId = ct == null ? 0 : ct.Id;
             i.Role = RoleOf(ct);
+            // A web page's dialog (and a XAML one) is a Pane, Group or Custom
+            // whose localized type says dialog. The agent's gate reads the
+            // text inside one before a click in it, so it gets its own role.
+            if (ct == ControlType.Pane || ct == ControlType.Group || ct == ControlType.Custom)
+            {
+                string lct = S(el, AutomationElement.LocalizedControlTypeProperty, cached).ToLowerInvariant();
+                if (lct == "dialog" || lct == "alert dialog" || lct == "alertdialog") i.Role = "dialog";
+            }
             i.Name = S(el, AutomationElement.NameProperty, cached);
             i.Rect = ToRect(Get(el, AutomationElement.BoundingRectangleProperty, cached));
             i.Offscreen = B(el, AutomationElement.IsOffscreenProperty, cached);
@@ -1208,7 +1302,7 @@ namespace AevalDesktop
             if (isRoot) emit = true;
             else
             {
-                bool noise = NoiseTypes.Contains(i.ControlTypeId) && i.Name.Length == 0 && string.IsNullOrEmpty(i.Value) && !interactive;
+                bool noise = NoiseTypes.Contains(i.ControlTypeId) && i.Name.Length == 0 && string.IsNullOrEmpty(i.Value) && !interactive && i.Role != "dialog";
                 // A button's text child repeats the button's name.
                 bool echo = i.ControlTypeId == ControlType.Text.Id && i.Name.Length > 0 && i.Name == parentName && !interactive;
                 // Chromium marks unnamed wrapper groups invokable; listing them
@@ -1560,6 +1654,29 @@ namespace AevalDesktop
             return res;
         }
 
+        // The element with keyboard focus, so the agent's gate can see what a
+        // Space or Enter would press. node is null when the window asked for
+        // is not in front: keys sent to it land on its own remembered focus,
+        // which UI Automation cannot see from outside.
+        static object FocusedCmd(Dictionary<string, object> a)
+        {
+            IntPtr want = new IntPtr(ParseHandle(Arg(a, "windowHandle")));
+            if (want != IntPtr.Zero) want = Native.GetAncestor(want, Native.GA_ROOT);
+            IntPtr fg = ForegroundRoot();
+            var res = new Dictionary<string, object>();
+            res["node"] = null;
+            res["windowHandle"] = HandleStr(fg);
+            if (fg == IntPtr.Zero || IsExcludedWindow(fg) || (want != IntPtr.Zero && want != fg)) return res;
+            AutomationElement el;
+            var cr = MakeCache(TreeScope.Element);
+            using (cr.Activate()) { el = AutomationElement.FocusedElement; }
+            if (el == null) return res;
+            Info i = Read(el, true);
+            if (IsExcludedPid(i.Pid)) return res;
+            res["node"] = NodeDict(i, RefFor(el, i, fg), 0, 0, 300);
+            return res;
+        }
+
         static object Resolve(Dictionary<string, object> a)
         {
             var e = GetRef(Arg(a, "ref"));
@@ -1653,9 +1770,24 @@ namespace AevalDesktop
 
         // ------------------------------------------------------------ input
 
+        // A cancelled request sends nothing more, except releases: a key or
+        // button it already pressed is always let go.
         static uint SendInputs(Native.INPUT[] inputs)
         {
+            bool releases = inputs.Length > 0;
+            foreach (var i in inputs) if (!IsRelease(i)) { releases = false; break; }
+            if (!releases) CheckCancel();
             return Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.INPUT)));
+        }
+
+        static bool IsRelease(Native.INPUT i)
+        {
+            if (i.type == Native.INPUT_KEYBOARD) return (i.u.ki.dwFlags & Native.KEYEVENTF_KEYUP) != 0;
+            if (i.type != Native.INPUT_MOUSE) return false;
+            const uint ups = 0x4 | 0x10 | 0x40 | 0x100;
+            const uint presses = 0x2 | 0x8 | 0x20 | 0x80 | Native.MOUSEEVENTF_WHEEL | Native.MOUSEEVENTF_HWHEEL;
+            uint f = i.u.mi.dwFlags;
+            return (f & ups) != 0 && (f & presses) == 0;
         }
 
         static Native.INPUT MouseInput(int dx, int dy, uint flags, int data)
@@ -1689,10 +1821,15 @@ namespace AevalDesktop
 
         static void MoveTo(int x, int y)
         {
+            CheckCancel();
             SaveCursor();
             SendMouseAbs(x, y, 0, 0);
             Native.POINT p;
-            if (Native.GetCursorPos(out p) && (p.X != x || p.Y != y)) Native.SetCursorPos(x, y);
+            if (Native.GetCursorPos(out p) && (p.X != x || p.Y != y))
+            {
+                CheckCancel();
+                Native.SetCursorPos(x, y);
+            }
         }
 
         static void SaveCursor()
@@ -1905,6 +2042,7 @@ namespace AevalDesktop
         {
             var f = FocusableNear(el);
             if (f == null) return "window";
+            CheckCancel();
             try { f.SetFocus(); }
             catch (InvalidOperationException) { return "window"; }
             return f == el ? "element" : "near";
@@ -1998,7 +2136,9 @@ namespace AevalDesktop
         static bool RunBounded(Action act, int ms)
         {
             Exception err = null;
-            var t = new Thread(delegate () { ThreadDpi(); try { act(); } catch (Exception e) { err = e; } });
+            var req = current;
+            CheckCancel();
+            var t = new Thread(delegate () { current = req; ThreadDpi(); try { CheckCancel(); act(); } catch (Exception e) { err = e; } });
             t.IsBackground = true;
             t.SetApartmentState(ApartmentState.MTA);
             t.Start();
@@ -2084,16 +2224,21 @@ namespace AevalDesktop
             MoveTo(from[0], from[1]);
             Thread.Sleep(30);
             SendMouseAbs(from[0], from[1], 0x2, 0);
+            // A drag stopped half way lets go where the pointer is, not at
+            // the target.
+            int lx = from[0], ly = from[1];
             try
             {
                 for (int n = 1; n <= steps; n++)
                 {
                     int x = from[0] + (to[0] - from[0]) * n / steps, y = from[1] + (to[1] - from[1]) * n / steps;
                     SendMouseAbs(x, y, 0, 0);
+                    lx = x;
+                    ly = y;
                     Thread.Sleep(12);
                 }
             }
-            finally { SendMouseAbs(to[0], to[1], 0x4, 0); }
+            finally { SendMouseAbs(lx, ly, 0x4, 0); }
             var res = new Dictionary<string, object>();
             res["ok"] = true;
             res["from"] = from;
@@ -2135,6 +2280,7 @@ namespace AevalDesktop
             int start = 0;
             while (start < text.Length)
             {
+                CheckCancel();
                 GuardStill(target, "characters", start);
                 int end = Math.Min(text.Length, start + chunk);
                 // Never split a surrogate pair across chunks.
@@ -2165,6 +2311,7 @@ namespace AevalDesktop
             for (int n = 0; n < repeat; n++)
                 foreach (var c in chords)
                 {
+                    CheckCancel();
                     GuardStill(target, "keys", done);
                     SendChord(c);
                     done++;
@@ -2192,9 +2339,15 @@ namespace AevalDesktop
             {
                 var sp = (ScrollPattern)e.El.GetCurrentPattern(ScrollPattern.Pattern);
                 for (int n = 0; n < Math.Abs(dy); n++)
+                {
+                    CheckCancel();
                     sp.Scroll(ScrollAmount.NoAmount, dy > 0 ? ScrollAmount.SmallIncrement : ScrollAmount.SmallDecrement);
+                }
                 for (int n = 0; n < Math.Abs(dx); n++)
+                {
+                    CheckCancel();
                     sp.Scroll(dx > 0 ? ScrollAmount.SmallIncrement : ScrollAmount.SmallDecrement, ScrollAmount.NoAmount);
+                }
                 res["ok"] = true;
                 res["via"] = "pattern";
                 return res;
@@ -2218,6 +2371,7 @@ namespace AevalDesktop
             object pat;
             if (!e.El.TryGetCurrentPattern(ScrollItemPattern.Pattern, out pat))
                 throw new DesktopError("NO_PATTERN", "that element cannot scroll itself into view (no ScrollItemPattern)");
+            CheckCancel();
             ((ScrollItemPattern)pat).ScrollIntoView();
             Thread.Sleep(60);
             var res = new Dictionary<string, object>();
@@ -2267,13 +2421,14 @@ namespace AevalDesktop
             if (!i.Enabled) throw new DesktopError("DISABLED", "that element is disabled");
             var res = new Dictionary<string, object>();
             var el = e.El;
+            CheckCancel();
             if (value is bool && (i.Toggle || i.Select))
             {
                 bool want = (bool)value;
                 if (i.Toggle)
                 {
                     var tp = (TogglePattern)el.GetCurrentPattern(TogglePattern.Pattern);
-                    for (int n = 0; n < 3 && (tp.Current.ToggleState == ToggleState.On) != want; n++) tp.Toggle();
+                    for (int n = 0; n < 3 && (tp.Current.ToggleState == ToggleState.On) != want; n++) { CheckCancel(); tp.Toggle(); }
                     res["via"] = "toggle";
                 }
                 else
@@ -2342,6 +2497,7 @@ namespace AevalDesktop
                     if (match == null && n.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0) match = it;
                 }
                 if (match == null) throw new DesktopError("NOT_FOUND", "no option named \"" + text + "\"");
+                CheckCancel();
                 ((SelectionItemPattern)match.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
             }
             finally

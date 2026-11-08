@@ -38,16 +38,29 @@
         <span class="ico tok-glyph g-do i-pointer" aria-hidden="true"></span>
         <span class="intent-name">Ask</span>
       </button>
-      <input
+      <!-- One field, several lines: Enter sends, Shift+Enter starts a new
+           line, and it grows to seven rows before it scrolls. -->
+      <textarea
         id="query-input"
-        type="text"
+        rows="1"
         placeholder="Ask, find, or tell me what to do"
         aria-label="Ask, find, or tell me what to do"
-        aria-describedby="intent-desc"
+        aria-describedby="intent-desc target-desc"
         autocomplete="off"
         spellcheck="false"
-      />
+        enterkeyhint="send"
+      ></textarea>
       <span id="intent-desc" class="sr-only"></span>
+      <span id="target-desc" class="sr-only"></span>
+      <!-- With two or more answer windows open, where the next question
+           goes, and a way to start a new conversation instead. -->
+      <div id="target-chip" hidden>
+        <span id="target-text"></span>
+        <button id="target-new" class="g-icon" type="button" aria-label="Start a new conversation instead"
+                title="Start a new conversation instead">
+          <span class="ico i-x" aria-hidden="true"></span>
+        </button>
+      </div>
       <button id="region-btn" class="g-icon" type="button" aria-label="Ask about an area of the screen"
               title="Ask about an area">
         <span class="ico i-area" aria-hidden="true"></span>
@@ -55,9 +68,9 @@
       <button id="settings-btn" class="g-icon" type="button" aria-label="Open settings" title="Settings">
         <span class="ico i-gear" aria-hidden="true"></span>
       </button>
-      <!-- Esc and a click outside collapse the bar; this stays for anyone
-           who looks for a button, and for switch access. -->
-      <button id="close-btn" class="g-icon" type="button" aria-label="Collapse" title="Collapse (Esc)">
+      <!-- Esc on an empty field and a click outside close the bar; this stays
+           for anyone who looks for a button, and for switch access. -->
+      <button id="close-btn" class="g-icon" type="button" aria-label="Close the bar" title="Close (Esc)">
         <span class="ico i-x" aria-hidden="true"></span>
       </button>
     </div>

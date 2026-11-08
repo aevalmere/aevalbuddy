@@ -65,11 +65,17 @@ pub mod testing {
     pub struct FakeDesktop {
         pub replies: Mutex<HashMap<String, Result<Value, DeskError>>>,
         pub calls: Mutex<Vec<(String, Value)>>,
+        /// Methods that take this many milliseconds to answer.
+        pub delays: Mutex<HashMap<String, u64>>,
     }
 
     impl FakeDesktop {
         pub fn reply(&self, method: &str, value: Value) {
             self.replies.lock().insert(method.to_string(), Ok(value));
+        }
+
+        pub fn slow(&self, method: &str, ms: u64) {
+            self.delays.lock().insert(method.to_string(), ms);
         }
 
         pub fn fail(&self, method: &str, code: &str) {
@@ -86,6 +92,10 @@ pub mod testing {
     impl DesktopOps for FakeDesktop {
         async fn op(&self, method: &str, args: Value) -> Result<Value, DeskError> {
             self.calls.lock().push((method.to_string(), args));
+            let delay = self.delays.lock().get(method).copied();
+            if let Some(ms) = delay {
+                tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            }
             let reply = self.replies.lock().get(method).cloned();
             reply.unwrap_or(Ok(Value::Null))
         }

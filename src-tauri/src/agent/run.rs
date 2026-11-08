@@ -36,7 +36,8 @@ use crate::llm::settings::Active;
 use crate::llm::wire::{self, Turn};
 
 use super::describe::{describe, friendly, full_value, redact, seconds, Seen};
-use super::gate::{chord_label, gate, js_string, quote, Class, DragEnd, GateEnv, Touches};
+use super::gate::{chord_label, focused_in, gate, js_string, presses_focus, quote};
+use super::gate::{Class, DragEnd, GateEnv, Touches};
 use super::seams::{DeskError, DesktopOps, Emitter};
 use super::tools::{is_pointer_tool, is_read_tool, json_rules, parse_json_turn, rules, tools};
 use super::tools::{Call, JsonTurn};
@@ -73,6 +74,9 @@ const PLAN_FIRST: &str = "Before any action, call update_plan with your plan. Th
 approves it first.";
 const MODEL_SLOW: &str = "the model took over 60 seconds to answer";
 const NOT_RUN: &str = "Not executed: an earlier action in this turn failed.";
+const TAKEN_OVER: &str = "Not executed: the user took over.";
+const UNKNOWN_OUTCOME: &str = "It is not known how much of it happened. The window was read \
+    again; check it before doing this again.";
 const RESTARTING: &str = "Desktop control stopped responding. Restarting it\u{2026}";
 
 /// `getAgentSettings()`, the parts the run reads.
@@ -206,6 +210,9 @@ struct St {
     plan_len: usize,
     /// Actions that finished, which is how far along the plan the run is.
     acts_done: usize,
+    /// A takeover stopped a step before it acted; the rest of the turn is
+    /// dropped (B-048).
+    taken_over: bool,
     nudged: bool,
     usage: UsageTotals,
     target: Value,
@@ -524,7 +531,7 @@ fn seen(info: &Info) -> Seen<'_> {
     let end = info.t.end.as_ref();
     Seen {
         node: info.t.node.as_ref(),
-        focused: None,
+        focused: info.t.focused.as_ref(),
         app: &info.t.app,
         end_node: end.and_then(|e| e.node.as_ref()),
         end_app: end.map(|e| e.app.as_str()).unwrap_or_default(),
@@ -533,6 +540,11 @@ fn seen(info: &Info) -> Seen<'_> {
 
 fn bad_args(message: &str) -> DeskError {
     DeskError::new("BAD_ARGS", message)
+}
+
+/// The run ended between two desktop ops of one step.
+fn stopped() -> DeskError {
+    DeskError::new("CANCELLED", "stopped before it acted")
 }
 
 fn friendly_err(e: &DeskError) -> String {
@@ -714,6 +726,7 @@ impl Agent {
             plan_shown: false,
             plan_len: 0,
             acts_done: 0,
+            taken_over: false,
             nudged: false,
             usage: UsageTotals::default(),
             target: Value::Null,
@@ -930,12 +943,21 @@ impl Ctx {
             s.ended = true;
             s.end_state = state.to_string();
             s.final_text = text.to_string();
-            Some((s.confirming.take(), s.asking.take(), s.plan_wait.take()))
+            let waits = (s.confirming.take(), s.asking.take(), s.plan_wait.take());
+            Some((waits, s.acting))
         });
-        let Some((confirming, asking, plan_wait)) = taken else {
+        let Some(((confirming, asking, plan_wait), acting)) = taken else {
             return;
         };
         self.r.cancel.cancel();
+        if acting {
+            // A step is in the helper right now, typing perhaps: Stop (Esc)
+            // tells it to send nothing more (B-050).
+            let desktop = self.a.desktop.clone();
+            self.a.rt.spawn(async move {
+                let _ = desktop.op("cancel", json!({})).await;
+            });
+        }
         if let Some((_, tx)) = confirming {
             let _ = tx.send(false);
         }
@@ -1086,6 +1108,13 @@ impl Ctx {
         if call.name == "focus_window" || call.name == "close_window" {
             t.window_handle = or_target(&a["handle"]);
         }
+        // Typing, Space and Enter press whatever has keyboard focus, so the
+        // gate checks that control as it would a click target (B-008).
+        if arg_ref(a).is_none() && presses_focus(&call.name, a) {
+            let (focused, tree) = self.keyboard_focus(&t.window_handle).await;
+            t.focused = focused;
+            t.tree = tree;
+        }
         t.app = self.app_name(&t.window_handle).await;
         // A drag is judged by where it ends as much as where it starts.
         if call.name == "left_click_drag" {
@@ -1099,6 +1128,24 @@ impl Ctx {
             t.end = Some(end);
         }
         Info { t, point }
+    }
+
+    /// The control with keyboard focus in `handle`'s window: the helper's
+    /// `focused` op, else the tree's focused node (the tree is then kept for
+    /// the gate, so it is read once). `None` when it cannot be told: the
+    /// window is not in front, or nothing in it has focus.
+    async fn keyboard_focus(&self, handle: &Value) -> (Option<Value>, Option<Value>) {
+        let args = json!({ "windowHandle": handle });
+        if let Ok(f) = self.op("focused", args).await {
+            if f["node"].is_object() {
+                return (Some(f["node"].clone()), None);
+            }
+        }
+        let args = json!({ "windowHandle": handle, "filter": "all" });
+        match self.op("readTree", args).await {
+            Ok(tree) => (focused_in(&tree), Some(tree)),
+            Err(_) => (None, None),
+        }
     }
 
     fn describe(&self, call: &Call, info: &Info) -> String {
@@ -1348,6 +1395,9 @@ impl Ctx {
                         return Err(DeskError::new("NOT_FOUND", message));
                     };
                     handle = w["handle"].clone();
+                    if self.ended() {
+                        return Err(stopped());
+                    }
                 }
                 self.op("focusWindow", json!({ "handle": handle })).await?;
                 let key = text_of(&handle);
@@ -1645,6 +1695,9 @@ impl Ctx {
         let new_ref = same[0]["ref"].clone();
         let mut again = call.clone();
         again.args["ref"] = new_ref.clone();
+        if self.ended() {
+            return Err(stopped());
+        }
         let mut done = self.dispatch(&again, info).await?;
         let used = text_of(&new_ref);
         done.text = format!("{} ({ref_} had changed; used {used})", done.text);
@@ -1788,7 +1841,7 @@ impl Ctx {
                 self.set_state("running", json!({}));
                 self.a.host.show_trail(false);
                 let run_target = self.target();
-                if truthy(&run_target) {
+                if truthy(&run_target) && !self.ended() {
                     let handle = match truthy(&info.t.window_handle) {
                         true => info.t.window_handle.clone(),
                         false => run_target,
@@ -1865,7 +1918,29 @@ impl Ctx {
             "action" => self.window_set().await,
             _ => None,
         };
-        self.st(|s| s.acting = true);
+        // The person took over after the gate, while the arrow travelled or
+        // the window list was read. What they did may have changed the
+        // screen the gate judged, so this step and the rest of the turn are
+        // dropped (B-048).
+        if kind == "action" && self.st(|s| s.paused) {
+            self.wait_while_paused().await;
+            if self.ended() {
+                return Outcome::text("Stopped.");
+            }
+            self.st(|s| s.taken_over = true);
+            self.update_row(rw, json!({ "state": "skipped", "why": "you took over" }));
+            return Outcome::text(TAKEN_OVER);
+        }
+        // Stop may have come while the window list was read. Checked under
+        // the same lock that marks the step acting, so a Stop from here on
+        // finds it acting and cancels it in the helper (B-050).
+        let go = self.st(|s| {
+            s.acting = !s.ended;
+            s.acting
+        });
+        if !go {
+            return Outcome::text("Stopped.");
+        }
         let res = self.dispatch_rebinding(call, &info).await;
         self.st(|s| {
             s.acting = false;
@@ -1873,6 +1948,9 @@ impl Ctx {
         });
         let res = match res {
             Ok(res) => res,
+            Err(err) if err.code == "TIMEOUT" && kind == "action" => {
+                return self.unknown_outcome(rw, err, t0).await;
+            }
             Err(err) => return self.failed(rw, err, t0).await,
         };
         if kind == "action" {
@@ -1908,6 +1986,28 @@ impl Ctx {
         let ms = t0.elapsed().as_millis() as u64;
         self.update_row(rw, json!({ "state": "done", "ms": ms }));
         out
+    }
+
+    /// An input step that timed out may or may not have landed: the helper
+    /// stopped it from sending more, but part of it may be done. The model
+    /// gets a fresh read and is told to check it before trying again, and
+    /// the rest of the turn does not run (B-050).
+    async fn unknown_outcome(&self, rw: u64, err: DeskError, t0: Instant) -> Outcome {
+        if self.ended() {
+            return Outcome::text("Stopped.");
+        }
+        let msg = friendly_err(&err);
+        let ms = t0.elapsed().as_millis() as u64;
+        let patch = json!({ "state": "failed", "ms": ms, "error": msg });
+        self.update_row(rw, patch);
+        let o = self.observe(&self.target(), false).await;
+        Outcome {
+            text: format!("Error: {msg}\n{UNKNOWN_OUTCOME}\n\n{}", o.text),
+            summary: Some(format!("Error: {msg} {UNKNOWN_OUTCOME}")),
+            image: o.image,
+            observed: true,
+            failed: true,
+        }
     }
 
     async fn failed(&self, rw: u64, err: DeskError, t0: Instant) -> Outcome {
@@ -2321,9 +2421,23 @@ Settings > Agent."
             // without running, the browser toolset's batch rule.
             let mut failed = false;
             let mut results: Vec<(Call, Outcome)> = Vec::new();
+            self.st(|s| s.taken_over = false);
             for call in calls {
                 if self.ended() {
                     return;
+                }
+                // A takeover between calls drops the rest of the turn: the
+                // model chose them for a screen the person has since changed.
+                if self.st(|s| s.paused) {
+                    self.wait_while_paused().await;
+                    if self.ended() {
+                        return;
+                    }
+                    self.st(|s| s.taken_over = true);
+                }
+                if self.st(|s| s.taken_over) {
+                    results.push((call, Outcome::text(TAKEN_OVER)));
+                    continue;
                 }
                 if failed {
                     results.push((call, Outcome::text(NOT_RUN)));
@@ -2408,10 +2522,16 @@ mod tests {
         }
     }
 
+    /// Something a test does from inside a host callback.
+    type Hook = Arc<dyn Fn() + Send + Sync>;
+
     #[derive(Default)]
     struct Host {
         events: Recorder,
         opened: Mutex<Vec<String>>,
+        /// Runs as the answer window moves aside, just before a pointer
+        /// step acts.
+        on_dodge: Mutex<Option<Hook>>,
     }
 
     impl Emitter for Host {
@@ -2435,6 +2555,12 @@ mod tests {
             true
         }
         async fn point_at(&self, _: Point, _: &str) {}
+        async fn dodge(&self, _: Point) {
+            let hook = self.on_dodge.lock().clone();
+            if let Some(f) = hook {
+                f();
+            }
+        }
         fn frame(&self, _: bool) {}
         fn show_trail(&self, _: bool) {}
         async fn open_target(&self, target: &str) -> Result<(), String> {
@@ -2592,6 +2718,143 @@ mod tests {
             .iter()
             .filter(|(c, p)| c == "agent:step" && p["kind"] == "action");
         assert!(streamed.all(|(_, p)| p["planIndex"].is_number()));
+    }
+
+    /// Attack: Send already has focus and the model presses Space. The
+    /// helper's `focused` op names Send, so the card shows before any key.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn space_on_focused_send_asks_before_any_key() {
+        let d = notepad_desktop();
+        let send = json!({ "role": "button", "name": "Send", "states": ["focused"] });
+        d.reply("focused", json!({ "node": send, "windowHandle": "0x1" }));
+        let space = json!({ "name": "key", "args": { "text": "space", "reason": "go on" } });
+        let fixture = script("press space", &[space], "Left it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("press space"));
+        let done = finished(&agent, &host, false).await;
+        assert_eq!(done["state"], "done");
+        let req = host.events.last("agent:confirm-request").expect("asked");
+        let why = req["why"].as_str().unwrap_or_default();
+        assert!(
+            why.contains("the focused control is named \"Send\""),
+            "{why}"
+        );
+        assert!(!d.methods().contains(&"key".to_string()));
+    }
+
+    /// Attack: a password typed into the focused field, with no ref, must
+    /// not reach the card in clear.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn typed_password_in_focused_field_stays_dotted() {
+        let d = notepad_desktop();
+        let states = json!(["focused", "password"]);
+        let field = json!({ "role": "edit", "name": "Password", "states": states });
+        d.reply("focused", json!({ "node": field, "windowHandle": "0x1" }));
+        let typed = json!({ "name": "type", "args": { "text": "hunter2 again" } });
+        let fixture = script("sign in", &[typed], "Left it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("sign in"));
+        finished(&agent, &host, false).await;
+        let req = host.events.last("agent:confirm-request").expect("asked");
+        let why = req["why"].as_str().unwrap_or_default();
+        assert!(why.contains("password field"), "{why}");
+        let value = req["value"].as_str().unwrap_or_default();
+        assert!(!value.is_empty() && !value.contains("hunter2"), "{value}");
+        let label = req["text"].as_str().unwrap_or_default();
+        assert!(!label.contains("hunter2"), "{label}");
+        assert!(!d.methods().contains(&"type".to_string()));
+    }
+
+    /// Attack on timing: the person grabs the mouse while the arrow travels
+    /// to a target the gate already passed. The click must not fire.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pause_during_dodge_drops_the_action() {
+        let d = notepad_desktop();
+        let rect = json!({ "x": 40, "y": 10, "width": 30, "height": 12 });
+        let tab = json!({ "role": "tabitem", "name": "View", "ref": "ref_3", "rect": rect });
+        d.reply("resolve", json!({ "node": tab, "windowHandle": "0x1" }));
+        let args = json!({ "ref": "ref_3", "reason": "open View" });
+        let click = json!({ "name": "left_click", "args": args });
+        let fixture = script("open view", &[click], "Stopped there.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        let grab = agent.clone();
+        let hook: Hook = Arc::new(move || grab.on_user_input(&json!({ "kind": "mouse-button" })));
+        *host.on_dodge.lock() = Some(hook);
+        agent.start(opts("open view"));
+        let paused = |p: &Value| p["state"] == "paused";
+        for _ in 0..300 {
+            let events = host.events.events.lock().clone();
+            if events.iter().any(|(c, p)| c == "agent:state" && paused(p)) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // Hand the computer back once the step is waiting: it stays dropped.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(agent.resume(""));
+        let done = finished(&agent, &host, true).await;
+        assert_eq!(done["state"], "done");
+        assert!(!d.methods().contains(&"click".to_string()));
+        assert_eq!(agent.dispatched(), 0);
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let skipped = |r: &Value| r["kind"] == "action" && r["state"] == "skipped";
+        assert!(rows.iter().any(skipped));
+    }
+
+    /// Attack on timing: Stop lands while the helper is still typing. The
+    /// run ends at once and the helper is told to send nothing more.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn stop_while_typing_cancels_the_helper() {
+        let d = notepad_desktop();
+        d.slow("type", 3000);
+        let typed = json!({ "name": "type", "args": { "text": "hello" } });
+        let fixture = script("type hello", &[typed], "Typed it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("type hello"));
+        let sent = |m: &str| d.methods().iter().any(|x| x == m);
+        for _ in 0..300 {
+            if sent("type") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(sent("type"));
+        assert!(!sent("cancel"));
+        assert!(agent.stop(None));
+        for _ in 0..100 {
+            if sent("cancel") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(sent("cancel"));
+        let done = host.events.last("agent:done").expect("done");
+        assert_eq!(done["state"], "stopped");
+    }
+
+    /// Attack on timing: a typing step times out in the helper after part
+    /// of it landed. The model must not read that as a clean failure and
+    /// type it all again blind; it is told the outcome is unknown and gets
+    /// a fresh read.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_timed_out_step_is_an_unknown_outcome() {
+        let d = notepad_desktop();
+        d.fail("type", "TIMEOUT");
+        let typed = json!({ "name": "type", "args": { "text": "hello" } });
+        let fixture = script("type once", &[typed], "Checked.");
+        let fake = Arc::new(Fake::from_fixtures(vec![fixture]));
+        let mut llm = Llm::new(Arc::new(NoNet), Some(fake.clone()));
+        llm.set_offline(false);
+        let host = Arc::new(Host::default());
+        let agent = Agent::new(d.clone(), Arc::new(llm), host.clone(), Handle::current());
+        agent.start(opts("type once"));
+        let done = finished(&agent, &host, true).await;
+        assert_eq!(done["state"], "done");
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let failed = |r: &Value| r["kind"] == "action" && r["state"] == "failed";
+        assert!(rows.iter().any(failed));
+        let reqs = fake.requests();
+        assert!(reqs.iter().any(|r| r.body.contains("not known how much")));
     }
 
     #[tokio::test(flavor = "multi_thread")]
