@@ -321,12 +321,14 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     );
 
     // ---------------------------------------------- whole screen (CAP-02/05)
-    // Point the "active display" at the primary for a stable answer.
+    // The display the whole screen reads (D-09), at its physical size within
+    // the 1600 px budget (B-032).
     let t = Instant::now();
     match capture::capture_screen(None) {
         Some(shot) => {
-            let active = screen::active_display(&screen::all_displays());
-            let want = encode::whole_screen_size(active.bounds.width, active.bounds.height);
+            let active = screen::latched_display(&screen::all_displays());
+            let p = active.phys;
+            let want = encode::whole_screen_size(p.width as u32, p.height as u32);
             let dims = decode_dims(&shot.jpeg);
             let b64 = base64::engine::general_purpose::STANDARD
                 .decode(&shot.base64)
@@ -526,9 +528,9 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
         .map(|w| super::protocol::handle_str(capture::hwnd_of(w) as u64))
         .collect();
     rep.log("ownHandles", handles.len());
-    let notepad = std::env::var("AEVAL_DESKTOP_NOTEPAD")
-        .map(|v| v != "0")
-        .unwrap_or(true);
+    let ci = std::env::var("GITHUB_ACTIONS").ok();
+    let asked = std::env::var("AEVAL_DESKTOP_NOTEPAD").ok();
+    let notepad = notepad_wanted(ci.as_deref(), asked.as_deref());
     selfcheck::run(
         desktop::client(),
         rep,
@@ -547,9 +549,25 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
     }
 }
 
+/// B-115 (LIFE-16): the selfcheck types into Notepad on CI
+/// (`GITHUB_ACTIONS`), or when asked with `AEVAL_DESKTOP_NOTEPAD` set to
+/// anything but "0"; never by default on someone's desktop.
+fn notepad_wanted(ci: Option<&str>, asked: Option<&str>) -> bool {
+    ci.is_some() || asked.is_some_and(|v| v != "0")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn notepad_gating() {
+        assert!(!notepad_wanted(None, None));
+        assert!(notepad_wanted(Some("true"), None));
+        assert!(notepad_wanted(Some("true"), Some("0")));
+        assert!(notepad_wanted(None, Some("1")));
+        assert!(!notepad_wanted(None, Some("0")));
+    }
 
     #[test]
     fn lanczos_keeps_fine_stripes() {

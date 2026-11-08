@@ -195,15 +195,16 @@ pub fn draw(app: &AppHandle) {
         win::raise(raw);
         let cur = hits.iter().find(|(h, id)| h.i == current && *id == d.id);
         if let (Some((h, _)), true) = (cur, is_ready) {
-            loupe(app, &label, h);
+            loupe(app, &label, h, d.id);
         }
     }
 }
 
 /// The current hit through a magnifier: one full-resolution capture each
 /// time the current hit changes, never on a timer. Our windows are excluded
-/// from capture, so the cut never contains the lens's own marks.
-fn loupe(app: &AppHandle, label: &str, cur: &Hit) {
+/// from capture, so the cut never contains the lens's own marks. The cut
+/// comes from the display the hit was placed on (B-005).
+fn loupe(app: &AppHandle, label: &str, cur: &Hit, display: u32) {
     let Some(r) = cur.rect else { return };
     let key = format!(
         "{}:{},{},{},{}",
@@ -234,7 +235,7 @@ fn loupe(app: &AppHandle, label: &str, cur: &Hit) {
     let label = label.to_string();
     let i = cur.i;
     std::thread::spawn(move || {
-        let Some(url) = crate::backdrop::crop_url(rect) else {
+        let Some(url) = crate::backdrop::crop_url(rect, Some(display)) else {
             return;
         };
         if with(|s| s.loupe_for != key) {
@@ -370,5 +371,24 @@ mod tests {
         let p = draw_payload(&hits, 1, None, &disp);
         assert_eq!(p["current"], json!(-1));
         assert_eq!(p["frame"], Value::Null);
+    }
+
+    #[test]
+    fn hits_land_on_the_display_their_pixels_are_on() {
+        // Find's hits arrive in physical pixels and are mapped through the
+        // display holding them; in the canonical layout the DIP rect then
+        // names that same display, even at mixed scales (B-005).
+        let d = screen::tests::mixed();
+        let rects = [
+            screen::tests::pr(1500, 200, 300, 40),
+            screen::tests::pr(1900, 200, 60, 40),
+            screen::tests::pr(1925, 10, 90, 30),
+            screen::tests::pr(4000, 1300, 200, 100),
+        ];
+        for p in rects {
+            let dip = screen::screen_to_dip_rect(&d, p);
+            let want = screen::matching_phys(&d, &p).id;
+            assert_eq!(screen::matching(&d, &dip).id, want, "{p:?}");
+        }
     }
 }

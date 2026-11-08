@@ -268,8 +268,10 @@ Stop when every item below and the standing labels task is green on CI at your b
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
 - C1 green at f343f64 (rust run 42453705672). K-10 `windows::screen::{latch_active, latched, work_area_of}` (`active` is still pointer-first until B-032), K-11 `windows::screen::forced_scale` (pub), K-12 `region::set_active_on(rect: Rect, device: &str)`, K-13 `buddy::agent_point_phys(pt_px: (f64, f64), label: &str)` (async).
-- In progress: B-005 canonical layout in `capture/screen.rs` and `windows/screen.rs` (uncommitted when this line was written).
+- In CI (batch A): B-005, B-032, B-035, B-110, B-111, B-112, B-113, B-115. Notes for the integrator: the DIP layout follows Chromium's ScaleOffset (the offset along a shared edge is measured on the parent's scale when a display starts after the parent's start), not the brief's simpler `phys_offset / own_scale`, so Rust's DIP bounds match `window.screenX` in WebView2 pages; both agree for displays aligned at an edge. `windows::screen::Display` gained `key: u32` (the capture-side `Display::id`), and K-10's `active()` is now foreground-first (D-09). `capture::crop_dip` and `backdrop::{crop, crop_url}` take the display id as a second argument.
 
 ## Blockers
 
-(None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+(Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+
+- B-112 (partial): `src-tauri/src/lib.rs:119-121` (platform) should call `backdrop::serve_request(&request)` instead of `backdrop::serve(request.uri().path())`; the handler only gets the path today, so it cannot see `Origin` and the 403 for foreign origins never fires (the CORS header is already app-only). One-line change in lib.rs; `serve_request` exists and is unit-tested through `serve_from`.

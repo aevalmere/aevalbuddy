@@ -4,7 +4,10 @@
 //! the BGRA frame this starts from.
 //!
 //! The numbers are main.js's (PARITY CAP-02..05): a 1600 px long edge, JPEG
-//! quality 88 stepping down by 8 while over 1.6 MB, never below 62.
+//! quality 88 stepping down by 8 while over 1.6 MB, never below 62. Two
+//! departures, because capture fidelity bounds answer quality (D-09,
+//! B-032): the whole screen is sized from its physical pixels rather than
+//! its DIP size, and chroma is kept at full resolution (4:4:4).
 
 use fast_image_resize::images::Image;
 use fast_image_resize::{FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
@@ -89,15 +92,16 @@ impl Rgb {
     }
 }
 
-/// One JPEG at one quality. Chroma is subsampled 4:2:0 at every quality,
-/// as Skia's encoder (behind Electron's `toJPEG`) does.
+/// One JPEG at one quality, chroma at full resolution (4:4:4) at every
+/// quality: coloured text and thin coloured lines keep their edges, which
+/// Skia's 4:2:0 (behind Electron's `toJPEG`) smeared (B-032).
 pub fn jpeg(img: &Rgb, quality: u8) -> Option<Vec<u8>> {
     if img.width == 0 || img.height == 0 || img.width > 65535 || img.height > 65535 {
         return None;
     }
     let mut out = Vec::new();
     let mut enc = Encoder::new(&mut out, quality);
-    enc.set_sampling_factor(SamplingFactor::R_4_2_0);
+    enc.set_sampling_factor(SamplingFactor::R_4_4_4);
     enc.set_optimized_huffman_tables(true);
     enc.encode(
         &img.data,
@@ -126,12 +130,13 @@ pub fn ladder(mut encode: impl FnMut(u8) -> Option<Vec<u8>>) -> Option<(Vec<u8>,
     Some((buf, quality))
 }
 
-/// Size of the whole-screen image for a display of `w` x `h` DIP: the DIP
-/// size, shrunk so the long edge is at most 1600, never enlarged. This is
-/// the thumbnail size main.js asked desktopCapturer for.
-pub fn whole_screen_size(w: f64, h: f64) -> (u32, u32) {
-    let long = w.max(h).max(1.0);
-    let scale = (SHOT_LONG_EDGE as f64 / long).min(1.0);
+/// Size of the whole-screen image for a frame of `w` x `h` physical pixels:
+/// shrunk so the long edge is at most 1600, never enlarged (B-032). A
+/// 1920x1080 display at 150% goes out at 1600x900, where main.js sent its
+/// 1280x720 DIP size.
+pub fn whole_screen_size(w: u32, h: u32) -> (u32, u32) {
+    let (w, h) = (w.max(1) as f64, h.max(1) as f64);
+    let scale = (SHOT_LONG_EDGE as f64 / w.max(h)).min(1.0);
     (
         ((w * scale).round() as u32).max(1),
         ((h * scale).round() as u32).max(1),
@@ -235,14 +240,42 @@ mod tests {
     }
 
     #[test]
-    fn whole_screen_matches_electron_thumbnail_sizes() {
-        assert_eq!(whole_screen_size(1920.0, 1080.0), (1600, 900));
-        assert_eq!(whole_screen_size(2560.0, 1440.0), (1600, 900));
-        assert_eq!(whole_screen_size(1280.0, 720.0), (1280, 720));
-        assert_eq!(whole_screen_size(1024.0, 768.0), (1024, 768));
-        assert_eq!(whole_screen_size(1080.0, 1920.0), (900, 1600));
-        // 1366 at 125% is 1093 x 614 DIP: under budget, not enlarged.
-        assert_eq!(whole_screen_size(1093.0, 614.0), (1093, 614));
+    fn whole_screen_uses_physical_pixels_within_budget() {
+        // 1920x1080 at 150% arrives as 1920x1080 pixels: 1600x900 goes out,
+        // not its 1280x720 DIP size.
+        assert_eq!(whole_screen_size(1920, 1080), (1600, 900));
+        assert_eq!(whole_screen_size(2560, 1440), (1600, 900));
+        assert_eq!(whole_screen_size(3840, 2160), (1600, 900));
+        assert_eq!(whole_screen_size(1080, 1920), (900, 1600));
+        // Under budget: the pixels as they are, never enlarged.
+        assert_eq!(whole_screen_size(1024, 768), (1024, 768));
+        assert_eq!(whole_screen_size(1366, 768), (1366, 768));
+        assert_eq!(whole_screen_size(1600, 1200), (1600, 1200));
+        assert_eq!(whole_screen_size(0, 0), (1, 1));
+    }
+
+    /// Each component's sampling byte (`H << 4 | V`) from the frame header.
+    fn sampling(jpeg: &[u8]) -> Vec<u8> {
+        let mut i = 2;
+        while i + 4 <= jpeg.len() && jpeg[i] == 0xFF {
+            let marker = jpeg[i + 1];
+            let len = u16::from_be_bytes([jpeg[i + 2], jpeg[i + 3]]) as usize;
+            if (0xC0..=0xC2).contains(&marker) {
+                let n = jpeg[i + 9] as usize;
+                return (0..n).map(|c| jpeg[i + 11 + c * 3]).collect();
+            }
+            i += 2 + len;
+        }
+        Vec::new()
+    }
+
+    #[test]
+    fn chroma_is_444() {
+        let img = checker(64, 48);
+        for q in [SHOT_QUALITY, SHOT_QUALITY_FLOOR, 30] {
+            let bytes = jpeg(&img, q).unwrap();
+            assert_eq!(sampling(&bytes), vec![0x11, 0x11, 0x11], "q{q}");
+        }
     }
 
     #[test]
