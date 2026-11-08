@@ -63,12 +63,14 @@ fn parse_lines(text: &str, out: &mut Vec<Value>) {
 
 fn var_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}").expect("var pattern"))
+    const PATTERN: &str = r"\{\{([A-Za-z0-9_]+)\}\}";
+    RE.get_or_init(|| Regex::new(PATTERN).expect("var pattern"))
 }
 
 fn span_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^\[([0-9]+)\]\s?([^\r  ]*)$").expect("span pattern"))
+    const PATTERN: &str = r"^\[([0-9]+)\]\s?([^\r\x{2028}\x{2029}]*)$";
+    RE.get_or_init(|| Regex::new(PATTERN).expect("span pattern"))
 }
 
 /// `String(s || '').toLowerCase().trim()`.
@@ -112,7 +114,8 @@ async fn sleep(ms: u64, cancel: &CancellationToken) -> Result<(), ApiError> {
 }
 
 fn delay_of(v: &Value) -> u64 {
-    v["delayMs"].as_f64().filter(|d| *d > 0.0).map_or(0, |d| d as u64)
+    let ms = v["delayMs"].as_f64().unwrap_or(0.0);
+    ms.max(0.0) as u64
 }
 
 fn sse(chunks: &[String]) -> Reply {
@@ -370,13 +373,18 @@ impl Fake {
             let msg = json!({ "role": "assistant", "content": as_json_turn(call) });
             return Ok(message(body, msg));
         }
-        let text = step["text"].as_str().filter(|t| !t.is_empty()).unwrap_or("Done.");
+        let text = match step["text"].as_str() {
+            Some(t) if !t.is_empty() => t,
+            _ => "Done.",
+        };
         if tools {
-            return Ok(message(body, json!({ "role": "assistant", "content": text })));
+            let msg = json!({ "role": "assistant", "content": text });
+            return Ok(message(body, msg));
         }
         let done = json!({ "done": text });
         let content = format!("```json\n{done}\n```");
-        Ok(message(body, json!({ "role": "assistant", "content": content })))
+        let msg = json!({ "role": "assistant", "content": content });
+        Ok(message(body, msg))
     }
 }
 
@@ -452,7 +460,8 @@ mod tests {
         let (_, out) = ask(&fake, body, &meta);
         let v: Value = serde_json::from_str(&out).unwrap();
         let content = v["choices"][0]["message"]["content"].as_str().unwrap();
-        assert_eq!(content, "```json\n{\"tool\":\"focus_window\",\"handle\":\"4242\"}\n```");
+        let want = "```json\n{\"tool\":\"focus_window\",\"handle\":\"4242\"}\n```";
+        assert_eq!(content, want);
         let (_, out) = ask(&fake, json!({ "messages": [] }), &agent_meta("unknown"));
         assert!(out.contains(r#"{\"done\":\"No fixture for this task.\"}"#));
         assert_eq!(fake.requests().len(), 3);
@@ -467,7 +476,8 @@ mod tests {
         ];
         let fake = Fake::from_fixtures(fixtures);
         let (status, out) = ask(&fake, json!({}), &agent_meta("boom"));
-        assert_eq!((status, out.as_str()), (429, r#"{"error":{"message":"fake failure"}}"#));
+        assert_eq!(status, 429);
+        assert_eq!(out, r#"{"error":{"message":"fake failure"}}"#);
         let cancel = CancellationToken::new();
         cancel.cancel();
         let e = block(fake.respond(&json!({}), &cancel, &agent_meta("slow")));
@@ -493,7 +503,8 @@ mod tests {
         let user = "Spans:\n[0] Invoice\n[3] total due: $5\n[4]nothing";
         let body = json!({ "messages": [{ "role": "user", "content": user }] });
         let (_, out) = ask(&fake, body, &meta);
-        assert!(out.contains(r#"{\"id\":3,\"score\":0.9,\"why\":\"the balance\"}\n"#));
+        let want = r#"{\"id\":3,\"score\":0.9,\"why\":\"the balance\"}\n"#;
+        assert!(out.contains(want));
         assert!(!out.contains(r#"\"id\":0"#));
     }
 

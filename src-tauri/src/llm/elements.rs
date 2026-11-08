@@ -253,7 +253,8 @@ mod tests {
         let rows = [el("Terminal tab"), el("Problems tab"), el("Save")];
         assert_eq!(match_element("Save", &rows).unwrap().label, "Save");
         assert!(match_element("tab", &rows).is_none());
-        assert_eq!(match_element("the Terminal tab", &rows).unwrap().label, "Terminal tab");
+        let hit = match_element("the Terminal tab", &rows).unwrap();
+        assert_eq!(hit.label, "Terminal tab");
         assert!(match_element("Print", &rows).is_none());
         let rows = [el("Save"), el("Save As Template")];
         assert_eq!(match_element("save", &rows).unwrap().label, "Save");

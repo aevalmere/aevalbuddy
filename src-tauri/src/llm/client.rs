@@ -377,7 +377,8 @@ impl Llm {
         });
         let meta = Meta::purpose("reader");
         let stage = |e: ApiError| e.with_stage("reader");
-        let (reply, dialect) = self.request(active, &body, cancel, &meta).await.map_err(stage)?;
+        let sent = self.request(active, &body, cancel, &meta).await;
+        let (reply, dialect) = sent.map_err(stage)?;
         if !reply.ok() {
             return Err(stage(Self::fail_from(reply, cancel).await));
         }
@@ -532,7 +533,8 @@ impl Llm {
             || (provider.is_native() && reply.status == 403)
             || (provider == Provider::Gemini && reply.status == 400);
         if rejected {
-            return KeyCheck::new(false, format!("{p} rejected this key. Check it and save again."));
+            let msg = format!("{p} rejected this key. Check it and save again.");
+            return KeyCheck::new(false, msg);
         }
         if !reply.ok() {
             return KeyCheck::new(false, format!("{p} replied HTTP {}.", reply.status));
@@ -794,7 +796,8 @@ mod tests {
         assert_eq!(canned.sent.lock()[0].url, wire::ANTHROPIC_MODELS);
         let (llm, _) = client(vec![Ok((400, "{}".into()))]);
         let got = block(llm.test_key(Provider::Gemini, "AIzaX"));
-        assert_eq!(got.message, "Google Gemini rejected this key. Check it and save again.");
+        let want = "Google Gemini rejected this key. Check it and save again.";
+        assert_eq!(got.message, want);
     }
 
     #[test]
@@ -825,7 +828,8 @@ mod tests {
         let mut meter = Meter::default();
         let cancel = CancellationToken::new();
         let mut push = |d: &str| out.push_str(d);
-        block(llm.stream_query(&or_key(), o, &cancel, &mut push, &mut meter)).unwrap();
+        let (k, c) = (or_key(), &cancel);
+        block(llm.stream_query(&k, o, c, &mut push, &mut meter)).unwrap();
         assert_eq!(out, "Hello");
         let sent = canned.sent.lock()[0].body.clone().unwrap();
         assert_eq!(sent["temperature"], json!(0.2));
@@ -852,9 +856,10 @@ mod tests {
         let cancel = CancellationToken::new();
         let mut meter = Meter::default();
         let mut sink = |_: &str| {};
-        let e = block(llm.stream_query(&or_key(), o, &cancel, &mut sink, &mut meter));
+        let (k, c) = (or_key(), &cancel);
+        let e = block(llm.stream_query(&k, o, c, &mut sink, &mut meter));
         assert_eq!(e.unwrap_err(), ApiError::http(204, "empty response"));
-        let e = block(llm.stream_query(&or_key(), o, &cancel, &mut sink, &mut meter));
+        let e = block(llm.stream_query(&k, o, c, &mut sink, &mut meter));
         assert_eq!(e.unwrap_err(), ApiError::http(429, "Rate limit"));
     }
 
@@ -881,7 +886,8 @@ mod tests {
         let sent = canned.sent.lock()[0].body.clone().unwrap();
         assert_eq!(sent["max_tokens"], json!(1600));
         let system = sent["messages"][0]["content"].as_str().unwrap();
-        assert!(system.ends_with("so rather than assuming what the rest of it said."));
+        let tail = "so rather than assuming what the rest of it said.";
+        assert!(system.ends_with(tail));
         let e = block(llm.read_screen(&or_key(), o, &cancel)).unwrap_err();
         assert_eq!((e.status, e.stage), (Some(204), Some("reader")));
         let e = block(llm.read_screen(&or_key(), o, &cancel)).unwrap_err();
@@ -893,7 +899,8 @@ mod tests {
         let (mut llm, canned) = client(vec![]);
         llm.set_offline(true);
         let cancel = CancellationToken::new();
-        let e = block(llm.chat_turn(&or_key(), "m", &[], None, &cancel, &Meta::default()));
+        let (k, meta) = (or_key(), Meta::default());
+        let e = block(llm.chat_turn(&k, "m", &[], None, &cancel, &meta));
         assert!(e.unwrap_err().is_network());
         assert!(block(llm.fetch_catalogue()).is_none());
         assert!(canned.sent.lock().is_empty());
@@ -924,12 +931,14 @@ mod tests {
         let msgs = vec![json!({ "role": "user", "content": "go" })];
         let cancel = CancellationToken::new();
         let meta = Meta::purpose("agent");
-        let fut = llm.chat_turn(&active, "claude-opus-5-5", &msgs, Some(&tools), &cancel, &meta);
+        let model = "claude-opus-5-5";
+        let fut = llm.chat_turn(&active, model, &msgs, Some(&tools), &cancel, &meta);
         let turn = block(fut).unwrap();
         assert_eq!(turn.tool_calls[0].name, "wait");
         let sent = canned.sent.lock()[0].clone();
         assert_eq!(sent.url, wire::ANTHROPIC_MESSAGES);
         let body = sent.body.unwrap();
-        assert_eq!(body["tool_choice"]["disable_parallel_tool_use"], json!(true));
+        let choice = &body["tool_choice"];
+        assert_eq!(choice["disable_parallel_tool_use"], json!(true));
     }
 }

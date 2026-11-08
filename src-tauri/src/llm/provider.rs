@@ -182,7 +182,8 @@ mod tests {
     fn anthropic_defaults_are_the_latest_models() {
         let a = Provider::Anthropic;
         let ids: Vec<&str> = a.models(Kind::Vision).iter().map(|c| c.id).collect();
-        assert_eq!(ids, ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]);
+        let want = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
+        assert_eq!(ids, want);
         assert_eq!(a.default_model(Kind::Text), "claude-opus-5-5");
         assert_eq!(a.default_model(Kind::Agent), "claude-opus-5-5");
         assert_eq!(a.default_model(Kind::Vision), "claude-sonnet-5-5");

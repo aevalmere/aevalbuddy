@@ -88,7 +88,8 @@ mod tests {
 
     #[test]
     fn short_names() {
-        assert_eq!(short_model("google/gemma-4-26b-a4b-it:free"), "gemma-4-26b-a4b-it");
+        let short = short_model("google/gemma-4-26b-a4b-it:free");
+        assert_eq!(short, "gemma-4-26b-a4b-it");
         let long = short_model("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free");
         assert_eq!(long, "nemotron-3-nano-omni-30b-a3\u{2026}");
         assert_eq!(short_model("qwen/qwen3.7-flash"), "qwen3.7-flash");

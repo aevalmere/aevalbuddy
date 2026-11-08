@@ -133,7 +133,8 @@ mod tests {
         assert_eq!(active(&s).unwrap().provider, Provider::OpenRouter);
         *s.provider.lock() = Some(Provider::Anthropic);
         let a = active(&s).unwrap();
-        assert_eq!((a.provider, a.key.as_str()), (Provider::Anthropic, "sk-ant-y"));
+        assert_eq!(a.provider, Provider::Anthropic);
+        assert_eq!(a.key, "sk-ant-y");
         // An override without a key falls back to a provider that has one.
         *s.provider.lock() = Some(Provider::Gemini);
         assert_eq!(active(&s).unwrap().provider, Provider::OpenRouter);

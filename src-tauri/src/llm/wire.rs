@@ -297,7 +297,8 @@ pub fn anthropic_body(body: &Value) -> Value {
         match role {
             "user" => {
                 let parts = parts_of(&m["content"]);
-                turns.push(("user".into(), parts.iter().filter_map(anthropic_part).collect()));
+                let content = parts.iter().filter_map(anthropic_part).collect();
+                turns.push(("user".into(), content));
             }
             "assistant" => {
                 if let Some(native) = m[NATIVE_FIELD]["anthropic"].as_array() {
@@ -390,7 +391,8 @@ pub fn gemini_body(body: &Value) -> Value {
         match m["role"].as_str().unwrap_or_default() {
             "user" => {
                 let parts = parts_of(&m["content"]);
-                turns.push(("user".into(), parts.iter().filter_map(gemini_part).collect()));
+                let content = parts.iter().filter_map(gemini_part).collect();
+                turns.push(("user".into(), content));
             }
             "assistant" => {
                 for c in m["tool_calls"].as_array().unwrap_or(&empty) {
@@ -435,7 +437,8 @@ pub fn gemini_body(body: &Value) -> Value {
     let mut out = Map::new();
     let system = system_text(body);
     if !system.is_empty() {
-        out.insert("systemInstruction".into(), json!({ "parts": [{ "text": system }] }));
+        let instruction = json!({ "parts": [{ "text": system }] });
+        out.insert("systemInstruction".into(), instruction);
     }
     out.insert("contents".into(), json!(contents));
     let mut config = Map::new();
@@ -872,7 +875,8 @@ mod tests {
     fn openai_drops_temperature_and_raises_the_limit() {
         let body = json!({ "model": "gpt", "stream": true, "temperature": 0, "max_tokens": 800,
             "messages": [{ "role": "user", "content": "hi" }] });
-        let sent = chat_request(Provider::OpenAi, "sk-proj-k", &body).body.unwrap();
+        let req = chat_request(Provider::OpenAi, "sk-proj-k", &body);
+        let sent = req.body.unwrap();
         assert!(sent.get("temperature").is_none());
         assert!(sent.get("max_tokens").is_none());
         assert_eq!(sent["max_completion_tokens"], json!(16000));
@@ -976,11 +980,13 @@ mod tests {
         assert!(done);
         assert_eq!(usage[0].prompt, 5);
         assert_eq!(usage[0].cost, Some(0.001));
-        let err = decode(Provider::OpenRouter, &[r#"{"error":{"code":429,"message":"busy"}}"#]);
+        let busy = r#"{"error":{"code":429,"message":"busy"}}"#;
+        let err = decode(Provider::OpenRouter, &[busy]);
         assert_eq!(err.unwrap_err(), ApiError::http(429, "busy"));
         let err = decode(Provider::OpenRouter, &[r#"{"error":{"message":"x"}}"#]);
         assert_eq!(err.unwrap_err().status, Some(500));
-        let err = decode(Provider::OpenRouter, &[r#"{"error":{"code":"bad","message":"x"}}"#]);
+        let bad = r#"{"error":{"code":"bad","message":"x"}}"#;
+        let err = decode(Provider::OpenRouter, &[bad]);
         assert_eq!(err.unwrap_err().status, None);
     }
 
@@ -1045,7 +1051,8 @@ mod tests {
         let t = parse_turn(Provider::Gemini, &ge, 7);
         assert_eq!(t.tool_calls[0].id, "call_7_0");
         assert_eq!(t.tool_calls[0].args["duration"], json!(1));
-        assert_eq!(t.native.unwrap()["gemini"][0]["thoughtSignature"], json!("sig"));
+        let native = t.native.unwrap();
+        assert_eq!(native["gemini"][0]["thoughtSignature"], json!("sig"));
     }
 
     #[test]

@@ -102,7 +102,8 @@ mod tests {
             let mut b = LineBuffer::default();
             let mut lines = b.push(&bytes[..cut]);
             lines.extend(b.push(&bytes[cut..]));
-            assert_eq!(lines, ["data: {\"a\":\"é\"}", "", ": keepalive", "data: [DONE]"]);
+            let want = ["data: {\"a\":\"é\"}", "", ": keepalive", "data: [DONE]"];
+            assert_eq!(lines, want);
         }
     }
 

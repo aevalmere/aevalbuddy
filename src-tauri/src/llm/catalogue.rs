@@ -274,7 +274,8 @@ pub fn format_price(pricing: &Value) -> String {
     if inp == 0.0 && out == 0.0 {
         return "Free".to_string();
     }
-    format!("${:.2} in / ${:.2} out per million tokens", inp * 1e6, out * 1e6)
+    let (inp, out) = (inp * 1e6, out * 1e6);
+    format!("${inp:.2} in / ${out:.2} out per million tokens")
 }
 
 pub fn describe(m: &Value) -> String {
@@ -401,7 +402,8 @@ pub fn next_free_model(kind: Kind, tried: &[String], all: Option<&[Value]>) -> O
     let pool = pool_for(if kind == Kind::Find { Kind::Text } else { kind });
     let ok = |id: &str| kind != Kind::Agent || all.is_none() || supports_tools(all, id);
     pool.into_iter()
-        .find(|m| m.tier == Tier::Free && !tried.iter().any(|t| t == m.id) && ok(m.id))
+        .filter(|m| m.tier == Tier::Free && ok(m.id))
+        .find(|m| !tried.iter().any(|t| t == m.id))
         .map(|m| m.id.to_string())
 }
 
@@ -453,7 +455,8 @@ mod tests {
         assert_eq!(describe(&m), "Free · 256K context");
         let m = json!({"pricing": {"prompt": "0.0000002", "completion": "0.0000015"},
             "context_length": 1048576});
-        assert_eq!(describe(&m), "$0.20 in / $1.50 out per million tokens · 1M context");
+        let want = "$0.20 in / $1.50 out per million tokens · 1M context";
+        assert_eq!(describe(&m), want);
         assert_eq!(describe(&json!({})), "");
     }
 
@@ -467,7 +470,8 @@ mod tests {
         assert_eq!(groups[0]["label"], json!("Free"));
         let with_paid = list_models(Kind::Vision, true, Some(&all));
         let g = with_paid["groups"].as_array().unwrap();
-        assert_eq!(g[1]["label"], json!("Paid, a fraction of a cent per question"));
+        let want = json!("Paid, a fraction of a cent per question");
+        assert_eq!(g[1]["label"], want);
         let agent = list_models(Kind::Agent, false, Some(&all));
         let first = &agent["groups"][0]["models"][0];
         assert_eq!(first["tag"], json!("Tools"));
@@ -482,7 +486,8 @@ mod tests {
         let all = catalogue();
         let a = Some(all.as_slice());
         assert_eq!(pick_live(Kind::Vision, "gone/model:free", a), DEFAULT_MODEL);
-        assert_eq!(pick_live(Kind::Vision, "gone/model:free", None), "gone/model:free");
+        let gone = "gone/model:free";
+        assert_eq!(pick_live(Kind::Vision, gone, None), gone);
         assert_eq!(pick_live(Kind::Text, DEFAULT_FIND, a), DEFAULT_FIND);
         // A text model is not a usable screen model.
         assert_eq!(pick_live(Kind::Vision, DEFAULT_FIND, a), DEFAULT_MODEL);
@@ -502,8 +507,10 @@ mod tests {
         assert_eq!(next.as_deref(), Some("google/gemma-4-26b-a4b-it:free"));
         let tried = vec![DEFAULT_FIND.to_string(), DEFAULT_BRAIN.to_string()];
         let next = next_free_model(Kind::Find, &tried, None);
-        assert_eq!(next.as_deref(), Some("nvidia/nemotron-3-ultra-550b-a55b:free"));
-        let all: Vec<String> = pool_for(Kind::Text).iter().map(|c| c.id.to_string()).collect();
+        let want = "nvidia/nemotron-3-ultra-550b-a55b:free";
+        assert_eq!(next.as_deref(), Some(want));
+        let pool = pool_for(Kind::Text);
+        let all: Vec<String> = pool.iter().map(|c| c.id.to_string()).collect();
         assert_eq!(next_free_model(Kind::Text, &all, None), None);
         let cat = vec![json!({"id": DEFAULT_BRAIN, "supported_parameters": []})];
         let next = next_free_model(Kind::Agent, &[], Some(&cat));
