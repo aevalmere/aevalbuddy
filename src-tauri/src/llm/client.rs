@@ -28,6 +28,8 @@ pub type BodyStream = Pin<Box<dyn Stream<Item = Result<Vec<u8>, ApiError>> + Sen
 /// An HTTP reply whose body arrives in chunks.
 pub struct Reply {
     pub status: u16,
+    /// The `Retry-After` header, as sent.
+    pub retry_after: Option<String>,
     pub body: BodyStream,
 }
 
@@ -37,8 +39,14 @@ impl Reply {
         let bytes: Vec<u8> = body.into();
         Reply {
             status,
+            retry_after: None,
             body: Box::pin(futures_util::stream::iter(vec![Ok(bytes)])),
         }
+    }
+
+    pub fn with_retry_after(mut self, value: Option<String>) -> Reply {
+        self.retry_after = value;
+        self
     }
 
     pub fn ok(&self) -> bool {
@@ -124,11 +132,17 @@ impl Transport for ReqwestTransport {
             r = rb.send() => r.map_err(|e| net_error(&e))?,
         };
         let status = resp.status().as_u16();
+        let retry_after = resp
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
         let body = resp
             .bytes_stream()
             .map(|r| r.map(|b| b.to_vec()).map_err(|e| net_error(&e)));
         Ok(Reply {
             status,
+            retry_after,
             body: Box::pin(body),
         })
     }
@@ -284,7 +298,7 @@ impl Llm {
             return Err(ApiError::network("fetch failed (offline)"));
         }
         if let Some(fake) = &self.fake {
-            let reply = fake.respond(body, cancel, meta).await?;
+            let reply = fake.respond(active.provider, body, cancel, meta).await?;
             return Ok((reply, Provider::OpenRouter));
         }
         let req = wire::chat_request(active.provider, &active.key, body);

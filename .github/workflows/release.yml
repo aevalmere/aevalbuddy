@@ -29,6 +29,8 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ github.ref_name }}
+      # The same CLI as rust.yml; tools/seed-nsis.ps1 holds its NSIS hashes.
+      TAURI_CLI: '2.12.4'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -97,9 +99,15 @@ jobs:
           sha=$(node -p "require('./lib/desktop/prebuilt.json').sha256")
           if ! [[ "$sha" =~ ^[0-9a-f]{64}$ ]]; then echo "::error::no prebuilt sha: $sha"; exit 1; fi
           echo "AEVAL_DESKTOP_DLL_SHA=$sha" >> "$GITHUB_ENV"
+      # The bundler's own NSIS download (github.com release assets) answers
+      # 504 for days at a time; the toolset is seeded from SourceForge and
+      # the vendored DLL instead, with the hashes the bundler checks, so the
+      # build downloads nothing.
+      - name: Seed the NSIS toolset
+        run: pwsh -NoProfile -File tools/seed-nsis.ps1
       - name: Build the installer
         working-directory: src-tauri
-        run: npx --yes @tauri-apps/cli@2 build --bundles nsis
+        run: npx --yes "@tauri-apps/cli@$TAURI_CLI" build --bundles nsis
       # Tauri names the installer AevalBuddy_<version>_x64-setup.exe; the
       # README link and every installed copy want AevalBuddy-Setup.exe.
       - name: Name the installer and write latest.yml
