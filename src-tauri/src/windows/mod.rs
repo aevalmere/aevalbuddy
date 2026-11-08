@@ -180,9 +180,10 @@ pub fn on_page_loaded(app: &AppHandle, label: &str) {
         } else if outputs::is_output(&label) {
             outputs::on_loaded(&app, &label);
         } else if label == SETTINGS {
-            if let Some(id) = pending_section().lock().take() {
-                emit(&app, SETTINGS, "settings:section", json!({ "id": id }));
-            }
+            // The section goes with the page's hello; this is the fallback
+            // for a page that never says it.
+            let a = app.clone();
+            debounce("settings-section", 1500, move || send_section(&a));
         }
         let show = show_on_load().lock().remove(&label);
         if show {
@@ -194,6 +195,26 @@ pub fn on_page_loaded(app: &AppHandle, label: &str) {
             }
         }
     });
+}
+
+fn send_section(app: &AppHandle) {
+    if let Some(id) = pending_section().lock().take() {
+        emit(app, SETTINGS, "settings:section", json!({ "id": id }));
+    }
+}
+
+/// A page's first invoke (`glass:hello`). Its listeners are registered by
+/// now (the bridge holds invokes until they are), so this is when the first
+/// state goes (ARCHITECTURE.md 10.3). Whoever answers `glass:hello` calls
+/// this.
+pub fn on_hello(app: &AppHandle, label: &str) {
+    if label == OVERLAY {
+        emit(app, OVERLAY, "overlay:state", overlay_state(app, None));
+    } else if outputs::is_output(label) {
+        outputs::on_loaded(app, label);
+    } else if label == SETTINGS {
+        send_section(app);
+    }
 }
 
 fn tour_notify(app: &AppHandle, event: &str) {

@@ -265,8 +265,15 @@ impl Store {
             },
             Err(_) => Map::new(),
         };
+        // A profile that chose the solid surface before the slider existed
+        // keeps its look: no glass (ARCHITECTURE.md 10.1).
+        let was_solid = !file.contains_key("glassIntensity")
+            && file.get("surface").and_then(Value::as_str) == Some("solid");
         // Object.assign({}, defaults, file): defaults' order, file values.
         let mut data = defaults();
+        if was_solid {
+            data.insert("glassIntensity".into(), json!(0.0));
+        }
         for (k, v) in file {
             data.insert(k, v);
         }
@@ -746,9 +753,10 @@ impl Store {
         }
     }
 
+    /// Clamped to 0..1, two decimals.
     pub fn set_glass_intensity(&self, v: f64) -> f64 {
         let n = if v.is_finite() {
-            v.clamp(0.0, 1.0)
+            (v.clamp(0.0, 1.0) * 100.0).round() / 100.0
         } else {
             DEFAULT_GLASS_INTENSITY
         };
@@ -1172,10 +1180,22 @@ mod tests {
         assert!(!s.take_presence_notice());
         assert_eq!(s.set_glass_intensity(4.0), 1.0);
         assert_eq!(s.set_glass_intensity(f64::NAN), DEFAULT_GLASS_INTENSITY);
+        assert_eq!(s.set_glass_intensity(0.333), 0.33);
         s.mark_first_request_sent();
         assert!(s.get_has_sent_first_request());
         assert_eq!(s.set_skill_id("debug", |id| id == "debug"), "debug");
         assert_eq!(s.set_skill_id("gone", |_| false), "auto");
+    }
+
+    #[test]
+    fn solid_profiles_start_with_no_glass() {
+        let dir = temp("solid");
+        fs::write(dir.join("aevalbuddy.json"), r#"{"surface":"solid"}"#).unwrap();
+        assert_eq!(open(&dir).get_glass_intensity(), 0.0);
+        let dir = temp("solid-set");
+        let text = r#"{"surface":"solid","glassIntensity":0.7}"#;
+        fs::write(dir.join("aevalbuddy.json"), text).unwrap();
+        assert_eq!(open(&dir).get_glass_intensity(), 0.7);
     }
 
     #[test]

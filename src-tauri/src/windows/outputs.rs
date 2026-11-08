@@ -1,14 +1,15 @@
 //! Free-floating output windows (REQUESTS.md 8-11, PARITY NEW-01..07).
 //!
 //! Each answer lives in its own `output-<n>` window with its own
-//! conversation. The first show globs out of the bar: Rust glides the window
-//! from the bar's glass rect to its place and tells the page with
-//! `output:glob` so it can run the liquid-glass morph in step. Closing globs
-//! back into the bar and destroys the window. One hidden, loaded window is
-//! always kept warm so the next answer opens with no page load.
+//! conversation. Rust places a new one 12 px off the bar's glass and shows
+//! it; the page globs itself out of the bar (it asks `output:bar` where the
+//! bar is) and plays the close glob before `output:close` destroys it. One
+//! hidden, loaded window is always kept warm so the next answer opens with
+//! no page load.
 //!
-//! The bar's follow-ups go to the focused output; `new_chat` detaches it so
-//! the next question opens a new window. ARCHITECTURE.md section 9.
+//! The bar's follow-ups go to the focused output; the bar's `chat:new`
+//! detaches it so the next question opens a new window. ARCHITECTURE.md
+//! sections 9 and 10.
 
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -114,6 +115,9 @@ pub fn target(app: &AppHandle) -> Option<String> {
             o.touched = now_ms();
         }
     }
+    // Shown and placed before the first event reaches it: the page globs
+    // itself in on `chat:user` / `query:start` / `agent:begin`.
+    show(app, &label);
     let a = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = create_spare(&a);
@@ -155,8 +159,9 @@ fn open_rects(app: &AppHandle, except: &str) -> Vec<Rect> {
         .collect()
 }
 
-/// Shows an output with content (main.js showOutput). The first show globs
-/// out of the bar; later ones appear where the window last was.
+/// Shows an output (main.js showOutput). A new one opens 12 px off the bar
+/// (layout::place_output); later shows put it back where it was. The page
+/// draws the glob itself (ARCHITECTURE.md 10.3), so the window only moves.
 pub fn show(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
@@ -186,24 +191,12 @@ pub fn show(app: &AppHandle, label: &str) {
     });
     flags::set_meta(h, |m| m.resize = Resize::All);
     mark_app(label);
-    if !o.placed || !flags::is_visible(h) {
-        let ms = if motion::reduced() {
-            0
-        } else {
-            layout::T_OUT_IN
-        };
-        emit(
-            app,
-            label,
-            "output:glob",
-            json!({ "phase": "in", "from": bar, "to": to, "ms": ms }),
-        );
-        motion::set_glass(h, bar);
+    if !flags::is_visible(h) {
+        motion::stop(h);
+        motion::set_glass(h, to);
         flags::show_inactive(h);
         flags::pin_on_top(h);
-        motion::animate(h, Some(bar), to, ms, None);
     } else {
-        flags::show_inactive(h);
         motion::animate(h, None, to, layout::T_OUT_GROW, None);
     }
     emit(app, label, "overlay:state", overlay_state(app, Some(label)));
@@ -327,49 +320,61 @@ pub fn show_trail(app: &AppHandle, _focus: bool) {
     }
 }
 
-/// `output:close` (the window's close button): glob back into the bar,
-/// then destroy. History already has the conversation.
+/// `output:close` (ARCHITECTURE.md 10.1): the page has played its close
+/// glob, so the window goes at once with its conversation (history already
+/// has it). A query streaming into it stops; follow-ups go to the most
+/// recently focused output still open.
 pub fn close(app: &AppHandle, label: &str) {
-    let Some(w) = window(app, label) else {
-        return;
-    };
-    {
+    let busy_here = {
         let st = shared(app);
         let mut s = st.lock();
-        if let Some(o) = s.outputs.get_mut(label) {
-            o.active = false;
-        }
+        let busy_here = s.busy && s.focused_output.as_deref() == Some(label);
+        s.outputs.remove(label);
         if s.focused_output.as_deref() == Some(label) {
-            s.focused_output = None;
+            s.focused_output = s
+                .outputs
+                .values()
+                .filter(|o| o.active)
+                .max_by_key(|o| o.touched)
+                .map(|o| o.label.clone());
         }
+        busy_here
+    };
+    if busy_here && !shared(app).call(app, |h| h.abort_query.as_ref()) {
+        shared(app).lock().busy = false;
     }
-    let Some(h) = flags::hwnd_of(&w) else {
+    if let Some(w) = window(app, label) {
+        if let Some(h) = flags::hwnd_of(&w) {
+            motion::stop(h);
+        }
         let _ = w.destroy();
+    }
+    send_overlay_state(app);
+}
+
+/// `chat:new` from an output window: that window starts over; no new
+/// window opens (ARCHITECTURE.md 10.3).
+pub fn reset(app: &AppHandle, label: &str) {
+    let busy_here = {
+        let st = shared(app);
+        let s = st.lock();
+        s.busy && s.focused_output.as_deref() == Some(label)
+    };
+    if busy_here && !shared(app).call(app, |h| h.abort_query.as_ref()) {
+        shared(app).lock().busy = false;
+    }
+    let found = with(app, label, |o| {
+        o.chat = Chat::fresh();
+        o.user_height = 0.0;
+        o.content_height = layout::DEFAULT_OUTPUT_HEIGHT;
+        o.kind = OutputKind::Chat;
+    });
+    if found.is_none() {
         return;
-    };
-    let bar = bar_rect(app);
-    let ms = if motion::reduced() {
-        0
-    } else {
-        layout::T_OUT_OUT
-    };
-    emit(
-        app,
-        label,
-        "output:glob",
-        json!({ "phase": "out", "from": motion::glass(h), "to": bar, "ms": ms }),
-    );
-    mark_app(label);
-    let done_w = w.clone();
-    motion::animate(
-        h,
-        None,
-        bar,
-        ms,
-        Some(Box::new(move || {
-            let _ = done_w.destroy();
-        })),
-    );
+    }
+    store::get().set_output_height(0.0);
+    shared(app).lock().focused_output = Some(label.to_string());
+    emit(app, label, "chat:reset", json!({}));
     send_overlay_state(app);
 }
 

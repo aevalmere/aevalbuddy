@@ -103,6 +103,11 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "glass:hello",
     "glass:passthrough",
     "settings:set-surface",
+    // Split (d): floating output windows and the glass slider
+    // (ARCHITECTURE.md section 10).
+    "output:bar",
+    "output:close",
+    "settings:set-glass",
 ];
 
 /// Channels a page may listen on. Must equal `LISTEN_CHANNELS` in preload.js.
@@ -146,28 +151,33 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     "lens:loupe",
 ];
 
-/// Tauri-only channels (REQUESTS.md 8-11, 13). Not in preload.js, so kept
-/// apart from the parity lists above; the bridge allows both.
-pub const EXTRA_INVOKE: &[&str] = &["output:close", "settings:set-glass"];
-pub const EXTRA_LISTEN: &[&str] = &["output:glob"];
-
 const BRIDGE_JS: &str = include_str!("../bridge/aeval-bridge.js");
 
 /// The initialization script injected into every webview: the bridge plus
 /// the allowlists, so the JS and Rust lists come from one place.
 pub fn bridge_script() -> String {
-    let invoke = js_list(INVOKE_CHANNELS, EXTRA_INVOKE);
-    let listen = js_list(LISTEN_CHANNELS, EXTRA_LISTEN);
+    let invoke = js_list(INVOKE_CHANNELS);
+    let listen = js_list(LISTEN_CHANNELS);
     format!("(() => {{\n{BRIDGE_JS}\naevalBridge({invoke}, {listen});\n}})();\n")
 }
 
-fn js_list(list: &[&str], extra: &[&str]) -> String {
-    let all: Vec<&str> = list.iter().chain(extra).copied().collect();
-    serde_json::to_string(&all).unwrap_or_default()
+fn js_list(list: &[&str]) -> String {
+    serde_json::to_string(list).unwrap_or_default()
 }
 
 fn allowed(channel: &str) -> bool {
-    INVOKE_CHANNELS.contains(&channel) || EXTRA_INVOKE.contains(&channel)
+    INVOKE_CHANNELS.contains(&channel)
+}
+
+/// NEW-10: the first request sent with text, of any kind, ends the bar's
+/// suggestions for good (ARCHITECTURE.md 10.2).
+pub fn first_request(channel: &str, p: &Value) -> bool {
+    match channel {
+        "query:submit" => !p_str(p, "question").trim().is_empty(),
+        "agent:start" => !p_str(p, "task").trim().is_empty(),
+        "find:step" => true,
+        _ => false,
+    }
 }
 
 /// Which windows have called through the bridge, and with which channels.
@@ -202,7 +212,12 @@ pub async fn aeval_invoke(
     }
     seen.record(window.label(), &channel);
     let app = window.app_handle().clone();
-    route(&app, &window, &channel, payload.unwrap_or(Value::Null)).await
+    let payload = payload.unwrap_or(Value::Null);
+    if first_request(&channel, &payload) && !store::get().get_has_sent_first_request() {
+        store::get().mark_first_request_sent();
+        windows::send_overlay_state(&app);
+    }
+    route(&app, &window, &channel, payload).await
 }
 
 fn p_str(p: &Value, key: &str) -> String {
@@ -273,6 +288,16 @@ fn key_saved(app: &AppHandle, provider: &str) {
     }
 }
 
+/// `{tier, reasons}` from agent c's backdrop (through `settings_extra`), or
+/// full glass when it is not hooked.
+fn glass_tier(app: &AppHandle) -> Value {
+    shared(app)
+        .call_value(app, |h| h.settings_extra.as_ref())
+        .and_then(|v| v.get("glass").cloned())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({ "tier": "full", "reasons": [] }))
+}
+
 /// `settings:get`: the core fields, with `settings_extra` (models resolved
 /// from the catalogue, skills, glass tier) merged over them.
 pub fn settings_data(app: &AppHandle) -> Value {
@@ -305,7 +330,7 @@ pub fn settings_data(app: &AppHandle) -> Value {
         "historyCount": history::get().count(),
         "launchAtLogin": s.get_launch_at_login(),
         "surface": s.get_surface(),
-        "glass": { "tier": "full", "reasons": [] },
+        "glass": glass_tier(app),
         "glassIntensity": s.get_glass_intensity(),
         "hasSentFirstRequest": s.get_has_sent_first_request(),
         "launchAtLoginLive": autostart::live(),
@@ -354,21 +379,36 @@ async fn route(
                 outputs::resize(app, &label, p_num(&p, "height"));
             }
         }
-        "output:close" => {
-            let asked = p_str(&p, "label");
-            let target = if outputs::is_output(&asked) {
-                asked
-            } else {
-                label
+        "output:bar" => {
+            let open = {
+                let st = shared(app);
+                let s = st.lock();
+                s.mode == Mode::Panel && !s.hidden
             };
-            outputs::close(app, &target);
-            return ok();
+            return Ok(if open {
+                json!(windows::bar_rect(app))
+            } else {
+                Value::Null
+            });
+        }
+        "output:close" => {
+            if outputs::is_output(&label) {
+                outputs::close(app, &label);
+            } else {
+                windows::collapse_panel(app, false);
+            }
         }
         "open-external" => {
             windows::open_url(app, &p_str(&p, "url"));
         }
         "app:help" => return Ok(windows::open_help(app)),
-        "chat:new" => windows::new_chat(app),
+        "chat:new" => {
+            if outputs::is_output(&label) {
+                outputs::reset(app, &label);
+            } else {
+                windows::new_chat(app);
+            }
+        }
         "overlay:open-history" => windows::open_history(app),
         "history:list" => {
             return Ok(json!({ "rows": history::get().list(&p_str(&p, "query")) }));
@@ -532,9 +572,15 @@ async fn route(
             return Ok(json!({ "surface": v, "tier": "full", "reasons": [] }));
         }
         "settings:set-glass" => {
-            let v = s.set_glass_intensity(p_num(&p, "intensity"));
+            let v = s.set_glass_intensity(p_num(&p, "glassIntensity"));
+            let glass = glass_tier(app);
+            let mut tier = glass.clone();
+            tier["intensity"] = json!(v);
+            for (l, _) in app.webview_windows() {
+                windows::emit(app, &l, "glass:tier", tier.clone());
+            }
             windows::send_overlay_state(app);
-            return Ok(json!({ "ok": true, "glassIntensity": v }));
+            return Ok(json!({ "glassIntensity": v, "glass": glass }));
         }
         "update:check" => return Ok(updater::check(app).await),
         "update:restart" => return Ok(json!({ "ok": updater::restart(app) })),
@@ -551,7 +597,10 @@ async fn route(
         "shortcuts:reset" => return Ok(hotkeys::reset(app)),
         // Called by every glass page while it loads; agent c's backdrop
         // answers it once ported.
-        "glass:hello" => {}
+        "glass:hello" => {
+            windows::on_hello(app, &label);
+            return Ok(json!({ "intensity": s.get_glass_intensity() }));
+        }
         _ => return not_ported(channel, &p),
     }
     Ok(Value::Null)
@@ -603,15 +652,24 @@ mod tests {
     }
 
     #[test]
-    fn extra_channels_stay_out_of_the_parity_lists() {
-        for c in EXTRA_INVOKE {
-            assert!(!INVOKE_CHANNELS.contains(c));
+    fn split_d_channels_are_allowed() {
+        for c in ["output:bar", "output:close", "settings:set-glass"] {
             assert!(allowed(c));
         }
-        for c in EXTRA_LISTEN {
-            assert!(!LISTEN_CHANNELS.contains(c));
-        }
         assert!(!allowed("fs:read"));
+    }
+
+    #[test]
+    fn first_request_needs_text() {
+        assert!(first_request("query:submit", &json!({ "question": "hi" })));
+        assert!(!first_request("query:submit", &json!({ "question": "  " })));
+        assert!(first_request(
+            "agent:start",
+            &json!({ "task": "open notepad" })
+        ));
+        assert!(!first_request("agent:start", &json!({})));
+        assert!(first_request("find:step", &json!({ "by": 1 })));
+        assert!(!first_request("bar:mode", &json!({ "mode": "ask" })));
     }
 
     #[test]
@@ -648,7 +706,7 @@ mod tests {
     fn bridge_script_carries_both_allowlists() {
         let s = bridge_script();
         assert!(s.contains("aevalBridge([\"overlay:trigger\""));
-        assert!(s.contains("\"lens:loupe\",\"output:glob\"]);"));
+        assert!(s.contains("\"lens:loupe\"]);"));
         assert!(s.contains("\"settings:set-glass\"]"));
     }
 }

@@ -11,12 +11,15 @@ pub const PANEL_WIDTH: f64 = 420.0;
 pub const INPUT_MIN_HEIGHT: f64 = 62.0;
 pub const INPUT_MAX_HEIGHT: f64 = 280.0;
 pub const DEFAULT_INPUT_HEIGHT: f64 = 76.0;
-pub const OUTPUT_MIN_HEIGHT: f64 = 90.0;
+/// Output window minimum (ARCHITECTURE.md 10.3: 320x160).
+pub const OUTPUT_MIN_HEIGHT: f64 = 160.0;
 pub const OUTPUT_MAX_FRACTION: f64 = 0.66;
 pub const OUTPUT_MAX_FLOOR: f64 = 380.0;
 pub const DEFAULT_OUTPUT_HEIGHT: f64 = 120.0;
 pub const HUD_INPUT_HEIGHT: f64 = 140.0;
-pub const DOCK_GAP: f64 = 8.0;
+/// Glass to glass, bar to a new output window. Inside both 20 px stage
+/// margins, so the page's glob can draw across it (ARCHITECTURE.md 10.3).
+pub const OUTPUT_GAP: f64 = 12.0;
 pub const SNAP_MARGIN: f64 = 16.0;
 pub const SNAP_DISTANCE: f64 = 110.0;
 pub const DOCK_DISTANCE: f64 = 150.0;
@@ -28,7 +31,7 @@ pub const T_OUT_IN: u64 = 300;
 pub const T_OUT_OUT: u64 = 150;
 pub const T_OUT_GROW: u64 = 200;
 /// Offset between output windows that would otherwise land on each other.
-pub const CASCADE: f64 = 28.0;
+pub const CASCADE: f64 = 24.0;
 
 /// An anchor config: which edge each axis hugs, and the offset from it.
 #[derive(Clone, Debug, PartialEq)]
@@ -99,13 +102,14 @@ pub fn output_height(wa: Rect, content: f64, user: f64) -> f64 {
     }
 }
 
-/// main.js dockedBounds: below a top-anchored bar, above a bottom one.
+/// The first slot: on the bar's free side (below a top-anchored bar, above
+/// a bottom one), 12 px away, left edges aligned.
 pub fn docked_bounds(wa: Rect, bar: Rect, size: (f64, f64), bar_v: &str) -> Rect {
     let (w, h) = size;
     let y = if bar_v == "bottom" {
-        bar.y - DOCK_GAP - h
+        bar.y - OUTPUT_GAP - h
     } else {
-        bar.y + bar.height + DOCK_GAP
+        bar.y + bar.height + OUTPUT_GAP
     };
     Rect::new(
         clamp(bar.x, wa.x, wa.x + wa.width - w),
@@ -116,8 +120,8 @@ pub fn docked_bounds(wa: Rect, bar: Rect, size: (f64, f64), bar_v: &str) -> Rect
 }
 
 /// NEW-01: where a new output window opens. The slot against the bar on its
-/// free side first; if an open window covers most of that slot, the next
-/// slot across (toward the middle of the screen), then a cascade.
+/// free side first; while an open window already sits there, 24 px further
+/// toward the middle of the screen and away from the bar.
 pub fn place_output(
     wa: Rect,
     bar: Rect,
@@ -126,28 +130,27 @@ pub fn place_output(
     open: &[Rect],
 ) -> Rect {
     let first = docked_bounds(wa, bar, size, &bar_anchor.v);
-    let free = |r: &Rect| open.iter().all(|o| o.overlap(r) < r.width * r.height * 0.5);
-    if free(&first) {
-        return first;
-    }
-    let dir = if bar_anchor.h == "left" { 1.0 } else { -1.0 };
-    for i in 1..4 {
-        let x = first.x + dir * f64::from(i) * (size.0 + DOCK_GAP);
-        if x < wa.x || x + size.0 > wa.x + wa.width {
-            break;
-        }
-        let r = Rect::new(x, first.y, size.0, size.1);
-        if free(&r) {
-            return r;
-        }
-    }
+    let taken = |r: &Rect| {
+        open.iter()
+            .any(|o| (o.x - r.x).abs() < CASCADE / 2.0 && (o.y - r.y).abs() < CASCADE / 2.0)
+    };
+    let dx = if bar_anchor.h == "right" {
+        -CASCADE
+    } else {
+        CASCADE
+    };
+    let dy = if bar_anchor.v == "bottom" {
+        -CASCADE
+    } else {
+        CASCADE
+    };
     let mut r = first;
-    for _ in 0..open.len().min(12) {
-        r.x = clamp(r.x - dir * CASCADE, wa.x, wa.x + wa.width - size.0);
-        r.y = clamp(r.y + CASCADE, wa.y, wa.y + wa.height - size.1);
-        if free(&r) {
+    for _ in 0..open.len().min(16) {
+        if !taken(&r) {
             break;
         }
+        r.x = clamp(r.x + dx, wa.x, wa.x + wa.width - size.0);
+        r.y = clamp(r.y + dy, wa.y, wa.y + wa.height - size.1);
     }
     r
 }
@@ -285,7 +288,7 @@ mod tests {
     fn output_heights() {
         assert_eq!(output_max_height(wa()), 686.0);
         assert_eq!(output_max_height(Rect::new(0.0, 0.0, 800.0, 500.0)), 380.0);
-        assert_eq!(output_height(wa(), 40.0, 0.0), 90.0);
+        assert_eq!(output_height(wa(), 40.0, 0.0), 160.0);
         assert_eq!(output_height(wa(), 2000.0, 0.0), 686.0);
         assert_eq!(output_height(wa(), 2000.0, 5000.0), 1000.0);
     }
@@ -295,11 +298,18 @@ mod tests {
         let bar = Rect::new(1484.0, 16.0, 420.0, 76.0);
         let top = a("right", "top", 16.0, 16.0);
         let first = place_output(wa(), bar, &top, (420.0, 200.0), &[]);
-        assert_eq!(first, Rect::new(1484.0, 100.0, 420.0, 200.0));
+        // 12 px under the bar's glass.
+        assert_eq!(first, Rect::new(1484.0, 104.0, 420.0, 200.0));
         let second = place_output(wa(), bar, &top, (420.0, 200.0), &[first]);
-        assert_eq!(second, Rect::new(1056.0, 100.0, 420.0, 200.0));
+        assert_eq!(second, Rect::new(1460.0, 128.0, 420.0, 200.0));
         let third = place_output(wa(), bar, &top, (420.0, 200.0), &[first, second]);
-        assert_eq!(third.x, 628.0);
+        assert_eq!(third, Rect::new(1436.0, 152.0, 420.0, 200.0));
+        // A window moved away frees the first slot again.
+        let moved = Rect::new(200.0, 500.0, 420.0, 200.0);
+        assert_eq!(
+            place_output(wa(), bar, &top, (420.0, 200.0), &[moved]),
+            first
+        );
         let low = Rect::new(100.0, 948.0, 420.0, 76.0);
         let up = place_output(
             wa(),
@@ -308,7 +318,7 @@ mod tests {
             (420.0, 200.0),
             &[],
         );
-        assert_eq!(up, Rect::new(100.0, 740.0, 420.0, 200.0));
+        assert_eq!(up, Rect::new(100.0, 736.0, 420.0, 200.0));
     }
 
     #[test]

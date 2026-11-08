@@ -2,6 +2,10 @@
 //! one responsibility of the Electron main process, and PARITY.md lists what
 //! each must keep doing.
 
+// serde_json::json! recurses once per field; the store defaults,
+// settings:get and overlay:state are bigger than the default limit allows.
+#![recursion_limit = "256"]
+
 mod agent;
 mod ask;
 pub mod autostart;
