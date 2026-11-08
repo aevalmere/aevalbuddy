@@ -95,7 +95,7 @@ pub fn run() {
     history::init(&user_data).set_enabled(store::get().get_save_history());
 
     let shortcuts = tauri_plugin_global_shortcut::Builder::new()
-        .with_handler(|app, shortcut, event| hotkeys::on_shortcut(app, shortcut, event))
+        .with_handler(hotkeys::on_shortcut)
         .build();
 
     let app = tauri::Builder::default()
@@ -161,20 +161,20 @@ pub fn run() {
 
     // LIFE-09: the last window closing quits, as window-all-closed did.
     // LIFE-10, LIFE-11: what before-quit and will-quit did, on the way out.
-    app.run(|app, event| match event {
-        RunEvent::Exit => {
-            let st = state::shared(app);
-            if st.lock().agent.running {
-                st.call(app, |k| k.stop_agent.as_ref());
-            }
-            st.call(app, |k| k.close_find.as_ref());
-            use tauri_plugin_global_shortcut::GlobalShortcutExt;
-            let _ = app.global_shortcut().unregister_all();
-            history::get().flush_now();
-            updater::destroy();
-            updater::install_on_quit();
-            tray::destroy(app);
+    app.run(|app, event| {
+        if !matches!(event, RunEvent::Exit) {
+            return;
         }
-        _ => {}
+        let st = state::shared(app);
+        if st.lock().agent.running {
+            st.call(app, |k| k.stop_agent.as_ref());
+        }
+        st.call(app, |k| k.close_find.as_ref());
+        use tauri_plugin_global_shortcut::GlobalShortcutExt;
+        let _ = app.global_shortcut().unregister_all();
+        history::get().flush_now();
+        updater::destroy();
+        updater::install_on_quit();
+        tray::destroy(app);
     });
 }
