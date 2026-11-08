@@ -1,0 +1,6 @@
+== build.log ==
+       Error failed to bundle project: `http status: 504`
+
+== desktop.log ==
+[DESKTOP] desktopReady=FAIL:ready=true ms=9950
+[DESKTOP] failed: desktopReady
