@@ -81,17 +81,15 @@ export const scenes = [
         if (i > 80) throw new Error('the glob never started');
         await t.page.waitForTimeout(25);
       }
-      // The page's own clock is read after every shot, so the check also
-      // proves that only t.tick moved it.
+      // t.shot runs the clock 120 ms before its picture, so the pictures are
+      // 120 ms apart. The page's own clock is read after every shot, so the
+      // check also proves nothing else moved it.
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
       const now = () => out.evaluate(() => performance.now());
       const t0 = await now();
-      const want = [48, 144, 240, 336];
+      const want = [120, 240, 360];
       const seen = [];
-      let at = 0;
       for (const ms of want) {
-        await t.tick(ms - at);
-        at = ms;
         await t.shot(`13-glob-clock-${String(ms).padStart(3, '0')}`, clip);
         seen.push(Math.round((await now()) - t0));
       }
@@ -99,7 +97,7 @@ export const scenes = [
       await t.tick(200);
       const late = await out.evaluate(() => window.__globDone);
       const steady = seen.join(',') === want.join(',');
-      const why = `virtual ms at the shots ${seen.join(',')} (want ${want.join(',')}); done at 336 ms=${early}, at 536 ms=${late} (open takes 440 ms)`;
+      const why = `virtual ms at the shots ${seen.join(',')} (want ${want.join(',')}); done at 360 ms=${early}, at 560 ms=${late}`;
       t.check('globOnClock', steady && !early && late, why);
     },
   },

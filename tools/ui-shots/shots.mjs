@@ -43,11 +43,11 @@
 //     ],
 //     textScale: true,                  // also run with --text-scale: 2 (-ts200)
 //     scales: [1, 1.5],                 // the default; 1.5 adds -150 to names
-//     clock: true,                      // virtual clock: performance.now and
-//                                       // requestAnimationFrame stand still and
-//                                       // move only by t.tick or t.settle, in
-//                                       // 16 ms frames, the same in every window;
-//                                       // Date and timers stay real
+//     clock: true,                      // virtual clock (page.clock): timers,
+//                                       // Date, requestAnimationFrame and
+//                                       // performance.now. run(t) starts with it
+//                                       // paused; only t.tick, t.settle and
+//                                       // t.shot move it
 //     media: { reducedMotion: 'reduce' }, // page.emulateMedia
 //     async run(t) { ... },             // drive it, shoot it, check it
 //   }
@@ -60,16 +60,19 @@
 //   t.respond(name, channel, value)  change that window's answer from now on
 //   t.calls(name, channel?)     what that window invoked, [{channel, payload}]
 //   t.settle(ms = 450)          wait ms of real time. On a clock scene it
-//                               also moves the virtual clock by ms, so never
-//                               call it between frames you are timing: use
-//                               t.tick there, and t.settle only to let
+//                               runs the virtual clock by ms instead, so
+//                               never call it between frames you are timing:
+//                               use t.tick there, and t.settle only to let
 //                               something run out first
-//   t.tick(ms)                  move the virtual clock by exactly ms (needs
-//                               clock: true); nothing else moves it
-//   t.shot(name?, clip?)        <outDir>/<name><suffix>.png; clip in CSS px,
-//                               default every window plus 20 px. Never moves
-//                               the virtual clock (elsewhere it settles 120 ms
-//                               of real time first)
+//   t.tick(ms)                  run the virtual clock by exactly ms, firing
+//                               what falls due (needs clock: true)
+//   t.shot(name?, clip?)        settle 120 ms, then <outDir>/<name><suffix>.png;
+//                               clip in CSS px, default every window plus
+//                               20 px. On a clock scene those 120 ms are
+//                               virtual: count them when you time frames
+//
+// On a clock scene, page.waitForFunction polls on the virtual clock and hangs
+// while it is paused; poll from here with t.page.waitForTimeout, which is real.
 //   t.check(name, ok, why)      `[UI] <name><suffix>=ok|FAIL:<why>`
 //   t.backdrop                  { kind, full, small } data URLs
 // kit.mjs has the shared fixtures and helpers (BAR, ANSWER, openBar, ...).
@@ -91,42 +94,7 @@ const OUT = path.resolve(args.find((a) => !a.startsWith('--')) || path.join(ROOT
 const CHANNEL = flag('channel', 'msedge');
 const ONLY = flag('lane', '');
 const SCALES = [1, 1.5];
-// The virtual clock (B-053): every frame of a clock scene gets its own
-// performance.now and requestAnimationFrame, stepped together by tickAll.
-const CLOCK_SCRIPT = `(() => {
-  let now = 1000;
-  let queue = [];
-  let nextId = 1;
-  performance.now = () => now;
-  window.requestAnimationFrame = (cb) => {
-    const id = nextId++;
-    queue.push({ id, cb });
-    return id;
-  };
-  window.cancelAnimationFrame = (id) => {
-    queue = queue.filter((q) => q.id !== id);
-  };
-  window.__clock = {
-    tick(ms) {
-      const end = now + ms;
-      while (now < end) {
-        now = Math.min(end, now + 16);
-        const run = queue;
-        queue = [];
-        for (const q of run) {
-          try {
-            q.cb(now);
-          } catch (e) {
-            setTimeout(() => {
-              throw e;
-            });
-          }
-        }
-      }
-      return now;
-    },
-  };
-})();`;
+const CLOCK_START = new Date('2026-03-02T09:30:00Z');
 fs.mkdirSync(OUT, { recursive: true });
 
 let failed = 0;
@@ -226,19 +194,11 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
     if (m.type() === 'error') errors.push(`${tag}: console: ${m.text()}`);
   });
   try {
-    if (spec.clock) await page.addInitScript({ content: CLOCK_SCRIPT });
+    if (spec.clock) await page.clock.install({ time: CLOCK_START });
     if (spec.media) await page.emulateMedia(spec.media);
-    const tickAll = async (ms) => {
-      for (const f of page.frames()) await f.evaluate((m) => window.__clock && window.__clock.tick(m), ms).catch(() => null);
-    };
-    // Real time passes too, for the timers; on a clock scene the virtual
-    // clock keeps step with it, 50 ms at a time.
     const settle = async (ms = 450) => {
-      if (!spec.clock) return page.waitForTimeout(ms);
-      for (let left = ms; left > 0; left -= 50) {
-        await tickAll(Math.min(50, left));
-        await page.waitForTimeout(Math.min(50, left));
-      }
+      if (spec.clock) await page.clock.runFor(ms);
+      await page.waitForTimeout(spec.clock ? 30 : ms);
     };
     await page.goto(`${BASE}${route}`);
     await page.waitForLoadState('load');
@@ -249,6 +209,8 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
     };
     for (const w of spec.windows) {
       const f = frame(w.name);
+      // Polled from here: waitForFunction's own timers would sit on the
+      // virtual clock.
       for (let i = 0; (await f.evaluate(() => document.readyState)) !== 'complete'; i += 1) {
         if (i > 200) throw new Error(`${w.src} never finished loading`);
         await page.waitForTimeout(50);
@@ -264,6 +226,14 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
         },
         { small: back.small, ts: textScale }
       );
+    }
+    // Playwright's clock keeps running in real time after install (its
+    // injected clock calls controller.resume()), so runFor only adds to it
+    // and a slow runner sees a different scene. Paused here, the scene's time
+    // is exactly what t.tick, t.settle and t.shot gave it.
+    if (spec.clock) {
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.pauseAt(now + 1000);
     }
     await settle(250);
     const t = {
@@ -287,12 +257,10 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
       settle,
       tick: async (ms) => {
         if (!spec.clock) throw new Error(`scene ${spec.name} has no virtual clock (clock: true)`);
-        await tickAll(ms);
-        await page.waitForTimeout(20);
+        await page.clock.runFor(ms);
       },
       shot: async (name, clip) => {
-        if (spec.clock) await page.waitForTimeout(60);
-        else await settle(120);
+        await settle(120);
         const file = `${name || spec.name}${suffix}.png`;
         if (written.has(file)) check(`uniqueShot.${file}`, false, `also shot by ${written.get(file)}`);
         written.set(file, `${lane}/${spec.name}`);
