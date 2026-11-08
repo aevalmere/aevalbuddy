@@ -389,13 +389,54 @@ html[data-shot-bg] body {
   box-shadow: var(--own-shadow, none), 0 0 0 5px rgb(0 0 0 / 0.38);
 }
 
-/* Icons come from renderer/icons.svg (one family, one weight). */
+/* Icons: renderer/icons.svg, one family and one weight. The sprite is a
+   strip of 20-unit glyphs 24 units apart. A .ico element is masked with the
+   whole strip, scaled so one glyph fills the box, and slid to glyph --i;
+   the fill is currentColor, so an icon takes its control's colour and hover.
+   The URL resolves against this file, so pages in settings/ and history/
+   find it too. It carries no #fragment, so it is plainly an image (a
+   fragment in mask-image may name an SVG <mask> element instead).
+   Markup: <span class="ico i-x" aria-hidden="true"></span>, or
+   AevalGlass.icon('x'). A new glyph goes at the end of the strip, and the
+   sprite must stay well-formed XML or every icon goes blank. */
 .ico {
+  --i: 0;
+  display: inline-block;
   flex: 0 0 auto;
   width: var(--ico-i);
   height: var(--ico-i);
-  overflow: visible;
+  background-color: currentColor;
+  -webkit-mask-image: url(icons.svg);
+  mask-image: url(icons.svg);
+  /* 408 x 20 strip: 20.4 boxes wide. A percentage position p offsets by
+     p x (box - image) = -19.4 p boxes; glyph i starts 1.2 i boxes in. */
+  -webkit-mask-size: 2040% 100%;
+  mask-size: 2040% 100%;
+  -webkit-mask-position: calc(var(--i) * 100% * 1.2 / 19.4) 0;
+  mask-position: calc(var(--i) * 100% * 1.2 / 19.4) 0;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* In a contrast theme the fill is the inherited system text colour. */
+  forced-color-adjust: none;
 }
+
+.i-x { --i: 0; }
+.i-chevron { --i: 1; }
+.i-check { --i: 2; }
+.i-copy { --i: 3; }
+.i-gear { --i: 4; }
+.i-history { --i: 5; }
+.i-plus { --i: 6; }
+.i-stop { --i: 7; }
+.i-clock { --i: 8; }
+.i-bubble { --i: 9; }
+.i-viewfinder { --i: 10; }
+.i-pointer { --i: 11; }
+.i-area { --i: 12; }
+.i-info { --i: 13; }
+.i-search { --i: 14; }
+.i-trash { --i: 15; }
+.i-retry { --i: 16; }
 
 .g-icon {
   flex: 0 0 auto;
@@ -409,6 +450,7 @@ html[data-shot-bg] body {
   transition: background var(--d-fast) ease, color var(--d-fast) ease, transform 120ms var(--ease-out);
 }
 
+.g-icon > .ico,
 .g-icon > svg {
   width: var(--ico);
   height: var(--ico);
@@ -419,6 +461,7 @@ html[data-shot-bg] body {
   height: var(--ctl-s);
 }
 
+.g-icon.small > .ico,
 .g-icon.small > svg {
   width: var(--ico-s);
   height: var(--ico-s);
@@ -543,6 +586,7 @@ kbd,
   height: var(--ctl-s);
 }
 
+.sheet-bar-tools > .g-icon > .ico,
 .sheet-bar-tools > .g-icon > svg {
   width: var(--ico-s);
   height: var(--ico-s);
