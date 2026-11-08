@@ -21,7 +21,7 @@ use serde_json::json;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::selfcheck::{self, Report};
-use crate::capture::{self, encode, screen, Rect, Rgb};
+use crate::capture::{self, dxgi, encode, screen, Frame, Rect, Rgb};
 use crate::{backdrop, desktop, region};
 
 /// A left-button drag in the area selector, from (40, 40) to (360, 240).
@@ -232,6 +232,59 @@ fn decode_look(bytes: &[u8]) -> Option<(f64, f64)> {
     Some((sum / n, black as f64 / n))
 }
 
+/// B-108: with every open failing, a burst of captures tries one open and
+/// goes on through GDI. The backoff is dropped afterwards, so DXGI is back.
+fn dxgi_open_backoff(rep: &Report, d: &screen::Display) {
+    dxgi::force_dxgi_open_failure(true);
+    let _ = capture::reset_dxgi(d);
+    let before = dxgi::dxgi_opens();
+    let mut shots = 0;
+    for _ in 0..20 {
+        shots += i32::from(capture::grab(d).is_ok());
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    let opens = dxgi::dxgi_opens() - before;
+    dxgi::force_dxgi_open_failure(false);
+    let _ = capture::reset_dxgi(d);
+    rep.log("dxgiOpensPerTick", opens);
+    let why = format!("{opens} opens over 1 s, {shots} shots through GDI");
+    rep.must("dxgiOpensPerTick", opens <= 1 && shots == 20, &why);
+}
+
+/// B-030: one backdrop frame's work at 1080p, whatever the runner's screen
+/// is, and none at all for a frame already encoded.
+fn tick_ms(rep: &Report) {
+    let (w, h) = (1920u32, 1080u32);
+    let mut bgra = Vec::with_capacity(w as usize * h as usize * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let c = ((x ^ y) % 239) as u8;
+            bgra.extend_from_slice(&[(x % 251) as u8, (y % 241) as u8, c, 255]);
+        }
+    }
+    let frame = std::sync::Arc::new(Frame {
+        width: w,
+        height: h,
+        bgra,
+    });
+    let r = screen::PxRect {
+        x: 0,
+        y: 0,
+        width: w as i32,
+        height: h as i32,
+    };
+    let at = screen::Display::from_phys(r"\\.\DISPLAY1080", false, 96, r, r);
+    let t = Instant::now();
+    let first = backdrop::encode_frame(&at, &frame);
+    let ms = t.elapsed().as_secs_f64() * 1000.0;
+    let again = backdrop::encode_frame(&at, &frame);
+    rep.log("tickMs", format!("{ms:.1}"));
+    let why = format!("{ms:.1}ms, budget 40ms");
+    rep.must("tickMs", first.is_some() && ms < 40.0, &why);
+    let reused = matches!((&first, &again), (Some(a), Some(b)) if std::sync::Arc::ptr_eq(a, b));
+    rep.must("tickReusesFrame", reused, "a second encode of one frame");
+}
+
 /// B-029: a new duplication's first frame shows the desktop, not an empty
 /// pointer-only surface. A runner without DXGI says so loudly instead.
 fn dxgi_first_frame(rep: &Report, d: &screen::Display, control: screen::PxRect) {
@@ -318,6 +371,8 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         height: pr.height,
     };
     dxgi_first_frame(rep, &d, control);
+    rep.log("hdr", if dxgi::dxgi_hdr_seen() { "on" } else { "off" });
+    dxgi_open_backoff(rep, &d);
 
     let mut passed_any = false;
     for backend in ["dxgi", "gdi"] {
@@ -541,7 +596,10 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     rep.log("snapCost", &m);
     let block = m["blockP95"].as_f64().unwrap_or(999.0);
     rep.must("snapCost", block < 25.0, &format!("blockP95={block:.1}ms"));
-    rep.log("glassTier", backdrop::tier());
+    let tier = backdrop::tier();
+    rep.log("glassTier", tier);
+    rep.must("glassLive", tier == "live", &format!("tier={tier}"));
+    tick_ms(rep);
 
     // Fixture mode (GLASS-05) goes through the same window + capture path.
     if let Some(w) = fixture {

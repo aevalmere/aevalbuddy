@@ -46,6 +46,9 @@ let lastOfSequence = false;
 // main process can keep by waiting that long.
 let glide = null; // { from, start, ms }
 let cardMode = false;
+// While a drag holds the mouse the page has nothing new to say, so it says it
+// is still here; main takes the mouse back from a page that goes quiet.
+let lastBeat = 0;
 
 function bezier(x1, y1, x2, y2) {
   const ax = 3 * x1 - 3 * x2 + 1;
@@ -234,8 +237,9 @@ window.aeval.on('buddy:show', (payload) => {
   // The tour's buttons: Skip on a pointer step, the card's own choices on a
   // card. The agent's cursor has none; it is narration, not a dialog.
   calloutActions.innerHTML = '';
-  if (kind === 'card') {
-    for (const b of payload.buttons || []) {
+  const own = payload.buttons || [];
+  if (kind === 'card' || own.length) {
+    for (const b of own) {
       calloutActions.appendChild(actionButton(b.label, b.primary, () => window.aeval.invoke('buddy:card', { id: b.id })));
     }
   } else if (payload.skippable) {
@@ -295,21 +299,58 @@ window.aeval.on('buddy:done', () => {
   callout.classList.add('done');
 });
 
+// The window is kept between sessions, so each one starts from a clean page.
+window.aeval.on('buddy:reset', () => {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  clearInterval(typeTimer);
+  typeTimer = null;
+  target = null;
+  cur = { x: 0, y: 0 };
+  shown = false;
+  message = '';
+  calloutSize = { w: 0, h: 0 };
+  ignoreState = true;
+  dragBy = { x: 0, y: 0 };
+  dragging = null;
+  advanceOnClick = false;
+  lastOfSequence = false;
+  glide = null;
+  cardMode = false;
+  buddy.classList.remove('visible', 'done', 'land');
+  callout.classList.remove('visible', 'done', 'in', 'press', 'dragging');
+  calloutMessage.textContent = '';
+  calloutMessage.classList.remove('typing');
+  calloutMessage.style.minHeight = '';
+  calloutActions.innerHTML = '';
+  calloutActions.hidden = true;
+  setPips(-1, 0);
+});
+
 // The window is click-through by default. While the cursor is over the
 // visible bubble, hit-testing turns on so its buttons work; anywhere else,
 // clicks keep passing through to whatever is underneath. Hit-testing also
 // stays on for the whole of a drag, otherwise letting the cursor slip off
 // the bubble would drop it mid-gesture.
+function calloutRect() {
+  const r = callout.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+}
+
 function setIgnore(ignore) {
   if (ignore === ignoreState) return;
   ignoreState = ignore;
-  window.aeval.invoke('buddy:set-ignore', { ignore });
+  window.aeval.invoke('buddy:set-ignore', ignore ? { ignore } : { ignore, callout: calloutRect() });
 }
 
 document.addEventListener('mousemove', (e) => {
   if (dragging) {
     dragBy = { x: dragging.baseX + (e.clientX - dragging.fromX), y: dragging.baseY + (e.clientY - dragging.fromY) };
     positionCallout();
+    if (performance.now() - lastBeat > 1000) {
+      lastBeat = performance.now();
+      window.aeval.invoke('buddy:set-ignore', { ignore: false, callout: calloutRect() });
+    }
     return;
   }
   const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -353,3 +394,6 @@ window.addEventListener('resize', positionCallout);
 calloutClose.addEventListener('click', () => {
   window.aeval.invoke('buddy:dismiss');
 });
+
+// Last, so every listener above is live before main sends the first show.
+window.aeval.invoke('buddy:ready');

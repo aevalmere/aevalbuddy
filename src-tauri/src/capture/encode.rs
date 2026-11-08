@@ -9,7 +9,7 @@
 //! B-032): the whole screen is sized from its physical pixels rather than
 //! its DIP size, and chroma is kept at full resolution (4:4:4).
 
-use fast_image_resize::images::Image;
+use fast_image_resize::images::{Image, ImageRef};
 use fast_image_resize::{FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use jpeg_encoder::{ColorType, Encoder, SamplingFactor};
 
@@ -90,6 +90,21 @@ impl Rgb {
             data: dst.into_vec(),
         }
     }
+}
+
+/// Shrinks a top-down BGRA buffer with no row padding, converting only the
+/// small result. Lanczos3 as everywhere, with alpha left out of the sums: the
+/// desktop is opaque and some drivers leave that byte undefined (B-030).
+pub fn resize_bgra(src_w: u32, src_h: u32, bgra: &[u8], width: u32, height: u32) -> Option<Rgb> {
+    let (width, height) = (width.max(1), height.max(1));
+    let src = ImageRef::new(src_w, src_h, bgra, PixelType::U8x4).ok()?;
+    let mut dst = Image::new(width, height, PixelType::U8x4);
+    let options = ResizeOptions::new()
+        .resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3))
+        .use_alpha(false);
+    Resizer::new().resize(&src, &mut dst, &options).ok()?;
+    let small = dst.into_vec();
+    Some(Rgb::from_bgra(width, height, width as usize * 4, &small))
 }
 
 /// One JPEG at one quality, chroma at full resolution (4:4:4) at every
@@ -331,6 +346,24 @@ mod tests {
         let rgb = Rgb::from_bgra(2, 2, 12, &bgra);
         assert_eq!(rgb.data, vec![3, 2, 1, 6, 5, 4, 9, 8, 7, 12, 11, 10]);
         assert_eq!(rgb.pixel(1, 1), [12, 11, 10]);
+    }
+
+    #[test]
+    fn bgra_resize_matches_the_rgb_path_and_ignores_alpha() {
+        let (w, h) = (64u32, 48u32);
+        let mut bgra = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                let alpha = (x * y % 251) as u8;
+                bgra.extend_from_slice(&[(x * 4) as u8, (y * 5) as u8, 128, alpha]);
+            }
+        }
+        let via_rgb = Rgb::from_bgra(w, h, w as usize * 4, &bgra).resize(16, 12);
+        let direct = resize_bgra(w, h, &bgra, 16, 12).expect("resized");
+        assert_eq!((direct.width, direct.height), (16, 12));
+        for (a, b) in via_rgb.data.iter().zip(&direct.data) {
+            assert!((i16::from(*a) - i16::from(*b)).abs() <= 1, "{a} {b}");
+        }
     }
 
     #[test]

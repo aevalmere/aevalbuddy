@@ -24,9 +24,9 @@
 
 pub mod contrast;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock, Weak};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -36,7 +36,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SystemParametersInfoW, SPI_GETHIGHCONTRAST, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
 };
 
-use crate::capture::{self, encode, screen, Rect, Rgb};
+use crate::capture::{self, encode, screen, Frame, Rect, Rgb};
 
 pub const SCALE: f64 = 6.0;
 pub const FAST_MS: u64 = 500;
@@ -94,6 +94,8 @@ struct Inner {
     busy: bool,
     /// While capture failures hold the glass solid: when to try again.
     retry_at: Option<Instant>,
+    /// Per display, the last frame encoded and its JPEG.
+    last_jpeg: HashMap<u32, (Weak<Frame>, Arc<Vec<u8>>)>,
 }
 
 struct Backdrop {
@@ -456,12 +458,43 @@ fn display_for(win: &tauri::WebviewWindow, list: &[screen::Display]) -> screen::
 pub type Frames = HashMap<u32, Arc<Vec<u8>>>;
 
 pub fn grab_all() -> Result<(Frames, f64, f64), String> {
-    let list = screen::all_displays();
+    grab_displays(&screen::all_displays())
+}
+
+/// One display's backdrop image. A frame DXGI says has not changed is neither
+/// converted nor encoded again (B-030).
+pub fn encode_frame(d: &screen::Display, frame: &Arc<Frame>) -> Option<Arc<Vec<u8>>> {
+    let last = lock().last_jpeg.get(&d.id).cloned();
+    if let Some((seen, jpeg)) = last {
+        if seen.upgrade().is_some_and(|f| Arc::ptr_eq(&f, frame)) {
+            return Some(jpeg);
+        }
+    }
+    let small = frame.scaled(
+        (d.bounds.width / SCALE).round().max(1.0) as u32,
+        (d.bounds.height / SCALE).round().max(1.0) as u32,
+    );
+    let jpeg = Arc::new(encode::jpeg(&small, FRAME_QUALITY)?);
+    let seen = Arc::downgrade(frame);
+    lock().last_jpeg.insert(d.id, (seen, jpeg.clone()));
+    Some(jpeg)
+}
+
+/// The displays holding a visible glass window, each once (B-030).
+fn hosting<T>(on: &[(T, screen::Display)]) -> Vec<screen::Display> {
+    let mut seen = HashSet::new();
+    on.iter()
+        .filter(|(_, d)| seen.insert(d.id))
+        .map(|(_, d)| d.clone())
+        .collect()
+}
+
+fn grab_displays(list: &[screen::Display]) -> Result<(Frames, f64, f64), String> {
     let mut out = HashMap::new();
     let mut wall = 0.0;
     let mut enc = 0.0;
     let mut last_err = String::new();
-    for d in &list {
+    for d in list {
         let t0 = Instant::now();
         let frame = match capture::grab(d) {
             Ok(f) => f,
@@ -471,12 +504,8 @@ pub fn grab_all() -> Result<(Frames, f64, f64), String> {
             }
         };
         let t1 = Instant::now();
-        let small = frame.rgb().resize(
-            (d.bounds.width / SCALE).round().max(1.0) as u32,
-            (d.bounds.height / SCALE).round().max(1.0) as u32,
-        );
-        if let Some(j) = encode::jpeg(&small, FRAME_QUALITY) {
-            out.insert(d.id, Arc::new(j));
+        if let Some(j) = encode_frame(d, &frame) {
+            out.insert(d.id, j);
         }
         wall += (t1 - t0).as_secs_f64() * 1000.0;
         enc += t1.elapsed().as_secs_f64() * 1000.0;
@@ -572,7 +601,12 @@ fn tick() {
             send_frame(&app, label, &img, Some(&full_url), bounds);
         }
     } else {
-        match grab_all() {
+        let list = screen::all_displays();
+        let on: Vec<(&str, screen::Display)> = shown
+            .iter()
+            .map(|(label, w)| (label.as_str(), display_for(w, &list)))
+            .collect();
+        match grab_displays(&hosting(&on)) {
             Ok((frames, wall, enc)) => {
                 {
                     let mut g = lock();
@@ -580,11 +614,6 @@ fn tick() {
                     push(&mut g.stats.wall, wall);
                     push(&mut g.stats.encode, enc);
                 }
-                let list = screen::all_displays();
-                let on: Vec<(&str, screen::Display)> = shown
-                    .iter()
-                    .map(|(label, w)| (label.as_str(), display_for(w, &list)))
-                    .collect();
                 let mut urls: HashMap<u32, String> = HashMap::new();
                 for (label, d) in sendable(&frames, on) {
                     let url = urls
@@ -630,6 +659,13 @@ fn sendable<T>(frames: &Frames, on: Vec<(T, screen::Display)>) -> Vec<(T, screen
     on.into_iter()
         .filter(|(_, d)| frames.contains_key(&d.id))
         .collect()
+}
+
+/// Whether the backdrop is at its 5 s pace (`backdropIdle`).
+pub fn slow_paced() -> bool {
+    // The hook runs with the lock released, as in `schedule`.
+    let hooks = lock().hooks.clone();
+    hooks.is_some_and(|h| (h.pace)() == Pace::Slow)
 }
 
 /// Tier and reasons to every glass window (on change, on load, on theme).

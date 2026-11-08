@@ -92,3 +92,52 @@ status: done; evidence: UNIT `backdrop::tests::missing_display_frame_skips_windo
 
 ## PARITY · LIFE-16 · B-115
 status: done; evidence: UNIT `desktop::checks::tests::notepad_gating` (Notepad only when `GITHUB_ACTIONS` is set or `AEVAL_DESKTOP_NOTEPAD` is set and not "0"; the Rust port had defaulted to on); desktop selfcheck log `desktopNotepadIncluded=ok`
+
+## DESIGN · Components table, "Tour card" row · D-06
+Replace "| Tour card | pointer window | the last tour step has no arrow: a card with `Try it` (primary) and `Later` |" with:
+| Tour card | pointer window | the step that asks for a key has no arrow: a card with `Connect` (primary, opens Settings at Providers) and `Later`; the last step points at the bar's intent token with `Got it` |
+Reason (D-06): the tour leads with what works without a key (Find), asks for a key only when there is none,
+asks the first question only once there is one, and ends on the token that says what Enter will do. Every
+step quotes only the `captureQuery` chord; an empty chord falls back to "Click the orb", never a blank.
+
+## PARITY · TOUR-01 · B-033
+Replace "Four steps: key in Settings (`#api-key-input`, scope `#sec-key`, advance `key-saved`), Ask (`first-answer`), Find (`find-hit`), Agent card with Try it / Later. Messages carry the live chords." with:
+Four steps (D-06): Find on the orb (`find-hit`), a card asking for a provider with Connect / Later (`key-saved`,
+skipped when a key exists), Ask (`first-answer`, skipped without a key), the bar's intent token with Got it.
+Only the main chord is quoted, never an empty one. The old Try card is gone (`try` still works, B-129).
+status: changed (D-06); evidence: UNIT `buddy::tests::walkthrough_order_and_no_double_spaces` (replaces `buddy::tests::tour_has_four_steps_with_live_chords`), `buddy::tests::steps_apply_by_whether_a_key_exists`; SMOKE `onboardingSteps` (`0>1>2>3`), `walkthrough`
+
+## PARITY · TOUR-04 · B-031
+Add to the row: the pointer window is kept between sessions (hidden, page reset with `buddy:reset`), so a
+new answer's points show at once and the agent's first cursor after a tour does not wait for a page.
+status: done; evidence: SMOKE+ `buddyReuse`; SMOKE `buddyPoints`, `buddyPointsDone`
+
+## PARITY · LENS-01 · B-034
+Add to the row: the lens and pointer pages invoke `lens:ready` / `buddy:ready` after their listeners are
+registered; Rust flushes the queued draw or show on that invoke, not on the page-load event.
+status: done; evidence: SMOKE `lensFirstDraw` (`3:true:true`), SMOKE+ `lensReady`, SMOKE `pointResolved`
+
+## PARITY · GLASS-01 · B-030
+Add to the row: only displays hosting a visible glass window are captured; a hidden lens window does not
+hold the fast pace, and the lens windows go when Find's hits and the agent frame are both gone. A frame
+DXGI reports unchanged is not converted or encoded again; frames are shrunk while still BGRA.
+status: done; evidence: SMOKE `snapCost`, SMOKE+ `backdropIdle`; capture check `tickMs` (< 40 ms per 1080p frame), `tickReusesFrame`
+
+## PARITY · LIFE-12 · B-114
+Add to the row: the lens, region and buddy builders call `crash::guard_webview`; a reloaded or crashed
+buddy page lets the mouse through again, and a page that holds the mouse with no word for 3 s while the
+pointer is off its bubble has click-through restored.
+status: done; evidence: UNIT `buddy::tests::watchdog_restores_click_through`; SMOKE+ `buddyReload`
+
+## ARCHITECTURE · D1 Capture · B-108
+Add: a failed DXGI open keeps that output on GDI for 10 s (cleared when the display layout changes), and
+outputs on one adapter share one D3D11 device, keyed by adapter LUID.
+evidence: UNIT `dxgi::tests::open_failure_backs_off`; capture check `dxgiOpensPerTick` (≤ 1 over a forced-failure burst)
+
+## ARCHITECTURE · D1 Capture · D-33
+Add: an HDR output (`IDXGIOutput6` colour space G2084/P2020) is duplicated with `DuplicateOutput1` in
+`R16G16B16A16_FLOAT`; each linear scRGB channel is divided by the output's SDR white level
+(`DISPLAYCONFIG_SDR_WHITE_LEVEL`, 200 nits when unreadable), clamped and sRGB-encoded through a 64K-entry
+lookup table. SDR outputs keep the BGRA path. Reason: an HDR desktop read as 8-bit comes out washed out or
+clipped, and the model reads tone as content. Not verified on HDR hardware (lane Blockers).
+evidence: UNIT `dxgi::tests::scrgb_to_srgb_at_sdr_white`; capture check `hdr=off` on the runner

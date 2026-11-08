@@ -10,7 +10,7 @@ use serde_json::Value;
 use tauri::{Manager, WebviewWindow};
 
 use crate::state::{shared, Mode};
-use crate::{backdrop, buddy, region};
+use crate::{backdrop, buddy, lens, region};
 
 fn off_thread(f: impl FnOnce() + Send + 'static) {
     std::thread::spawn(f);
@@ -74,7 +74,15 @@ pub fn route(
         }
         "buddy:set-ignore" => {
             let ignore = payload["ignore"].as_bool().unwrap_or(true);
-            buddy::set_click_through(ignore);
+            buddy::page_set_ignore(ignore, &payload["callout"]);
+            ok
+        }
+        "buddy:ready" => {
+            off_thread(buddy::page_ready);
+            ok
+        }
+        "lens:ready" => {
+            lens::page_ready(window.app_handle(), window.label());
             ok
         }
         "buddy:skip" => {
@@ -111,6 +119,8 @@ mod tests {
             "buddy:skip",
             "buddy:focus",
             "buddy:card",
+            "buddy:ready",
+            "lens:ready",
         ] {
             assert!(crate::ipc::INVOKE_CHANNELS.contains(&c), "{c}");
         }

@@ -230,6 +230,7 @@ fn open_window(app: &AppHandle, phys: screen::PxRect, gen: u64) -> tauri::Result
     win::tool_window(capture::hwnd_of(&win), false);
     win::place(&win, phys);
     capture::exclude_window(capture::hwnd_of(&win));
+    crate::crash::guard_webview(&win, move |app, _| cancel_gen(app, gen));
     // Losing focus means the user clicked into something else; a full-screen
     // scrim they did not ask to keep must not survive that.
     let a = app.clone();

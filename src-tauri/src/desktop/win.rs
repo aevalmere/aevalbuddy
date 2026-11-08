@@ -11,7 +11,8 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_TOPMOST,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE,
+    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 use crate::capture::{self, PxRect};
@@ -58,6 +59,24 @@ pub fn show_inactive(raw: isize) {
         let _ = ShowWindow(hwnd(raw), SW_SHOWNOACTIVATE);
     }
     raise(raw);
+}
+
+/// Whether the window lets the mouse through.
+pub fn is_transparent(raw: isize) -> bool {
+    if raw == 0 {
+        return false;
+    }
+    let ex = unsafe { GetWindowLongPtrW(hwnd(raw), GWL_EXSTYLE) };
+    ex & WS_EX_TRANSPARENT.0 as isize != 0
+}
+
+pub fn hide(raw: isize) {
+    if raw == 0 {
+        return;
+    }
+    unsafe {
+        let _ = ShowWindow(hwnd(raw), SW_HIDE);
+    }
 }
 
 pub fn raise(raw: isize) {

@@ -46,6 +46,24 @@ impl Frame {
     pub fn rgb(&self) -> Rgb {
         Rgb::from_bgra(self.width, self.height, self.width as usize * 4, &self.bgra)
     }
+
+    /// One rectangle converted and the rest left alone (B-030); the caller
+    /// has clamped it inside the frame.
+    pub fn rgb_rect(&self, x: u32, y: u32, width: u32, height: u32) -> Rgb {
+        let stride = self.width as usize * 4;
+        let start = y as usize * stride + x as usize * 4;
+        Rgb::from_bgra(width, height, stride, &self.bgra[start..])
+    }
+
+    /// The whole frame at `width` x `height`, shrunk while it is still BGRA
+    /// so only the small result is converted (B-030).
+    pub fn scaled(&self, width: u32, height: u32) -> Rgb {
+        if (width, height) == (self.width, self.height) {
+            return self.rgb();
+        }
+        encode::resize_bgra(self.width, self.height, &self.bgra, width, height)
+            .unwrap_or_else(|| self.rgb().resize(width, height))
+    }
 }
 
 /// Which backend produced the last frame (for smoke lines).
@@ -224,13 +242,12 @@ pub fn shot_image(region: Option<Rect>) -> Result<(Rgb, Display), String> {
     let whole = || screen::latched_display(&list);
     let target = target_display(&list, region.as_ref(), device.as_deref(), whole);
     let frame = grab(&target)?;
-    let full = frame.rgb();
     let img = match region {
-        Some(want) => crop_area(&full, &target, want),
+        Some(want) => crop_area(&frame, &target, want),
         None => {
             // Sized from the pixels that arrived, not the DIP size (B-032).
-            let (tw, th) = encode::whole_screen_size(full.width, full.height);
-            full.resize(tw, th)
+            let (tw, th) = encode::whole_screen_size(frame.width, frame.height);
+            frame.scaled(tw, th)
         }
     };
     Ok((img, target))
@@ -238,14 +255,14 @@ pub fn shot_image(region: Option<Rect>) -> Result<(Rgb, Display), String> {
 
 /// An area of one display's frame (CAP-03): cut by the size that arrived,
 /// then held to the long-edge budget.
-fn crop_area(full: &Rgb, display: &Display, want: Rect) -> Rgb {
+fn crop_area(full: &Frame, display: &Display, want: Rect) -> Rgb {
     let b = display.bounds;
     let (x, y, w, h) = encode::crop_plan(
         (want.x, want.y, want.width, want.height),
         (b.x, b.y, b.width, b.height),
         (full.width, full.height),
     );
-    let cut = full.crop(x, y, w, h);
+    let cut = full.rgb_rect(x, y, w, h);
     match encode::fit_long_edge(cut.width, cut.height) {
         Some((tw, th)) => cut.resize(tw, th),
         None => cut,
@@ -286,13 +303,12 @@ pub fn crop_dip(rect: Rect, display: Option<u32>) -> Option<Rgb> {
     let on = display.and_then(|id| list.iter().find(|d| d.id == id).cloned());
     let d = on.unwrap_or_else(|| screen::matching(&list, &rect));
     let frame = grab(&d).ok()?;
-    let full = frame.rgb();
-    let k = full.width as f64 / d.bounds.width.max(1.0);
-    let x = (((rect.x - d.bounds.x) * k).round().max(0.0) as u32).min(full.width - 1);
-    let y = (((rect.y - d.bounds.y) * k).round().max(0.0) as u32).min(full.height - 1);
-    let w = ((rect.width * k).round().max(1.0) as u32).min(full.width - x);
-    let h = ((rect.height * k).round().max(1.0) as u32).min(full.height - y);
-    Some(full.crop(x, y, w, h))
+    let k = frame.width as f64 / d.bounds.width.max(1.0);
+    let x = (((rect.x - d.bounds.x) * k).round().max(0.0) as u32).min(frame.width - 1);
+    let y = (((rect.y - d.bounds.y) * k).round().max(0.0) as u32).min(frame.height - 1);
+    let w = ((rect.width * k).round().max(1.0) as u32).min(frame.width - x);
+    let h = ((rect.height * k).round().max(1.0) as u32).min(frame.height - y);
+    Some(frame.rgb_rect(x, y, w, h))
 }
 
 /// Windows 10 2004 (build 19041) is where WDA_EXCLUDEFROMCAPTURE exists;
@@ -344,6 +360,20 @@ pub fn hwnd_of<R: tauri::Runtime>(win: &tauri::WebviewWindow<R>) -> isize {
 mod tests {
     use super::*;
 
+    /// `coded`'s pixels as the BGRA frame a capture delivers.
+    fn as_frame(img: &Rgb) -> Frame {
+        let bgra = img
+            .data
+            .chunks_exact(3)
+            .flat_map(|p| [p[2], p[1], p[0], 255])
+            .collect();
+        Frame {
+            width: img.width,
+            height: img.height,
+            bgra,
+        }
+    }
+
     /// A frame whose pixels say where they are.
     fn coded(w: u32, h: u32) -> Rgb {
         let mut data = Vec::with_capacity(w as usize * h as usize * 3);
@@ -373,7 +403,7 @@ mod tests {
         assert_eq!(t.device, r"\\.\DISPLAY1");
         // Cut from the primary's own pixels.
         let frame = coded(1920, 1080);
-        let cut = crop_area(&frame, &t, area);
+        let cut = crop_area(&as_frame(&frame), &t, area);
         assert_eq!((cut.width, cut.height), (300, 150));
         assert_eq!(cut.pixel(0, 0), frame.pixel(1500, 200));
         assert_eq!(cut.pixel(299, 149), frame.pixel(1799, 349));
@@ -391,7 +421,7 @@ mod tests {
         let t2 = target_display(&d, Some(&edge), picked, || d[0].clone());
         assert_eq!(t2.device, r"\\.\DISPLAY2");
         let frame = coded(2560, 1440);
-        let cut = crop_area(&frame, &t, area);
+        let cut = crop_area(&as_frame(&frame), &t, area);
         assert_eq!((cut.width, cut.height), (150, 150));
         assert_eq!(cut.pixel(0, 0), frame.pixel(15, 15));
     }

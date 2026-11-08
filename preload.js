@@ -114,6 +114,8 @@ const INVOKE_CHANNELS = new Set([
   'a11y:announce',
   // ---- end: windows ----
   // ---- lane: capture ----
+  'lens:ready',
+  'buddy:ready',
   // ---- end: capture ----
   // ---- lane: llm ----
   // ---- end: llm ----
@@ -164,6 +166,7 @@ const LISTEN_CHANNELS = new Set([
   'a11y:say',
   // ---- end: windows ----
   // ---- lane: capture ----
+  'buddy:reset',
   // ---- end: capture ----
   // ---- lane: llm ----
   // ---- end: llm ----

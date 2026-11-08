@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::capture::{self, screen, Rect};
 use crate::desktop::win;
+use crate::windows::flags;
 
 /// Matches PAD in renderer/lens.js, the ring's inset.
 pub const LOUPE_PAD: f64 = 3.0;
@@ -40,6 +41,8 @@ struct State {
     hidden: bool,
     loupe_for: String,
     ready: HashSet<String>,
+    /// Windows on their way out; each still holds its label until it is gone.
+    closing: HashSet<String>,
 }
 
 static STATE: Mutex<Option<State>> = Mutex::new(None);
@@ -93,7 +96,6 @@ pub fn draw_payload(
 
 fn create(app: &AppHandle, d: &screen::Display) -> tauri::Result<tauri::WebviewWindow> {
     let label = label_for(d.id);
-    let a = app.clone();
     let win = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("renderer/lens.html".into()))
         .title("AevalBuddy")
         .decorations(false)
@@ -108,18 +110,12 @@ fn create(app: &AppHandle, d: &screen::Display) -> tauri::Result<tauri::WebviewW
         .visible(false)
         .data_directory(crate::paths::webview_data_dir())
         .initialization_script(crate::ipc::bridge_script())
-        .on_page_load(move |w, p| {
-            // Ready is tracked here, so hits that came in while the page
-            // loaded are drawn on load (D16).
-            let label = w.label().to_string();
-            match p.event() {
-                tauri::webview::PageLoadEvent::Started => with(|s| s.ready.remove(&label)),
-                tauri::webview::PageLoadEvent::Finished => {
-                    with(|s| s.ready.insert(label));
-                    redraw(&a);
-                    true
-                }
-            };
+        .on_page_load(|w, p| {
+            // A reload starts over. `lens:ready` ends the wait, so hits that
+            // came in while the page loaded are drawn once it can hear them.
+            if matches!(p.event(), tauri::webview::PageLoadEvent::Started) {
+                with(|s| s.ready.remove(w.label()));
+            }
         })
         .build()?;
     let raw = capture::hwnd_of(&win);
@@ -127,7 +123,51 @@ fn create(app: &AppHandle, d: &screen::Display) -> tauri::Result<tauri::WebviewW
     let _ = win.set_ignore_cursor_events(true);
     win::place(&win, d.phys);
     capture::exclude_window(raw);
+    win.on_window_event(move |e| {
+        if matches!(e, tauri::WindowEvent::Destroyed) {
+            with(|s| s.closing.remove(&label));
+        }
+    });
+    crate::crash::guard_webview(&win, browser_gone);
     Ok(win)
+}
+
+/// The browser process died and the webview with it: the window goes, and
+/// the next draw builds a new one.
+fn browser_gone(app: &AppHandle, label: &str) {
+    if let Some(w) = app.get_webview_window(label) {
+        with(|s| {
+            s.ready.remove(label);
+            s.closing.insert(label.to_string());
+        });
+        let _ = w.destroy();
+    }
+    redraw(app);
+}
+
+/// `lens:ready`: the page has its listeners, so what waited can be drawn.
+pub fn page_ready(app: &AppHandle, label: &str) {
+    with(|s| {
+        s.ready.insert(label.to_string());
+        s.loupe_for.clear();
+    });
+    redraw(app);
+}
+
+pub fn is_ready(label: &str) -> bool {
+    with(|s| s.ready.contains(label))
+}
+
+/// Waits up to a second for a window on its way out to be gone. Only ever on
+/// a `draw` thread.
+fn wait_out_close(app: &AppHandle, label: &str) {
+    for _ in 0..50 {
+        if !with(|s| s.closing.contains(label)) || app.get_webview_window(label).is_none() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    with(|s| s.closing.remove(label));
 }
 
 /// `draw` on its own thread. Windows are never built on the event loop
@@ -158,15 +198,21 @@ pub fn draw(app: &AppHandle) {
     }
     for d in screen::all_displays() {
         let label = label_for(d.id);
+        let drawn = wanted.contains(&d.id) && !hidden;
+        if drawn {
+            wait_out_close(app, &label);
+        }
         let existing = app.get_webview_window(&label);
-        if !wanted.contains(&d.id) || hidden {
+        if !drawn {
             if let Some(w) = existing {
                 let _ = w.emit_to(
                     label.as_str(),
                     "lens:draw",
                     json!({ "hits": [], "current": -1, "frame": null }),
                 );
-                let _ = w.hide();
+                // Win32, not `w.hide()`: a queued hide could land after the
+                // next draw's show.
+                win::hide(capture::hwnd_of(&w));
             }
             continue;
         }
@@ -269,13 +315,20 @@ pub fn set_frame(app: &AppHandle, display: Option<&screen::Display>, chip: &str)
     redraw(app);
 }
 
+/// Find's hits are gone. With no control frame either, the windows go too:
+/// a lens with nothing to draw must not keep the backdrop awake (B-030).
 pub fn clear(app: &AppHandle) {
-    with(|s| {
+    let nothing = with(|s| {
         s.hits.clear();
         s.current = -1;
         s.loupe_for.clear();
+        s.frame.is_none()
     });
-    redraw(app);
+    if nothing {
+        destroy(app);
+    } else {
+        redraw(app);
+    }
 }
 
 // lens.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
@@ -285,8 +338,7 @@ pub fn set_hidden(app: &AppHandle, on: bool) {
     redraw(app);
 }
 
-/// Every lens window that exists.
-pub fn windows(app: &AppHandle) -> Vec<tauri::WebviewWindow> {
+fn all_windows(app: &AppHandle) -> Vec<tauri::WebviewWindow> {
     app.webview_windows()
         .into_iter()
         .filter(|(l, _)| l.starts_with("lens-"))
@@ -294,13 +346,24 @@ pub fn windows(app: &AppHandle) -> Vec<tauri::WebviewWindow> {
         .collect()
 }
 
-// lens.js export; Called by the smoke and shot harnesses (agent e), not merged yet.
-#[allow(dead_code)]
+/// The lens windows on screen. A hidden one must not count as something the
+/// backdrop has to keep fresh (B-030).
+pub fn windows(app: &AppHandle) -> Vec<tauri::WebviewWindow> {
+    all_windows(app)
+        .into_iter()
+        .filter(|w| flags::is_visible(capture::hwnd_of(w)))
+        .collect()
+}
+
 pub fn destroy(app: &AppHandle) {
-    for w in windows(app) {
+    let list = all_windows(app);
+    with(|s| {
+        s.ready.clear();
+        s.closing.extend(list.iter().map(|w| w.label().to_string()));
+    });
+    for w in list {
         let _ = w.destroy();
     }
-    with(|s| s.ready.clear());
 }
 
 /// Per-display DIP to display id map, for callers that place hits.

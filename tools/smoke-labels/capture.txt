@@ -21,3 +21,10 @@ lensWhyClear
 buddyPoints
 buddyPointsDone
 walkthrough
+
+lensReady
+backdropIdle
+pointResolved
+onboardingSteps
+buddyReuse
+buddyReload

@@ -12,11 +12,13 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
+use tauri::Manager;
 
 use crate::capture::{self, encode, screen, Rect};
+use crate::llm::elements::{match_element, parse_elements};
 use crate::selftest::{Cx, Input};
 use crate::state::shared;
-use crate::{backdrop, buddy, desktop, lens, region, windows};
+use crate::{backdrop, buddy, desktop, ipc, lens, region, store, windows};
 
 pub fn run(cx: &mut Cx) {
     helper_not_at_boot(cx);
@@ -28,6 +30,7 @@ pub fn run(cx: &mut Cx) {
     dpi_round_trip(cx);
     glass(cx);
     lens_first_draw(cx);
+    backdrop_idle(cx);
     tour(cx);
 }
 
@@ -378,6 +381,11 @@ fn lens_first_draw(cx: &Cx) {
     cx.log("lensFirstDraw", format!("hits:ring:frame={last}"));
     let why = format!("hits:ring:frame={last} want 3:true:true");
     cx.must("lensFirstDraw", drew, why);
+    // The page said so itself, once its listeners were up (B-034).
+    let seen = cx.app.state::<ipc::Seen>().snapshot();
+    let said = seen.get(&label).is_some_and(|c| c.contains("lens:ready"));
+    let ready = said && lens::is_ready(&label);
+    check(cx, "lensReady", ready, format!("said={said} ready={ready}"));
 
     let invoice = "\"Invoice\" relates to \"payment\": an invoice is a request for payment";
     let owe = "the total due is what you owe";
@@ -411,10 +419,182 @@ fn lens_first_draw(cx: &Cx) {
     lens::destroy(&cx.app);
 }
 
+/// B-030: Find's hits hold the backdrop at its fast pace; once they are gone
+/// and only the orb shows, it is back at 5 s within 6 s.
+fn backdrop_idle(cx: &Cx) {
+    let d = screen::primary(&screen::all_displays());
+    let hit = lens::Hit {
+        i: 0,
+        kind: "literal".into(),
+        rect: Some(Rect::new(d.bounds.x + 140.0, d.bounds.y + 120.0, 64.0, 18.0)),
+        why: Value::Null,
+        offscreen: false,
+    };
+    lens::set_hits(&cx.app, vec![hit], 0);
+    let fast = cx.wait_for(Duration::from_secs(5), || !backdrop::slow_paced());
+    lens::clear(&cx.app);
+    let t = Instant::now();
+    let slow = cx.wait_for(Duration::from_secs(6), backdrop::slow_paced);
+    let ms = t.elapsed().as_millis();
+    let value = format!("fast={fast} slow={slow} after {ms}ms");
+    check(cx, "backdropIdle", fast && slow, value);
+}
+
+fn point_at(x: f64, y: f64, label: &str) -> buddy::Point {
+    buddy::Point {
+        x,
+        y,
+        label: label.into(),
+    }
+}
+
+/// Whether the pointer page is showing `message` within `within`.
+fn pointer_shows(cx: &Cx, message: &str, within: Duration) -> bool {
+    let js = format!(
+        "document.getElementById('buddy').classList.contains('visible') && message === {}",
+        json!(message)
+    );
+    cx.wait_for(within, || cx.eval(buddy::LABEL, &js) == Ok(json!(true)))
+}
+
+/// Kills the page's renderer through DevTools, as a crash would.
+fn crash_renderer(cx: &Cx, label: &str) -> Result<(), String> {
+    use ::windows::core::w;
+    use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
+
+    let window = cx
+        .app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("no window {label}"))?;
+    let sent = window.with_webview(|pw| {
+        let done = CallDevToolsProtocolMethodCompletedHandler::create(Box::new(|_, _| Ok(())));
+        // SAFETY: COM calls on the webview's own thread, inside `with_webview`.
+        unsafe {
+            if let Ok(core) = pw.controller().CoreWebView2() {
+                let _ = core.CallDevToolsProtocolMethod(w!("Page.crash"), w!("{}"), &done);
+            }
+        }
+    });
+    sent.map_err(|e| e.to_string())
+}
+
+/// main.js:3653-3658: a point the model named resolves through the reader's
+/// elements, an unknown name is dropped, and the pointer appears on a window
+/// built for it from the one send (B-034).
+fn point_resolved(cx: &Cx) {
+    buddy::destroy();
+    let d = screen::primary(&screen::all_displays());
+    let b = d.bounds;
+    let report = "ELEMENTS:\n- Terminal tab | 480,905\n- Problems tab | 600,905";
+    let elements = parse_elements(Some(report), None);
+    let points: Vec<buddy::Point> = ["terminal tab", "nothing here"]
+        .iter()
+        .filter_map(|name| {
+            let e = match_element(name, &elements)?;
+            let x = (b.x + e.x / 1000.0 * b.width).round();
+            let y = (b.y + e.y / 1000.0 * b.height).round();
+            Some(point_at(x, y, name))
+        })
+        .collect();
+    let named = points.len();
+    buddy::show_points(points, Some(&d));
+    let shown = pointer_shows(cx, "terminal tab", Duration::from_secs(8));
+    let ok = named == 1 && shown && buddy::is_active();
+    let value = if ok {
+        "true".to_string()
+    } else {
+        format!("named={named} shown={shown}")
+    };
+    check(cx, "pointResolved", ok, value);
+    buddy::cancel();
+}
+
+/// smoke-v2.js B23 on the tour's new order: what works without a key, the
+/// card asking for one, the first question once there is one, the bar's
+/// token (D-06). Runs without a key and then with a fake one; what was
+/// stored is put back, and so is the bar, which the last step opens.
+fn onboarding(cx: &Cx) {
+    buddy::cancel();
+    let s = store::get();
+    let had = s.get_api_key();
+    let mode = shared(&cx.app).lock().mode;
+    s.clear_api_key();
+    shared(&cx.app).call(&cx.app, |h| h.start_tour.as_ref());
+    let _ = cx.wait_for(Duration::from_secs(2), buddy::is_active);
+    let first = buddy::step_index();
+    buddy::notify("find-hit");
+    let second = buddy::step_index();
+    s.set_api_key("sk-or-smoke-fake");
+    buddy::notify("key-saved");
+    let third = buddy::step_index();
+    buddy::notify("first-answer");
+    let fourth = buddy::step_index();
+    buddy::cancel();
+    if had.is_empty() {
+        s.clear_api_key();
+    } else {
+        s.set_api_key(&had);
+    }
+    cx.sleep(300);
+    if shared(&cx.app).lock().mode != mode {
+        cx.on_main(|app| windows::collapse_panel(app, false));
+        let _ = cx.wait_for(Duration::from_secs(2), || {
+            shared(&cx.app).lock().mode == mode
+        });
+    }
+    let value = format!("{first}>{second}>{third}>{fourth}");
+    check(cx, "onboardingSteps", value == "0>1>2>3", value);
+}
+
+/// B-031: the window is kept, so a new answer's points show at once, and the
+/// agent's first cursor after a tour has no page to wait for.
+fn reuse(cx: &Cx) {
+    buddy::show_points(vec![point_at(120.0, 140.0, "first point")], None);
+    let first = pointer_shows(cx, "first point", Duration::from_secs(5));
+    let t = Instant::now();
+    buddy::show_points(vec![point_at(160.0, 180.0, "second point")], None);
+    let second = pointer_shows(cx, "second point", Duration::from_millis(500));
+    let shown_ms = t.elapsed().as_millis();
+    buddy::cancel();
+    shared(&cx.app).call(&cx.app, |h| h.start_tour.as_ref());
+    let _ = cx.wait_for(Duration::from_secs(2), buddy::is_active);
+    buddy::cancel();
+    let d = screen::primary(&screen::all_displays());
+    let t = Instant::now();
+    cx.block_on(buddy::agent_point((200.0, 200.0), "smoke", &d));
+    let glide = Duration::from_millis(buddy::GLIDE_WAIT_MS);
+    let waited = t.elapsed().saturating_sub(glide).as_millis();
+    buddy::agent_clear();
+    let value = format!("points in {shown_ms}ms, agent waited {waited}ms");
+    check(cx, "buddyReuse", first && second && waited < 300, value);
+}
+
+/// B-114: a pointer page whose renderer dies comes back, and the window has
+/// stopped eating clicks.
+fn reload(cx: &Cx) {
+    buddy::show_points(vec![point_at(120.0, 140.0, "reload point")], None);
+    let shown = pointer_shows(cx, "reload point", Duration::from_secs(5));
+    buddy::set_click_through(false);
+    let _ = cx.eval(buddy::LABEL, "(window.smokeBefore = 1)");
+    let crashed = crash_renderer(cx, buddy::LABEL);
+    let t = Instant::now();
+    let new_page = "window.smokeBefore === undefined";
+    let back = cx.wait_for(Duration::from_secs(5), || {
+        buddy::lets_mouse_through()
+            && buddy::is_ready()
+            && cx.eval(buddy::LABEL, new_page) == Ok(json!(true))
+    });
+    let ms = t.elapsed().as_millis();
+    let value = format!("shown={shown} crash={crashed:?} back={back} in {ms}ms");
+    check(cx, "buddyReload", shown && crashed.is_ok() && back, value);
+    buddy::cancel();
+}
+
 /// main.js:3921-3926: model points show and finish, and the walkthrough
 /// starts.
 fn tour(cx: &Cx) {
     buddy::cancel();
+    point_resolved(cx);
     let point = buddy::Point {
         x: 80.0,
         y: 80.0,
@@ -430,4 +610,7 @@ fn tour(cx: &Cx) {
     let started = cx.wait_for(Duration::from_secs(2), buddy::is_active);
     check(cx, "walkthrough", started, started);
     buddy::cancel();
+    onboarding(cx);
+    reuse(cx);
+    reload(cx);
 }

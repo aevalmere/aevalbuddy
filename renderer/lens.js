@@ -148,3 +148,6 @@ window.aeval.on('lens:draw', ({ hits, current, frame }) => {
   chip.textContent = frame && frame.chip ? frame.chip : '';
   document.body.dataset.hits = String(hits.length);
 });
+
+// Last, so every listener above is live before main sends the first draw.
+window.aeval.invoke('lens:ready');

@@ -124,6 +124,8 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "a11y:announce",
     // ---- end: windows ----
     // ---- lane: capture ----
+    "lens:ready",
+    "buddy:ready",
     // ---- end: capture ----
     // ---- lane: llm ----
     // ---- end: llm ----
@@ -175,6 +177,7 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     "a11y:say",
     // ---- end: windows ----
     // ---- lane: capture ----
+    "buddy:reset",
     // ---- end: capture ----
     // ---- lane: llm ----
     // ---- end: llm ----
