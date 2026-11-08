@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42491125532,
+  "run_id": 42491942749,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491125532",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491942749",
   "event": "push",
-  "sha": "d818ddc9340d7ab7a3b3ff62135f8ef0d96d6666",
+  "sha": "e415b9c35b49a8ab7611982c4aa73793071adc37",
   "ref": "rust/settings",
   "ref_dir": "rust-settings",
-  "conclusion": "cancelled",
+  "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T14:52:37Z",
+  "finished": "2026-11-08T15:10:04Z",
   "error_lines": 0,
   "steps": [
     {
@@ -64,28 +64,43 @@
       "log": "test.log"
     },
     {
+      "name": "Restore NSIS toolset",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Seed NSIS toolset",
+      "outcome": "success",
+      "log": "nsis.log"
+    },
+    {
+      "name": "Save NSIS toolset",
+      "outcome": "success",
+      "log": ""
+    },
+    {
       "name": "Build installer",
-      "outcome": "cancelled",
+      "outcome": "success",
       "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "desktop.log"
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
