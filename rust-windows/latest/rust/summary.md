@@ -1,11 +1,11 @@
 # rust: cancelled
 
 - Workflow: rust
-- Run: [42508671577](https://github.com/aevalmere/aevalbuddy/actions/runs/42508671577), attempt 1, on push
-- Commit: 29ab55a5029438cf1f8d6dc08966639b51131c6e
+- Run: [42509160898](https://github.com/aevalmere/aevalbuddy/actions/runs/42509160898), attempt 1, on push
+- Commit: 8add4494733087fe03349626f4a2e9877f15d3d9
 - Ref: rust/windows
 - Conclusion: **cancelled**
-- Finished: 2026-11-08T18:16:29Z
+- Finished: 2026-11-08T18:21:41Z
 
 | Step | Outcome | Log |
 |---|---|---|

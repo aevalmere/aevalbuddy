@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42508671577,
+  "run_id": 42509160898,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42508671577",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509160898",
   "event": "push",
-  "sha": "29ab55a5029438cf1f8d6dc08966639b51131c6e",
+  "sha": "8add4494733087fe03349626f4a2e9877f15d3d9",
   "ref": "rust/windows",
   "ref_dir": "rust-windows",
   "conclusion": "cancelled",
   "failed": [],
-  "finished": "2026-11-08T18:16:29Z",
+  "finished": "2026-11-08T18:21:41Z",
   "error_lines": 0,
   "steps": [
     {
