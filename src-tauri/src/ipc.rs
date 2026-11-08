@@ -9,12 +9,15 @@
 //! allowlisted invoke channel has a row (`every_invoke_channel_has_a_route`).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::panic::AssertUnwindSafe;
 use std::sync::Mutex;
 
+use futures_util::FutureExt;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager, State, WebviewWindow};
 
-use crate::state::{shared, Mode};
+use crate::state::{shared, AppState, Mode};
 use crate::windows::{self, outputs};
 use crate::{autostart, history, hotkeys, store, updater};
 
@@ -200,6 +203,146 @@ fn allowed(channel: &str) -> bool {
     INVOKE_CHANNELS.contains(&channel)
 }
 
+/// Which kind of window is calling (B-089).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Caller {
+    /// The command bar (`overlay`).
+    Bar,
+    Settings,
+    History,
+    /// An answer window (`output-<n>`).
+    Output,
+    Buddy,
+    /// A lens window (`lens-<display>`).
+    Lens,
+    /// The area picker.
+    Region,
+    /// Anything else (a test fixture page).
+    Other,
+}
+
+impl Caller {
+    pub fn of(label: &str) -> Caller {
+        match label {
+            "overlay" => Caller::Bar,
+            "settings" => Caller::Settings,
+            "history" => Caller::History,
+            "buddy" => Caller::Buddy,
+            "region" => Caller::Region,
+            l if outputs::is_output(l) => Caller::Output,
+            l if l.starts_with("lens-") => Caller::Lens,
+            _ => Caller::Other,
+        }
+    }
+}
+
+const ANY: &[Caller] = &[
+    Caller::Bar,
+    Caller::Settings,
+    Caller::History,
+    Caller::Output,
+    Caller::Buddy,
+    Caller::Lens,
+    Caller::Region,
+];
+const BAR: &[Caller] = &[Caller::Bar];
+const APP: &[Caller] = &[Caller::Bar, Caller::Settings];
+const APP_HISTORY: &[Caller] = &[Caller::Bar, Caller::Settings, Caller::History];
+const PAGES: &[Caller] = &[
+    Caller::Bar,
+    Caller::Settings,
+    Caller::History,
+    Caller::Output,
+];
+const ASK: &[Caller] = &[Caller::Bar, Caller::Output];
+const BUDDY: &[Caller] = &[Caller::Bar, Caller::Settings, Caller::Buddy];
+const REGION: &[Caller] = &[Caller::Bar, Caller::Region];
+
+/// Channels whose callers differ from their prefix's row. A table, not
+/// match arms, so `every_invoke_channel_has_a_route` never takes a rule
+/// for a route.
+const EXCEPTIONS: &[(&str, &[Caller])] = &[
+    ("glass:hello", ANY),
+    ("glass:passthrough", ANY),
+    ("a11y:announce", ANY),
+    ("open-external", PAGES),
+    ("clipboard:write", PAGES),
+    ("app:help", PAGES),
+    ("window:nudge", PAGES),
+    ("settings:get", PAGES),
+    // Every page takes Ctrl+= and Ctrl+- (D-24).
+    ("settings:set-text-scale", PAGES),
+    ("overlay:collapse", PAGES),
+    ("overlay:open-history", PAGES),
+    ("overlay:open-settings", PAGES),
+    ("bar:prefill-open", ASK),
+    // An output's trail may start only its own task again (`authorize`).
+    ("agent:start", BAR),
+];
+
+/// B-089: the windows that may call `channel`; None for a channel with no
+/// rule (refused). Agent, settings, shortcut, update and quit channels come
+/// from the bar and Settings (History for its own); an output gets its own
+/// channels, the Ask's, the agent's run controls its trail shows, Find's
+/// step, and the harmless page ones; buddy, lens and the area picker get
+/// their own and `glass:*`. A new channel falls under its prefix's row.
+pub fn rule(channel: &str) -> Option<&'static [Caller]> {
+    EXCEPTIONS
+        .iter()
+        .find(|(c, _)| *c == channel)
+        .map(|(_, callers)| *callers)
+        .or_else(|| family(channel))
+}
+
+fn family(channel: &str) -> Option<&'static [Caller]> {
+    let prefix = channel.split(':').next().unwrap_or_default();
+    Some(match prefix {
+        "settings" | "shortcuts" | "update" | "tour" | "models" | "app" | "hud" => APP,
+        "history" => APP_HISTORY,
+        "query" | "chat" | "output" | "ui" | "find" | "agent" => ASK,
+        "buddy" => BUDDY,
+        "region" => REGION,
+        "bar" | "overlay" => BAR,
+        "glass" | "a11y" => ANY,
+        "window" => PAGES,
+        _ => return None,
+    })
+}
+
+/// Whether a window of kind `caller` may call `channel`.
+pub fn permitted(caller: Caller, channel: &str) -> bool {
+    rule(channel).is_some_and(|allowed| allowed.contains(&caller))
+}
+
+/// Whether `task` is a question this transcript already holds (the trail's
+/// Retry).
+pub fn asks_for(messages: &[Value], task: &str) -> bool {
+    let asked = |m: &Value| m["role"] == "user" && m["text"].as_str() == Some(task);
+    !task.trim().is_empty() && messages.iter().any(asked)
+}
+
+/// The one call an output makes outside its rows: its trail's Retry. A
+/// const, so the route scan never takes this comparison for a route.
+const RETRY: &str = "agent:start";
+
+/// B-089: a call from a window with no business making it is refused.
+fn authorize(window: &WebviewWindow, channel: &str, p: &Value) -> Result<(), String> {
+    let label = window.label();
+    let caller = Caller::of(label);
+    if permitted(caller, channel) {
+        return Ok(());
+    }
+    if caller == Caller::Output && channel == RETRY {
+        let task = p_str(p, "task");
+        let app = window.app_handle();
+        let own = outputs::with(app, label, |o| asks_for(&o.chat.messages, &task));
+        if own == Some(true) {
+            return Ok(());
+        }
+    }
+    Err(format!("not allowed from {label}"))
+}
+
 /// NEW-10: the first request sent with text, of any kind, ends the bar's
 /// suggestions for good (ARCHITECTURE.md 10.2).
 pub fn first_request(channel: &str, p: &Value) -> bool {
@@ -241,31 +384,76 @@ pub async fn aeval_invoke(
     if !allowed(&channel) {
         return Err(format!("Blocked IPC channel: {channel}"));
     }
+    let payload = payload.unwrap_or(Value::Null);
+    authorize(&window, &channel, &payload)?;
     seen.record(window.label(), &channel);
     let app = window.app_handle().clone();
-    let payload = payload.unwrap_or(Value::Null);
-    if first_request(&channel, &payload) && !store::get().get_has_sent_first_request() {
+    let label = window.label().to_string();
+    let was_busy = shared(&app).lock().busy;
+    // A route that panicked may have left the caller's Ask marked running.
+    let settle = || {
+        {
+            let st = shared(&app);
+            let mut s = st.lock();
+            settle_after_panic(&mut s, &label, was_busy);
+        }
+        windows::send_overlay_state(&app);
+    };
+    guarded(&channel, dispatch(&window, &channel, payload), settle).await
+}
+
+/// B-090: what a panicked call from `label` leaves behind. Its own Ask
+/// entry goes; the single `busy` flag goes back to what it was before the
+/// call when no Ask is listed (an Ask that set only `busy` and is still
+/// running elsewhere keeps it).
+pub fn settle_after_panic(s: &mut AppState, label: &str, was_busy: bool) {
+    s.query_forget(label);
+    if s.queries.is_empty() && !was_busy {
+        s.busy = false;
+    }
+}
+
+/// B-090: runs a route; a panic in it settles the page's promise with an
+/// error instead of leaving it waiting, and `on_panic` runs. The panic
+/// hook (`crash::install`) has already logged it and shown the toast.
+pub async fn guarded<F>(channel: &str, route: F, on_panic: impl FnOnce()) -> Result<Value, String>
+where
+    F: Future<Output = Result<Value, String>>,
+{
+    match AssertUnwindSafe(route).catch_unwind().await {
+        Ok(r) => r,
+        Err(cause) => {
+            on_panic();
+            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
+        }
+    }
+}
+
+/// One call: split (c)'s rows, the host routers, then the core's.
+async fn dispatch(window: &WebviewWindow, channel: &str, payload: Value) -> Result<Value, String> {
+    let app = window.app_handle().clone();
+    if first_request(channel, &payload) && !store::get().get_has_sent_first_request() {
         store::get().mark_first_request_sent();
         windows::send_overlay_state(&app);
     }
     // Rows owned by split (c): region:*, buddy:*, glass:hello.
-    if let Some(r) = crate::desktop::channels::route(&window, &channel, &payload) {
+    if let Some(r) = crate::desktop::channels::route(window, channel, &payload) {
         return r;
     }
     let label = window.label().to_string();
-    if let Some(r) = crate::host::ask::route(&app, &label, &channel, &payload).await {
+    if let Some(r) = crate::host::ask::route(&app, &label, channel, &payload).await {
         return r;
     }
-    if let Some(r) = crate::host::find::route(&app, &channel, &payload).await {
+    if let Some(r) = crate::host::find::route(&app, channel, &payload).await {
         return r;
     }
-    if let Some(r) = crate::host::agent::route(&app, &channel, &payload).await {
+    if let Some(r) = crate::host::agent::route(&app, channel, &payload).await {
         return r;
     }
     if channel == "ui:context-menu" {
         return Ok(crate::host::menu::popup(&app, &label, &payload));
     }
-    route(&app, &window, &channel, payload).await
+    route(&app, window, channel, payload).await
 }
 
 fn p_str(p: &Value, key: &str) -> String {
@@ -899,6 +1087,242 @@ mod tests {
             "// ---- lane: windows (do not edit outside your lane) ----"
         );
         assert_eq!(rust[7], "// ---- end: agent ----");
+    }
+
+    /// B-096: `settings:get` carries main.js's 28 keys (main.js:2525-2562)
+    /// and the documented Tauri additions. The `settings_extra` hook adds
+    /// its own over them; none of those is a core key.
+    #[test]
+    fn settings_get_key_set() {
+        const ELECTRON: [&str; 28] = [
+            "findModel",
+            "defaultFindModel",
+            "agentModel",
+            "defaultAgentModel",
+            "find",
+            "agent",
+            "winBuild",
+            "hasKey",
+            "model",
+            "defaultModel",
+            "brain",
+            "brainEnabled",
+            "defaultBrain",
+            "showPaid",
+            "skills",
+            "skill",
+            "shortcuts",
+            "active",
+            "defaults",
+            "version",
+            "update",
+            "canHide",
+            "saveHistory",
+            "historyCount",
+            "launchAtLogin",
+            "surface",
+            "glass",
+            "launchAtLoginLive",
+        ];
+        const TAURI: [&str; 6] = [
+            "keys",
+            "glassIntensity",
+            "hasSentFirstRequest",
+            "textScale",
+            "osTextScale",
+            "overlayPos",
+        ];
+        const HOOKED: [&str; 5] = [
+            "providers",
+            "failover",
+            "keyHints",
+            "keyStorage",
+            "recipients",
+        ];
+        let src = include_str!("ipc.rs");
+        let start = src.find("pub fn settings_data(").unwrap();
+        let body = &src[start..];
+        // The function ends at the first brace in column 0 (LF or CRLF).
+        let body = &body[..body.find("\n}").unwrap()];
+        let mut got: Vec<&str> = Vec::new();
+        for line in body.lines().map(str::trim) {
+            if let Some(rest) = line.strip_prefix('"') {
+                if let Some(end) = rest.find("\":") {
+                    got.push(&rest[..end]);
+                }
+            } else if let Some(rest) = line.strip_prefix("v[\"") {
+                if let Some(end) = rest.find('"') {
+                    got.push(&rest[..end]);
+                }
+            }
+        }
+        let mut want: Vec<&str> = ELECTRON.iter().chain(TAURI.iter()).copied().collect();
+        got.sort_unstable();
+        want.sort_unstable();
+        assert_eq!(got, want);
+        assert!(HOOKED.iter().all(|k| !want.contains(k)));
+    }
+
+    #[test]
+    fn output_cannot_start_agent() {
+        assert!(!permitted(Caller::of("output-2"), "agent:start"));
+        assert!(permitted(Caller::of("overlay"), "agent:start"));
+        // The trail's Retry starts the window's own task again, nothing else.
+        let own = vec![json!({ "role": "user", "text": "open notepad" })];
+        assert!(asks_for(&own, "open notepad"));
+        assert!(!asks_for(&own, "delete my files"));
+        assert!(!asks_for(&own, " "));
+        // An output keeps its own controls; settings stay with Settings.
+        let own_controls = [
+            "agent:stop",
+            "agent:confirm",
+            "query:submit",
+            "output:close",
+            "find:step",
+        ];
+        for c in own_controls {
+            assert!(permitted(Caller::Output, c), "{c}");
+        }
+        let settings_only = [
+            "settings:save-key",
+            "shortcuts:set",
+            "update:restart",
+            "app:quit",
+        ];
+        for c in settings_only {
+            assert!(!permitted(Caller::Output, c), "{c}");
+            assert!(permitted(Caller::Settings, c), "{c}");
+        }
+        assert!(!permitted(Caller::Output, "history:clear"));
+        assert!(permitted(Caller::History, "history:clear"));
+        // Lens and buddy: their own channels and glass:*.
+        assert!(permitted(Caller::of("lens-1"), "glass:hello"));
+        assert!(!permitted(Caller::Lens, "query:submit"));
+        assert!(permitted(Caller::of("buddy"), "buddy:advance"));
+        assert!(!permitted(Caller::Buddy, "agent:stop"));
+        assert!(!permitted(Caller::of("fixture"), "settings:get"));
+    }
+
+    #[test]
+    fn every_invoke_channel_has_a_label_rule() {
+        let missing: Vec<&str> = INVOKE_CHANNELS
+            .iter()
+            .copied()
+            .filter(|&c| rule(c).is_none())
+            .collect();
+        assert!(missing.is_empty(), "no caller rule for {missing:?}");
+        let stale: Vec<&str> = EXCEPTIONS
+            .iter()
+            .map(|(c, _)| *c)
+            .filter(|c| !allowed(c))
+            .collect();
+        assert!(stale.is_empty(), "stale rules: {stale:?}");
+    }
+
+    /// The quoted channels a page script passes to `invoke(`.
+    fn invoked(js: &str) -> Vec<&str> {
+        let mut out = Vec::new();
+        for (i, _) in js.match_indices("invoke(") {
+            let rest = js[i + "invoke(".len()..].trim_start();
+            let Some(q) = rest.chars().next().filter(|c| *c == '\'' || *c == '"') else {
+                continue;
+            };
+            if let Some(end) = rest[1..].find(q) {
+                out.push(&rest[1..1 + end]);
+            }
+        }
+        out
+    }
+
+    /// B-089 must not cost a feature: every allowlisted channel a page's
+    /// scripts call today is allowed from that page.
+    #[test]
+    fn pages_may_call_what_they_call() {
+        let glass = include_str!("../../renderer/glass.js");
+        let frame = include_str!("../../renderer/frame.js");
+        let pages: [(Caller, Vec<&str>); 7] = [
+            (
+                Caller::Bar,
+                vec![
+                    glass,
+                    frame,
+                    include_str!("../../renderer/intent.js"),
+                    include_str!("../../renderer/overlay.js"),
+                    include_str!("../../renderer/bar.js"),
+                ],
+            ),
+            (
+                Caller::Output,
+                vec![
+                    glass,
+                    frame,
+                    include_str!("../../renderer/output.js"),
+                    include_str!("../../renderer/trail.js"),
+                    include_str!("../../renderer/glob.js"),
+                ],
+            ),
+            (
+                Caller::Settings,
+                vec![glass, frame, include_str!("../../settings/settings.js")],
+            ),
+            (
+                Caller::History,
+                vec![glass, frame, include_str!("../../history/history.js")],
+            ),
+            (
+                Caller::Buddy,
+                vec![glass, include_str!("../../renderer/buddy.js")],
+            ),
+            (Caller::Lens, vec![include_str!("../../renderer/lens.js")]),
+            (
+                Caller::Region,
+                vec![include_str!("../../renderer/region.js")],
+            ),
+        ];
+        let mut refused = Vec::new();
+        for (caller, scripts) in &pages {
+            for js in scripts {
+                for c in invoked(js) {
+                    // The trail's Retry: allowed for the window's own task.
+                    let retry = *caller == Caller::Output && c == RETRY;
+                    if allowed(c) && !permitted(*caller, c) && !retry {
+                        refused.push(format!("{caller:?} {c}"));
+                    }
+                }
+            }
+        }
+        assert!(refused.is_empty(), "refused: {refused:?}");
+    }
+
+    #[test]
+    fn panicking_route_returns_err() {
+        async fn boom() -> Result<Value, String> {
+            panic!("boom")
+        }
+        let mut settled = false;
+        let r = guarded("query:submit", boom(), || settled = true).now_or_never();
+        assert_eq!(r, Some(Err("query:submit failed: boom".to_string())));
+        assert!(settled);
+        let ok = guarded("settings:get", async { Ok(json!(1)) }, || {}).now_or_never();
+        assert_eq!(ok, Some(Ok(json!(1))));
+
+        // The caller's Ask entry goes; another window's stays busy.
+        let mut s = AppState::default();
+        s.query_started("output-1", 4);
+        s.query_started("output-2", 7);
+        settle_after_panic(&mut s, "output-2", true);
+        assert!(s.query_running("output-1"));
+        assert!(!s.query_running("output-2"));
+        assert!(s.busy);
+        settle_after_panic(&mut s, "output-1", true);
+        assert!(s.queries.is_empty() && !s.busy);
+        // `busy` set by the panicked call alone goes back; set before it stays.
+        s.busy = true;
+        settle_after_panic(&mut s, "overlay", false);
+        assert!(!s.busy);
+        s.busy = true;
+        settle_after_panic(&mut s, "overlay", true);
+        assert!(s.busy);
     }
 
     #[test]

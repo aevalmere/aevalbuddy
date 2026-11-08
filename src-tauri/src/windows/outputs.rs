@@ -23,8 +23,9 @@ use tauri::AppHandle;
 
 use super::layout::{self, Anchor};
 use super::{
-    app_driven, bar_rect, create_page, emit, flags, hwnd, mark_app, motion, overlay_state, screen,
-    send_overlay_state, stage, window, Meta, Resize, OVERLAY,
+    app_driven, bar_rect, create_page, drop_held, emit, flags, hold_events, hwnd, mark_app, motion,
+    overlay_state, release_held, screen, send_now, send_overlay_state, stage, take_held, window,
+    Meta, Resize, OVERLAY,
 };
 use crate::state::{now_ms, shared, AppState, Chat, Output, OutputKind, Rect};
 use crate::store;
@@ -39,12 +40,14 @@ pub fn is_output(label: &str) -> bool {
     label.starts_with("output-")
 }
 
-fn meta() -> Meta {
+/// No maximum: a drag or a maximize may take the whole work area (B-024);
+/// `store::MAX_W` caps only the width a new window starts at.
+pub(super) fn meta() -> Meta {
     Meta {
         margin: stage::MARGIN,
         resize: Resize::All,
         min: (store::MIN_W as f64, layout::OUTPUT_MIN_HEIGHT),
-        max: (store::MAX_W as f64, 0.0),
+        max: (0.0, 0.0),
     }
 }
 
@@ -69,12 +72,15 @@ pub fn create(app: &AppHandle) -> tauri::Result<String> {
         );
         label
     };
+    // Events sent before the page says hello wait for it (B-019).
+    hold_events(&label);
     let at = bar_rect(app);
     let outer = stage::inflate(at, stage::MARGIN);
     match create_page(app, &label, PAGE, outer, meta()) {
         Ok(_) => Ok(label),
         Err(e) => {
             shared(app).lock().outputs.remove(&label);
+            drop_held(&label);
             Err(e)
         }
     }
@@ -197,12 +203,18 @@ pub fn show(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
     };
-    let Some(o) = shared(app).lock().outputs.get(label).cloned() else {
+    let Some(mut o) = shared(app).lock().outputs.get(label).cloned() else {
         return;
     };
     let opening = !o.active;
+    let stored = store::get().get_output_height();
+    o.user_height = seeded_height(o.user_height, o.placed, stored);
+    let user = o.user_height;
     if shared(app).lock().hidden {
-        with(app, label, |o| o.active = true);
+        with(app, label, |o| {
+            o.active = true;
+            o.user_height = user;
+        });
         if opening {
             enforce_cap(app, label);
         }
@@ -223,6 +235,7 @@ pub fn show(app: &AppHandle, label: &str) {
         o.placed = true;
         o.rect = Some(to);
         o.touched = now_ms();
+        o.user_height = user;
     });
     flags::set_meta(h, |m| m.resize = Resize::All);
     mark_app(label);
@@ -774,11 +787,79 @@ pub fn on_loaded(app: &AppHandle, label: &str) {
     }) else {
         return;
     };
-    emit(app, label, "view:set", json!({ "view": o.view }));
-    emit(app, label, "chat:sync", chat_payload(&o));
-    emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    send_now(app, label, "view:set", json!({ "view": o.view }));
+    send_now(app, label, "chat:sync", chat_payload(&o));
+    send_now(app, label, "overlay:state", overlay_state(app, Some(label)));
     sent_meta().lock().remove(label);
     send_meta(app);
+}
+
+/// The page said hello, so its listeners are in place: its state goes,
+/// then what was sent to it while it loaded, in order (B-019). What was
+/// held is taken before the transcript is copied, so every held event's
+/// effect on the transcript is in that `chat:sync`.
+pub fn on_hello(app: &AppHandle, label: &str) {
+    let first = take_held(label);
+    on_loaded(app, label);
+    if let Some(events) = first {
+        for (channel, payload) in replayable(events) {
+            send_now(app, label, &channel, payload);
+        }
+        release_held(app, label);
+    }
+}
+
+/// What a page that has just had `chat:sync` still needs of the events
+/// held while it loaded, in order. State that `on_loaded` sends again goes,
+/// and so does `chat:user` (the question is in the transcript). An Ask that
+/// ended with `query:done` is in the transcript too, so all of its events
+/// go; one that failed keeps its start and its error.
+pub fn replayable(events: Vec<(String, Value)>) -> Vec<(String, Value)> {
+    const RESENT: [&str; 7] = [
+        "chat:sync",
+        "chat:reset",
+        "chat:user",
+        "view:set",
+        "overlay:state",
+        "output:meta",
+        "ui:text-scale",
+    ];
+    let gen_of = |p: &Value| p.get("gen").and_then(Value::as_u64);
+    let ended = |name: &str| -> Vec<Option<u64>> {
+        events
+            .iter()
+            .filter(|(c, _)| c == name)
+            .map(|(_, p)| gen_of(p))
+            .collect()
+    };
+    let done = ended("query:done");
+    let failed = ended("query:error");
+    events
+        .into_iter()
+        .filter(|(c, p)| {
+            if RESENT.contains(&c.as_str()) {
+                return false;
+            }
+            if !c.starts_with("query:") {
+                return true;
+            }
+            let gen = gen_of(p);
+            if done.contains(&gen) {
+                return false;
+            }
+            !failed.contains(&gen) || c == "query:start" || c == "query:error"
+        })
+        .collect()
+}
+
+/// B-098: a window that has not been placed yet starts at the height the
+/// person last dragged one to; 0 follows the transcript.
+pub fn seeded_height(user: f64, placed: bool, stored: i64) -> f64 {
+    if user > 0.0 || placed {
+        user
+    } else {
+        stored.max(0) as f64
+    }
 }
 
 /// `chat:sync` for one window: the whole transcript, as main.js sent it.
@@ -806,7 +887,8 @@ pub fn keep_user_rect(app: &AppHandle, label: &str, r: Rect, resized: bool) {
     send_meta(app);
 }
 
-/// A drag on the window's edge ended: that height is now the user's.
+/// A drag on the window's edge ended: that height is now the user's. A
+/// maximized window keeps the rect it will go back to (B-024).
 pub fn on_user_resize(app: &AppHandle, label: &str) {
     if app_driven(app, label) {
         return;
@@ -814,7 +896,9 @@ pub fn on_user_resize(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
     };
-    keep_user_rect(app, label, motion::glass(h), true);
+    if !flags::is_maximized(h) {
+        keep_user_rect(app, label, motion::glass(h), true);
+    }
 }
 
 /// A title-bar drag ended: the window stays where it was dropped.
@@ -825,7 +909,34 @@ pub fn on_user_move(app: &AppHandle, label: &str) {
     let Some(h) = hwnd(app, label) else {
         return;
     };
-    keep_user_rect(app, label, motion::glass(h), false);
+    if !flags::is_maximized(h) {
+        keep_user_rect(app, label, motion::glass(h), false);
+    }
+}
+
+/// B-090: the browser process died and took this window's page with it.
+/// The same label gets a new window where the old one was. What is sent
+/// meanwhile waits for the new page's hello (`windows::on_destroyed` held
+/// it), which sends the conversation again.
+pub fn rebuild(app: &AppHandle, label: &str) {
+    let Some(o) = with(app, label, |o| {
+        o.ready = false;
+        o.clone()
+    }) else {
+        drop_held(label);
+        return;
+    };
+    let at = o.rect.unwrap_or_else(|| bar_rect(app));
+    let outer = stage::inflate(at, stage::MARGIN);
+    if let Err(e) = create_page(app, label, PAGE, outer, meta()) {
+        crate::crash::write("renderer", &format!("{label} not rebuilt: {e}"));
+        drop_held(label);
+        on_destroyed(app, label);
+        return;
+    }
+    if o.active {
+        show(app, label);
+    }
 }
 
 pub fn on_destroyed(app: &AppHandle, label: &str) {
@@ -1014,6 +1125,17 @@ mod tests {
         ];
         assert_eq!(last_answer_of(&messages), "a2");
         assert_eq!(last_answer_of(&messages[..1]), "");
+    }
+
+    #[test]
+    fn new_window_uses_stored_height() {
+        assert_eq!(seeded_height(0.0, false, 480), 480.0);
+        assert_eq!(seeded_height(0.0, false, 0), 0.0);
+        // A height of its own wins.
+        assert_eq!(seeded_height(300.0, false, 480), 300.0);
+        // A window already placed (and since Start over: 0) keeps
+        // following its transcript.
+        assert_eq!(seeded_height(0.0, true, 480), 0.0);
     }
 
     #[test]

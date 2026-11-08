@@ -118,6 +118,18 @@ pub fn is_animating(hwnd: isize) -> bool {
     running().lock().get(&hwnd).copied().unwrap_or(false)
 }
 
+/// B-093: the window is gone, so are its entries; a glide still running
+/// for it sees its generation gone and ends.
+pub fn forget(hwnd: isize) {
+    generations().lock().remove(&hwnd);
+    running().lock().remove(&hwnd);
+}
+
+/// Whether anything is kept for `hwnd` (tests).
+pub fn tracks(hwnd: isize) -> bool {
+    generations().lock().contains_key(&hwnd) || running().lock().contains_key(&hwnd)
+}
+
 /// The window's glass rect in DIPs.
 pub fn glass(hwnd: isize) -> Rect {
     let m = flags::meta(hwnd).margin;
