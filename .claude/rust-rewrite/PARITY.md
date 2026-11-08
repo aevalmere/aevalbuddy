@@ -529,11 +529,15 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 
 | ID | What | Source | Verify |
 |---|---|---|---|
-| CAP-01 | Whole screen: the display under the pointer (fallback primary), not the primary. | main.js:1104-1111 | SMOKE+:captureActiveDisplay (two virtual monitors are not available on the runner; unit-test the selection) |
-| CAP-02 | Whole screen is downscaled so the long edge is at most 1600 px (never upscaled); area capture is taken at the display's native pixels (scale factor) and cropped. | main.js:1095,1129-1143 | SMOKE:capture, regionSharper |
+| CAP-01 | Whole screen: the display the bar was opened on (`latched`), defined once (D-09): the foreground window's
+monitor when that window is not ours, else the display under the pointer, else the nearest display to
+the pointer, else the primary. | main.js:1104-1111 | SMOKE+:captureActiveDisplay (two virtual monitors are not available on the runner; unit-test the selection) |
+| CAP-02 | Whole screen is taken at the display's physical pixels and downscaled so the long edge is at most 1600 px
+(never upscaled; D-09, Electron used the DIP size); area capture is taken at the display's native pixels (scale factor) and cropped. | main.js:1095,1129-1143 | SMOKE:capture, regionSharper |
 | CAP-03 | Crop maps DIP selection -> captured pixels by the size that actually arrived (not the size asked for), clamped inside the image, at least 1 px. | main.js:1156-1170 | SMOKE:regionCapture |
 | CAP-04 | Area larger than 1600 on its long edge is resized with best quality (Electron `quality:'best'`; Rust: Lanczos3). No sharpening filter exists today; adding one is a quality change that needs a DESIGN.md entry and before/after shots. | main.js:1173-1182 | SMOKE:regionCapture |
-| CAP-05 | JPEG quality 88, stepping down by 8 while over 1.6 MB, floor 62. | main.js:1096-1098,1187-1194 | SMOKE:capture (bytes, size) + UNIT |
+| CAP-05 | JPEG quality 88 with 4:4:4 chroma (D-09; Electron's Skia encoder used 4:2:0), stepping down by 8 while
+over 1.6 MB, floor 62. | main.js:1096-1098,1187-1194 | SMOKE:capture (bytes, size) + UNIT |
 | CAP-06 | Result: base64, bytes, width, height, display bounds (DIP), region (DIP) or null. Failure -> null (query degrades to text-only), never a crash. | main.js:1198-1211 | SMOKE+:captureFailNull |
 | CAP-07 | Display matching on a multi-monitor desk by display id; fallback to the primary; never source order. | main.js:1145-1151 | UNIT |
 | CAP-08 | Our windows never appear in a capture (WDA_EXCLUDEFROMCAPTURE honoured by the Rust capture backend). | DESIGN.md Material | SMOKE+:captureExcludesOwn (capture with the bar open over a known colour; the bar's pixels must be absent) |
@@ -548,7 +552,9 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 | ID | What | Source | Verify |
 |---|---|---|---|
 | GLASS-01 | Backdrop: every display captured at 1/6 scale, JPEG q72, held in memory only, sent to visible glass pages (those that said hello); 2 Hz while anything other than the pill is up (fast pace), every 5 s otherwise, none when nothing is visible. | backdrop.js:29-200; main.js:2906-2918 | SMOKE:glassTier, snapCost |
-| GLASS-02 | Tier solid when: setting solid, cannot hide from capture, Windows transparency effects off (`HKCU\...\Themes\Personalize\EnableTransparency`=0), high contrast, >= 3 capture failures (retry every 30 s); renderer adds reduced-transparency and forced-colors. | backdrop.js:45-78 | SMOKE:glassTier |
+| GLASS-02 | Tier solid when: cannot hide from capture (the stored `surface: 'solid'` is no longer a reason since
+B-035: `glassIntensity` 0 is the solid path, so a profile migrated as solid follows the slider; the key
+stays in the file for rollback, NEW-12, REQ-5), Windows transparency effects off (`HKCU\...\Themes\Personalize\EnableTransparency`=0), high contrast, >= 3 capture failures (retry every 30 s); renderer adds reduced-transparency and forced-colors. | backdrop.js:45-78 | SMOKE:glassTier |
 | GLASS-03 | Tier and reasons broadcast on change, on load, on theme change; Settings shows the reason. | backdrop.js:84-89,202-228 | SHOT:08 |
 | GLASS-04 | Pause/resume around the live photograph (no frames while windows are capturable). | backdrop.js:241-247; main.js:3089-3120 | SHOT:12-live-overlay |
 | GLASS-05 | Fixture mode for shots: a rendered page (white document, black editor, wallpaper: lib/backdrop-fixture.html) stands in for the desktop; windows also get the full-size picture. | backdrop.js:254-330 | SHOT matrix |
@@ -563,7 +569,9 @@ The most quality-critical section (memory: answer quality is bounded by capture 
 |---|---|---|---|
 | LENS-01 | Hits drawn per display (literal/related/concept kinds, why text), current ring, agent frame + chip; first draw happens even if hits arrived while loading. | lens.js | SMOKE:lensFirstDraw, lensWhyClear |
 | LENS-02 | Hidden/cleared on Find close; frame cleared on agent finish. | main.js:2088-2096,2247-2249 | SMOKE+ |
-| TOUR-01 | Four steps: key in Settings (`#api-key-input`, scope `#sec-key`, advance `key-saved`), Ask (`first-answer`), Find (`find-hit`), Agent card with Try it / Later. Messages carry the live chords. | main.js:231-267 | SMOKE:onboardingSteps |
+| TOUR-01 | Four steps (D-06): Find on the orb (`find-hit`), a card asking for a provider with Connect / Later (`key-saved`,
+skipped when a key exists), Ask (`first-answer`, skipped without a key), the bar's intent token with Got it.
+Only the main chord is quoted, never an empty one. The old Try card is gone (`try` still works, B-129). | main.js:231-267 | SMOKE:onboardingSteps |
 | TOUR-02 | Auto-runs once on first launch with no key (1 s after boot), never under smoke/shots; then only on `help me` or Replay. | main.js:2885-2895 | SMOKE+ |
 | TOUR-03 | Steps resolve selectors in app windows, poll 150 ms, open prerequisites (Settings section, exit HUD), settings-closed returns to step 0, dismiss cancels. | cursor-buddy.js | SMOKE:walkthrough |
 | TOUR-04 | Point mode: up to 3 model points, advanced with the callout; on the display of the shot. | cursor-buddy.js:167-201 | SMOKE:buddyPoints, buddyPointsDone |
@@ -780,6 +788,15 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 - B-086: `lib.rs` `stop_for_exit()` stops a running task through the agent service with "Stopped because AevalBuddy quit." on RunEvent::Exit (the port used the reasonless stop hook).
 - B-086: status: code done; SMOKE+ quitStopReason pending the platform probe (K-26, K-30)
 
+### LIFE-12
+
+- B-114: the lens, region and buddy builders call `crash::guard_webview`; a reloaded or crashed buddy page lets the mouse through again, and a page that holds the mouse with no word for 3 s while the pointer is off its bubble has click-through restored.
+- B-114: status: done; evidence: UNIT `buddy::tests::watchdog_restores_click_through`; SMOKE+ `buddyReload`
+
+### LIFE-16
+
+- B-115: status: done; evidence: UNIT `desktop::checks::tests::notepad_gating` (Notepad only when `GITHUB_ACTIONS` is set or `AEVAL_DESKTOP_NOTEPAD` is set and not "0"; the Rust port had defaulted to on); desktop selfcheck log `desktopNotepadIncluded=ok`
+
 ### WIN-14
 
 - B-077: The bridge shows the menu wherever a page did not handle `contextmenu`: `ui:context-menu {kind:'edit'}` on a text field, `{kind:'selection'}` on a non-empty selection; `menu::edit_template` is the template as data (Electron roles). The context menu's pending actions are swapped in after the items are made and taken out with one lock, never held across a main-thread round trip (B-076).
@@ -787,6 +804,10 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 
 ### POS-09
 
+
+### POS-24
+
+- B-005: status: done; evidence: UNIT `windows::screen::tests::overlapping_mixed_dpi_layout_is_adjacent`, `windows::screen::tests::rect_in_old_overlap_maps_to_primary`, `capture::screen::tests::layouts_never_overlap_whatever_the_scales`; SMOKE+ `dpiRoundTrip` follows when the harness probe API lands
 
 ### KEY-09
 
@@ -859,6 +880,61 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### FILE-03
 
 - B-003, D-12: status: done; evidence: UNIT history::tests::corrupt_file_is_kept_aside_not_overwritten, history::tests::steady_saves_still_write_within_400ms, history::tests::flush_now_and_timer_never_overlap
+
+### CAP-01
+
+- B-032: status: changed (D-09); evidence: UNIT `capture::screen::tests::active_prefers_foreground_monitor`, `capture::screen::tests::latch_finds_its_display_only_while_it_exists`
+
+### CAP-02
+
+- B-032: status: changed (D-09); evidence: UNIT `encode::tests::whole_screen_uses_physical_pixels_within_budget` (replaces `encode::tests::whole_screen_matches_electron_thumbnail_sizes`), SMOKE `capture`, capture check `captureSize`
+
+### CAP-05
+
+- B-032: status: changed (D-09); evidence: UNIT `encode::tests::chroma_is_444`, `encode::tests::ladder_starts_at_88_and_stops_at_62`
+
+### CAP-06
+
+- B-110: status: done; evidence: UNIT `capture::tests::hung_worker_is_replaced` (a capture that takes over 3 s fails its call and a fresh capture thread serves the next one); SMOKE+ `captureFailNull` follows when the harness probe API lands
+
+### CAP-07
+
+- B-005: status: done; evidence: UNIT `capture::screen::tests::matching_picks_most_overlap_by_id_not_order`, `capture::screen::tests::ties_go_to_the_primary_then_the_centre`, `capture::tests::area_on_primary_crops_primary`
+
+### CAP-11
+
+- B-118: the hint reads "Drag to select an area" with an `Esc` keycap and "Arrows move, Alt+arrows resize"; the page is `role="application"` named "Choose an area of the screen", and a polite live region says "Area W by H. Arrows move it, Alt+arrows resize, Enter asks, Esc cancels." on the first key, then the size as it changes (at most every 500 ms).
+- B-118: status: done; evidence: SHOT `region-idle-white`, `region-idle-dark`, `region-dragging`, `region-too-small`; check `regionAnnouncesSize`
+
+### GLASS-01
+
+- B-112: frames are readable only by our own pages: the `aeval-frame` protocol sends `Access-Control-Allow-Origin: http://tauri.localhost` (never `*`) and refuses another `Origin` with 403.
+- B-112: status: done; evidence: UNIT `backdrop::tests::frame_protocol_cors_is_app_only` (the 403 path is live once lib.rs passes the whole request, see the lane's Blockers); SMOKE `glassLoaded`
+- B-113: a window whose display has no frame this tick keeps its last frame; it is never sent another display's frame at the wrong bounds.
+- B-113: status: done; evidence: UNIT `backdrop::tests::missing_display_frame_skips_window`
+- B-030: only displays hosting a visible glass window are captured; a hidden lens window does not hold the fast pace, and the lens windows go when Find's hits and the agent frame are both gone. A frame DXGI reports unchanged is not converted or encoded again; frames are shrunk while still BGRA.
+- B-030: status: done; evidence: SMOKE `snapCost`, SMOKE+ `backdropIdle`; capture check `tickMs` (< 40 ms per 1080p frame), `tickReusesFrame`
+
+### GLASS-02
+
+- B-035: status: changed (NEW-12); evidence: UNIT `backdrop::tests::solid_profile_at_07_is_live`, `backdrop::tests::transparency_setting_is_not_a_reason`; capture check `glassLive`
+- B-111: status: done; evidence: UNIT `backdrop::tests::busy_resets_after_panic`, `backdrop::tests::recovery_rebroadcasts_live` (after three capture failures the glass is retried every 30 s, not at the fast pace, and the pages hear `glass:tier live` when a capture succeeds); SMOKE `glassTier`
+
+### LENS-01
+
+- B-034: the lens and pointer pages invoke `lens:ready` / `buddy:ready` after their listeners are registered; Rust flushes the queued draw or show on that invoke, not on the page-load event.
+- B-034: status: done; evidence: SMOKE `lensFirstDraw` (`3:true:true`), SMOKE+ `lensReady`, SMOKE `pointResolved`
+- B-117: the current hit's loupe is a thin glass rim (inner 1 px white line, 1.5 px bright accent, 2.5 px dark rim, soft 6/16 drop) at radius 8 with no top highlight; the control frame is DESIGN's 2 px `--accent` with a 1 px dark outer line; the why chip is a capsule on one line and r16 once it wraps, padding 8/12. lens.css uses glass.css tokens only (`--skin` and its own accent values are gone).
+- B-117: status: done; evidence: SHOT `lens-hits-white`, `lens-hits-dark-editor`; lens.css in `cssLintEnforce`
+
+### TOUR-01
+
+- B-033: status: changed (D-06); evidence: UNIT `buddy::tests::walkthrough_order_and_no_double_spaces` (replaces `buddy::tests::tour_has_four_steps_with_live_chords`), `buddy::tests::steps_apply_by_whether_a_key_exists`; SMOKE `onboardingSteps` (`0>1>2>3`), `walkthrough`
+
+### TOUR-04
+
+- B-031: the pointer window is kept between sessions (hidden, page reset with `buddy:reset`), so a new answer's points show at once and the agent's first cursor after a tour does not wait for a page.
+- B-031: status: done; evidence: SMOKE+ `buddyReuse`; SMOKE `buddyPoints`, `buddyPointsDone`
 
 ### HIST-01
 

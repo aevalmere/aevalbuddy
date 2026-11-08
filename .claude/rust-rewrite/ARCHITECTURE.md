@@ -63,9 +63,24 @@ appears (for example `foregroundWindow` latency). The JSON contract is the seam.
 **Capture is different.** Electron's `desktopCapturer` disappears with Electron, so screen capture must
 be native anyway. `capture.rs` uses DXGI Desktop Duplication (windows-rs; no yellow border, per output,
 honours WDA_EXCLUDEFROMCAPTURE) with a GDI BitBlt fallback, `fast_image_resize` (Lanczos3) for the
-downscale, and a JPEG encoder with the same quality ladder (88, -8 steps, floor 62, 1.6 MB budget). The
+downscale from the display's physical pixels to a 1600 px long edge, and a JPEG encoder at 4:4:4 chroma
+with the same quality ladder (88, -8 steps, floor 62, 1.6 MB budget). The whole screen is the active
+display (D-09): the foreground window's monitor when that window is not ours, else the display under the
+pointer, else the nearest one. `windows::screen::latch_active()` records it when the bar opens;
+`windows::screen::latched()` and `capture::screen::latched_display()` read the same latch. The
 pipeline numbers are PARITY CAP-01..13. CAP-13 adds a fidelity test against the Electron capture of the
 same fixture, because "no blurrier than Chromium's thumbnail scaler" is the bar.
+
+a failed DXGI open keeps that output on GDI for 10 s (cleared when the display layout changes), and
+outputs on one adapter share one D3D11 device, keyed by adapter LUID.
+evidence: UNIT `dxgi::tests::open_failure_backs_off`; capture check `dxgiOpensPerTick` (≤ 1 over a forced-failure burst)
+
+an HDR output (`IDXGIOutput6` colour space G2084/P2020) is duplicated with `DuplicateOutput1` in
+`R16G16B16A16_FLOAT`; each linear scRGB channel is divided by the output's SDR white level
+(`DISPLAYCONFIG_SDR_WHITE_LEVEL`, 200 nits when unreadable), clamped and sRGB-encoded through a 64K-entry
+lookup table. SDR outputs keep the BGRA path. Reason: an HDR desktop read as 8-bit comes out washed out or
+clipped, and the model reads tone as content. Not verified on HDR hardware (lane Blockers).
+evidence: UNIT `dxgi::tests::scrgb_to_srgb_at_sdr_white`; capture check `hdr=off` on the runner
 
 ### D2. One generic command, a JS bridge that keeps `window.aeval` identical
 
@@ -180,7 +195,15 @@ emits the synthetic `mousemove` the page used to get). Never `SetLayeredWindowAt
 | `render-process-gone` | WebView2 `ProcessFailed` -> reload | a |
 | `systemPreferences.getAnimationSettings` | `SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION)` | a |
 | `nativeTheme.shouldUseHighContrastColors` / `updated` | `SPI_GETHIGHCONTRAST` + `WM_SETTINGCHANGE` | c |
-| `screen.*` DIP/physical conversions | `windows/screen.rs` over `EnumDisplayMonitors` + `GetDpiForMonitor`, same rounding as Electron | a |
+| `screen.*` DIP/physical conversions | `capture/screen.rs` enumerates (`EnumDisplayMonitors` + `GetDpiForMonitor`) and builds Chromium's DIP
+layout once (`dip_origins`): the primary keeps (0, 0); every other display is placed edge to edge with the
+display it touches physically, walking out from the primary (nearest first, then device name), so no two
+DIP rects overlap and a DIP rect names one display. The offset along the shared edge is Chromium's
+ScaleOffset: measured on the parent's scale when the display starts after the parent's start, on its own
+scale when it starts before. `windows/screen.rs` keeps its API over the same layout. Reason: WebView2
+pages report `window.screenX` in Chromium's layout, so any other layout puts page and Rust coordinates on
+different displays; the old origin/scale rule overlapped at mixed DPI (a 150% display at x=1920 started
+at DIP 1280, inside the 100% primary). | a |
 | `powerMonitor.on('resume')` | `WM_POWERBROADCAST` / `PBT_APMRESUMEAUTOMATIC` | a |
 | `net.isOnline()` | `InternetGetConnectedState` | a |
 

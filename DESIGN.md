@@ -297,6 +297,13 @@ started. Four separate losses stacked up, each one invisible on its own.
 | Pixel coordinates from a model that cannot see | The brain was copying digits out of a report and, when they were not there, inventing them. Numbers always looked plausible, so nothing caught it | The brain names a target, the app resolves the name against the reader's table, and an unmatched name points at nothing |
 | A reading capped at 900 tokens with one TEXT line | The brain only ever knows what the reader wrote down; a truncated error message is an unanswerable question | 1600 tokens, an explicit instruction to copy the whole error, and a FOCUS line |
 
+The Rust build spends the same budget on real pixels. The whole screen is sized from the display's
+physical pixels, not its DIP size: a 1920x1080 display at 150% goes out at 1600x900, where Electron sent
+1280x720 because it asked `desktopCapturer` for a thumbnail at the DIP size. JPEG chroma is kept at full
+resolution (4:4:4), where Skia's encoder halved it both ways (4:2:0) and smeared coloured text and thin
+coloured lines. Both stay inside the 1.6 MB budget at quality 88. Reason: answer quality is bounded by
+capture fidelity (D-09).
+
 The coordinate grid moved from pixels to 0 to 1000 across the view. A vision model asked for "the centre
 in pixels, the view is 1600x1000" has to hold two numbers it was never given; the normalised grid is the
 convention these models are trained on and needs no context to be correct.
@@ -350,8 +357,13 @@ moves the offset with it.
 
 Capture and the pointer window both called `getPrimaryDisplay()`. On a two-monitor desk that is a coin
 flip: the app read one screen, answered about it, and pointed at it, while the user was working on the
-other. Both follow the mouse pointer now, and the shot carries its display with it, so the ratio mapping
-is already right once the correct one is picked.
+other. Both follow one definition of the active display now: the monitor of the foreground window when that
+window is not ours, else the display under the pointer, else the display nearest the pointer. The bar
+latches it when it opens, so a question typed into the bar (which has focus by then) is about the screen
+the person was working on, and capture and window placement read the same latch. The shot carries its
+display with it, so the ratio mapping is already right once the correct one is picked. Reason: the
+pointer is often parked on another monitor while the person types into an app on this one; the
+foreground window is the better witness of where they are looking (D-09).
 
 ### Pointing, as a contract
 
@@ -671,7 +683,11 @@ the failed trail row's mark. No new hues.
 | Confirm card | inside the trail | radius 8, twilight fill, the action as a sentence, the model's reason and the app's reason, Allow primary with a `Ctrl+Enter` keycap, Skip as a link with `Ctrl+Backspace` |
 | Consent sheet | inside the transcript, first run only | same card; what the agent can do, what it asks about, how to stop |
 | Settings rail | settings at 560px and wider | 160px rail, current page full slate with a 2px grape-soda bar; below 560 the rail goes and the column scrolls |
-| Tour card | pointer window | the last tour step has no arrow: a card with `Try it` (primary) and `Later` |
+| Tour card | pointer window | the step that asks for a key has no arrow: a card with `Connect` (primary, opens Settings at Providers) and `Later`; the last step points at the bar's intent token with `Got it` |
+
+Reason (D-06): the tour leads with what works without a key (Find), asks for a key only when there is none,
+asks the first question only once there is one, and ends on the token that says what Enter will do. Every
+step quotes only the `captureQuery` chord; an empty chord falls back to "Click the orb", never a blank.
 
 ### Motion additions
 
