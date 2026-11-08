@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] deliberateFailure=FAIL:throwaway commit proving the gate
+[SMOKE] failed: deliberateFailure
+[GATE] fail deliberateFailure=FAIL:throwaway commit proving the gate
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: deliberateFailure; 1 listed label(s) never printed
