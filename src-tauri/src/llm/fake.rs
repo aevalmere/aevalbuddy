@@ -7,11 +7,25 @@
 //! The fixtures ship inside the binary, so the installed exe on a CI runner
 //! answers the same way a dev build does. `AEVAL_FAKE_LLM_DIR` points at a
 //! folder of extra .jsonl files read at startup.
+//!
+//! Other lanes' probes script it at run time with [`Fake::push_fixture`]
+//! (contract K-26). Besides the lib/fake-llm.js fields, a fixture may carry:
+//!
+//! - `provider`: only requests to this provider id match (`openrouter`,
+//!   `anthropic`, `openai`, `gemini`); absent matches every provider.
+//! - `model`: only requests for this model id match.
+//! - `status`: answer with this HTTP status and
+//!   `{"error":{"message": <message or "fake failure">}}`.
+//! - `retryAfter`: the `Retry-After` header on that reply (seconds).
+//! - `stallAfterHeadersMs`: send the headers, then nothing for this long
+//!   before the body (a stalled connection).
+//! - `times`: match this many requests, then drop out.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use parking_lot::Mutex;
 use regex::Regex;
 use serde_json::{json, Map, Value};
@@ -19,6 +33,8 @@ use tokio_util::sync::CancellationToken;
 
 use super::client::{Meta, Reply};
 use super::errors::ApiError;
+use super::provider::Provider;
+use super::wire;
 
 const EMBEDDED: [&str; 2] = [
     include_str!("../../../tools/fixtures/llm/agent.jsonl"),
@@ -38,15 +54,65 @@ pub struct FakeRequest {
     pub purpose: String,
     pub model: Option<String>,
     pub body: String,
+    /// The provider id the request was for.
+    pub provider: String,
+    /// The URL the real request would have gone to.
+    pub url: String,
 }
 
 /// The fixtures, the `{{name}}` variables and the request log.
 #[derive(Default)]
 pub struct Fake {
-    fixtures: Vec<Value>,
+    fixtures: Mutex<Vec<Value>>,
     vars: Mutex<HashMap<String, Value>>,
     requests: Mutex<VecDeque<FakeRequest>>,
     call_seq: Mutex<u64>,
+}
+
+/// What a fixture is matched against besides its own predicate.
+struct Want<'a> {
+    purpose: &'a str,
+    provider: &'a str,
+    model: &'a str,
+}
+
+impl Want<'_> {
+    fn admits(&self, x: &Value) -> bool {
+        let field = |k: &str, have: &str| match x.get(k).and_then(Value::as_str) {
+            Some(want) => want == have,
+            None => true,
+        };
+        x["purpose"].as_str() == Some(self.purpose)
+            && field("provider", self.provider)
+            && field("model", self.model)
+    }
+}
+
+/// A fixture that scripts the transport (a status or a stall) rather than
+/// the model's words.
+fn scripted(x: &Value) -> bool {
+    x["status"].as_u64().is_some_and(|s| s != 0 && s != 200)
+        || x["stallAfterHeadersMs"].as_u64().is_some_and(|ms| ms > 0)
+}
+
+/// `retryAfter` as a header value: a number of seconds, or a string.
+fn retry_after_of(x: &Value) -> Option<String> {
+    match &x["retryAfter"] {
+        Value::Number(n) => Some(n.to_string()),
+        Value::String(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
+        _ => None,
+    }
+}
+
+/// The reply's body arrives only after `ms` of silence.
+fn stall(reply: Reply, ms: u64) -> Reply {
+    let quiet = futures_util::stream::once(tokio::time::sleep(Duration::from_millis(ms)))
+        .filter_map(|_| async { None::<Result<Vec<u8>, ApiError>> });
+    Reply {
+        status: reply.status,
+        retry_after: reply.retry_after,
+        body: Box::pin(quiet.chain(reply.body)),
+    }
 }
 
 fn parse_lines(text: &str, out: &mut Vec<Value>) {
@@ -182,9 +248,29 @@ impl Fake {
 
     pub fn from_fixtures(fixtures: Vec<Value>) -> Fake {
         Fake {
-            fixtures,
+            fixtures: Mutex::new(fixtures),
             ..Fake::default()
         }
+    }
+
+    /// Adds a fixture ahead of every other, so a probe can script the next
+    /// requests without touching this module (contract K-26).
+    // Contract K-26 for the windows, agent and platform probes.
+    #[allow(dead_code)]
+    pub fn push_fixture(&self, fixture: Value) {
+        self.fixtures.lock().insert(0, fixture);
+    }
+
+    /// Back to the embedded fixtures alone, so the next probe starts clean.
+    /// Fixtures from `AEVAL_FAKE_LLM_DIR` are dropped too.
+    // Contract K-26.
+    #[allow(dead_code)]
+    pub fn clear_pushed(&self) {
+        let mut base = Vec::new();
+        for text in EMBEDDED {
+            parse_lines(text, &mut base);
+        }
+        *self.fixtures.lock() = base;
     }
 
     /// Fills `{{name}}` in later answers (a window handle the test only
@@ -222,15 +308,58 @@ impl Fake {
         }
     }
 
-    fn first(&self, purpose: &str, pred: impl Fn(&Value) -> bool) -> Option<&Value> {
-        self.fixtures
-            .iter()
-            .find(|x| x["purpose"].as_str() == Some(purpose) && pred(x))
+    /// The first fixture `want` admits that `pred` accepts, counting one
+    /// use against its `times`.
+    fn take(&self, want: &Want<'_>, pred: impl Fn(&Value) -> bool) -> Option<Value> {
+        let mut list = self.fixtures.lock();
+        let at = list.iter().position(|x| want.admits(x) && pred(x))?;
+        let found = list[at].clone();
+        if let Some(n) = found["times"].as_u64() {
+            if n <= 1 {
+                list.remove(at);
+            } else {
+                list[at]["times"] = json!(n - 1);
+            }
+        }
+        Some(found)
+    }
+
+    /// Every fixture `want` admits that `pred` accepts.
+    fn all(&self, want: &Want<'_>, pred: impl Fn(&Value) -> bool) -> Vec<Value> {
+        let list = self.fixtures.lock();
+        list.iter()
+            .filter(|x| want.admits(x) && pred(x))
+            .cloned()
+            .collect()
+    }
+
+    /// A status or a stall a probe scripted for this request.
+    async fn scripted_reply(
+        &self,
+        f: &Value,
+        body: &Value,
+        cancel: &CancellationToken,
+    ) -> Result<Reply, ApiError> {
+        sleep(delay_of(f), cancel).await?;
+        if let Some(status) = f["status"].as_u64().filter(|s| *s != 0 && *s != 200) {
+            let message = f["message"].as_str().filter(|m| !m.is_empty());
+            let err = json!({ "error": { "message": message.unwrap_or("fake failure") } });
+            let reply = Reply::full(status as u16, err.to_string());
+            return Ok(reply.with_retry_after(retry_after_of(f)));
+        }
+        let text = match f["text"].as_str() {
+            Some(t) => self.fill(&json!(t)),
+            None => json!(ANSWER_DEFAULT),
+        };
+        let reply = message(body, json!({ "role": "assistant", "content": text }));
+        let ms = f["stallAfterHeadersMs"].as_u64().unwrap_or(0);
+        Ok(stall(reply, ms))
     }
 
     /// Answers one chat request as OpenRouter would.
     pub async fn respond(
         &self,
+        provider: Provider,
         body: &Value,
         cancel: &CancellationToken,
         meta: &Meta,
@@ -240,16 +369,32 @@ impl Fake {
         } else {
             meta.purpose.as_str()
         };
+        let model = body["model"].as_str().unwrap_or_default().to_string();
         {
             let mut log = self.requests.lock();
             log.push_back(FakeRequest {
                 purpose: purpose.to_string(),
                 model: body["model"].as_str().map(str::to_string),
                 body: body.to_string(),
+                provider: provider.id().to_string(),
+                url: wire::chat_request(provider, "", body).url,
             });
             if log.len() > REQUEST_LOG {
                 log.pop_front();
             }
+        }
+        let want = Want {
+            purpose,
+            provider: provider.id(),
+            model: &model,
+        };
+        let q = lower(meta.query.as_deref());
+        let query_ok = |x: &Value| x["query"].is_null() || lower(x["query"].as_str()) == q;
+        let script = self.take(&want, |x| {
+            scripted(x) && x["turns"].is_null() && query_ok(x)
+        });
+        if let Some(f) = script {
+            return self.scripted_reply(&f, body, cancel).await;
         }
         let empty = Vec::new();
         let msgs = body["messages"].as_array().unwrap_or(&empty);
@@ -262,9 +407,8 @@ impl Fake {
 
         match purpose {
             "find-expand" => {
-                let q = lower(meta.query.as_deref());
-                let f = self.first(purpose, |x| lower(x["query"].as_str()) == q);
-                if let Some(f) = f {
+                let f = self.take(&want, |x| lower(x["query"].as_str()) == q);
+                if let Some(f) = &f {
                     sleep(delay_of(f), cancel).await?;
                 }
                 let lines = f.map(|f| self.fill(&f["lines"])).unwrap_or(Value::Null);
@@ -275,18 +419,15 @@ impl Fake {
                 Ok(sse(&chunks))
             }
             "find-correlate" => {
-                let q = lower(meta.query.as_deref());
                 let mut out = Vec::new();
-                let matching = self.fixtures.iter().filter(|x| {
-                    x["purpose"] == "find-correlate" && lower(x["query"].as_str()) == q
-                });
-                for f in matching {
-                    let want = lower(f["match"].as_str());
+                let matching = self.all(&want, |x| lower(x["query"].as_str()) == q);
+                for f in &matching {
+                    let needle = lower(f["match"].as_str());
                     for line in user_text.split('\n') {
                         let Some(m) = span_re().captures(line) else {
                             continue;
                         };
-                        if !lower(Some(&m[2])).contains(&want) {
+                        if !lower(Some(&m[2])).contains(&needle) {
                             continue;
                         }
                         let id = m[1].parse::<u64>().map(Value::from);
@@ -300,15 +441,15 @@ impl Fake {
                 }
                 Ok(sse(&out))
             }
-            "agent" => self.agent_turn(body, msgs, cancel, meta).await,
+            "agent" => self.agent_turn(&want, body, msgs, cancel, meta).await,
             _ => {
-                let f = self.first(purpose, |_| true);
-                let text = match f {
+                let f = self.take(&want, |x| !scripted(x));
+                let text = match &f {
                     Some(f) => self.fill(&f["text"]),
                     None if purpose == "reader" => json!(READER_DEFAULT),
                     None => json!(ANSWER_DEFAULT),
                 };
-                if let Some(f) = f {
+                if let Some(f) = &f {
                     sleep(delay_of(f), cancel).await?;
                 }
                 let mut msg = json!({ "role": "assistant" });
@@ -322,15 +463,16 @@ impl Fake {
 
     async fn agent_turn(
         &self,
+        want: &Want<'_>,
         body: &Value,
         msgs: &[Value],
         cancel: &CancellationToken,
         meta: &Meta,
     ) -> Result<Reply, ApiError> {
         let task = lower(meta.task.as_deref());
-        let f = self.first("agent", |x| task.contains(&lower(x["task"].as_str())));
+        let f = self.take(want, |x| task.contains(&lower(x["task"].as_str())));
         let turn = msgs.iter().filter(|m| m["role"] == "assistant").count();
-        let step = match f {
+        let step = match &f {
             Some(f) => {
                 let picked = f["turns"].get(turn).filter(|t| truthy(t));
                 let picked = picked.or_else(|| Some(&f["after"]).filter(|t| truthy(t)));
@@ -433,13 +575,14 @@ mod tests {
 
     fn ask(fake: &Fake, body: Value, meta: &Meta) -> (u16, String) {
         let cancel = CancellationToken::new();
-        text(block(fake.respond(&body, &cancel, meta)).unwrap())
+        let reply = block(fake.respond(Provider::OpenRouter, &body, &cancel, meta));
+        text(reply.unwrap())
     }
 
     #[test]
     fn embedded_fixtures_load() {
         let fake = Fake::load();
-        assert!(fake.fixtures.len() >= 10);
+        assert!(fake.fixtures.lock().len() >= 10);
     }
 
     #[test]
@@ -484,7 +627,9 @@ mod tests {
         assert_eq!(out, r#"{"error":{"message":"fake failure"}}"#);
         let cancel = CancellationToken::new();
         cancel.cancel();
-        let e = block(fake.respond(&json!({}), &cancel, &agent_meta("slow")));
+        let slow = agent_meta("slow");
+        let empty = json!({});
+        let e = block(fake.respond(Provider::OpenRouter, &empty, &cancel, &slow));
         assert!(e.err().unwrap().is_abort());
         let (_, out) = ask(&fake, json!({ "stream": true }), &Meta::purpose("answer"));
         let want = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi {{who}}\"}}]}\n\n\
@@ -510,6 +655,57 @@ mod tests {
         let want = r#"{\"id\":3,\"score\":0.9,\"why\":\"the balance\"}\n"#;
         assert!(out.contains(want));
         assert!(!out.contains(r#"\"id\":0"#));
+    }
+
+    #[test]
+    fn pushed_fixtures_script_status_provider_and_times() {
+        let fake = Fake::from_fixtures(Vec::new());
+        let busy = json!({ "purpose": "answer", "provider": "openrouter",
+            "status": 429, "retryAfter": 7, "times": 2 });
+        fake.push_fixture(busy);
+        let body = json!({ "model": "a:free", "stream": true });
+        let cancel = CancellationToken::new();
+        let meta = Meta::purpose("answer");
+        let or = |f: &Fake| block(f.respond(Provider::OpenRouter, &body, &cancel, &meta)).unwrap();
+        let first = or(&fake);
+        assert_eq!(first.status, 429);
+        assert_eq!(first.retry_after.as_deref(), Some("7"));
+        assert_eq!(or(&fake).status, 429);
+        // Spent after two uses: the next one answers.
+        let (status, out) = text(or(&fake));
+        assert_eq!(status, 200);
+        assert!(out.contains(ANSWER_DEFAULT));
+        // A provider filter leaves the other providers alone.
+        let down = json!({ "purpose": "answer", "provider": "openrouter", "status": 503 });
+        fake.push_fixture(down);
+        let native = block(fake.respond(Provider::Anthropic, &body, &cancel, &meta)).unwrap();
+        assert_eq!(native.status, 200);
+        assert_eq!(or(&fake).status, 503);
+        let log = fake.requests();
+        let last = log.last().unwrap();
+        assert_eq!(last.provider, "openrouter");
+        assert_eq!(last.url, wire::OPENROUTER_CHAT);
+        assert_eq!(log[log.len() - 2].url, wire::ANTHROPIC_MESSAGES);
+        fake.clear_pushed();
+        assert_eq!(or(&fake).status, 200);
+    }
+
+    #[test]
+    fn a_stall_holds_the_body_back() {
+        let fake = Fake::from_fixtures(Vec::new());
+        let stalled = json!({ "purpose": "answer", "stallAfterHeadersMs": 60000,
+            "text": "late" });
+        fake.push_fixture(stalled);
+        let body = json!({ "model": "m", "stream": true });
+        let cancel = CancellationToken::new();
+        let meta = Meta::purpose("answer");
+        let reply = block(fake.respond(Provider::OpenRouter, &body, &cancel, &meta)).unwrap();
+        assert_eq!(reply.status, 200);
+        let mut stream = reply.body;
+        let first = block(async {
+            tokio::time::timeout(Duration::from_millis(50), stream.next()).await
+        });
+        assert!(first.is_err(), "the body arrived during the stall");
     }
 
     #[test]
