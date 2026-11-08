@@ -225,6 +225,29 @@ pub fn nudge(wa: Rect, b: Rect, dx: f64, dy: f64) -> Rect {
     )
 }
 
+/// `window:nudge`: moved by (dx, dy) and resized by (dw, dh), kept inside
+/// the work area and the size limits (a 0 maximum is no limit).
+pub fn nudge_rect(
+    wa: Rect,
+    r: Rect,
+    d: (f64, f64, f64, f64),
+    min: (f64, f64),
+    max: (f64, f64),
+) -> Rect {
+    let size = |v: f64, lo: f64, hi: f64, room: f64| {
+        let hi = if hi > 0.0 { hi.min(room) } else { room };
+        clamp(v, lo.min(hi), hi)
+    };
+    let w = size(r.width + d.2, min.0, max.0, wa.width);
+    let h = size(r.height + d.3, min.1, max.1, wa.height);
+    Rect::new(
+        clamp(r.x + d.0, wa.x, wa.x + wa.width - w),
+        clamp(r.y + d.1, wa.y, wa.y + wa.height - h),
+        w,
+        h,
+    )
+}
+
 /// JavaScript Math.sign (0 stays 0).
 fn sign(n: f64) -> f64 {
     if n > 0.0 {
@@ -341,6 +364,25 @@ mod tests {
         assert_eq!((r.x, r.y), (1500.0, 450.0));
         let r = nudge(wa(), r, 1.0, 0.0);
         assert_eq!(r.x, 1500.0);
+    }
+
+    #[test]
+    fn keyboard_nudges_stay_inside() {
+        let r = Rect::new(100.0, 100.0, 420.0, 200.0);
+        let lim = ((320.0, 160.0), (0.0, 0.0));
+        let n = |d| nudge_rect(wa(), r, d, lim.0, lim.1);
+        let moved = n((16.0, -16.0, 0.0, 0.0));
+        assert_eq!((moved.x, moved.y), (116.0, 84.0));
+        assert_eq!((moved.width, moved.height), (420.0, 200.0));
+        let grown = n((0.0, 0.0, 16.0, 16.0));
+        assert_eq!((grown.width, grown.height), (436.0, 216.0));
+        // Never under the minimum, never off the work area.
+        assert_eq!(n((0.0, 0.0, -400.0, -400.0)).width, 320.0);
+        assert_eq!(n((-500.0, 0.0, 0.0, 0.0)).x, 0.0);
+        assert_eq!(n((0.0, 5000.0, 0.0, 0.0)).y, 840.0);
+        // A maximum holds.
+        let capped = nudge_rect(wa(), r, (0.0, 0.0, 900.0, 0.0), lim.0, (900.0, 0.0));
+        assert_eq!(capped.width, 900.0);
     }
 
     #[test]
