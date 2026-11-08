@@ -52,7 +52,7 @@ jobs:
         run: |
           node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge 2>&1 | Tee-Object -FilePath shots.log
           $code = $LASTEXITCODE
-          $fails = Get-Content shots.log | Where-Object { $_ -match '=FAIL|pageerror' }
+          $fails = Get-Content shots.log | Where-Object { $_ -match '=FAIL|\] pageerror' }
           $fails | ForEach-Object { "::error title=ui-shots::$($_.Replace('%','%25'))" }
           if ($code -ne 0) {
             $tail = (Get-Content shots.log -Tail 40) -join "`n"

@@ -217,6 +217,15 @@ async function shot(page, name, clip) {
 
 const settle = (page, ms) => page.waitForTimeout(ms || 450);
 
+// Bottom edge of a window's iframe as the mock last sized it, so a clip
+// holds the whole window after output:resize grew it.
+const bottomOf = (page, name) =>
+  page.evaluate((n) => {
+    const f = document.querySelector(`iframe[name="${n}"]`);
+    const r = f.getBoundingClientRect();
+    return Math.min(Math.ceil(r.bottom) + 20, innerHeight);
+  }, name);
+
 // The bar window: 640 wide panel, in a window 40 wider and taller.
 const BAR = { x: 480, y: 24, w: 680, h: 240 };
 const barState = (extra) => ({
@@ -328,7 +337,7 @@ const OUT1 = { x: 560, y: 92, w: 520, h: 520 };
   }, rect);
   await streamAnswer(out, 'Why does the build fail?', ANSWER);
   await settle(page, 900);
-  await shot(page, '03-output-answer', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h });
+  await shot(page, '03-output-answer', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: await bottomOf(page, 'out1') });
   check('noOutputInput', await out.evaluate(() => !document.querySelector('#opanel input, #opanel textarea')), 'an input exists in the output window');
   check('outputTitleBar', await out.evaluate(() => !!document.querySelector('#sheet-bar[data-drag]') && document.getElementById('sheet-title').textContent.includes('build')), 'no draggable title bar with the question');
   check('outputControls', await out.evaluate(() => ['copy-all', 'history-btn', 'new-chat', 'close-out'].every((id) => !!document.getElementById(id))), 'missing a title-bar control');
@@ -513,7 +522,7 @@ const OUT1 = { x: 560, y: 92, w: 520, h: 520 };
   await openBar(get('overlay'));
   await streamAnswer(get('out1'), 'Why does the build fail?', ANSWER);
   await settle(page, 900);
-  await shot(page, '10-white-bar-output', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h });
+  await shot(page, '10-white-bar-output', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: await bottomOf(page, 'out1') });
   await page.close();
 }
 
