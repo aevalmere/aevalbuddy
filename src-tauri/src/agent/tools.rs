@@ -292,7 +292,11 @@ pub fn parse_json_turn(text: &str) -> Option<JsonTurn> {
         .find(|v| truthy(v))?;
     let name = name.as_str().filter(|n| is_tool(n))?.to_string();
     let nested = o["args"].is_object() || o["args"].is_array();
-    let mut args = if nested { spread(&o["args"]) } else { spread(&o) };
+    let mut args = if nested {
+        spread(&o["args"])
+    } else {
+        spread(&o)
+    };
     args.remove("tool");
     args.remove("action");
     if !truthy(&o["args"]) {

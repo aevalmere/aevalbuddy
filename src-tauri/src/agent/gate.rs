@@ -426,12 +426,7 @@ fn nodes(t: &Value) -> &[Value] {
     t["nodes"].as_array().map(Vec::as_slice).unwrap_or_default()
 }
 
-async fn gate_inner(
-    name: &str,
-    a: &Value,
-    info: &Touches,
-    env: &GateEnv<'_>,
-) -> Option<Verdict> {
+async fn gate_inner(name: &str, a: &Value, info: &Touches, env: &GateEnv<'_>) -> Option<Verdict> {
     let p = pats();
     if name == "clipboard_read" {
         let why = "it reads your clipboard, which can hold a password";
@@ -449,7 +444,11 @@ async fn gate_inner(
         let t = target.trim_matches(js_space);
         let link = p.url_ok.is_match(t);
         if link || (!p.has_path.is_match(t) && p.app_name.is_match(t)) {
-            let why = if link { "it opens a link" } else { "it starts an app" };
+            let why = if link {
+                "it opens a link"
+            } else {
+                "it starts an app"
+            };
             return Some(Verdict::new(Class::Consequential, why));
         }
         let q = quote(t, 30);
