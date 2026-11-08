@@ -40,7 +40,8 @@ page, not by Windows: `renderer/glass.css` and `renderer/glass.js`, shared by ev
   Thick glass is for reading: the answer sheet, Settings, History, the HUD ghosts.
 - **Solid tier.** The same surfaces, with the backdrop replaced by `--solid`, an opaque top-lit
   gradient. Used when the person asks for it (Settings, General, Glass), and automatically under
-  `prefers-reduced-transparency`, forced colours, Windows transparency effects off, when the windows
+  `prefers-reduced-transparency`, forced colours, Windows transparency effects off (both superseded:
+  see "Liquid glass you set" below), when the windows
   cannot be hidden from capture (so a frame would contain us), or after three capture failures in a row.
   The tier and its reason are on `html[data-glass]` and `data-glass-why`, and Settings says which.
 - **Shadow and margin.** The overlay and the answer window are 20 px larger than their glass
@@ -808,3 +809,136 @@ takes a click or `Alt+Enter`. Ties go to Ask.
 - A confirm card takes focus itself, offers Skip first, has no key chord for
   Allow, and ignores input for 700 ms. An open-link card shows the full URL
   with its host in bold.
+
+## Tauri rewrite: the requests that changed the surfaces
+
+The owner's list for the rewrite is `.claude/rust-rewrite/REQUESTS.md`. Items 3 to 11 change what the
+surfaces do and look like; this section is what was built for them and why, and the departures from the
+sections above. The Rust half of each is `.claude/rust-rewrite/ARCHITECTURE.md` section 10.
+
+### One system
+
+Request 7 asked for the whole app to look consistent and intentional. The tokens already existed in this
+file; the surfaces had drifted from them (30 px and 28 px buttons side by side, 18 and 20 px radii, 7/14 and
+10/14 paddings). They are now named in `glass.css` and every touched rule uses them:
+
+| Kind | Tokens |
+| --- | --- |
+| Spacing | `--sp-1..6` = 4, 8, 12, 16, 24, 32 |
+| Type | `--fs-meta` 12, `--fs-small` 13, `--fs-row` 14, `--fs-body` 15, `--fs-title` 17, `--fs-bar` 18, `--fs-page` 22 |
+| Radius | 28 sheet and bar, 16 card, 10 row, 6 key, capsule (unchanged) |
+| Controls | `--ctl` 32 for every button in a sheet (Copy, Stop, Retry, Allow, Do it), `--ctl-s` 28 for title-bar icons and the step toggle |
+| Heights | `--bar-h` 56, `--sheet-bar-h` 44 |
+| Motion | unchanged: glide, morph, settle and the four durations |
+
+Rules: one button shape in a sheet, 32 px capsule, 13 px semibold (the meta row's 28 px / 12 px buttons
+were a second shape for the same job). Cards and the rows under the bar take `--r-card`; the question chip
+too (it was 18). Code blocks take `--r-row`, inline code `--r-key`.
+
+### Output windows (requests 7, 9, 11)
+
+- **Free-floating, several at once.** Each answer, Find result or task trail is its own window
+  (`output-<n>`). There is no docking and no answer ghost in the layout editor; the editor places the bar
+  only. The sheet fills its window inside the 20 px shadow margin, so a window resized or maximised by the
+  person is the sheet.
+- **A title bar on every sheet.** 44 px, held to move the window: a kind chip (`Answer`, `Find`, `Task`),
+  the conversation's name (its first question, or the task, or the search), and four 28 px icon controls:
+  Copy conversation, History, New conversation, Close. A hairline appears under it only once the transcript
+  scrolls beneath. This replaces the v0.4 `#chat-tools` row. v0.4's rule "no product name on a surface the
+  product owns" holds: the title is the conversation, never "AevalBuddy".
+- **No input in an output window.** The bar is the only text field. A task's question (`ask_user`) shows in
+  its trail as "Waiting for your answer in the bar", in the accent; the bar's placeholder becomes "Answer the
+  task's question" and its rim turns accent, and Enter sends the answer to that run. Plan approval and
+  Continue stay as buttons in the trail, and an empty Enter in the bar does the same.
+- **Reading measure.** Past 760 px the transcript centres instead of stretching, so a maximised output reads
+  as a document.
+
+### The glob (request 8)
+
+An output window opens by stretching out of the bar: a bud of glass leaves the bar's edge, grows into the
+sheet on `--ease-morph`, joined to the bar by a neck that thins, pinches off at 60% and leaves two beads that
+are absorbed by 84%; the words fade in from 55%. 440 ms in all. Closing runs it backwards toward the bar on
+`--ease-glide` in 260 ms, then the window closes; with the bar collapsed it fades in 150 ms.
+
+How: the bar and its outputs are separate windows, but Rust places an output's glass 12 px from the bar's,
+which is inside both 20 px margins, so the output window can draw over the bar's edge. The shape is one SVG
+path computed per frame (`renderer/glob.js`); it clips a real `.glass thick` layer, so the glob is the same
+material as the sheet (backdrop, scrim), and a masked stroke draws its rim. Refraction is dropped while it
+runs, as for every morph. Measured on the runner: well under a millisecond per frame for the path, no frame
+over 34 ms (`[UI] globSmooth`). Reduced motion: a 150 ms fade, no shape.
+
+| Departure | Reason |
+| --- | --- |
+| The sheet no longer grows by a clip-path reveal from the bar's edge (Motion, above) | request 8 asked for the liquid glob; the reveal was a rectangle uncovering itself, the glob is one piece of glass becoming another |
+| The glob is a window-level entrance yet uses `--ease-morph`, not `--ease-glide` | it is a shape change first; the window itself does not move (Rust shows it at its final bounds) |
+| No overshoot on the glob | windows never bounce (Superseded, above); the liquid reads from the neck and the beads |
+
+### Liquid glass you set (request 5)
+
+Glass no longer follows Windows' "Transparency effects" setting. Chromium reports that setting as
+`prefers-reduced-transparency`, which used to force the solid tier; Rust also reported it as
+`transparency-off`. Both are now ignored, and Settings, General, **Liquid glass** is the control: a slider
+from None to Very very (stops None, Subtle, Liquid, Very, Very very; 0 to 1, default 0.5, which is exactly the
+v2.1 material). It moves every window live.
+
+| k | 0 None | 0.5 Liquid (default) | 1 Very very |
+| --- | --- | --- | --- |
+| Body | solid frosted (`--solid`), no backdrop | backdrop | backdrop |
+| Blur thin / thick | none | 14 / 28 px | 8 / 20 px |
+| Saturation thin / thick | n/a | 1.7 / 1.5 | 2.4 / 2.0 |
+| Refraction band / scale thin / thick | none | 14 px / 22 / 28 | 22 px / 44 / 56 |
+| Specular rim | 0.55 | full | full, 2 px, plus a top-left sheen |
+| Scrim | n/a | measured as before | lighter over dark backdrops only |
+
+The scrim rule is what keeps contrast: the adjustment is `(0.5 - k) x 0.24 x (1 - y)` thin and `x 0.16` thick,
+which is zero over a white page (y = 1), where contrast is hardest, so the 4.5:1 floor holds at every
+setting; only a dark desktop shows through more. None is the solid tier, so its contrast never depends on
+the desktop at all.
+
+| Departure | Reason |
+| --- | --- |
+| Windows transparency off no longer means solid (Material, Solid tier, above) | request 5: the owner wants glass whatever that setting says, and a control of his own |
+| `prefers-reduced-transparency` no longer forces solid | it is the same Windows setting as seen by Chromium; None on the slider is the way to ask for a solid surface |
+| The "Use a solid surface" switch is gone; the slider's None replaces it | two controls for one thing; a profile with Solid set reads as None |
+| A contrast theme (forced colours), a build that cannot hide from capture, and repeated capture failures still force solid | those are about legibility and privacy, not taste |
+
+### Suggestions, once (request 3)
+
+The example chips under an empty bar are for someone who has not used it. They show until the first request
+is sent (a question, a Find with Enter, or a task) and never again, on any later open. Kept in the settings
+file as `hasSentFirstRequest` and in localStorage so they vanish at once.
+
+### One place for the Ask / Find / Do keys (request 6)
+
+The keys are taught by the token at the bar's left, and only there: its tooltip (`Ask ? or Ctrl+1 · Find / or
+Ctrl+2 · Do > or Ctrl+3 · Alt+Down for this menu`) and the menu it opens, whose rows now carry both the sigil
+and the Ctrl chord. Removed: the `/ Find  > Do` legend beside the empty input, the "Choose Ask, Find or Do in
+the bar" row in Settings' shortcut list, and the "Type to find on screen." line in an empty Find view (it
+now says "Looking…" until Find reports).
+
+### Windows you can hold (requests 4, 10)
+
+- **Edges and corners resize** on every resizable window: zones 10 px wide across the glass edge (7 px in
+  the shadow margin, 3 px on the rim), 18 px corners, created by `renderer/frame.js` and started through
+  Tauri's `startResizeDragging`. They carry `data-hit`, so the margin's click-through never swallows a
+  grab. Output windows, Settings and History get all eight; the bar gets left and right (its height
+  follows its content).
+- **Drag** by the title bar on output windows, Settings and History, and anywhere on the layout editor's
+  ghost. Double-clicking the Settings or History title maximises it.
+- **Desktop, full screen.** Settings and History hold up maximised: past 900 px the rail widens to 220 px
+  and pages keep a 720 px measure, centred; History's list keeps 760 px. Output windows keep a 760 px
+  reading measure.
+
+### The closing bar (request 7)
+
+The bar folds back into the orb as deliberately as it grows: the words blur out over 90 ms, the rows under
+it slide back into it, and the shape closes on `--ease-glide` in 200 ms (it was a 90 ms opacity cut on the
+morph curve). 200 ms fits inside the window's own wait before it shrinks to the orb (T_COLLAPSE + 30).
+
+### Implementation notes (not departures)
+
+- Frames reach `glass.js` and `lens.js` as an `aeval-frame://` URL instead of JPEG bytes (ARCHITECTURE.md
+  D4); both still accept bytes.
+- `-webkit-app-region` is gone from the stylesheets; `data-drag` and `frame.js` do its job under WebView2.
+- The bridge takes back WebView2 behaviour Electron never had: its context menu, reload, find bar, print,
+  zoom and back keys, and navigation by a dropped file.

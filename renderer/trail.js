@@ -10,7 +10,8 @@
 //               final message. One conversation, three verbs.
 
 const findView = document.getElementById('find-view');
-const chatTools = document.getElementById('chat-tools');
+// Copying the conversation means nothing over a list of matches.
+const copyAll = document.getElementById('copy-all');
 
 // ------------------------------------------------------------------- views
 
@@ -24,9 +25,10 @@ function setView(next) {
   document.body.dataset.view = view;
   findView.hidden = view !== 'find';
   chatEl.hidden = view === 'find';
-  chatTools.hidden = view === 'find';
+  copyAll.hidden = view === 'find';
   // Hits that arrived while the chat was showing were stored, not drawn.
   if (view === 'find') renderFind();
+  if (view === 'find') window.setSheetTitle('Find', (findStatus && findStatus.query) || '', true);
   if (view === 'find' && opanel.hidden) {
     opanel.hidden = false;
     playEntrance();
@@ -52,7 +54,8 @@ function renderFind() {
     const p = document.createElement('p');
     p.className = 'find-empty';
     const s = findStatus || {};
-    p.textContent = [s.status, ...(s.lines || [])].filter(Boolean).join('\n') || 'Type to find on screen.';
+    // No instructions here: how to search is the bar's to say (REQUESTS.md 6).
+    p.textContent = [s.status, ...(s.lines || [])].filter(Boolean).join('\n') || 'Looking…';
     findView.appendChild(p);
   }
   findHits.forEach((h) => {
@@ -99,7 +102,8 @@ function renderFind() {
   requestResize();
 }
 
-window.aeval.on('find:hits', ({ hits, current }) => {
+window.aeval.on('find:hits', ({ hits, current, query }) => {
+  if (view === 'find' && query) window.setSheetTitle('Find', query, true);
   findHits = hits || [];
   findCurrent = current;
   if (view === 'find') renderFind();
@@ -190,19 +194,10 @@ function rowEl(r) {
     const note = r.error || (r.state === 'skipped' && r.why ? `Not done: ${r.why}` : '');
     if (note) body.appendChild(el('span', 'trow-note', note));
     if (r.kind === 'ask' && r.state === 'running') {
-      const input = el('input', 'ask-input');
-      input.type = 'text';
-      input.placeholder = 'Answer, then Enter';
-      input.setAttribute('aria-label', 'Your answer to the agent');
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          window.aeval.invoke('agent:continue', { text: input.value });
-          input.disabled = true;
-        }
-      });
-      body.appendChild(input);
-      setTimeout(() => input.focus(), 50);
+      // The answer is typed in the bar, the app's one input (REQUESTS.md 9);
+      // the bar knows a question is waiting from overlay:state and sends
+      // what is typed as agent:continue to this run.
+      body.appendChild(el('span', 'trow-note waiting', 'Waiting for your answer in the bar'));
     } else if (r.kind === 'ask' && r.answer) {
       body.appendChild(el('span', 'trow-note', `You: ${r.answer}`));
     }
@@ -260,7 +255,10 @@ const STATUS_TEXT = {
   plan: 'Waiting for you',
 };
 
-window.aeval.on('agent:begin', ({ task }) => newBlock(task));
+window.aeval.on('agent:begin', ({ task }) => {
+  window.setSheetTitle('Task', task);
+  newBlock(task);
+});
 
 window.aeval.on('agent:step', (r) => putRow(r));
 

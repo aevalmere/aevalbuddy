@@ -81,7 +81,6 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 10px 10px 10px var(--gutter);
-  -webkit-app-region: drag;
 }
 
 #titlebar .title {
@@ -92,7 +91,6 @@ button {
 }
 
 #titlebar button {
-  -webkit-app-region: no-drag;
   display: grid;
   place-items: center;
   width: 26px;
@@ -603,4 +601,20 @@ body {
   width: 28px;
   height: 28px;
   margin-top: -14px;
+}
+
+/* =====================================================================
+   Tauri rewrite (REQUESTS.md 4): past 900 px, as when the window is
+   maximised, the search field and the list keep a reading measure,
+   centred, instead of running rows across the whole screen.
+   ===================================================================== */
+
+@media (min-width: 900px) {
+  #searchbar,
+  #list > *,
+  #empty {
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+  }
 }

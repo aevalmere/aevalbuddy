@@ -1,33 +1,73 @@
 <!DOCTYPE html>
-<html lang="en" data-passthrough="on">
+<html lang="en" data-passthrough="on" data-resize="all" data-resize-target="#opanel">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
   <title>AevalBuddy answer</title>
   <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="overlay.css" />
 </head>
 <body data-mode="idle" data-surface="answer">
-  <!-- The answer sheet: thick glass, because this is where you read. -->
-  <section id="opanel" class="glass thick refract" hidden aria-label="AevalBuddy conversation">
-    <div id="chat-tools">
-      <button id="history-btn" class="g-icon small" type="button" aria-label="Open past conversations" title="History">
-        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 3v6h6"></path>
-          <path d="M3.5 13a9 9 0 1 0 2-6.4L3 9"></path>
-          <path d="M12 7.5V12l3.5 2"></path>
-        </svg>
-      </button>
-      <button id="new-chat" class="g-icon small" type="button" aria-label="Start a new conversation" title="New conversation">
-        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 5v14"></path>
-          <path d="M5 12h14"></path>
-        </svg>
-      </button>
-    </div>
+  <!-- The glob: while the window opens or closes, one piece of glass that
+       stretches out of the bar and becomes the sheet (glob.js). Hidden the
+       rest of the time. -->
+  <div id="glob" class="glass thick" aria-hidden="true" hidden>
+    <svg id="glob-rim" width="100%" height="100%" aria-hidden="true">
+      <defs>
+        <linearGradient id="glob-light" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#fff" stop-opacity="0.62"></stop>
+          <stop offset="0.45" stop-color="#fff" stop-opacity="0.08"></stop>
+          <stop offset="1" stop-color="#fff" stop-opacity="0.3"></stop>
+        </linearGradient>
+        <mask id="glob-mask" maskUnits="userSpaceOnUse">
+          <path id="glob-stroke" fill="none" stroke="#fff" stroke-width="2"></path>
+          <path id="glob-fill" fill="#000"></path>
+        </mask>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#glob-light)" mask="url(#glob-mask)"></rect>
+    </svg>
+  </div>
+
+  <!-- The answer sheet: thick glass, because this is where you read. It is a
+       window of its own; several can be open, each with its conversation. -->
+  <section id="opanel" class="glass thick refract" hidden aria-labelledby="sheet-title">
+    <!-- The title bar is what you hold the window by. -->
+    <header id="sheet-bar" data-drag>
+      <span id="sheet-kind" class="sheet-kind" aria-hidden="true"></span>
+      <h1 id="sheet-title" class="sheet-title">Answer</h1>
+      <div class="sheet-tools">
+        <button id="copy-all" class="g-icon small" type="button" aria-label="Copy this conversation" title="Copy conversation">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="8.5" y="8.5" width="11" height="11" rx="2.5"></rect>
+            <path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"></path>
+          </svg>
+        </button>
+        <button id="history-btn" class="g-icon small" type="button" aria-label="Open past conversations" title="History">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v6h6"></path>
+            <path d="M3.5 13a9 9 0 1 0 2-6.4L3 9"></path>
+            <path d="M12 7.5V12l3.5 2"></path>
+          </svg>
+        </button>
+        <button id="new-chat" class="g-icon small" type="button" aria-label="Start a new conversation" title="New conversation">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </button>
+        <button id="close-out" class="g-icon small" type="button" aria-label="Close this window" title="Close">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
+               stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <line x1="17" y1="7" x2="7" y2="17"></line>
+            <line x1="7" y1="7" x2="17" y2="17"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
     <!-- Not live itself: streaming rewrote it every frame, which a screen
          reader heard as noise. Finished answers and step changes are said
          once through #announce. -->
@@ -36,22 +76,12 @@
     <div id="find-view" class="edge-fade" role="listbox" aria-label="Matches on screen" hidden></div>
   </section>
 
-  <section id="hud" class="glass thick" hidden aria-label="Answer position editor">
-    <div class="hud-inner">
-      <p class="hud-title">Answer window</p>
-      <p class="hud-sub">Drag anywhere. Drop it near the input bar to dock them together.</p>
-      <span id="dock-badge" class="dock-badge" hidden>Docked</span>
-      <div class="hud-actions">
-        <button id="dock-toggle" type="button" class="g-btn">Detach</button>
-        <button id="hud-done" type="button" class="g-btn prominent">Done</button>
-      </div>
-    </div>
-  </section>
-
   <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 
   <script src="glass.js"></script>
+  <script src="frame.js"></script>
   <script src="markdown.js"></script>
+  <script src="glob.js"></script>
   <script src="output.js"></script>
   <script src="trail.js"></script>
 </body>

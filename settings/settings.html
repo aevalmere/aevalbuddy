@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-resize="all" data-resize-target="#app">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
   <title>AevalBuddy settings</title>
   <link rel="stylesheet" href="../renderer/glass.css" />
   <link rel="stylesheet" href="settings.css" />
 </head>
 <body>
   <div id="app" class="glass thick">
-    <header id="titlebar">
+    <header id="titlebar" data-drag="max">
       <span class="title">Settings</span>
       <button id="close-settings" type="button" aria-label="Close settings">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
@@ -341,11 +341,6 @@
                   <span class="sc-warn" hidden>Taken by another app</span>
                 </li>
                 <li class="sc-row">
-                  <span class="sc-label">Choose Ask, Find or Do in the bar</span>
-                  <kbd>? / &gt; · Ctrl+1/2/3</kbd>
-                  <span class="sc-fixed">Fixed</span>
-                </li>
-                <li class="sc-row">
                   <span class="sc-label">Clear the bar, close it, stop a task</span>
                   <kbd>Esc</kbd>
                   <span class="sc-fixed">Fixed</span>
@@ -376,21 +371,26 @@
             </div>
           </section>
 
-          <!-- The material. Automatic draws glass from what is behind the
-               window; Solid always draws an opaque surface. Windows'
-               transparency setting, high contrast and reduced transparency
-               turn glass off on their own, and the note says when. -->
+          <!-- The material, from None (solid frosted panels) to Very very.
+               It does not follow Windows' transparency setting; this slider
+               is that control (REQUESTS.md 5). It changes every window live.
+               A contrast theme, or a Windows build that cannot hide the
+               windows from capture, still makes surfaces solid, and the
+               note says so. -->
           <section id="sec-surface" aria-labelledby="surface-heading">
             <div class="row-head">
-              <h2 id="surface-heading">Glass</h2>
-              <span id="surface-summary" class="summary">Automatic</span>
+              <h2 id="surface-heading">Liquid glass</h2>
+              <span id="surface-summary" class="summary">Liquid</span>
               <button class="edit" type="button" data-edit="sec-surface">Edit</button>
             </div>
             <div class="body">
-              <label class="switch">
-                <input id="surface-solid" type="checkbox" />
-                <span>Use a solid surface instead of glass</span>
-              </label>
+              <div class="glass-slider">
+                <input id="glass-range" type="range" min="0" max="1" step="0.05" value="0.5"
+                       aria-labelledby="surface-heading" aria-valuetext="Liquid" />
+                <div class="glass-stops" aria-hidden="true">
+                  <span>None</span><span>Subtle</span><span>Liquid</span><span>Very</span><span>Very very</span>
+                </div>
+              </div>
               <p id="surface-note" class="note"></p>
             </div>
           </section>
@@ -443,6 +443,7 @@
     </footer>
   </div>
   <script src="../renderer/glass.js"></script>
+  <script src="../renderer/frame.js"></script>
   <script src="settings.js"></script>
 </body>
 </html>

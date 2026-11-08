@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-resize="all" data-resize-target="#app">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:" />
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
   <title>AevalBuddy history</title>
   <link rel="stylesheet" href="../renderer/glass.css" />
   <link rel="stylesheet" href="history.css" />
 </head>
 <body>
   <div id="app" class="glass thick">
-    <header id="titlebar">
+    <header id="titlebar" data-drag="max">
       <span class="title">History</span>
       <button id="close-history" type="button" aria-label="Close history">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
@@ -52,6 +52,7 @@
   </div>
 
   <script src="../renderer/glass.js"></script>
+  <script src="../renderer/frame.js"></script>
   <script src="history.js"></script>
 </body>
 </html>

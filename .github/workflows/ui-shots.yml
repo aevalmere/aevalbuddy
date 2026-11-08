@@ -1,0 +1,103 @@
+# Renderer checks and screenshots for the Tauri rewrite (split d). The pages
+# run in Microsoft Edge, the engine WebView2 embeds, with a stand-in for
+# window.aeval (tools/ui-shots). Screenshots go to the `shots` branch under
+# rust-d-ui/, readable without auth at
+# raw.githubusercontent.com/<repo>/shots/rust-d-ui/latest/<name>.png
+name: ui-shots
+
+on:
+  push:
+    branches: [rust-rewrite, "rust/**"]
+    paths:
+      - "renderer/**"
+      - "settings/**"
+      - "history/**"
+      - "src-tauri/bridge/**"
+      - "tools/ui-shots/**"
+      - ".github/workflows/ui-shots.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ui-shots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Bridge unit checks
+        run: |
+          node tools/ui-shots/bridge.test.mjs 2>&1 | Tee-Object -FilePath bridge.log
+          $code = $LASTEXITCODE
+          Get-Content bridge.log | Where-Object { $_ -match '=FAIL' } | ForEach-Object { "::error title=bridge::$_" }
+          exit $code
+
+      - name: Install Playwright (drives the runner's Edge)
+        run: npm install --no-save --no-audit --no-fund --prefix tools/ui-shots playwright@1.48.2
+
+      - name: Screenshots and renderer checks
+        run: |
+          node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge 2>&1 | Tee-Object -FilePath shots.log
+          $code = $LASTEXITCODE
+          $fails = Get-Content shots.log | Where-Object { $_ -match '=FAIL|\] pageerror' }
+          $fails | ForEach-Object { "::error title=ui-shots::$($_.Replace('%','%25'))" }
+          if ($code -ne 0) {
+            $tail = (Get-Content shots.log -Tail 40) -join "`n"
+            "::error title=ui-shots log tail::$($tail.Replace('%','%25').Replace("`r",'').Replace("`n",'%0A'))"
+          }
+          "::notice title=ui-shots::$((Get-Content shots.log | Where-Object { $_ -match '^\[UI\] (glob|done)' }) -join '%0A')"
+          exit $code
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: ui-shots
+          path: out/ui-shots/*.png
+
+      # Into the shots branch beside main's folders, never touching them:
+      # rust-d-ui/latest and rust-d-ui/<sha> (the five newest kept).
+      - name: Publish to the shots branch
+        if: ${{ always() && github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $src = Join-Path $PWD 'out\ui-shots'
+          if (-not (Get-ChildItem $src -Filter *.png -ErrorAction SilentlyContinue)) { "no screenshots"; exit 0 }
+          $remote = "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git"
+          $sha = '${{ github.sha }}'
+          for ($try = 1; $try -le 5; $try++) {
+            $dir = Join-Path $env:RUNNER_TEMP "shots-$try"
+            git clone --quiet --depth 1 --branch shots $remote $dir
+            if ($LASTEXITCODE -ne 0) { throw 'cannot clone shots' }
+            $base = Join-Path $dir 'rust-d-ui'
+            New-Item -ItemType Directory -Force $base | Out-Null
+            foreach ($d in @('latest', $sha)) {
+              $t = Join-Path $base $d
+              if (Test-Path $t) { Remove-Item -Recurse -Force $t }
+              New-Item -ItemType Directory -Force $t | Out-Null
+              Copy-Item (Join-Path $src '*.png') $t
+            }
+            $orderFile = Join-Path $base 'order.txt'
+            $order = @($sha) + @(if (Test-Path $orderFile) { Get-Content $orderFile | Where-Object { $_ -and $_ -ne $sha } })
+            $order | Select-Object -Skip 5 | ForEach-Object { $o = Join-Path $base $_; if (Test-Path $o) { Remove-Item -Recurse -Force $o } }
+            $order | Select-Object -First 5 | Set-Content $orderFile
+            git -C $dir add -A
+            git -C $dir -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit --quiet -m "rust-d-ui screenshots for $sha"
+            git -C $dir push --quiet $remote HEAD:shots
+            if ($LASTEXITCODE -eq 0) { "published"; exit 0 }
+            Start-Sleep -Seconds (3 * $try)
+          }
+          throw 'could not publish after 5 tries'

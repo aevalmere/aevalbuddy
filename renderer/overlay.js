@@ -76,6 +76,7 @@ function render(prevMode) {
   }
   applyAnchor();
   renderRegion();
+  syncBarFromState();
   const folding = state.mode === 'pill' && prevMode === 'panel' && foldIntoOrb();
   pill.hidden = state.mode !== 'pill';
   panel.hidden = state.mode !== 'panel' && !folding;
@@ -184,7 +185,7 @@ function foldIntoOrb() {
   panel.dataset.morph = 'out';
   const g = v.g;
   if (window.AevalGlass) window.AevalGlass.morph(200);
-  g.style.transition = 'inset 200ms var(--ease-morph), border-radius 200ms var(--ease-morph)';
+  g.style.transition = 'inset 200ms var(--ease-glide), border-radius 200ms var(--ease-glide)';
   setInsets(g, v, '22px');
   morphTimer = setTimeout(endFold, 200);
   return true;
@@ -333,9 +334,11 @@ document.addEventListener('mousemove', (e) => {
   if (state.mode === 'pill') {
     const el = document.elementFromPoint(e.clientX, e.clientY);
     setIgnore(!(el && el.closest('#pill')));
+  } else if (state.mode === 'hud') {
+    setIgnore(false);
   } else if (state.mode === 'panel' && !folding) {
     const el = document.elementFromPoint(e.clientX, e.clientY);
-    setIgnore(!(el && el.closest('#panel .glass, #intent-menu, #examples .glass')));
+    setIgnore(!(el && el.closest('#panel .glass, #intent-menu, #examples .glass, .frame-handle')));
   }
 });
 

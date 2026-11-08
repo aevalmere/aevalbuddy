@@ -65,17 +65,20 @@ function whySpot(h, x, y, wr) {
 function dropLoupe() {
   ring.classList.remove('loupe-on');
   loupeEl.style.backgroundImage = '';
-  if (loupeUrl) URL.revokeObjectURL(loupeUrl);
+  if (loupeUrl && loupeUrl.startsWith('blob:')) URL.revokeObjectURL(loupeUrl);
   loupeUrl = '';
 }
 
 window.aeval.on('lens:loupe', ({ i, img }) => {
   if (i !== lastDisplayed || !img) return;
-  const url = URL.createObjectURL(new Blob([img], { type: 'image/jpeg' }));
+  // A URL under aeval-frame:// on Tauri (ARCHITECTURE.md D4), JPEG bytes under
+  // Electron.
+  const url = typeof img === 'string' ? img : URL.createObjectURL(new Blob([img], { type: 'image/jpeg' }));
+  const owned = typeof img !== 'string';
   const pic = new Image();
   pic.onload = () => {
     if (i !== lastDisplayed) {
-      URL.revokeObjectURL(url);
+      if (owned) URL.revokeObjectURL(url);
       return;
     }
     dropLoupe();

@@ -697,29 +697,58 @@ saveHistory.addEventListener('change', () => {
     });
 });
 
+// Windows' transparency setting no longer turns glass off (REQUESTS.md 5), so
+// it has no sentence here; the slider is the control.
 const SURFACE_WHY = {
-  'transparency-off': 'Transparency effects are off in Windows settings, so glass is off too.',
   'high-contrast': 'A contrast theme is on, so surfaces are solid.',
   'capture-visible': 'This Windows build cannot hide AevalBuddy from capture, so glass, which needs that, is off.',
   'capture-failed': 'The screen could not be read for the glass, so surfaces are solid for now.',
 };
 
+// The slider's five names. Between stops the nearest name is used.
+const GLASS_NAMES = ['None', 'Subtle', 'Liquid', 'Very', 'Very very'];
+const glassRange = document.getElementById('glass-range');
+const glassName = (k) => GLASS_NAMES[Math.round(Math.min(1, Math.max(0, k)) * 4)];
+
+function currentGlass() {
+  if (typeof data.glassIntensity === 'number') return data.glassIntensity;
+  // A profile from before the slider: Solid meant None.
+  if (data.surface === 'solid') return 0;
+  return window.AevalGlass ? window.AevalGlass.intensity() : 0.5;
+}
+
 function renderSurface() {
-  const solid = data.surface === 'solid';
+  const k = currentGlass();
   const g = data.glass || { tier: 'live', reasons: [] };
   const why = (g.reasons || []).filter((r) => r !== 'setting').map((r) => SURFACE_WHY[r]).filter(Boolean);
-  setSummary('surface-summary', solid ? 'Solid' : why.length ? 'Solid for now' : 'Automatic');
+  const name = glassName(k);
+  setSummary('surface-summary', k > 0 && why.length ? `${name}, solid for now` : name);
+  glassRange.value = String(k);
+  glassRange.setAttribute('aria-valuetext', name);
+  glassRange.style.setProperty('--fill', `${Math.round(k * 100)}%`);
   const note = document.getElementById('surface-note');
-  note.textContent = solid ? '' : why.join(' ');
+  note.textContent = k > 0 ? why.join(' ') : '';
   note.hidden = !note.textContent;
 }
 
-document.getElementById('surface-solid').addEventListener('change', (e) => {
-  window.aeval.invoke('settings:set-surface', { surface: e.target.checked ? 'solid' : 'auto' }).then((r) => {
-    data.surface = r.surface;
-    data.glass = { tier: r.tier, reasons: r.reasons };
-    renderSurface();
-  });
+// Live while dragging, in this window and (through glass.js) every other;
+// saved once the hand stops.
+let glassSaveTimer = null;
+glassRange.addEventListener('input', () => {
+  const k = Number(glassRange.value);
+  data.glassIntensity = k;
+  if (window.AevalGlass) window.AevalGlass.setIntensity(k);
+  renderSurface();
+  clearTimeout(glassSaveTimer);
+  glassSaveTimer = setTimeout(() => {
+    window.aeval.invoke('settings:set-glass', { glassIntensity: k }).then(
+      (r) => {
+        if (r && r.glass) data.glass = r.glass;
+        renderSurface();
+      },
+      () => {}
+    );
+  }, 200);
 });
 
 launchAtLogin.addEventListener('change', () => {
@@ -975,7 +1004,7 @@ window.aeval.invoke('settings:get').then((d) => {
   showBrainPicker(!!d.brainEnabled);
   saveHistory.checked = d.saveHistory !== false;
   launchAtLogin.checked = !!d.launchAtLogin;
-  document.getElementById('surface-solid').checked = d.surface === 'solid';
+  if (typeof d.glassIntensity === 'number' && window.AevalGlass) window.AevalGlass.setIntensity(d.glassIntensity);
   renderHistory();
   renderStartup();
   renderSurface();

@@ -8,6 +8,10 @@
 //
 // Loaded after overlay.js, which owns the window state, the notice and the
 // resize; both are classic scripts sharing one global scope.
+//
+// The bar is the app's only text input (REQUESTS.md 9). A follow-up goes to
+// the focused or most recent output window (Rust routes query:submit), and
+// when a task asks a question or waits on its plan, Enter here answers it.
 
 const Intent = window.AevalIntent;
 const token = document.getElementById('intent');
@@ -310,8 +314,34 @@ function renderExamples(list) {
   renderExamplesShown();
 }
 
+// Suggestions are for someone who has not used the bar yet: shown until the
+// first request is sent, then never again (REQUESTS.md 3). Rust keeps the
+// flag in the settings file (hasSentFirstRequest, sent in overlay:state);
+// localStorage holds it too, so the chips go at once, before Rust answers.
+const FIRST_KEY = 'aeval.hasSentFirstRequest';
+function sentBefore() {
+  if (state.hasSentFirstRequest) return true;
+  try {
+    return localStorage.getItem(FIRST_KEY) === '1';
+  } catch (err) {
+    return false;
+  }
+}
+
+function markSent() {
+  if (sentBefore()) return;
+  try {
+    localStorage.setItem(FIRST_KEY, '1');
+  } catch (err) {
+    // Rust's copy of the flag still lands with the request.
+  }
+  state.hasSentFirstRequest = true;
+  examplesEl.textContent = '';
+  renderExamplesShown();
+}
+
 function renderExamplesShown() {
-  const show = !input.value && examplesEl.childElementCount > 0;
+  const show = !sentBefore() && !input.value && examplesEl.childElementCount > 0;
   if (examplesEl.hidden === !show) return;
   examplesEl.hidden = !show;
   requestResize();
@@ -320,7 +350,7 @@ function renderExamplesShown() {
 window.aeval.on('bar:context', (c) => {
   bar.screen = String((c && c.screen) || '');
   bar.screenFolded = Intent.fold(bar.screen);
-  renderExamples(Intent.examples(c && c.process, c && c.title));
+  if (!sentBefore()) renderExamples(Intent.examples(c && c.process, c && c.title));
   if (input.value.trim()) classifyNow();
 });
 
@@ -348,6 +378,7 @@ function send(what) {
   const text = input.value;
   const body = text.trim();
   barHint = '';
+  if (body) markSent();
   const recallAs = bar.lock && PREFIX[bar.lock] ? `${bar.literal ? '//' : PREFIX[bar.lock]}${body}` : body;
   if (what === 'find') {
     window.aeval.invoke('find:step', { by: 1 });
@@ -382,7 +413,42 @@ function send(what) {
   });
 }
 
+// A run that is waiting on the person: a question (asking), its plan
+// (plan) or a pause. Rust says so in overlay:state.agent.
+function agentWaiting() {
+  const a = state.agent;
+  if (!a || !a.running) return '';
+  return a.state === 'asking' || a.state === 'plan' || a.state === 'paused' ? a.state : '';
+}
+
+const WAITING_PLACEHOLDER = {
+  asking: 'Answer the task’s question',
+  plan: 'Enter starts the task',
+  paused: 'Enter continues the task',
+};
+
+// Called by overlay.js whenever the state changes.
+function syncBarFromState() {
+  const w = agentWaiting();
+  input.placeholder = WAITING_PLACEHOLDER[w] || PLACEHOLDER;
+  input.setAttribute('aria-label', WAITING_PLACEHOLDER[w] || 'Ask, find, or tell me what to do');
+  document.body.dataset.waiting = w || '';
+  renderExamplesShown();
+}
+
 function onEnter(e) {
+  const waiting = agentWaiting();
+  const typed = input.value.trim();
+  if (waiting === 'asking' && typed) {
+    pushHistory(typed);
+    window.aeval.invoke('agent:continue', { text: typed });
+    clearField();
+    return;
+  }
+  if ((waiting === 'plan' || waiting === 'paused') && !typed) {
+    window.aeval.invoke('agent:continue', {});
+    return;
+  }
   const now = barIntent();
   if (now === 'find') {
     if (e.ctrlKey) {
