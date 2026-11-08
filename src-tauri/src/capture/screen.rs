@@ -248,7 +248,11 @@ pub fn matching(list: &[Display], r: &Rect) -> Display {
 /// Electron's `screen.getDisplayNearestPoint` (DIP).
 pub fn nearest_point(list: &[Display], x: f64, y: f64) -> Display {
     list.iter()
-        .min_by(|a, b| a.bounds.distance_to(x, y).total_cmp(&b.bounds.distance_to(x, y)))
+        .min_by(|a, b| {
+            a.bounds
+                .distance_to(x, y)
+                .total_cmp(&b.bounds.distance_to(x, y))
+        })
         .cloned()
         .unwrap_or_else(|| primary(list))
 }
@@ -260,11 +264,7 @@ pub fn matching_phys(list: &[Display], r: &PxRect) -> Display {
         .filter(|(_, a)| *a > 0)
         .max_by_key(|(_, a)| *a)
         .map(|(d, _)| d.clone())
-        .or_else(|| {
-            list.iter()
-                .find(|d| d.phys.contains(r.x, r.y))
-                .cloned()
-        })
+        .or_else(|| list.iter().find(|d| d.phys.contains(r.x, r.y)).cloned())
         .unwrap_or_else(|| primary(list))
 }
 
@@ -313,8 +313,20 @@ mod tests {
 
     fn desk() -> Vec<Display> {
         vec![
-            Display::from_phys(r"\\.\DISPLAY1", true, 144, pr(0, 0, 1920, 1080), pr(0, 0, 1920, 1040)),
-            Display::from_phys(r"\\.\DISPLAY2", false, 96, pr(1920, 0, 1920, 1080), pr(1920, 0, 1920, 1080)),
+            Display::from_phys(
+                r"\\.\DISPLAY1",
+                true,
+                144,
+                pr(0, 0, 1920, 1080),
+                pr(0, 0, 1920, 1040),
+            ),
+            Display::from_phys(
+                r"\\.\DISPLAY2",
+                false,
+                96,
+                pr(1920, 0, 1920, 1080),
+                pr(1920, 0, 1920, 1080),
+            ),
         ]
     }
 

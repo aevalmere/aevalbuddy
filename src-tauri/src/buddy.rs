@@ -73,7 +73,10 @@ pub fn walkthrough(k: &Chords<'_>) -> Vec<Step> {
             win: "overlay".into(),
             target_selector: "#pill, #query-input".into(),
             click_scope: "#pill, #panel".into(),
-            message: format!("Press {} and ask anything about your screen.", k.capture_query),
+            message: format!(
+                "Press {} and ask anything about your screen.",
+                k.capture_query
+            ),
             advance_on: "first-answer".into(),
             ..Default::default()
         },
@@ -206,7 +209,13 @@ pub fn is_agent() -> bool {
 }
 
 pub fn step_index() -> i64 {
-    with(|s| if s.active && s.mode == Mode::Steps { s.index } else { -1 })
+    with(|s| {
+        if s.active && s.mode == Mode::Steps {
+            s.index
+        } else {
+            -1
+        }
+    })
 }
 
 fn emit_to(label: &str, event: &str, payload: Value) {
@@ -275,32 +284,33 @@ fn create_window(display: &screen::Display) {
     let phys = display.phys;
     // Built off the event loop thread: WebView2 creation waits on it.
     let build = move || {
-        let built = WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("renderer/buddy.html".into()))
-            .title("AevalBuddy")
-            .decorations(false)
-            .transparent(true)
-            .shadow(false)
-            .resizable(false)
-            .focusable(false)
-            .focused(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .content_protected(true)
-            .visible(false)
-            .data_directory(crate::paths::webview_data_dir())
-            .initialization_script(crate::ipc::bridge_script())
-            .on_page_load(|_, p| {
-                if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
-                    let queued = with(|s| {
-                        s.ready = true;
-                        s.queued.take()
-                    });
-                    if let Some(q) = queued {
-                        send_show(q);
+        let built =
+            WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("renderer/buddy.html".into()))
+                .title("AevalBuddy")
+                .decorations(false)
+                .transparent(true)
+                .shadow(false)
+                .resizable(false)
+                .focusable(false)
+                .focused(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .content_protected(true)
+                .visible(false)
+                .data_directory(crate::paths::webview_data_dir())
+                .initialization_script(crate::ipc::bridge_script())
+                .on_page_load(|_, p| {
+                    if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+                        let queued = with(|s| {
+                            s.ready = true;
+                            s.queued.take()
+                        });
+                        if let Some(q) = queued {
+                            send_show(q);
+                        }
                     }
-                }
-            })
-            .build();
+                })
+                .build();
         if let Ok(w) = built {
             let raw = capture::hwnd_of(&w);
             win::tool_window(raw, true);
@@ -341,7 +351,9 @@ fn start_forwarding() {
                 last = None;
                 continue;
             }
-            let Some((x, y)) = screen::cursor_phys() else { continue };
+            let Some((x, y)) = screen::cursor_phys() else {
+                continue;
+            };
             if last == Some((x, y)) {
                 continue;
             }
@@ -450,7 +462,11 @@ pub fn set_message(text: &str) {
 /// A tour step with no pointer: a card near the overlay with its buttons.
 fn show_card() {
     let (step, index, count, b) = with(|s| {
-        let st = s.steps.get(s.index.max(0) as usize).cloned().unwrap_or_default();
+        let st = s
+            .steps
+            .get(s.index.max(0) as usize)
+            .cloned()
+            .unwrap_or_default();
         (st, s.index, s.steps.len(), s.bounds)
     });
     let list = screen::all_displays();
@@ -508,7 +524,9 @@ pub fn show_points(points: Vec<Point>, display: Option<&screen::Display>) {
         s.active = true;
         s.last_sent = None;
     });
-    let d = display.cloned().unwrap_or_else(|| screen::primary(&screen::all_displays()));
+    let d = display
+        .cloned()
+        .unwrap_or_else(|| screen::primary(&screen::all_displays()));
     create_window(&d);
     show_current_point();
 }
@@ -591,7 +609,11 @@ fn broadcast_watch() {
     for name in ["overlay", "settings"] {
         let selector = match &step {
             Some(st) if st.win == name => {
-                let sel = if st.click_scope.is_empty() { &st.target_selector } else { &st.click_scope };
+                let sel = if st.click_scope.is_empty() {
+                    &st.target_selector
+                } else {
+                    &st.click_scope
+                };
                 json!(sel)
             }
             _ => Value::Null,
@@ -609,12 +631,18 @@ fn resolve_target() {
     }) else {
         return;
     };
-    let exists = app().and_then(|a| a.get_webview_window(&step.win)).is_some();
+    let exists = app()
+        .and_then(|a| a.get_webview_window(&step.win))
+        .is_some();
     if !exists {
         hide_pointer();
         return;
     }
-    emit_to(&step.win, "buddy:resolve", json!({ "selector": step.target_selector }));
+    emit_to(
+        &step.win,
+        "buddy:resolve",
+        json!({ "selector": step.target_selector }),
+    );
 }
 
 /// The page's answer to `buddy:resolve` (screen DIP). Identical frames are
@@ -629,7 +657,11 @@ pub fn handle_resolve_result(result: &Value) {
     }
     let f = |k: &str| result[k].as_f64().unwrap_or(0.0);
     let (b, msg, index, count) = with(|s| {
-        let m = s.steps.get(s.index.max(0) as usize).map(|st| st.message.clone()).unwrap_or_default();
+        let m = s
+            .steps
+            .get(s.index.max(0) as usize)
+            .map(|st| st.message.clone())
+            .unwrap_or_default();
         (s.bounds, m, s.index, s.steps.len())
     });
     let x = (f("cx") - b.x).round();
@@ -703,7 +735,14 @@ pub fn notify(event: &str) {
         cancel();
         return;
     }
-    let (mode, step, index, len) = with(|s| (s.mode, s.steps.get(s.index.max(0) as usize).cloned(), s.index, s.steps.len() as i64));
+    let (mode, step, index, len) = with(|s| {
+        (
+            s.mode,
+            s.steps.get(s.index.max(0) as usize).cloned(),
+            s.index,
+            s.steps.len() as i64,
+        )
+    });
     if mode != Mode::Steps {
         return;
     }
@@ -783,6 +822,8 @@ mod tests {
         assert_eq!(w[2].advance_on, "find-hit");
         assert!(w[3].card);
         assert_eq!(w[3].buttons[0].id, "try");
-        assert!(w[3].message.starts_with("Press Ctrl+Alt+A and say what to do."));
+        assert!(w[3]
+            .message
+            .starts_with("Press Ctrl+Alt+A and say what to do."));
     }
 }

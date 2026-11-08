@@ -145,8 +145,15 @@ static DRAW: Mutex<()> = Mutex::new(());
 /// Brings every display's lens in line with the current hits and frame.
 pub fn draw(app: &AppHandle) {
     let _one = DRAW.lock().unwrap_or_else(|e| e.into_inner());
-    let (hits, current, frame, hidden, ready) =
-        with(|s| (s.hits.clone(), s.current, s.frame.clone(), s.hidden, s.ready.clone()));
+    let (hits, current, frame, hidden, ready) = with(|s| {
+        (
+            s.hits.clone(),
+            s.current,
+            s.frame.clone(),
+            s.hidden,
+            s.ready.clone(),
+        )
+    });
     let mut wanted: HashSet<u32> = hits.iter().map(|(_, d)| *d).collect();
     if let Some((id, _)) = &frame {
         wanted.insert(*id);
@@ -156,7 +163,11 @@ pub fn draw(app: &AppHandle) {
         let existing = app.get_webview_window(&label);
         if !wanted.contains(&d.id) || hidden {
             if let Some(w) = existing {
-                let _ = w.emit_to(label.as_str(), "lens:draw", json!({ "hits": [], "current": -1, "frame": null }));
+                let _ = w.emit_to(
+                    label.as_str(),
+                    "lens:draw",
+                    json!({ "hits": [], "current": -1, "frame": null }),
+                );
                 let _ = w.hide();
             }
             continue;
@@ -173,7 +184,11 @@ pub fn draw(app: &AppHandle) {
         };
         let is_ready = ready.contains(&label);
         if is_ready {
-            let _ = app.emit_to(label.as_str(), "lens:draw", draw_payload(&hits, current, frame.as_ref(), &d));
+            let _ = app.emit_to(
+                label.as_str(),
+                "lens:draw",
+                draw_payload(&hits, current, frame.as_ref(), &d),
+            );
         }
         let raw = capture::hwnd_of(&win);
         if !win.is_visible().unwrap_or(false) {
@@ -192,7 +207,14 @@ pub fn draw(app: &AppHandle) {
 /// from capture, so the cut never contains the lens's own marks.
 fn loupe(app: &AppHandle, label: &str, cur: &Hit) {
     let Some(r) = cur.rect else { return };
-    let key = format!("{}:{},{},{},{}", cur.i, r.x.round(), r.y.round(), r.width.round(), r.height.round());
+    let key = format!(
+        "{}:{},{},{},{}",
+        cur.i,
+        r.x.round(),
+        r.y.round(),
+        r.width.round(),
+        r.height.round()
+    );
     let fresh = with(|s| {
         if s.loupe_for == key {
             false
@@ -214,7 +236,9 @@ fn loupe(app: &AppHandle, label: &str, cur: &Hit) {
     let label = label.to_string();
     let i = cur.i;
     std::thread::spawn(move || {
-        let Some(url) = crate::backdrop::crop_url(rect) else { return };
+        let Some(url) = crate::backdrop::crop_url(rect) else {
+            return;
+        };
         if with(|s| s.loupe_for != key) {
             return;
         }
@@ -278,7 +302,10 @@ pub fn destroy(app: &AppHandle) {
 
 /// Per-display DIP to display id map, for callers that place hits.
 pub fn display_ids() -> HashMap<u32, Rect> {
-    screen::all_displays().into_iter().map(|d| (d.id, d.bounds)).collect()
+    screen::all_displays()
+        .into_iter()
+        .map(|d| (d.id, d.bounds))
+        .collect()
 }
 
 #[cfg(test)]
@@ -290,8 +317,18 @@ mod tests {
             r"\\.\DISPLAY2",
             false,
             96,
-            screen::PxRect { x: 1920, y: 0, width: 1920, height: 1080 },
-            screen::PxRect { x: 1920, y: 0, width: 1920, height: 1080 },
+            screen::PxRect {
+                x: 1920,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
+            screen::PxRect {
+                x: 1920,
+                y: 0,
+                width: 1920,
+                height: 1080,
+            },
         )
     }
 
@@ -299,8 +336,26 @@ mod tests {
     fn payload_is_display_relative_with_a_4px_floor() {
         let disp = d();
         let hits = vec![
-            (Hit { i: 0, kind: "literal".into(), rect: Some(Rect::new(2000.4, 10.0, 2.0, 30.0)), why: json!("w"), offscreen: false }, disp.id),
-            (Hit { i: 1, kind: "related".into(), rect: Some(Rect::new(10.0, 10.0, 20.0, 20.0)), why: Value::Null, offscreen: false }, 7),
+            (
+                Hit {
+                    i: 0,
+                    kind: "literal".into(),
+                    rect: Some(Rect::new(2000.4, 10.0, 2.0, 30.0)),
+                    why: json!("w"),
+                    offscreen: false,
+                },
+                disp.id,
+            ),
+            (
+                Hit {
+                    i: 1,
+                    kind: "related".into(),
+                    rect: Some(Rect::new(10.0, 10.0, 20.0, 20.0)),
+                    why: Value::Null,
+                    offscreen: false,
+                },
+                7,
+            ),
         ];
         let p = draw_payload(&hits, 0, Some(&(disp.id, "chip".into())), &disp);
         assert_eq!(p["hits"].as_array().unwrap().len(), 1);

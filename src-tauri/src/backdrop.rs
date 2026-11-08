@@ -305,7 +305,11 @@ fn run_loop() {
                     Some(t) if Instant::now() >= t => break,
                     Some(t) => {
                         let wait = t.saturating_duration_since(Instant::now());
-                        g = me().wake.wait_timeout(g, wait).map(|r| r.0).unwrap_or_else(|e| e.into_inner().0);
+                        g = me()
+                            .wake
+                            .wait_timeout(g, wait)
+                            .map(|r| r.0)
+                            .unwrap_or_else(|e| e.into_inner().0);
                     }
                     None => {
                         g = me().wake.wait(g).unwrap_or_else(|e| e.into_inner());
@@ -383,7 +387,11 @@ pub fn grab_all() -> Result<(Frames, f64, f64), String> {
         enc += t1.elapsed().as_secs_f64() * 1000.0;
     }
     if out.is_empty() {
-        return Err(if last_err.is_empty() { "no screen sources".into() } else { last_err });
+        return Err(if last_err.is_empty() {
+            "no screen sources".into()
+        } else {
+            last_err
+        });
     }
     Ok((out, wall, enc))
 }
@@ -392,7 +400,14 @@ fn send_frame(app: &AppHandle, label: &str, img: &str, full: Option<&str>, displ
     let (tier, reasons, fixture) = {
         let g = lock();
         let (t, r) = tier_of(&g);
-        (t, r, g.fixture.as_ref().map(|f| f.name.clone()).unwrap_or_default())
+        (
+            t,
+            r,
+            g.fixture
+                .as_ref()
+                .map(|f| f.name.clone())
+                .unwrap_or_default(),
+        )
     };
     let _ = app.emit_to(
         label,
@@ -527,7 +542,11 @@ pub fn broadcast_tier() {
     };
     if let Some(app) = app {
         for l in labels {
-            let _ = app.emit_to(l.as_str(), "glass:tier", json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }));
+            let _ = app.emit_to(
+                l.as_str(),
+                "glass:tier",
+                json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }),
+            );
         }
     }
     schedule(Some(0));
@@ -536,14 +555,19 @@ pub fn broadcast_tier() {
 /// Stored `glassIntensity` (0..1, default 0.5), as bits. The page renders
 /// glass from it (`--glass-k`, ARCHITECTURE.md 10); settings owns the value
 /// and calls `set_intensity`, which rebroadcasts the tier.
-static INTENSITY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0x3FE0_0000_0000_0000);
+static INTENSITY: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0x3FE0_0000_0000_0000);
 
 pub fn intensity() -> f64 {
     f64::from_bits(INTENSITY.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 pub fn set_intensity(k: f64) {
-    let k = if k.is_finite() { (k.clamp(0.0, 1.0) * 100.0).round() / 100.0 } else { 0.5 };
+    let k = if k.is_finite() {
+        (k.clamp(0.0, 1.0) * 100.0).round() / 100.0
+    } else {
+        0.5
+    };
     INTENSITY.store(k.to_bits(), std::sync::atomic::Ordering::Relaxed);
     broadcast_tier();
 }
@@ -558,7 +582,11 @@ pub fn hello(label: &str) {
         (g.app.clone(), t, r)
     };
     if let Some(app) = app {
-        let _ = app.emit_to(label, "glass:tier", json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }));
+        let _ = app.emit_to(
+            label,
+            "glass:tier",
+            json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }),
+        );
     }
     schedule(Some(0));
 }
@@ -599,7 +627,10 @@ pub fn use_fixture(name: Option<&str>) -> Result<(), String> {
     let list = screen::all_displays();
     let display = screen::primary(&list);
     let shot = render_fixture(&app, name, &display)?;
-    let (w, h) = (display.bounds.width.round() as u32, display.bounds.height.round() as u32);
+    let (w, h) = (
+        display.bounds.width.round() as u32,
+        display.bounds.height.round() as u32,
+    );
     let full = shot.resize(w, h);
     let small = shot.resize(
         (display.bounds.width / SCALE).round() as u32,
@@ -621,7 +652,11 @@ pub fn use_fixture(name: Option<&str>) -> Result<(), String> {
 /// Shows the fixture page full-screen on `display` (an ordinary, capturable
 /// window: everything of ours stays excluded), captures it with the
 /// production pipeline, and closes it.
-pub fn render_fixture(app: &AppHandle, kind: &str, display: &screen::Display) -> Result<Rgb, String> {
+pub fn render_fixture(
+    app: &AppHandle,
+    kind: &str,
+    display: &screen::Display,
+) -> Result<Rgb, String> {
     let label = "backdrop-fixture";
     if let Some(old) = app.get_webview_window(label) {
         let _ = old.destroy();
@@ -708,7 +743,9 @@ fn pct(v: &[f64], p: f64) -> f64 {
     }
     let mut s = v.to_vec();
     s.sort_by(|a, b| a.total_cmp(b));
-    s[((p / 100.0) * s.len() as f64).floor().min((s.len() - 1) as f64) as usize]
+    s[((p / 100.0) * s.len() as f64)
+        .floor()
+        .min((s.len() - 1) as f64) as usize]
 }
 
 /// The snapCost gate: n captures back to back. Wall time, the encode, and
@@ -801,7 +838,15 @@ mod tests {
             fails: 3,
             fixture: false,
         });
-        assert_eq!(all, vec!["setting", "capture-visible", "high-contrast", "capture-failed"]);
+        assert_eq!(
+            all,
+            vec![
+                "setting",
+                "capture-visible",
+                "high-contrast",
+                "capture-failed"
+            ]
+        );
         let none = reasons_for(TierInputs {
             can_hide: true,
             ..Default::default()

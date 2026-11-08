@@ -78,7 +78,8 @@ fn worker() -> &'static Mutex<mpsc::Sender<Job>> {
                 while let Ok(job) = rx.recv() {
                     // A panic inside one capture must not take the thread
                     // (and every later capture) with it.
-                    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut cache)));
+                    let _ =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut cache)));
                 }
             })
             .expect("spawn capture thread");

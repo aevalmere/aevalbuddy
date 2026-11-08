@@ -15,12 +15,18 @@ fn off_thread(f: impl FnOnce() + Send + 'static) {
     std::thread::spawn(f);
 }
 
-pub fn route(window: &WebviewWindow, channel: &str, payload: &Value) -> Option<Result<Value, String>> {
+pub fn route(
+    window: &WebviewWindow,
+    channel: &str,
+    payload: &Value,
+) -> Option<Result<Value, String>> {
     let ok = Some(Ok(Value::Null));
     match channel {
         "glass:hello" => {
             backdrop::hello(window.label());
-            Some(Ok(serde_json::json!({ "intensity": backdrop::intensity() })))
+            Some(Ok(
+                serde_json::json!({ "intensity": backdrop::intensity() }),
+            ))
         }
         "region:pick" => {
             let app = window.app_handle().clone();

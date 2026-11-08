@@ -76,7 +76,11 @@ pub fn type_timeout(chars: usize) -> u64 {
 
 /// One request line.
 pub fn request_line(id: u64, op: &str, args: &Value, timeout_ms: u64) -> String {
-    let args = if args.is_null() { json!({}) } else { args.clone() };
+    let args = if args.is_null() {
+        json!({})
+    } else {
+        args.clone()
+    };
     // Field order as main.js's JSON.stringify (serde_json sorts map keys).
     format!(
         "{{\"id\":{id},\"op\":{},\"args\":{args},\"timeoutMs\":{timeout_ms}}}\n",
@@ -164,7 +168,8 @@ pub struct Bootstrap<'a> {
 /// so the `desktop-<hash>.dll` cache key and host.ps1's variables match.
 pub fn bootstrap_line(b: &Bootstrap<'_>) -> String {
     let enc = |s: &str| base64::engine::general_purpose::STANDARD.encode(s.as_bytes());
-    let decode = |v: String| format!("[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{v}'))");
+    let decode =
+        |v: String| format!("[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{v}'))");
     let prebuilt = if b.compile_only {
         String::new()
     } else {
@@ -185,7 +190,10 @@ pub fn bootstrap_line(b: &Bootstrap<'_>) -> String {
 
 /// A 64-hex SHA-256 or nothing.
 pub fn valid_sha(s: &str) -> &str {
-    if s.len() == 64 && s.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c)) {
+    if s.len() == 64
+        && s.bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
         s
     } else {
         ""
@@ -241,8 +249,18 @@ pub fn rect_arg(r: &Value) -> Value {
         Value::Null => Value::Null,
         Value::Array(_) => r.clone(),
         Value::Object(o) => {
-            let pick = |a: &str, b: &str| o.get(a).or_else(|| o.get(b)).cloned().unwrap_or(Value::Null);
-            json!([o.get("x").cloned().unwrap_or(Value::Null), o.get("y").cloned().unwrap_or(Value::Null), pick("width", "w"), pick("height", "h")])
+            let pick = |a: &str, b: &str| {
+                o.get(a)
+                    .or_else(|| o.get(b))
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            };
+            json!([
+                o.get("x").cloned().unwrap_or(Value::Null),
+                o.get("y").cloned().unwrap_or(Value::Null),
+                pick("width", "w"),
+                pick("height", "h")
+            ])
         }
         _ => Value::Null,
     }
@@ -310,13 +328,20 @@ fn str_field<'a>(n: &'a Value, k: &str) -> &'a str {
 
 /// One node in the browser toolset's read_page line format.
 pub fn node_line(n: &Value, indent: usize) -> String {
-    let mut line = format!("{}{}", "  ".repeat(indent), value_text(n.get("role").unwrap_or(&Value::Null)));
+    let mut line = format!(
+        "{}{}",
+        "  ".repeat(indent),
+        value_text(n.get("role").unwrap_or(&Value::Null))
+    );
     let name = str_field(n, "name");
     if !name.is_empty() {
         line.push(' ');
         line.push_str(&quote(name));
     }
-    line.push_str(&format!(" [{}]", value_text(n.get("ref").unwrap_or(&Value::Null))));
+    line.push_str(&format!(
+        " [{}]",
+        value_text(n.get("ref").unwrap_or(&Value::Null))
+    ));
     match n.get("value") {
         None | Some(Value::Null) => {}
         Some(Value::String(s)) if s.is_empty() => {}
@@ -386,7 +411,10 @@ pub fn target(t: &Value) -> DResult<Value> {
     let y = t.get("y").and_then(Value::as_f64).filter(|v| v.is_finite());
     match (x, y) {
         (Some(x), Some(y)) => Ok(json!({ "x": x.round() as i64, "y": y.round() as i64 })),
-        _ => Err(DesktopError::new("BAD_ARGS", "target must be {ref} or {x, y}")),
+        _ => Err(DesktopError::new(
+            "BAD_ARGS",
+            "target must be {ref} or {x, y}",
+        )),
     }
 }
 
@@ -410,7 +438,10 @@ mod tests {
     #[test]
     fn request_line_shape() {
         let l = request_line(7, "ping", &Value::Null, 4000);
-        assert_eq!(l, "{\"id\":7,\"op\":\"ping\",\"args\":{},\"timeoutMs\":4000}\n");
+        assert_eq!(
+            l,
+            "{\"id\":7,\"op\":\"ping\",\"args\":{},\"timeoutMs\":4000}\n"
+        );
     }
 
     #[test]
@@ -425,9 +456,15 @@ mod tests {
         );
         assert_eq!(
             parse_line(r#"{"id":5,"ok":false}"#),
-            Incoming::Reply(5, Err(DesktopError::new("INTERNAL", "desktop helper error")))
+            Incoming::Reply(
+                5,
+                Err(DesktopError::new("INTERNAL", "desktop helper error"))
+            )
         );
-        assert!(matches!(parse_line(r#"{"event":"ready","dpi":"pmv2"}"#), Incoming::Ready(_)));
+        assert!(matches!(
+            parse_line(r#"{"event":"ready","dpi":"pmv2"}"#),
+            Incoming::Ready(_)
+        ));
         assert_eq!(
             parse_line(r#"{"event":"fatal","error":"boom"}"#),
             Incoming::Fatal("boom".into())
@@ -436,7 +473,10 @@ mod tests {
             parse_line(r#"{"event":"user-input","kind":"key"}"#),
             Incoming::UserInput(_)
         ));
-        assert_eq!(parse_line("WARNING: x"), Incoming::Noise("WARNING: x".into()));
+        assert_eq!(
+            parse_line("WARNING: x"),
+            Incoming::Noise("WARNING: x".into())
+        );
         assert_eq!(parse_line("{not json"), Incoming::Ignored);
         assert_eq!(parse_line(""), Incoming::Ignored);
     }
@@ -446,7 +486,16 @@ mod tests {
         assert_eq!(type_timeout(0), 4000);
         assert_eq!(type_timeout(1000), 4000);
         assert_eq!(type_timeout(5000), 12000);
-        assert_eq!((OP_TIMEOUT, UIA_COLD_TIMEOUT, OCR_TIMEOUT, START_TIMEOUT, CAPTURE_TIMEOUT), (4000, 12000, 15000, 25000, 8000));
+        assert_eq!(
+            (
+                OP_TIMEOUT,
+                UIA_COLD_TIMEOUT,
+                OCR_TIMEOUT,
+                START_TIMEOUT,
+                CAPTURE_TIMEOUT
+            ),
+            (4000, 12000, 15000, 25000, 8000)
+        );
         assert_eq!(CODES.len(), 16);
     }
 
@@ -467,7 +516,9 @@ mod tests {
         assert!(l.starts_with("$AevalCs=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('Y2xhc3MgWCB7fQ=='));"));
         assert!(l.contains(r"$AevalCache='C:\it''s';"));
         assert!(l.contains(r"$AevalPrebuilt='C:\a;C:\b';"));
-        assert!(l.contains("$AevalDllSha='ab';$AevalCompileOnly=$false;$AevalVersion='1.1.1';iex ("));
+        assert!(
+            l.contains("$AevalDllSha='ab';$AevalCompileOnly=$false;$AevalVersion='1.1.1';iex (")
+        );
         let c = bootstrap_line(&Bootstrap {
             host_cs: "",
             host_ps1: "",
@@ -500,10 +551,22 @@ mod tests {
 
     #[test]
     fn rect_shapes() {
-        assert_eq!(rect_obj(&json!([1, 2, 3, 4])), json!({"x":1,"y":2,"width":3,"height":4}));
-        assert_eq!(rect_arg(&json!({"x":1,"y":2,"w":3,"h":4})), json!([1, 2, 3, 4]));
-        assert_eq!(rect_arg(&json!({"x":1,"y":2,"width":3,"height":4})), json!([1, 2, 3, 4]));
-        assert_eq!(point_out(json!({"point":[5,6]})), json!({"point":{"x":5,"y":6}}));
+        assert_eq!(
+            rect_obj(&json!([1, 2, 3, 4])),
+            json!({"x":1,"y":2,"width":3,"height":4})
+        );
+        assert_eq!(
+            rect_arg(&json!({"x":1,"y":2,"w":3,"h":4})),
+            json!([1, 2, 3, 4])
+        );
+        assert_eq!(
+            rect_arg(&json!({"x":1,"y":2,"width":3,"height":4})),
+            json!([1, 2, 3, 4])
+        );
+        assert_eq!(
+            point_out(json!({"point":[5,6]})),
+            json!({"point":{"x":5,"y":6}})
+        );
     }
 
     #[test]
@@ -511,7 +574,10 @@ mod tests {
         let n = json!({"role":"button","name":"Send","ref":"ref_12","states":["focused","readonly"],"depth":1});
         assert_eq!(node_line(&n, 1), "  button \"Send\" [ref_12] (focused)");
         let e = json!({"role":"edit","name":"Say \"hi\"\n  now","ref":"ref_13","value":"cats"});
-        assert_eq!(node_line(&e, 0), "edit \"Say \\\"hi\\\" now\" [ref_13] value=\"cats\"");
+        assert_eq!(
+            node_line(&e, 0),
+            "edit \"Say \\\"hi\\\" now\" [ref_13] value=\"cats\""
+        );
         let p = json!({"role":"edit","name":"","ref":"ref_1","value":""});
         assert_eq!(node_line(&p, 0), "edit [ref_1]");
     }
@@ -538,8 +604,14 @@ mod tests {
 
     #[test]
     fn targets() {
-        assert_eq!(target(&json!({"ref":"ref_1","x":1})).unwrap(), json!({"ref":"ref_1"}));
-        assert_eq!(target(&json!({"x":1.6,"y":2.4})).unwrap(), json!({"x":2,"y":2}));
+        assert_eq!(
+            target(&json!({"ref":"ref_1","x":1})).unwrap(),
+            json!({"ref":"ref_1"})
+        );
+        assert_eq!(
+            target(&json!({"x":1.6,"y":2.4})).unwrap(),
+            json!({"x":2,"y":2})
+        );
         assert_eq!(target(&json!({"x":1})).unwrap_err().code, "BAD_ARGS");
     }
 }

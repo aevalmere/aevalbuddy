@@ -81,7 +81,10 @@ pub fn raise(raw: isize) {
 /// converted with whichever monitor's scale the window started on).
 pub fn place<R: tauri::Runtime>(win: &tauri::WebviewWindow<R>, r: PxRect) {
     let _ = win.set_position(tauri::PhysicalPosition::new(r.x, r.y));
-    let _ = win.set_size(tauri::PhysicalSize::new(r.width.max(1) as u32, r.height.max(1) as u32));
+    let _ = win.set_size(tauri::PhysicalSize::new(
+        r.width.max(1) as u32,
+        r.height.max(1) as u32,
+    ));
 }
 
 /// Every process descended from ours: the WebView2 browser, renderer and

@@ -129,9 +129,18 @@ fn list(v: &Value) -> Vec<Value> {
 pub fn pick_editor(nodes: &[Value]) -> Option<Value> {
     let area = |n: &Value| rect(&n["rect"]).map(|r| r.2 * r.3).unwrap_or(0.0);
     let score = |n: &Value| {
-        let pats: Vec<&str> = n["patterns"].as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+        let pats: Vec<&str> = n["patterns"]
+            .as_array()
+            .map(|a| a.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
         let textish = pats.contains(&"text") || pats.contains(&"value");
-        area(n) * if textish { 2.0 } else { 1.0 } * if s(&n["role"]) == "document" { 1.5 } else { 1.0 }
+        area(n)
+            * if textish { 2.0 } else { 1.0 }
+            * if s(&n["role"]) == "document" {
+                1.5
+            } else {
+                1.0
+            }
     };
     let mut c: Vec<&Value> = nodes
         .iter()
@@ -182,7 +191,10 @@ pub async fn run(desktop: &Arc<Desktop>, rep: &Report, o: &Options) {
     if !started {
         return;
     }
-    rep.log("desktopDpi", desktop.status()["dpi"].to_string().trim_matches('"'));
+    rep.log(
+        "desktopDpi",
+        desktop.status()["dpi"].to_string().trim_matches('"'),
+    );
 
     let windows = list(&desktop.list_windows(false).await.unwrap_or(Value::Null));
     rep.must(
@@ -208,7 +220,10 @@ pub async fn run(desktop: &Arc<Desktop>, rep: &Report, o: &Options) {
     }
 
     if !o.notepad {
-        rep.log("desktopNotepad", "skipped (set AEVAL_DESKTOP_NOTEPAD=1, or run on CI)");
+        rep.log(
+            "desktopNotepad",
+            "skipped (set AEVAL_DESKTOP_NOTEPAD=1, or run on CI)",
+        );
         return;
     }
     notepad(desktop, rep).await;
@@ -222,12 +237,21 @@ async fn notepad(desktop: &Arc<Desktop>, rep: &Report) {
     let tag = format!("aeval-desktop-check-{}-{stamp:x}", std::process::id());
     let file = std::env::temp_dir().join(format!("{tag}.txt"));
     if std::fs::write(&file, format!("{FIXTURE}\r\n")).is_err() {
-        rep.must("desktopNotepadIncluded", false, "could not write the temp file");
+        rep.must(
+            "desktopNotepadIncluded",
+            false,
+            "could not write the temp file",
+        );
         return;
     }
     let before_list = list(&desktop.list_windows(true).await.unwrap_or(Value::Null));
-    let before: HashSet<String> = before_list.iter().map(|w| s(&w["handle"]).to_string()).collect();
-    let had_notepad = before_list.iter().any(|w| s(&w["process"]).eq_ignore_ascii_case("notepad"));
+    let before: HashSet<String> = before_list
+        .iter()
+        .map(|w| s(&w["handle"]).to_string())
+        .collect();
+    let had_notepad = before_list
+        .iter()
+        .any(|w| s(&w["process"]).eq_ignore_ascii_case("notepad"));
 
     let _ = std::process::Command::new("notepad.exe").arg(&file).spawn();
     let win = wait_for(15000, 250, || {
@@ -249,7 +273,11 @@ async fn notepad(desktop: &Arc<Desktop>, rep: &Report) {
     if let Some(win) = &win {
         steps(desktop, rep, win).await;
         let closed = close_without_saving(desktop, win, &tag, had_notepad, rep).await;
-        rep.must("notepadClosed", closed, "the check tab or window is still open");
+        rep.must(
+            "notepadClosed",
+            closed,
+            "the check tab or window is still open",
+        );
     }
     if std::fs::remove_file(&file).is_err() {
         rep.log("tempFileLeft", file.display());
@@ -260,7 +288,12 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
     let h = win["handle"].clone();
     rep.log(
         "notepadWindow",
-        format!("{}:{}:{}", s(&win["handle"]), s(&win["process"]), s(&win["className"])),
+        format!(
+            "{}:{}:{}",
+            s(&win["handle"]),
+            s(&win["process"]),
+            s(&win["className"])
+        ),
     );
     // Each step stands alone, so one that cannot run does not hide the rest.
     macro_rules! step {
@@ -289,14 +322,20 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
         let nodes = list(&tree["nodes"]);
         let refs_ok = nodes.iter().all(|n| {
             let r = s(&n["ref"]);
-            r.strip_prefix("ref_").map(|d| !d.is_empty() && d.bytes().all(|c| c.is_ascii_digit())).unwrap_or(false)
+            r.strip_prefix("ref_")
+                .map(|d| !d.is_empty() && d.bytes().all(|c| c.is_ascii_digit()))
+                .unwrap_or(false)
         });
         editor = pick_editor(&nodes);
         let chars = s(&tree["text"]).encode_utf16().count();
         rep.must(
             "uiaTree",
             nodes.len() >= 5 && refs_ok && editor.is_some() && chars < 50000,
-            &format!("nodes={} refs={refs_ok} editor={} chars={chars}", nodes.len(), editor.is_some()),
+            &format!(
+                "nodes={} refs={refs_ok} editor={} chars={chars}",
+                nodes.len(),
+                editor.is_some()
+            ),
         );
         rep.log("uiaTreeNodes", nodes.len());
         rep.log("uiaTreeMs", tree_ms);
@@ -327,16 +366,33 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
             .map(|n| {
                 let j = |k: &str| {
                     n[k].as_array()
-                        .map(|a| a.iter().filter_map(Value::as_str).collect::<Vec<_>>().join("+"))
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join("+")
+                        })
                         .unwrap_or_default()
                 };
-                let size = rect(&n["rect"]).map(|r| format!("{}x{}", r.2, r.3)).unwrap_or("-".into());
-                format!("{}:{}:{}:{}:{}:{size}", s(&n["ref"]), s(&n["role"]), s(&n["name"]), j("patterns"), j("states"))
+                let size = rect(&n["rect"])
+                    .map(|r| format!("{}x{}", r.2, r.3))
+                    .unwrap_or("-".into());
+                format!(
+                    "{}:{}:{}:{}:{}:{size}",
+                    s(&n["ref"]),
+                    s(&n["role"]),
+                    s(&n["name"]),
+                    j("patterns"),
+                    j("states")
+                )
             })
             .collect();
         rep.log("editorCandidates", cands.join(" | "));
         if let Some(e) = &editor {
-            rep.log("editor", format!("{}:{}:{}", s(&e["ref"]), s(&e["role"]), s(&e["name"])));
+            rep.log(
+                "editor",
+                format!("{}:{}:{}", s(&e["ref"]), s(&e["role"]), s(&e["name"])),
+            );
         }
         Ok::<_, DesktopError>(())
     });
@@ -356,7 +412,10 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
         let o = desktop.ocr(&Value::Null, Some(&h), "auto").await?;
         rep.log("ocrMs", t.elapsed().as_millis());
         let spans = list(&o["spans"]);
-        let words: Vec<String> = spans.iter().map(|sp| s(&sp["text"]).to_lowercase()).collect();
+        let words: Vec<String> = spans
+            .iter()
+            .map(|sp| s(&sp["text"]).to_lowercase())
+            .collect();
         let hits: Vec<&str> = ["invoice", "total", "due"]
             .into_iter()
             .filter(|w| words.iter().any(|x| x == w))
@@ -376,29 +435,42 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
         Ok::<_, DesktopError>(())
     });
     if zoomed {
-        step!("notepadZoomReset", async { desktop.key("ctrl+0", 1, Some(&h)).await.map(|_| ()) });
+        step!("notepadZoomReset", async {
+            desktop.key("ctrl+0", 1, Some(&h)).await.map(|_| ())
+        });
     }
 
     // -------------------------------------------------------------- B4
     step!("uiaTypeRead", async {
         desktop.key("ctrl+end", 1, Some(&h)).await?;
-        let typed = desktop.type_text(&format!(" {TYPED}"), Some(&eref), None).await?;
+        let typed = desktop
+            .type_text(&format!(" {TYPED}"), Some(&eref), None)
+            .await?;
         rep.log("typeFocus", typed["focus"].to_string().trim_matches('"'));
         // A WinUI editor can take a moment to expose new text to UIA.
         let mut g = Value::Null;
         for _ in 0..8 {
             sleep(250).await;
-            g = desktop.get_text(Some(&h), &Value::Null, 50000, false).await?;
+            g = desktop
+                .get_text(Some(&h), &Value::Null, 50000, false)
+                .await?;
             if s(&g["text"]).contains(TYPED) {
                 break;
             }
         }
         let head: String = s(&g["text"]).chars().take(300).collect();
-        rep.log("typeReadText", serde_json::to_string(&head).unwrap_or_default());
+        rep.log(
+            "typeReadText",
+            serde_json::to_string(&head).unwrap_or_default(),
+        );
         rep.must(
             "uiaTypeRead",
             s(&g["text"]).contains(TYPED) && s(&g["source"]) == "uia",
-            &format!("source={} spans={}", s(&g["source"]), list(&g["spans"]).len()),
+            &format!(
+                "source={} spans={}",
+                s(&g["source"]),
+                list(&g["spans"]).len()
+            ),
         );
         Ok::<_, DesktopError>(())
     });
@@ -409,8 +481,14 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
         rep.log("uiaSetValueMs", t.elapsed().as_millis());
         rep.log("uiaSetValueVia", s(&sv["via"]));
         sleep(200).await;
-        let g = desktop.get_text(Some(&h), &Value::Null, 50000, false).await?;
-        rep.must("uiaSetValue", s(&g["text"]).contains(SET), &format!("via={}", s(&sv["via"])));
+        let g = desktop
+            .get_text(Some(&h), &Value::Null, 50000, false)
+            .await?;
+        rep.must(
+            "uiaSetValue",
+            s(&g["text"]).contains(SET),
+            &format!("via={}", s(&sv["via"])),
+        );
         rep.log("getTextSpans", list(&g["spans"]).len());
         Ok::<_, DesktopError>(())
     });
@@ -422,7 +500,8 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
         let roles: Vec<&str> = nodes.iter().map(|n| s(&n["role"])).collect();
         rep.must(
             "findEditor",
-            top.map(|t| matches!(s(&t["role"]), "document" | "edit")).unwrap_or(false),
+            top.map(|t| matches!(s(&t["role"]), "document" | "edit"))
+                .unwrap_or(false),
             &serde_json::to_string(&roles).unwrap_or_default(),
         );
         rep.log(
@@ -436,25 +515,44 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
     step!("elementAt", async {
         let r = rect(&editor["rect"]).unwrap_or_default();
         let at = desktop
-            .element_at((r.0 + (r.2 / 2.0).round()) as i64, (r.1 + (r.3 / 2.0).round()) as i64)
+            .element_at(
+                (r.0 + (r.2 / 2.0).round()) as i64,
+                (r.1 + (r.3 / 2.0).round()) as i64,
+            )
             .await?;
-        rep.log("elementAt", format!("{}:{}", s(&at["node"]["role"]), s(&at["node"]["ref"])));
+        rep.log(
+            "elementAt",
+            format!("{}:{}", s(&at["node"]["role"]), s(&at["node"]["ref"])),
+        );
         Ok::<_, DesktopError>(())
     });
-    step!("restoreCursor", async { desktop.restore_cursor().await.map(|_| ()) });
+    step!("restoreCursor", async {
+        desktop.restore_cursor().await.map(|_| ())
+    });
 }
 
 /// Closing uses patterns only (Invoke on buttons, WM_CLOSE on the window),
 /// so it works even when the check never got the keyboard focus. The tabbed
 /// Windows 11 Notepad closes the check's tab through its own Close Tab
 /// button, and the window only when Notepad was not running before.
-pub async fn close_without_saving(desktop: &Arc<Desktop>, win: &Value, tag: &str, had_notepad: bool, rep: &Report) -> bool {
+pub async fn close_without_saving(
+    desktop: &Arc<Desktop>,
+    win: &Value,
+    tag: &str,
+    had_notepad: bool,
+    rep: &Report,
+) -> bool {
     let h = win["handle"].clone();
     let mut tabbed = false;
     let first = async {
-        let tree = desktop.read_tree(&json!({ "windowHandle": h, "filter": "all" })).await?;
+        let tree = desktop
+            .read_tree(&json!({ "windowHandle": h, "filter": "all" }))
+            .await?;
         let nodes = list(&tree["nodes"]);
-        let tabs: Vec<&Value> = nodes.iter().filter(|n| s(&n["role"]) == "tabitem").collect();
+        let tabs: Vec<&Value> = nodes
+            .iter()
+            .filter(|n| s(&n["role"]) == "tabitem")
+            .collect();
         tabbed = !tabs.is_empty();
         if tabbed {
             let mine = tabs.iter().find(|n| s(&n["name"]).contains(tag));
@@ -469,7 +567,12 @@ pub async fn close_without_saving(desktop: &Arc<Desktop>, win: &Value, tag: &str
                 Some(c) => {
                     desktop.invoke(s(&c["ref"]), "invoke").await?;
                 }
-                None => return Err(DesktopError::new("NOT_FOUND", "no Close Tab button on the check tab")),
+                None => {
+                    return Err(DesktopError::new(
+                        "NOT_FOUND",
+                        "no Close Tab button on the check tab",
+                    ))
+                }
             }
         } else {
             desktop.close_window(&h).await?;
@@ -534,8 +637,14 @@ mod tests {
     #[test]
     fn inside_with_slack() {
         let outer = json!({"x":0,"y":0,"width":100,"height":100});
-        assert!(inside(&json!({"x":-2,"y":0,"width":102,"height":10}), &outer));
-        assert!(!inside(&json!({"x":-3,"y":0,"width":10,"height":10}), &outer));
+        assert!(inside(
+            &json!({"x":-2,"y":0,"width":102,"height":10}),
+            &outer
+        ));
+        assert!(!inside(
+            &json!({"x":-3,"y":0,"width":10,"height":10}),
+            &outer
+        ));
     }
 
     #[test]

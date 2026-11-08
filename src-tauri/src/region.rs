@@ -60,7 +60,12 @@ pub fn cancel(app: &AppHandle) {
 /// The page reports window coordinates; the display origin (DIP) is added
 /// here. Under 12 px on either axis is a cancel.
 pub fn finish_rect(origin: (f64, f64), r: &Value) -> Option<Rect> {
-    let n = |k: &str| r.get(k).and_then(Value::as_f64).filter(|v| v.is_finite()).unwrap_or(0.0);
+    let n = |k: &str| {
+        r.get(k)
+            .and_then(Value::as_f64)
+            .filter(|v| v.is_finite())
+            .unwrap_or(0.0)
+    };
     let width = n("width").round();
     let height = n("height").round();
     if width < MIN_EDGE || height < MIN_EDGE {
@@ -136,7 +141,9 @@ fn open_window(app: &AppHandle, phys: screen::PxRect) -> tauri::Result<()> {
     let had_focus = std::sync::atomic::AtomicBool::new(false);
     win.on_window_event(move |e| match e {
         WindowEvent::Focused(true) => had_focus.store(true, std::sync::atomic::Ordering::Relaxed),
-        WindowEvent::Focused(false) if had_focus.load(std::sync::atomic::Ordering::Relaxed) => cancel(&a),
+        WindowEvent::Focused(false) if had_focus.load(std::sync::atomic::Ordering::Relaxed) => {
+            cancel(&a)
+        }
         WindowEvent::Destroyed => settle(None),
         _ => {}
     });
@@ -171,12 +178,19 @@ pub fn active_region() -> Option<Rect> {
 
 /// The shot taken when the area was chosen, once.
 pub fn take_pending_shot() -> Option<capture::Shot> {
-    PENDING_SHOT.lock().unwrap_or_else(|e| e.into_inner()).take()
+    PENDING_SHOT
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take()
 }
 
 /// `region:clear` and New chat: back to the whole screen.
 pub fn clear_active() {
-    let had = ACTIVE.lock().unwrap_or_else(|e| e.into_inner()).take().is_some();
+    let had = ACTIVE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .take()
+        .is_some();
     if had {
         changed();
     }
@@ -211,15 +225,24 @@ mod tests {
 
     #[test]
     fn small_drags_cancel() {
-        assert_eq!(finish_rect((0.0, 0.0), &json!({"x":1,"y":1,"width":11,"height":100})), None);
-        assert_eq!(finish_rect((0.0, 0.0), &json!({"x":1,"y":1,"width":100,"height":11.4})), None);
+        assert_eq!(
+            finish_rect((0.0, 0.0), &json!({"x":1,"y":1,"width":11,"height":100})),
+            None
+        );
+        assert_eq!(
+            finish_rect((0.0, 0.0), &json!({"x":1,"y":1,"width":100,"height":11.4})),
+            None
+        );
         assert_eq!(finish_rect((0.0, 0.0), &json!({})), None);
     }
 
     #[test]
     fn origin_is_added_and_rounded() {
         assert_eq!(
-            finish_rect((1280.0, 0.0), &json!({"x":10.4,"y":20.6,"width":100.5,"height":50})),
+            finish_rect(
+                (1280.0, 0.0),
+                &json!({"x":10.4,"y":20.6,"width":100.5,"height":50})
+            ),
             Some(Rect::new(1290.0, 21.0, 101.0, 50.0))
         );
     }

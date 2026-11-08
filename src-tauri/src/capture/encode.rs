@@ -71,14 +71,13 @@ impl Rgb {
         if width == self.width && height == self.height {
             return self.clone();
         }
-        let src = match Image::from_vec_u8(self.width, self.height, self.data.clone(), PixelType::U8x3)
-        {
-            Ok(img) => img,
-            Err(_) => return self.clone(),
-        };
+        let src =
+            match Image::from_vec_u8(self.width, self.height, self.data.clone(), PixelType::U8x3) {
+                Ok(img) => img,
+                Err(_) => return self.clone(),
+            };
         let mut dst = Image::new(width, height, PixelType::U8x3);
-        let options =
-            ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
+        let options = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
         if Resizer::new().resize(&src, &mut dst, &options).is_err() {
             return self.clone();
         }
@@ -170,8 +169,16 @@ pub fn crop_plan(
     let (gw, gh) = (got.0 as f64, got.1 as f64);
     let kx = gw / display.2.max(1.0);
     let ky = gh / display.3.max(1.0);
-    let x = clamp_num(((want.0 - display.0) * kx).round(), 0.0, (gw - 1.0).max(0.0));
-    let y = clamp_num(((want.1 - display.1) * ky).round(), 0.0, (gh - 1.0).max(0.0));
+    let x = clamp_num(
+        ((want.0 - display.0) * kx).round(),
+        0.0,
+        (gw - 1.0).max(0.0),
+    );
+    let y = clamp_num(
+        ((want.1 - display.1) * ky).round(),
+        0.0,
+        (gh - 1.0).max(0.0),
+    );
     let w = clamp_num((want.2 * kx).round(), 1.0, gw - x);
     let h = clamp_num((want.3 * ky).round(), 1.0, gh - y);
     (x as u32, y as u32, w as u32, h as u32)
@@ -321,7 +328,9 @@ mod tests {
         let img = checker(160, 160);
         let r = img.resize(100, 100);
         let energy: u64 = (1..100u32)
-            .map(|x| (r.pixel(x, 50)[0] as i32 - r.pixel(x - 1, 50)[0] as i32).unsigned_abs() as u64)
+            .map(|x| {
+                (r.pixel(x, 50)[0] as i32 - r.pixel(x - 1, 50)[0] as i32).unsigned_abs() as u64
+            })
             .sum();
         assert!(energy > 0, "a resized checker must keep some edges");
     }

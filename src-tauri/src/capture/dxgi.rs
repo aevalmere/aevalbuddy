@@ -13,9 +13,9 @@ use windows::core::Interface;
 use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Direct3D::D3D_DRIVER_TYPE_UNKNOWN;
 use windows::Win32::Graphics::Direct3D11::{
-    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
-    D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAPPED_SUBRESOURCE,
-    D3D11_MAP_READ, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
+    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_CPU_ACCESS_READ,
+    D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_SDK_VERSION,
+    D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
 };
 use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_MODE_ROTATION_IDENTITY, DXGI_MODE_ROTATION_UNSPECIFIED,
@@ -108,7 +108,11 @@ impl Dup {
     fn frame(&mut self) -> Result<Arc<Frame>, String> {
         // With a frame in hand a static screen answers immediately; a fresh
         // duplication gets a moment to produce its first image.
-        let tries: &[u32] = if self.last.is_some() { &[0] } else { &[300, 300, 300] };
+        let tries: &[u32] = if self.last.is_some() {
+            &[0]
+        } else {
+            &[300, 300, 300]
+        };
         for &timeout in tries {
             let mut info = DXGI_OUTDUPL_FRAME_INFO::default();
             let mut res: Option<IDXGIResource> = None;
@@ -194,7 +198,11 @@ impl Dup {
             let mut bgra = vec![0u8; row * h as usize];
             let src = mapped.pData as *const u8;
             for y in 0..h as usize {
-                std::ptr::copy_nonoverlapping(src.add(y * pitch), bgra.as_mut_ptr().add(y * row), row);
+                std::ptr::copy_nonoverlapping(
+                    src.add(y * pitch),
+                    bgra.as_mut_ptr().add(y * row),
+                    row,
+                );
             }
             self.ctx.Unmap(staging, 0);
             Ok(Frame {

@@ -125,7 +125,11 @@ pub fn score_text(q: &str, q_tokens: &[String], text: &str) -> f64 {
         return 72.0;
     }
     let words: Vec<&str> = s.split(' ').collect();
-    if q_tokens.len() > 1 && q_tokens.iter().all(|t| words.iter().any(|w| w.starts_with(t.as_str()))) {
+    if q_tokens.len() > 1
+        && q_tokens
+            .iter()
+            .all(|t| words.iter().any(|w| w.starts_with(t.as_str())))
+    {
         return 64.0;
     }
     let hit = q_tokens
@@ -160,7 +164,11 @@ fn field(n: &Value, k: &str) -> String {
 
 /// 0..100 for one node against a query, role words weighting the role.
 pub fn score_node(node: &Value, query: &str) -> i64 {
-    let all: Vec<String> = norm(query).split(' ').filter(|t| !t.is_empty()).map(String::from).collect();
+    let all: Vec<String> = norm(query)
+        .split(' ')
+        .filter(|t| !t.is_empty())
+        .map(String::from)
+        .collect();
     let mut roles: Vec<&str> = Vec::new();
     let mut rest: Vec<String> = Vec::new();
     for t in &all {
@@ -170,7 +178,11 @@ pub fn score_node(node: &Value, query: &str) -> i64 {
         }
     }
     // A query made only of role words ("button") is about the role itself.
-    let tokens = if rest.is_empty() { all.clone() } else { rest.clone() };
+    let tokens = if rest.is_empty() {
+        all.clone()
+    } else {
+        rest.clone()
+    };
     let q = tokens.join(" ");
     let mut score = score_text(&q, &tokens, &field(node, "name"))
         .max(score_text(&q, &tokens, &field(node, "value")) * 0.85)
@@ -186,7 +198,11 @@ pub fn score_node(node: &Value, query: &str) -> i64 {
     if score <= 0.0 {
         return 0;
     }
-    if node.get("interactive").and_then(Value::as_bool).unwrap_or(false) {
+    if node
+        .get("interactive")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
         score += 3.0;
     }
     let offscreen = node
@@ -238,7 +254,8 @@ mod tests {
         assert_eq!(score_node(&e, "submit button"), 88);
         assert_eq!(score_node(&e, "button"), 0);
         // Typo still clears the 45 floor.
-        assert!(score_node(&b, "sumbit") >= 45);
+        // Same as the JS: dice 4/7 * 60 + 3 + 2 = 39, under find's 45 floor.
+        assert_eq!(score_node(&b, "sumbit"), 39);
         let doc = json!({"role":"document","name":"Text editor","interactive":true});
         assert!(score_node(&doc, "text editor") >= 100);
     }

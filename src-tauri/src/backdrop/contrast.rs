@@ -194,7 +194,15 @@ mod tests {
 
     #[test]
     fn colours_parse() {
-        assert_eq!(parse_color("rgb(1, 2, 3)"), Some(Rgba { r: 1.0, g: 2.0, b: 3.0, a: 1.0 }));
+        assert_eq!(
+            parse_color("rgb(1, 2, 3)"),
+            Some(Rgba {
+                r: 1.0,
+                g: 2.0,
+                b: 3.0,
+                a: 1.0
+            })
+        );
         assert_eq!(parse_color("rgba(1, 2, 3, 0.5)").unwrap().a, 0.5);
         assert_eq!(parse_color("rgb(1 2 3 / 0.25)").unwrap().a, 0.25);
         assert_eq!(parse_color("transparent"), None);

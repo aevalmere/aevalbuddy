@@ -58,7 +58,13 @@ pub fn maybe_run(app: &AppHandle) {
 }
 
 /// A plain, capturable window showing the fixture page on `r` (physical).
-fn page_window(app: &AppHandle, label: &str, kind: &str, r: screen::PxRect, protected: bool) -> Option<tauri::WebviewWindow> {
+fn page_window(
+    app: &AppHandle,
+    label: &str,
+    kind: &str,
+    r: screen::PxRect,
+    protected: bool,
+) -> Option<tauri::WebviewWindow> {
     let url = format!("http://tauri.localhost/lib/backdrop-fixture.html?kind={kind}");
     let (tx, rx) = std::sync::mpsc::channel::<()>();
     let tx = Mutex::new(Some(tx));
@@ -162,7 +168,11 @@ fn box_resize(img: &Rgb, w: u32, h: u32) -> Rgb {
             }
         }
     }
-    Rgb { width: w, height: h, data }
+    Rgb {
+        width: w,
+        height: h,
+        data,
+    }
 }
 
 fn decode_dims(bytes: &[u8]) -> Option<(u32, u32)> {
@@ -176,13 +186,27 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     let list = screen::all_displays();
     let d = screen::primary(&list);
     rep.log("windowsBuild", capture::windows_build());
-    rep.must("canHideFromCapture", capture::can_hide_from_capture(), "Windows older than 2004");
+    rep.must(
+        "canHideFromCapture",
+        capture::can_hide_from_capture(),
+        "Windows older than 2004",
+    );
     rep.log("displays", list.len());
-    rep.log("display", format!("{}x{} phys, {}x{} dip, scale {}", d.phys.width, d.phys.height, d.bounds.width, d.bounds.height, d.scale_factor));
+    rep.log(
+        "display",
+        format!(
+            "{}x{} phys, {}x{} dip, scale {}",
+            d.phys.width, d.phys.height, d.bounds.width, d.bounds.height, d.scale_factor
+        ),
+    );
 
     // ---------------------------------------------- fixture + protected probe
     let fixture = page_window(app, "capture-fixture", "white", d.phys, false);
-    rep.must("fixtureShown", fixture.is_some(), "fixture window did not open");
+    rep.must(
+        "fixtureShown",
+        fixture.is_some(),
+        "fixture window did not open",
+    );
     let pr = screen::PxRect {
         x: d.phys.x + d.phys.width / 2 - 200,
         y: d.phys.y + d.phys.height / 2 - 120,
@@ -193,12 +217,21 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     if let Some(w) = &probe_win {
         let _ = w.eval("document.documentElement.style.background='#ff00ff';document.body.style.background='#ff00ff';document.body.innerHTML='';");
     }
-    rep.must("probeShown", probe_win.is_some(), "protected probe window did not open");
+    rep.must(
+        "probeShown",
+        probe_win.is_some(),
+        "protected probe window did not open",
+    );
     std::thread::sleep(Duration::from_millis(1200));
 
     // A control strip of the fixture next to the probe: proves the capture
     // sees the page at all.
-    let control = screen::PxRect { x: pr.x - 300, y: pr.y, width: 200, height: pr.height };
+    let control = screen::PxRect {
+        x: pr.x - 300,
+        y: pr.y,
+        width: 200,
+        height: pr.height,
+    };
     let mut passed_any = false;
     for backend in ["dxgi", "gdi"] {
         std::env::set_var("AEVAL_CAPTURE_BACKEND", backend);
@@ -214,16 +247,28 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 );
                 rep.log(
                     &format!("{backend}.probe"),
-                    format!("magenta={:.3} black={:.3} mean={:.0} controlMean={:.0}", p.magenta, p.black, p.mean, c.mean),
+                    format!(
+                        "magenta={:.3} black={:.3} mean={:.0} controlMean={:.0}",
+                        p.magenta, p.black, p.mean, c.mean
+                    ),
                 );
                 let excluded = p.magenta < 0.01;
                 let not_blanked = p.black < 0.05 && p.mean > 150.0;
                 let sees_page = c.mean > 150.0;
                 let ok = excluded && not_blanked && sees_page;
                 if backend == "gdi" {
-                    rep.must("gdiExcludesOwnWithoutBlanking", ok, &format!("excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"));
+                    rep.must(
+                        "gdiExcludesOwnWithoutBlanking",
+                        ok,
+                        &format!(
+                            "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
+                        ),
+                    );
                 } else {
-                    rep.log("dxgiExcludesOwnWithoutBlanking", if ok { "ok" } else { "no" });
+                    rep.log(
+                        "dxgiExcludesOwnWithoutBlanking",
+                        if ok { "ok" } else { "no" },
+                    );
                 }
                 passed_any |= ok;
             }
@@ -237,7 +282,11 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         }
     }
     std::env::remove_var("AEVAL_CAPTURE_BACKEND");
-    rep.must("captureExcludesOwn", passed_any, "no backend left our window out cleanly");
+    rep.must(
+        "captureExcludesOwn",
+        passed_any,
+        "no backend left our window out cleanly",
+    );
 
     // ---------------------------------------------- whole screen (CAP-02/05)
     // Point the "active display" at the primary for a stable answer.
@@ -247,16 +296,59 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
             let active = screen::active_display(&screen::all_displays());
             let want = encode::whole_screen_size(active.bounds.width, active.bounds.height);
             let dims = decode_dims(&shot.jpeg);
-            let b64 = base64::engine::general_purpose::STANDARD.decode(&shot.base64).ok();
-            rep.log("capture", format!("{}x{} bytes={} q={} backend={} ms={}", shot.width, shot.height, shot.bytes, shot.quality, capture::last_backend(), t.elapsed().as_millis()));
-            rep.must("captureSize", (shot.width, shot.height) == want && shot.width.max(shot.height) <= 1600, &format!("got {}x{} want {}x{}", shot.width, shot.height, want.0, want.1));
-            rep.must("captureJpeg", dims == Some((shot.width, shot.height)), &format!("decoded {dims:?}"));
-            rep.must("captureBudget", shot.bytes <= encode::SHOT_BUDGET && shot.quality >= 56, &format!("bytes={} q={}", shot.bytes, shot.quality));
-            rep.must("captureBase64", b64.map(|b| b.len()) == Some(shot.bytes), "base64 does not decode to the bytes");
-            rep.must("captureDisplay", shot.display == active.bounds && shot.region.is_none(), "display bounds or region wrong");
+            let b64 = base64::engine::general_purpose::STANDARD
+                .decode(&shot.base64)
+                .ok();
+            rep.log(
+                "capture",
+                format!(
+                    "{}x{} bytes={} q={} backend={} ms={}",
+                    shot.width,
+                    shot.height,
+                    shot.bytes,
+                    shot.quality,
+                    capture::last_backend(),
+                    t.elapsed().as_millis()
+                ),
+            );
+            rep.must(
+                "captureSize",
+                (shot.width, shot.height) == want && shot.width.max(shot.height) <= 1600,
+                &format!(
+                    "got {}x{} want {}x{}",
+                    shot.width, shot.height, want.0, want.1
+                ),
+            );
+            rep.must(
+                "captureJpeg",
+                dims == Some((shot.width, shot.height)),
+                &format!("decoded {dims:?}"),
+            );
+            rep.must(
+                "captureBudget",
+                shot.bytes <= encode::SHOT_BUDGET && shot.quality >= 56,
+                &format!("bytes={} q={}", shot.bytes, shot.quality),
+            );
+            rep.must(
+                "captureBase64",
+                b64.map(|b| b.len()) == Some(shot.bytes),
+                "base64 does not decode to the bytes",
+            );
+            rep.must(
+                "captureDisplay",
+                shot.display == active.bounds && shot.region.is_none(),
+                "display bounds or region wrong",
+            );
             let v = serde_json::to_value(&shot).unwrap_or_default();
-            let keys: Vec<&str> = v.as_object().map(|o| o.keys().map(String::as_str).collect()).unwrap_or_default();
-            rep.must("captureShape", keys == ["base64", "bytes", "width", "height", "display", "region"], &keys.join(","));
+            let keys: Vec<&str> = v
+                .as_object()
+                .map(|o| o.keys().map(String::as_str).collect())
+                .unwrap_or_default();
+            rep.must(
+                "captureShape",
+                keys == ["base64", "bytes", "width", "height", "display", "region"],
+                &keys.join(","),
+            );
         }
         None => rep.must("capture", false, "capture_screen returned None"),
     }
@@ -265,11 +357,32 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     let area = Rect::new(d.bounds.x + 40.0, d.bounds.y + 40.0, 600.0, 300.0);
     match capture::capture_screen(Some(area)) {
         Some(shot) => {
-            let (ew, eh) = ((600.0 * d.scale_factor).round() as u32, (300.0 * d.scale_factor).round() as u32);
-            rep.log("regionCapture", format!("{}x{} bytes={} q={}", shot.width, shot.height, shot.bytes, shot.quality));
-            rep.must("regionNative", (shot.width, shot.height) == (ew, eh), &format!("got {}x{} want {ew}x{eh}", shot.width, shot.height));
-            rep.must("regionEchoed", shot.region == Some(area), "region not echoed");
-            rep.must("regionJpeg", decode_dims(&shot.jpeg) == Some((shot.width, shot.height)), "area JPEG does not decode");
+            let (ew, eh) = (
+                (600.0 * d.scale_factor).round() as u32,
+                (300.0 * d.scale_factor).round() as u32,
+            );
+            rep.log(
+                "regionCapture",
+                format!(
+                    "{}x{} bytes={} q={}",
+                    shot.width, shot.height, shot.bytes, shot.quality
+                ),
+            );
+            rep.must(
+                "regionNative",
+                (shot.width, shot.height) == (ew, eh),
+                &format!("got {}x{} want {ew}x{eh}", shot.width, shot.height),
+            );
+            rep.must(
+                "regionEchoed",
+                shot.region == Some(area),
+                "region not echoed",
+            );
+            rep.must(
+                "regionJpeg",
+                decode_dims(&shot.jpeg) == Some((shot.width, shot.height)),
+                "area JPEG does not decode",
+            );
         }
         None => rep.must("regionCapture", false, "area capture returned None"),
     }
@@ -282,8 +395,18 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         let lz = full.resize(tw, th);
         let bx = box_resize(&full, tw, th);
         let (el, eb) = (edge_energy(&lz), edge_energy(&bx));
-        rep.log("fidelity", format!("{}x{} -> {tw}x{th} lanczosEdge={el:.2} boxEdge={eb:.2}", full.width, full.height));
-        rep.must("fidelityLanczos", el >= eb, &format!("lanczos {el:.2} < box {eb:.2}"));
+        rep.log(
+            "fidelity",
+            format!(
+                "{}x{} -> {tw}x{th} lanczosEdge={el:.2} boxEdge={eb:.2}",
+                full.width, full.height
+            ),
+        );
+        rep.must(
+            "fidelityLanczos",
+            el >= eb,
+            &format!("lanczos {el:.2} < box {eb:.2}"),
+        );
     }
 
     // ---------------------------------------------- backdrop (GLASS-01/06)
@@ -291,9 +414,19 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         Ok((frames, wall, enc)) => {
             let small = frames.get(&d.id).cloned();
             let dims = small.as_ref().and_then(|b| decode_dims(b));
-            let want = ((d.bounds.width / 6.0).round() as u32, (d.bounds.height / 6.0).round() as u32);
-            rep.log("glassFrame", format!("{dims:?} wall={wall:.1}ms encode={enc:.1}ms"));
-            rep.must("glassFrameSize", dims == Some(want), &format!("got {dims:?} want {want:?}"));
+            let want = (
+                (d.bounds.width / 6.0).round() as u32,
+                (d.bounds.height / 6.0).round() as u32,
+            );
+            rep.log(
+                "glassFrame",
+                format!("{dims:?} wall={wall:.1}ms encode={enc:.1}ms"),
+            );
+            rep.must(
+                "glassFrameSize",
+                dims == Some(want),
+                &format!("got {dims:?} want {want:?}"),
+            );
         }
         Err(e) => rep.must("glassFrameSize", false, &e),
     }
@@ -310,9 +443,17 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     match backdrop::use_fixture(Some("wallpaper")) {
         Ok(()) => {
             let s = backdrop::status();
-            rep.must("glassFixture", s["fixture"] == json!("wallpaper"), &s.to_string());
+            rep.must(
+                "glassFixture",
+                s["fixture"] == json!("wallpaper"),
+                &s.to_string(),
+            );
             let url = backdrop::fixture_url();
-            rep.must("glassFixtureUrl", url.starts_with("http://aeval-frame.localhost/fixture-full/"), &url);
+            rep.must(
+                "glassFixtureUrl",
+                url.starts_with("http://aeval-frame.localhost/fixture-full/"),
+                &url,
+            );
             let _ = backdrop::use_fixture(None);
         }
         Err(e) => rep.must("glassFixture", false, &e),
@@ -326,7 +467,12 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
     let list = screen::all_displays();
     let d = screen::primary(&list);
     // A visible window of ours for the BLOCKED_OWN_WINDOW check.
-    let r = screen::PxRect { x: d.phys.x + 60, y: d.phys.y + 60, width: 360, height: 220 };
+    let r = screen::PxRect {
+        x: d.phys.x + 60,
+        y: d.phys.y + 60,
+        width: 360,
+        height: 220,
+    };
     let own = page_window(app, "desktop-probe", "white", r, true);
     rep.must("ownProbeShown", own.is_some(), "probe window did not open");
     tokio::time::sleep(Duration::from_millis(800)).await;
@@ -336,13 +482,17 @@ async fn desktop_checks(app: &AppHandle, rep: &Report) {
         .map(|w| super::protocol::handle_str(capture::hwnd_of(w) as u64))
         .collect();
     rep.log("ownHandles", handles.len());
-    let notepad = std::env::var("AEVAL_DESKTOP_NOTEPAD").map(|v| v != "0").unwrap_or(true);
+    let notepad = std::env::var("AEVAL_DESKTOP_NOTEPAD")
+        .map(|v| v != "0")
+        .unwrap_or(true);
     selfcheck::run(
         desktop::client(),
         rep,
         &selfcheck::Options {
             notepad,
-            own_point: own.as_ref().map(|_| ((r.x + r.width / 2) as i64, (r.y + r.height / 2) as i64)),
+            own_point: own
+                .as_ref()
+                .map(|_| ((r.x + r.width / 2) as i64, (r.y + r.height / 2) as i64)),
             own_handles: handles,
         },
     )

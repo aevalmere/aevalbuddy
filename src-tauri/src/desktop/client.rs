@@ -150,12 +150,19 @@ fn cache_dir() -> String {
 /// build the repo's `build/` (tools/build-desktop.js).
 fn prebuilt_dirs() -> Vec<String> {
     let mut dirs = Vec::new();
-    if let Some(exe_dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(PathBuf::from)) {
+    if let Some(exe_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(PathBuf::from))
+    {
         dirs.push(exe_dir.join("desktop"));
         dirs.push(exe_dir);
     }
     if cfg!(debug_assertions) {
-        dirs.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("build"));
+        dirs.push(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("build"),
+        );
     }
     dirs.into_iter()
         .filter(|d| d.is_dir())
@@ -329,7 +336,10 @@ impl Desktop {
             if !deliberate {
                 s.record_death();
             }
-            s.fail_all("HELPER_DOWN", &format!("desktop helper exited (code {code})"));
+            s.fail_all(
+                "HELPER_DOWN",
+                &format!("desktop helper exited (code {code})"),
+            );
         }
         if ours || s.proc.is_none() {
             if let Some(tx) = s.start_tx.take() {
@@ -367,9 +377,18 @@ impl Desktop {
             DesktopError::new("HELPER_DOWN", format!("could not run powershell.exe: {e}"))
         })?;
         let pid = child.id().unwrap_or(0);
-        let mut stdin = child.stdin.take().ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stdin"))?;
-        let stdout = child.stdout.take().ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stdout"))?;
-        let mut stderr = child.stderr.take().ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stderr"))?;
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stdout"))?;
+        let mut stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| DesktopError::new("HELPER_DOWN", "no stderr"))?;
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let (start_tx, start_rx) = oneshot::channel();
         let gen = {
@@ -426,7 +445,10 @@ impl Desktop {
         let _ = tx.send(bootstrap_line(false));
         match tokio::time::timeout(Duration::from_millis(p::START_TIMEOUT), start_rx).await {
             Ok(Ok(r)) => r,
-            Ok(Err(_)) => Err(DesktopError::new("HELPER_DOWN", "desktop helper exited during start")),
+            Ok(Err(_)) => Err(DesktopError::new(
+                "HELPER_DOWN",
+                "desktop helper exited during start",
+            )),
             Err(_) => {
                 {
                     let mut s = self.st();
@@ -436,7 +458,10 @@ impl Desktop {
                 kill_tree(pid);
                 Err(DesktopError::new(
                     "HELPER_DOWN",
-                    format!("desktop helper did not start within {}s", p::START_TIMEOUT / 1000),
+                    format!(
+                        "desktop helper did not start within {}s",
+                        p::START_TIMEOUT / 1000
+                    ),
                 ))
             }
         }
@@ -539,7 +564,10 @@ impl Desktop {
         let (id, rx, gen, pid) = {
             let mut s = self.st();
             if !s.ready || s.proc.is_none() {
-                return Err(DesktopError::new("HELPER_DOWN", "desktop helper is not running"));
+                return Err(DesktopError::new(
+                    "HELPER_DOWN",
+                    "desktop helper is not running",
+                ));
             }
             let id = s.next_id;
             s.next_id += 1;
@@ -577,7 +605,12 @@ impl Desktop {
 
     /// One op at a time, in order: input has to land in the order it was
     /// asked for. `op = None` only syncs the own-window list and the watch.
-    pub async fn call(self: &Arc<Self>, op: Option<&str>, args: Value, timeout_ms: u64) -> DResult<Value> {
+    pub async fn call(
+        self: &Arc<Self>,
+        op: Option<&str>,
+        args: Value,
+        timeout_ms: u64,
+    ) -> DResult<Value> {
         let _q = self.queue.lock().await;
         self.ensure().await?;
         let own = self.own_config();
@@ -588,7 +621,8 @@ impl Desktop {
         }
         let want = self.want_watch();
         if want != self.st().watching {
-            self.send("watchInput", &json!({ "on": want }), p::OP_TIMEOUT).await?;
+            self.send("watchInput", &json!({ "on": want }), p::OP_TIMEOUT)
+                .await?;
             self.st().watching = want;
         }
         match op {
@@ -630,7 +664,12 @@ impl Desktop {
     // ------------------------------------------------------------ windows
 
     pub async fn list_windows(self: &Arc<Self>, include_minimized: bool) -> DResult<Value> {
-        let list = self.op("listWindows", json!({ "includeMinimized": include_minimized })).await?;
+        let list = self
+            .op(
+                "listWindows",
+                json!({ "includeMinimized": include_minimized }),
+            )
+            .await?;
         let d = screen::all_displays();
         Ok(Value::Array(
             list.as_array()
@@ -645,11 +684,13 @@ impl Desktop {
     }
 
     pub async fn focus_window(self: &Arc<Self>, handle: &Value) -> DResult<Value> {
-        self.op("focusWindow", json!({ "handle": arg_window(Some(handle)) })).await
+        self.op("focusWindow", json!({ "handle": arg_window(Some(handle)) }))
+            .await
     }
 
     pub async fn close_window(self: &Arc<Self>, handle: &Value) -> DResult<Value> {
-        self.op("closeWindow", json!({ "handle": arg_window(Some(handle)) })).await
+        self.op("closeWindow", json!({ "handle": arg_window(Some(handle)) }))
+            .await
     }
 
     pub async fn monitors(self: &Arc<Self>) -> DResult<Value> {
@@ -726,7 +767,8 @@ impl Desktop {
         if query.trim().is_empty() {
             return Err(DesktopError::new("BAD_ARGS", "find needs a query"));
         }
-        let mut opts = json!({ "filter": "all", "depth": 60, "maxNodes": 4000, "maxChars": u64::MAX });
+        let mut opts =
+            json!({ "filter": "all", "depth": 60, "maxNodes": 4000, "maxChars": u64::MAX });
         if let Some(h) = window_handle {
             opts["windowHandle"] = h.clone();
         }
@@ -747,7 +789,11 @@ impl Desktop {
         scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
         let keep = limit.clamp(1, 100);
         let nodes: Vec<Value> = scored.into_iter().take(keep).map(|(_, _, n)| n).collect();
-        let text = nodes.iter().map(|n| p::node_line(n, 0)).collect::<Vec<_>>().join("\n");
+        let text = nodes
+            .iter()
+            .map(|n| p::node_line(n, 0))
+            .collect::<Vec<_>>()
+            .join("\n");
         Ok(json!({
             "nodes": nodes,
             "text": text,
@@ -764,9 +810,16 @@ impl Desktop {
         ocr_fallback: bool,
     ) -> DResult<Value> {
         let args = json!({ "windowHandle": arg_window(window_handle), "rect": p::rect_arg(rect), "maxChars": max_chars });
-        let t = if ocr_fallback { p::OCR_TIMEOUT } else { p::OP_TIMEOUT };
+        let t = if ocr_fallback {
+            p::OCR_TIMEOUT
+        } else {
+            p::OP_TIMEOUT
+        };
         let r = self.call(Some("getText"), args, t).await?;
-        let spans: Vec<Value> = r["spans"].as_array().map(|a| a.iter().map(span_shape).collect()).unwrap_or_default();
+        let spans: Vec<Value> = r["spans"]
+            .as_array()
+            .map(|a| a.iter().map(span_shape).collect())
+            .unwrap_or_default();
         let text = r["text"].as_str().unwrap_or("").to_string();
         let mut out = json!({
             "text": text,
@@ -779,7 +832,11 @@ impl Desktop {
         if !ocr_fallback || dense >= 200 {
             return Ok(out);
         }
-        let ocr_rect = if rect.is_null() { p::rect_obj(&r["windowRect"]) } else { rect.clone() };
+        let ocr_rect = if rect.is_null() {
+            p::rect_obj(&r["windowRect"])
+        } else {
+            rect.clone()
+        };
         let o = match self.ocr(&ocr_rect, Some(&r["windowHandle"]), "auto").await {
             Ok(o) => o,
             Err(e) => {
@@ -802,7 +859,11 @@ impl Desktop {
         if extra.is_empty() {
             return Ok(out);
         }
-        let joined = extra.iter().map(|s| s["text"].as_str().unwrap_or("")).collect::<Vec<_>>().join(" ");
+        let joined = extra
+            .iter()
+            .map(|s| s["text"].as_str().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join(" ");
         let mut all = spans.clone();
         all.extend(extra);
         out["source"] = json!("mixed");
@@ -811,7 +872,12 @@ impl Desktop {
         Ok(out)
     }
 
-    pub async fn ocr(self: &Arc<Self>, rect: &Value, window_handle: Option<&Value>, lang: &str) -> DResult<Value> {
+    pub async fn ocr(
+        self: &Arc<Self>,
+        rect: &Value,
+        window_handle: Option<&Value>,
+        lang: &str,
+    ) -> DResult<Value> {
         let args = json!({ "rect": p::rect_arg(rect), "windowHandle": arg_window(window_handle), "lang": lang });
         let r = self.call(Some("ocr"), args, p::OCR_TIMEOUT).await?;
         Ok(json!({
@@ -827,7 +893,12 @@ impl Desktop {
         json!({ "dataUrl": r["dataUrl"], "rect": p::rect_obj(&r["rect"]), "scale": r["scale"], "width": r["width"], "height": r["height"] })
     }
 
-    pub async fn screenshot(self: &Arc<Self>, window_handle: Option<&Value>, rect: &Value, max_edge: u64) -> DResult<Value> {
+    pub async fn screenshot(
+        self: &Arc<Self>,
+        window_handle: Option<&Value>,
+        rect: &Value,
+        max_edge: u64,
+    ) -> DResult<Value> {
         let args = json!({ "windowHandle": arg_window(window_handle), "rect": p::rect_arg(rect), "maxEdge": max_edge });
         let r = self.call(Some("capture"), args, p::CAPTURE_TIMEOUT).await?;
         Ok(Self::capture_shape(&r))
@@ -863,7 +934,13 @@ impl Desktop {
     /// `t` is `{ref}` or `{x, y}`, merged with the options as index.js did.
     pub async fn click(self: &Arc<Self>, t: &Value) -> DResult<Value> {
         let mut args = p::target(t)?;
-        let count = t["count"].as_u64().unwrap_or(if t["double"].as_bool().unwrap_or(false) { 2 } else { 1 });
+        let count = t["count"]
+            .as_u64()
+            .unwrap_or(if t["double"].as_bool().unwrap_or(false) {
+                2
+            } else {
+                1
+            });
         args["button"] = json!(t["button"].as_str().unwrap_or("left"));
         args["count"] = json!(count);
         args["modifiers"] = json!(t["modifiers"].as_str().unwrap_or(""));
@@ -877,7 +954,12 @@ impl Desktop {
         Ok(p::point_out(self.op("hover", args).await?))
     }
 
-    pub async fn drag(self: &Arc<Self>, from: &Value, to: &Value, steps: Option<u64>) -> DResult<Value> {
+    pub async fn drag(
+        self: &Arc<Self>,
+        from: &Value,
+        to: &Value,
+        steps: Option<u64>,
+    ) -> DResult<Value> {
         if from.is_null() || to.is_null() {
             return Err(DesktopError::new("BAD_ARGS", "drag needs from and to"));
         }
@@ -890,13 +972,23 @@ impl Desktop {
         }))
     }
 
-    pub async fn type_text(self: &Arc<Self>, text: &str, r#ref: Option<&str>, window_handle: Option<&Value>) -> DResult<Value> {
+    pub async fn type_text(
+        self: &Arc<Self>,
+        text: &str,
+        r#ref: Option<&str>,
+        window_handle: Option<&Value>,
+    ) -> DResult<Value> {
         let args = json!({ "text": text, "ref": r#ref, "windowHandle": arg_window(window_handle) });
         let t = p::type_timeout(text.encode_utf16().count());
         self.call(Some("type"), args, t).await
     }
 
-    pub async fn key(self: &Arc<Self>, keys: &str, repeat: u64, window_handle: Option<&Value>) -> DResult<Value> {
+    pub async fn key(
+        self: &Arc<Self>,
+        keys: &str,
+        repeat: u64,
+        window_handle: Option<&Value>,
+    ) -> DResult<Value> {
         if keys.trim().is_empty() {
             return Err(DesktopError::new("BAD_ARGS", "key needs keys"));
         }
@@ -934,7 +1026,9 @@ impl Desktop {
     }
 
     pub async fn set_value(self: &Arc<Self>, r#ref: &str, value: Value) -> DResult<Value> {
-        let mut r = self.op("setValue", json!({ "ref": r#ref, "value": value })).await?;
+        let mut r = self
+            .op("setValue", json!({ "ref": r#ref, "value": value }))
+            .await?;
         if !r["node"].is_null() {
             r["node"] = p::node_shape(&r["node"]);
         }
@@ -942,7 +1036,8 @@ impl Desktop {
     }
 
     pub async fn invoke(self: &Arc<Self>, r#ref: &str, action: &str) -> DResult<Value> {
-        self.op("invoke", json!({ "ref": r#ref, "action": action })).await
+        self.op("invoke", json!({ "ref": r#ref, "action": action }))
+            .await
     }
 
     pub async fn restore_cursor(self: &Arc<Self>) -> DResult<Value> {
@@ -1021,10 +1116,14 @@ fn span_shape(s: &Value) -> Value {
 
 fn overlaps(a: &Value, b: &Value) -> bool {
     let g = |v: &Value, k: &str| v.get(k).and_then(Value::as_f64);
-    let (Some(ax), Some(ay), Some(aw), Some(ah)) = (g(a, "x"), g(a, "y"), g(a, "width"), g(a, "height")) else {
+    let (Some(ax), Some(ay), Some(aw), Some(ah)) =
+        (g(a, "x"), g(a, "y"), g(a, "width"), g(a, "height"))
+    else {
         return false;
     };
-    let (Some(bx), Some(by), Some(bw), Some(bh)) = (g(b, "x"), g(b, "y"), g(b, "width"), g(b, "height")) else {
+    let (Some(bx), Some(by), Some(bw), Some(bh)) =
+        (g(b, "x"), g(b, "y"), g(b, "width"), g(b, "height"))
+    else {
         return false;
     };
     ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah
