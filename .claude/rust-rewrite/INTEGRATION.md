@@ -38,6 +38,8 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 21 | sheet | checkpoint | `f660cd0` | `f6dc648` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Lane finished; rust and ui-shots green at the lane sha. Bar's B-156 placeholder `Answer the task’s question` still matches sheet's `/question/i` (`barAnswersTask`), so no seam fix was needed |
 | 22 | capture | checkpoint | `96b569f` | `7273f74` | covered by `5541e36` (red only on Smoke `buddyReload`) | green at `5541e36` | Rust green at the lane sha (run 42509614984, `lensFirstDraw=ok`); ui-shots green at `27f4063`. `bf07bec` on top is Progress only |
 | 23 | platform | checkpoint | `f045fc2` | `f32b46d` | `5541e36`: all green but Smoke (`buddyReload`) | green at `5541e36` | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
+| 24 | llm | checkpoint | `4e95f64` | `89a4f60` | pending | n/a | The real Settings backend (keys, status, Connect OpenRouter, failover, model lists). Merged on the coordinator's call: all green but Smoke `buddyReload`, the same known failure as `5541e36`, not llm's. `535f6bb` on top is Progress only |
+| 25 | sheet | checkpoint | `49f1eeb` | `a0ed3c0` | pending | pending | Rust and ui-shots green at the lane sha; `barAnswersTask` matches bar's exact placeholder |
 
 ## Reverts
 
@@ -61,8 +63,8 @@ None.
 - `suggestionsOnce` (bar's probe) failed once on windows `0069af0` (`disk=false`: the flag was in memory but not yet in `aevalbuddy.json`) and passed on `5541e36`. Probably timing against platform's new durable save; platform told, low priority.
 - When rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (the "Run:" line `ci-wait` prints).
 - Coordinator plan: a testable build for Andy. Merge each lane's green tip as it lands; a lane whose tip is not green stays at its last checkpoint; skip re-runs unless a real failure needs one.
-- Queued: capture's `buddyReload` fix (once green); sheet `49f1eeb` (green; low priority, `barAnswersTask` now matches bar's exact placeholder; ride along with another merge, don't push for it alone).
-- Red at last check: llm `2619bbc` (real Settings backend, wanted for Andy's build): Format, `ipc::tests::every_invoke_channel_has_a_label_rule` (`src/ipc.rs:1141`), Capture check, Desktop selfcheck. Agent `fe650d1`, `8fa0e89`: unit tests; agent stays at `771d149`.
+- Queued: capture's `buddyReload` fix (once green). llm `4e95f64` and sheet `49f1eeb` are in at #24 and #25; their head is expected red only on `buddyReload`.
+- Red at last check: agent `fe650d1`, `8fa0e89`: unit tests; agent stays at `771d149`.
 - Final at their merged sha: settings `493483b`, harness `76c8c95`, bar `688cb40`, sheet `f660cd0` (newer `49f1eeb` queued), platform `f045fc2`, windows `8886c02`.
 - Follow-up, not a blocker: sheet B-164 sends `output:resize` until windows' B-027 lands.
 
