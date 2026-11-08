@@ -293,6 +293,9 @@ const EXCEPTIONS: &[(&str, &[Caller])] = &[
     ("bar:prefill-open", ASK),
     // An output's trail may start only its own task again (`authorize`).
     ("agent:start", BAR),
+    // llm lane: Settings' Connect OpenRouter and custom answer styles.
+    ("auth:openrouter-connect", APP),
+    ("skills:open-folder", APP),
 ];
 
 /// B-089: the windows that may call `channel`; None for a channel with no

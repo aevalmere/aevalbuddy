@@ -215,7 +215,12 @@ fn providers_extra(s: &dyn LlmSettings, table: &Table, now: u64, storage: &str) 
 /// [`providers_extra`] as the app is now, for `settings_extra`.
 pub fn settings_fields() -> Value {
     let storage = store::get().key_storage();
-    providers_extra(&StoreSettings, &status::snapshot(), status::now_ms(), storage)
+    providers_extra(
+        &StoreSettings,
+        &status::snapshot(),
+        status::now_ms(),
+        storage,
+    )
 }
 
 /// The status change an answer's outcome means for its provider (B-046
@@ -474,8 +479,8 @@ fn clip_key_of(text: &str) -> Option<(Provider, String)> {
 /// `settings:clip-key`: a key on the clipboard for a provider that has
 /// none, masked. The key stays in Rust.
 fn clip_key(app: &AppHandle) -> Value {
-    let found = clip_key_of(&clipboard_text(app))
-        .filter(|(p, _)| !store::get().has_provider_key(p.id()));
+    let found =
+        clip_key_of(&clipboard_text(app)).filter(|(p, _)| !store::get().has_provider_key(p.id()));
     let reply = match found {
         Some((p, k)) => ClipKeyReply {
             found: true,

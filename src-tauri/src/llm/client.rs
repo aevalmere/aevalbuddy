@@ -903,7 +903,9 @@ impl Llm {
     pub fn sees_images(&self, provider: Provider, id: &str) -> bool {
         if provider.is_native() {
             let live = self.known_native_list(provider);
-            let listed = live.as_ref().and_then(|l| l.iter().find(|m| m.id == id).cloned());
+            let listed = live
+                .as_ref()
+                .and_then(|l| l.iter().find(|m| m.id == id).cloned());
             return listed.map_or(true, |m| m.images);
         }
         let all = self.known_catalogue();
@@ -1206,12 +1208,24 @@ AevalBuddy is skipping Google Gemini until you replace it.";
             "o5-mini",
             "gpt-3.5-turbo",
         ];
-        assert_eq!(ids(&o), want, "embeddings, speech and moderation are dropped");
+        assert_eq!(
+            ids(&o),
+            want,
+            "embeddings, speech and moderation are dropped"
+        );
         assert!(!o[4].images, "GPT-3.5 reads no images");
 
         let g = catalogue::parse_native_list(Provider::Gemini, &all["gemini"]);
-        let want = ["gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite"];
-        assert_eq!(ids(&g), want, "only generateContent models, without models/");
+        let want = [
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+            "gemini-3.5-flash-lite",
+        ];
+        assert_eq!(
+            ids(&g),
+            want,
+            "only generateContent models, without models/"
+        );
         assert_eq!(g[0].name, "Gemini 3.8 Flash");
 
         // Fetched once with the key, then cached; the picker lists it and a
@@ -1222,7 +1236,9 @@ AevalBuddy is skipping Google Gemini until you replace it.";
         assert_eq!(got.len(), 3);
         assert!(block(llm.native_catalogue(Provider::Anthropic, "sk-ant-k")).is_some());
         assert_eq!(canned.sent.lock().len(), 1, "cached");
-        assert!(canned.sent.lock()[0].url.starts_with(wire::ANTHROPIC_MODELS));
+        assert!(canned.sent.lock()[0]
+            .url
+            .starts_with(wire::ANTHROPIC_MODELS));
         let healed = llm.known_native(Provider::Anthropic, Kind::Find, "claude-3-retired");
         assert_eq!(healed, Provider::Anthropic.default_model(Kind::Find));
         let kept = llm.known_native(Provider::Anthropic, Kind::Find, "claude-opus-5-5");

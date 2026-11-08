@@ -948,12 +948,21 @@ mod tests {
         let map = Mutex::new(HashMap::new());
         let first = install(&map, "output-1", 1);
         let second = install(&map, "output-2", 2);
-        assert!(!first.is_cancelled(), "another window's Ask leaves it running");
+        assert!(
+            !first.is_cancelled(),
+            "another window's Ask leaves it running"
+        );
         let again = install(&map, "output-1", 3);
-        assert!(first.is_cancelled(), "a new question in the same window replaces it");
+        assert!(
+            first.is_cancelled(),
+            "a new question in the same window replaces it"
+        );
         assert!(!again.is_cancelled() && !second.is_cancelled());
         uninstall(&map, "output-1", 1);
-        assert!(map.lock().contains_key("output-1"), "a stale end keeps the newer Ask");
+        assert!(
+            map.lock().contains_key("output-1"),
+            "a stale end keeps the newer Ask"
+        );
         uninstall(&map, "output-1", 3);
         assert!(!map.lock().contains_key("output-1"));
     }

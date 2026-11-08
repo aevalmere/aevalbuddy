@@ -471,7 +471,16 @@ mod tests {
         let meta = Meta::purpose("find-expand");
         let cancel = CancellationToken::new();
         let sent = llm
-            .stream_text(&act, &model, "sys", "user", &meta, None, &cancel, &mut |_| {})
+            .stream_text(
+                &act,
+                &model,
+                "sys",
+                "user",
+                &meta,
+                None,
+                &cancel,
+                &mut |_| {},
+            )
             .await;
         assert!(sent.is_ok());
         let log = fake.requests();
