@@ -407,11 +407,8 @@ fn backdrop_pace(app: &AppHandle) -> crate::backdrop::Pace {
         let s = st.lock();
         s.mode != crate::state::Mode::Pill || s.outputs.values().any(|o| o.active)
     };
-    let up = |l: &str| {
-        windows::window(app, l)
-            .and_then(|w| w.is_visible().ok())
-            .unwrap_or(false)
-    };
+    // Win32 directly: a Tauri getter off the main thread waits for it.
+    let up = |l: &str| windows::flags::hwnd_for(l).is_some_and(windows::flags::is_visible);
     if busy
         || up(windows::SETTINGS)
         || up(windows::HISTORY)

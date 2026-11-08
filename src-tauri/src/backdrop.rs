@@ -279,17 +279,26 @@ pub fn set_hooks(h: Hooks) {
 /// `schedule(ms)`: `Some(0)` runs now, replacing a pending tick; anything
 /// else only arms the timer when none is pending (backdrop.js semantics).
 fn schedule(ms: Option<u64>) {
-    let mut g = lock();
-    if g.due.is_some() && ms != Some(0) {
-        return;
-    }
+    // The pace hook reads window state, which can wait on the main thread;
+    // it runs with the lock released so the main thread can always take it.
+    let hooks = {
+        let g = lock();
+        if g.due.is_some() && ms != Some(0) {
+            return;
+        }
+        g.hooks.clone()
+    };
     let pace = match ms {
         Some(v) => v,
-        None => match g.hooks.as_ref().map(|h| (h.pace)()) {
+        None => match hooks.map(|h| (h.pace)()) {
             Some(Pace::Slow) => SLOW_MS,
             _ => FAST_MS,
         },
     };
+    let mut g = lock();
+    if g.due.is_some() && ms != Some(0) {
+        return;
+    }
     g.due = Some(Instant::now() + Duration::from_millis(pace));
     me().wake.notify_all();
 }
