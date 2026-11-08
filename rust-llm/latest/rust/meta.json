@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42465141252,
+  "run_id": 42466642509,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465141252",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466642509",
   "event": "push",
-  "sha": "b08fb058bb6d584bce800cabbf01f52627cceff0",
+  "sha": "51b3d4e08248b5759a27afb1047ddf8c88ffe11a",
   "ref": "rust/llm",
   "ref_dir": "rust-llm",
   "conclusion": "failure",
   "failed": [
     "Build installer"
   ],
-  "finished": "2026-11-08T09:15:47Z",
+  "finished": "2026-11-08T09:35:39Z",
   "error_lines": 1,
   "steps": [
     {
@@ -71,7 +71,7 @@
       "log": "build.log"
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "skipped",
       "log": ""
     },

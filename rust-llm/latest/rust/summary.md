@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42465141252](https://github.com/aevalmere/aevalbuddy/actions/runs/42465141252), attempt 1, on push
-- Commit: b08fb058bb6d584bce800cabbf01f52627cceff0
+- Run: [42466642509](https://github.com/aevalmere/aevalbuddy/actions/runs/42466642509), attempt 1, on push
+- Commit: 51b3d4e08248b5759a27afb1047ddf8c88ffe11a
 - Ref: rust/llm
 - Conclusion: **failure**
 - Failed: Build installer
-- Finished: 2026-11-08T09:15:47Z
+- Finished: 2026-11-08T09:35:39Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -21,7 +21,7 @@
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
 | Build installer | failure | [build.log](build.log) |
-| Scaffold smoke | skipped |  |
+| Smoke | skipped |  |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
