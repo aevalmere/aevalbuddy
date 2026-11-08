@@ -44,7 +44,7 @@ None.
 
 ## Seam fixes
 
-None.
+- `f90f883` (after #22): `84e2bd9` was red on Clippy and Unit tests (E0063, missing `key` in `windows::screen::Display` at `src/windows/motion.rs:227`) and on ui-shots `cssLint` (4 raw `rgb()` colours in `renderer/lens.css`). Both came in with the capture merge: capture added `Display::key` without seeing windows' motion.rs test helper, and capture's lens.css had not met harness's new css-lint. Fix: `key: id as u32` in the helper (windows should know), and the lens colours moved into `:root` tokens with unchanged values (`--loupe-light`, `--loupe-shadow`, `--chip-fill`, `--chip-light`, `--plate-rim`; capture should know).
 
 ## Open integration issues
 
@@ -54,9 +54,10 @@ None.
 
 ## Queue and pending CI (as of the #19-#22 push, 2026-11-08)
 
-- Pending: rust and ui-shots for the head carrying #18-#22 (`node tools/ci-wait.mjs origin/rust-rewrite`, plus `ui-shots`). Once rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (run URL in `origin/ci-logs:rust-rewrite/<sha>/rust/` metadata).
+- Pending: rust and ui-shots for the head carrying #18-#22 (`node tools/ci-wait.mjs origin/rust-rewrite`, plus `ui-shots`; `84e2bd9` was red, see Seam fixes, and `f90f883` carries the fix). Once rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (run URL in `origin/ci-logs:rust-rewrite/<sha>/rust/` metadata).
 - Coordinator plan: a testable build for Andy. Merge each lane's green tip as it lands; a lane whose tip is not green stays at its last checkpoint; skip re-runs unless a real failure needs one.
-- Queued: llm `2619bbc` (real Settings backend, priority for Andy's build; rust pending); platform `f045fc2` (rust and ui-shots pending; `5f6b541` rust green, ui-shots pending; carries the harness-approved `bridge.test.mjs` `editMenuInFields` change and the B-085 one-click installer.nsi; on conflict in that file keep harness's side unless harness adopted it).
+- Red: llm `2619bbc` (real Settings backend, priority for Andy's build) fails Format, `ipc::tests::every_invoke_channel_has_a_label_rule` (`src/ipc.rs:1141`), Capture check and Desktop selfcheck; take its next green tip.
+- Queued: platform `f045fc2` (rust and ui-shots pending; `5f6b541` rust green, ui-shots pending; carries the harness-approved `bridge.test.mjs` `editMenuInFields` change and the B-085 one-click installer.nsi; on conflict in that file keep harness's side unless harness adopted it).
 - Red at last check: agent `fe650d1` and `8fa0e89` (rust fails), so agent stays at `771d149`.
 - Follow-up, not a blocker: sheet B-164 sends `output:resize` until windows' B-027 lands.
 - Finished lanes: settings (`493483b`), harness (`76c8c95`), bar (`688cb40`), sheet (`f660cd0`).
