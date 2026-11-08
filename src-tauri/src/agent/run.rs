@@ -802,8 +802,8 @@ impl Agent {
         true
     }
 
-// Called by the smoke and shot harnesses (agent e), not merged yet.
-#[allow(dead_code)]
+    // Called by the smoke and shot harnesses (agent e), not merged yet.
+    #[allow(dead_code)]
     pub fn pause(&self, message: &str) {
         if let Some(ctx) = self.ctx() {
             ctx.pause(message);

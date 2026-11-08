@@ -124,7 +124,6 @@ fn mentions(detail: &str, words: &[&str]) -> bool {
     words.iter().any(|w| lower.contains(w))
 }
 
-
 /// The same mapping for any provider. OpenRouter keeps the Electron wording
 /// byte for byte; the native providers get the same sentences with their own
 /// name, and without the advice that only makes sense on OpenRouter (free

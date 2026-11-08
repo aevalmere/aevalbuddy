@@ -609,7 +609,6 @@ impl Llm {
         self.catalogue.lock().data.clone()
     }
 
-
     /// `pickLive` against the live catalogue, fetching it if the cache is
     /// cold.
     pub async fn resolve_live(&self, kind: Kind, id: &str) -> String {

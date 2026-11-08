@@ -88,7 +88,6 @@ pub fn px_rect_to_dip(v: &Value) -> Option<Rect> {
     Some(windows::screen::px_to_dip(Rect::new(x, y, w, h)))
 }
 
-
 /// Saves one conversation to history (main.js rememberChat).
 pub fn remember_chat(app: &AppHandle, label: &str, model: &str) {
     let Some((id, messages)) =

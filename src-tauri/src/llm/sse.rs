@@ -23,7 +23,6 @@ impl LineBuffer {
         }
         out
     }
-
 }
 
 /// The payload of a `data:` line, trimmed; `None` for any other line.
