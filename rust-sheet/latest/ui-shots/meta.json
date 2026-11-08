@@ -1,17 +1,17 @@
 {
   "workflow": "ui-shots",
   "workflow_name": "ui-shots",
-  "run_id": 42493645289,
+  "run_id": 42509289650,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42493645289",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509289650",
   "event": "push",
-  "sha": "1bedb1116f51bbcfe593bdb10ca7551879ce9011",
+  "sha": "f660cd0264c9d09475480d41ac3ecca7706b8703",
   "ref": "rust/sheet",
   "ref_dir": "rust-sheet",
-  "conclusion": "cancelled",
+  "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T15:43:16Z",
-  "error_lines": 7,
+  "finished": "2026-11-08T18:25:27Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -35,7 +35,7 @@
     },
     {
       "name": "Screenshots and renderer checks",
-      "outcome": "cancelled",
+      "outcome": "success",
       "log": "shots.log"
     },
     {
