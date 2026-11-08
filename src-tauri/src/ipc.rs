@@ -477,15 +477,6 @@ fn p_num(p: &Value, key: &str) -> f64 {
     }
 }
 
-fn provider_of(p: &Value) -> String {
-    let v = p_str(p, "provider");
-    if v.is_empty() {
-        "openrouter".into()
-    } else {
-        v
-    }
-}
-
 fn ok() -> Result<Value, String> {
     Ok(json!({ "ok": true }))
 }
@@ -510,18 +501,6 @@ pub fn mask_key(k: &str) -> String {
     let head: String = chars[..9].iter().collect();
     let tail: String = chars[chars.len() - 4..].iter().collect();
     format!("{head}\u{2026}{tail}")
-}
-
-fn clipboard_text(app: &AppHandle) -> String {
-    use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().read_text().unwrap_or_default()
-}
-
-fn key_saved(app: &AppHandle, provider: &str) {
-    let st = shared(app);
-    if !st.call_str(app, provider, |h| h.key_saved.as_ref()) {
-        st.call_str(app, "key-saved", |h| h.tour_notify.as_ref());
-    }
 }
 
 /// `{tier, reasons}` from agent c's backdrop (through `settings_extra`), or
@@ -795,74 +774,6 @@ async fn route(
         "app:quit" => app.exit(0),
         "settings:get" => return Ok(settings_data(app)),
         "settings:close" => windows::close_settings(app),
-        "settings:clip-key" => {
-            let k = if s.has_api_key() {
-                String::new()
-            } else {
-                clip_key_of(&clipboard_text(app))
-            };
-            return Ok(json!({ "found": !k.is_empty(), "masked": mask_key(&k) }));
-        }
-        "settings:use-clip-key" => {
-            let k = clip_key_of(&clipboard_text(app));
-            if k.is_empty() {
-                return Ok(json!({
-                    "ok": false,
-                    "error": "The clipboard no longer holds an OpenRouter key."
-                }));
-            }
-            s.set_api_key(&k);
-            windows::send_overlay_state(app);
-            key_saved(app, "openrouter");
-            return ok();
-        }
-        "settings:save-key" => {
-            let value = p_str(&p, "key").trim().to_string();
-            if value.is_empty() {
-                return Ok(json!({ "ok": false, "error": "Enter a key before saving." }));
-            }
-            // One key field takes any of the four providers' keys: the
-            // prefix says whose it is unless the page names the provider.
-            let provider = match p_str(&p, "provider") {
-                named if !named.is_empty() => named,
-                _ => crate::llm::provider::Provider::detect(&value)
-                    .map(|v| v.id().to_string())
-                    .unwrap_or_else(|| "openrouter".into()),
-            };
-            if !store::PROVIDERS.contains(&provider.as_str()) {
-                return Ok(json!({ "ok": false, "error": "Unknown provider." }));
-            }
-            if provider == "openrouter" {
-                s.set_api_key(&value);
-            } else {
-                s.set_provider_key(&provider, &value);
-            }
-            windows::send_overlay_state(app);
-            key_saved(app, &provider);
-            return Ok(json!({ "ok": true, "keys": s.provider_keys_present() }));
-        }
-        "settings:clear-key" => {
-            let provider = provider_of(&p);
-            if provider == "openrouter" {
-                s.clear_api_key();
-            } else {
-                s.clear_provider_key(&provider);
-            }
-            windows::send_overlay_state(app);
-            return Ok(json!({ "ok": true, "keys": s.provider_keys_present() }));
-        }
-        "settings:save-model" => {
-            return Ok(json!({ "ok": true, "model": s.set_model(&p_str(&p, "model")) }));
-        }
-        "settings:save-brain" => {
-            return Ok(json!({ "ok": true, "brain": s.set_brain(&p_str(&p, "model")) }));
-        }
-        "settings:save-find-model" => {
-            return Ok(json!({ "ok": true, "model": s.set_find_model(&p_str(&p, "model")) }));
-        }
-        "settings:save-agent-model" => {
-            return Ok(json!({ "ok": true, "model": s.set_agent_model(&p_str(&p, "model")) }));
-        }
         "settings:save-skill" => {
             let skill = s.set_skill_id(&p_str(&p, "skill"), crate::host::skill_exists);
             return Ok(json!({ "ok": true, "skill": skill }));
@@ -1381,7 +1292,6 @@ mod tests {
         assert_eq!(p_num(&p, "missing"), 0.0);
         assert!(p_bool(&p, "on"));
         assert_eq!(p_str(&p, "s"), "5");
-        assert_eq!(provider_of(&p), "openrouter");
     }
 
     #[test]
