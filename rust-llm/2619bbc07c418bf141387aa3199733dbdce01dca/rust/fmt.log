@@ -1,0 +1,131 @@
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\ask.rs:948:
+         let map = Mutex::new(HashMap::new());
+         let first = install(&map, "output-1", 1);
+         let second = install(&map, "output-2", 2);
+-        assert!(!first.is_cancelled(), "another window's Ask leaves it running");
++        assert!(
++            !first.is_cancelled(),
++            "another window's Ask leaves it running"
++        );
+         let again = install(&map, "output-1", 3);
+-        assert!(first.is_cancelled(), "a new question in the same window replaces it");
++        assert!(
++            first.is_cancelled(),
++            "a new question in the same window replaces it"
++        );
+         assert!(!again.is_cancelled() && !second.is_cancelled());
+         uninstall(&map, "output-1", 1);
+-        assert!(map.lock().contains_key("output-1"), "a stale end keeps the newer Ask");
++        assert!(
++            map.lock().contains_key("output-1"),
++            "a stale end keeps the newer Ask"
++        );
+         uninstall(&map, "output-1", 3);
+         assert!(!map.lock().contains_key("output-1"));
+     }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\find.rs:471:
+         let meta = Meta::purpose("find-expand");
+         let cancel = CancellationToken::new();
+         let sent = llm
+-            .stream_text(&act, &model, "sys", "user", &meta, None, &cancel, &mut |_| {})
++            .stream_text(
++                &act,
++                &model,
++                "sys",
++                "user",
++                &meta,
++                None,
++                &cancel,
++                &mut |_| {},
++            )
+             .await;
+         assert!(sent.is_ok());
+         let log = fake.requests();
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\settings.rs:215:
+ /// [`providers_extra`] as the app is now, for `settings_extra`.
+ pub fn settings_fields() -> Value {
+     let storage = store::get().key_storage();
+-    providers_extra(&StoreSettings, &status::snapshot(), status::now_ms(), storage)
++    providers_extra(
++        &StoreSettings,
++        &status::snapshot(),
++        status::now_ms(),
++        storage,
++    )
+ }
+ 
+ /// The status change an answer's outcome means for its provider (B-046
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\settings.rs:474:
+ /// `settings:clip-key`: a key on the clipboard for a provider that has
+ /// none, masked. The key stays in Rust.
+ fn clip_key(app: &AppHandle) -> Value {
+-    let found = clip_key_of(&clipboard_text(app))
+-        .filter(|(p, _)| !store::get().has_provider_key(p.id()));
++    let found =
++        clip_key_of(&clipboard_text(app)).filter(|(p, _)| !store::get().has_provider_key(p.id()));
+     let reply = match found {
+         Some((p, k)) => ClipKeyReply {
+             found: true,
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\client.rs:903:
+     pub fn sees_images(&self, provider: Provider, id: &str) -> bool {
+         if provider.is_native() {
+             let live = self.known_native_list(provider);
+-            let listed = live.as_ref().and_then(|l| l.iter().find(|m| m.id == id).cloned());
++            let listed = live
++                .as_ref()
++                .and_then(|l| l.iter().find(|m| m.id == id).cloned());
+             return listed.map_or(true, |m| m.images);
+         }
+         let all = self.known_catalogue();
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\client.rs:1206:
+             "o5-mini",
+             "gpt-3.5-turbo",
+         ];
+-        assert_eq!(ids(&o), want, "embeddings, speech and moderation are dropped");
++        assert_eq!(
++            ids(&o),
++            want,
++            "embeddings, speech and moderation are dropped"
++        );
+         assert!(!o[4].images, "GPT-3.5 reads no images");
+ 
+         let g = catalogue::parse_native_list(Provider::Gemini, &all["gemini"]);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\client.rs:1213:
+-        let want = ["gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite"];
+-        assert_eq!(ids(&g), want, "only generateContent models, without models/");
++        let want = [
++            "gemini-3.8-flash",
++            "gemini-4-argon",
++            "gemini-3.5-flash-lite",
++        ];
++        assert_eq!(
++            ids(&g),
++            want,
++            "only generateContent models, without models/"
++        );
+         assert_eq!(g[0].name, "Gemini 3.8 Flash");
+ 
+         // Fetched once with the key, then cached; the picker lists it and a
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\llm\client.rs:1222:
+         assert_eq!(got.len(), 3);
+         assert!(block(llm.native_catalogue(Provider::Anthropic, "sk-ant-k")).is_some());
+         assert_eq!(canned.sent.lock().len(), 1, "cached");
+-        assert!(canned.sent.lock()[0].url.starts_with(wire::ANTHROPIC_MODELS));
++        assert!(canned.sent.lock()[0]
++            .url
++            .starts_with(wire::ANTHROPIC_MODELS));
+         let healed = llm.known_native(Provider::Anthropic, Kind::Find, "claude-3-retired");
+         assert_eq!(healed, Provider::Anthropic.default_model(Kind::Find));
+         let kept = llm.known_native(Provider::Anthropic, Kind::Find, "claude-opus-5-5");
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\skills.rs:295:
+     fn folder_path_is_exe_relative() {
+         let exe = Path::new(r"C:\Program Files\AevalBuddy\AevalBuddy.exe");
+         let dir = folder_of(exe).unwrap();
+-        assert_eq!(dir, Path::new(r"C:\Program Files\AevalBuddy").join("skills"));
++        assert_eq!(
++            dir,
++            Path::new(r"C:\Program Files\AevalBuddy").join("skills")
++        );
+         assert!(folder_of(Path::new("")).is_none());
+     }
+ 
