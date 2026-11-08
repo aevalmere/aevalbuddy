@@ -29,9 +29,10 @@
 
 :root {
   /* Type. Segoe UI Variable is Windows 11's own face, with optical sizes:
-     Display from 18px up, Text below. */
+     Small at 12px, Display from 18px up, Text between. */
   --font-text: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-small: "Segoe UI Variable Small", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
 
   /* Labels on glass. Solid values only: alpha text over a backdrop that can
@@ -43,8 +44,37 @@
   --accent: #823A80;
   --accent-bright: #C56FC3;
   --accent-glass: rgb(197 111 195 / 0.42);
+  /* The accent as text or an icon on glass: --accent-bright is 2.6-3.9:1 on
+     the scrim, this holds 4.5:1 (DESIGN.md Palette). --accent-bright stays
+     for fills, rims and the lens ring. */
+  --accent-text: #EBC0E9;
   --danger: #F2A0A8;
   --danger-edge: #6B2E38;
+
+  /* Text size: the Windows text size times the person's own setting
+     (glass.js sets it from ui:text-scale; Ctrl+= / Ctrl+- / Ctrl+0). Every
+     type size and every control height below follows it. */
+  --text-scale: 1;
+
+  /* Type: size and line height per role, weights 450 and 600 only. */
+  --t-meta: calc(12px * var(--text-scale));
+  --lh-meta: calc(16px * var(--text-scale));
+  --t-caption: calc(13px * var(--text-scale));
+  --lh-caption: calc(18px * var(--text-scale));
+  --t-row: calc(14px * var(--text-scale));
+  --lh-row: calc(20px * var(--text-scale));
+  --t-body: calc(15px * var(--text-scale));
+  --lh-body: calc(24px * var(--text-scale));
+  --t-title: calc(17px * var(--text-scale));
+  --lh-title: calc(22px * var(--text-scale));
+  --t-bar: calc(18px * var(--text-scale));
+  --lh-bar: calc(24px * var(--text-scale));
+  --t-page: calc(22px * var(--text-scale));
+  --lh-page: calc(28px * var(--text-scale));
+  --t-code: calc(13px * var(--text-scale));
+  --lh-code: calc(20px * var(--text-scale));
+  --w-body: 450;
+  --w-strong: 600;
 
   /* The glass body: a cool near-black drawn from shadow grey and indigo, so
      the material keeps a trace of the brand. */
@@ -63,13 +93,20 @@
   /* The transparent margin the shadow is drawn in (lib/stage.js). */
   --stage: 20px;
 
+  /* Radius: inner = outer - inset. 28 sheets and the bar; 16 for what sits
+     12 px inside a sheet, menus and popovers; 12 for what sits 16 px inside
+     a sheet and for menu rows (4 px inside 16); 8 for rows 8 px inside a 16
+     container; 6 keycaps and inline code; capsules for buttons, chips,
+     fields and the token. */
   --r-sheet: 28px;
   --r-card: 16px;
-  --r-row: 10px;
+  --r-plate: 12px;
+  --r-row: 8px;
   --r-key: 6px;
   --r-cap: 999px;
 
-  /* One spacing scale, one type scale, two control heights (DESIGN.md,
+  /* One spacing scale on a 4-grid (2 px only for hairlines and optical
+     nudges), three insets, one type scale, two control heights (DESIGN.md,
      "One system"). Every surface spaces and sets type from these. */
   --sp-1: 4px;
   --sp-2: 8px;
@@ -77,17 +114,25 @@
   --sp-4: 16px;
   --sp-5: 24px;
   --sp-6: 32px;
-  --fs-meta: 12px;
-  --fs-small: 13px;
-  --fs-row: 14px;
-  --fs-body: 15px;
-  --fs-title: 17px;
-  --fs-bar: 18px;
-  --fs-page: 22px;
-  --ctl: 32px;
-  --ctl-s: 28px;
-  --bar-h: 56px;
-  --sheet-bar-h: 44px;
+  --inset-text: 16px;
+  --inset-row: 12px;
+  --inset-menu: 4px;
+  /* The names the surfaces were built with, kept: the same sizes. */
+  --fs-meta: var(--t-meta);
+  --fs-small: var(--t-caption);
+  --fs-row: var(--t-row);
+  --fs-body: var(--t-body);
+  --fs-title: var(--t-title);
+  --fs-bar: var(--t-bar);
+  --fs-page: var(--t-page);
+  --ctl: calc(32px * var(--text-scale));
+  --ctl-s: calc(28px * var(--text-scale));
+  --bar-h: calc(56px * var(--text-scale));
+  --sheet-bar-h: calc(44px * var(--text-scale));
+  /* Icon sizes: 18 in a 32 px button, 16 in a 28 px one, 14 inline. */
+  --ico: calc(18px * var(--text-scale));
+  --ico-s: calc(16px * var(--text-scale));
+  --ico-i: calc(14px * var(--text-scale));
 
   /* How liquid the glass is: Settings' slider, 0..1 (glass.js). 0.5 is the
      v2.1 material exactly. */
@@ -95,6 +140,20 @@
   /* Above 0.5 only: the extra specular sheen of "Very" and "Very very". */
   --spec: clamp(0, calc(var(--glass-k) * 2 - 1), 1);
 
+  /* Elevation: controls (the bar, chips, the orb), sheets (outputs,
+     Settings, History; it fits the 20 px stage) and menus. Plates inside
+     glass have none: the rim and the fill are enough. */
+  --shadow-control:
+    0 0 0 var(--px) rgb(0 0 0 / 0.30),
+    0 1px 2px rgb(0 0 0 / 0.20),
+    0 4px 12px -4px rgb(0 0 0 / 0.35);
+  --shadow-sheet:
+    0 0 0 var(--px) rgb(0 0 0 / 0.34),
+    0 2px 6px rgb(0 0 0 / 0.18),
+    0 10px 22px -10px rgb(0 0 0 / 0.50);
+  --shadow-menu:
+    0 0 0 var(--px) rgb(0 0 0 / 0.3),
+    0 8px 18px -6px rgb(0 0 0 / 0.45);
   --shadow:
     0 0 0 var(--px) rgba(0, 0, 0, 0.34),
     0 1px 2px rgba(0, 0, 0, 0.24),
@@ -103,12 +162,22 @@
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
-  /* About 5% overshoot, for small shape changes only (owner-approved). */
+  /* The glob's body: a spring with a response near 0.42 s and damping 0.88,
+     no overshoot. */
+  --ease-spring: cubic-bezier(0.2, 0.9, 0.25, 1);
+  /* About 5% overshoot, for small arrivals only (owner-approved): the token
+     locking, the loupe, a switch. */
   --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --d-press: 100ms;
   --d-fast: 150ms;
+  /* Every reduced-motion fade (DESIGN.md Motion). */
+  --d-reduced: 150ms;
+  --d-reveal: 140ms;
   --d-med: 240ms;
   --d-morph: 320ms;
   --d-sheet: 360ms;
+  --d-glob: 480ms;
+  --d-glob-close: 260ms;
 }
 
 /* ------------------------------------------------------------- the layer */
@@ -127,9 +196,13 @@
   overflow: hidden;
   z-index: -1;
   pointer-events: none;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-control);
   background: rgb(var(--tint) / 0.5);
   transition: background var(--d-med) ease;
+}
+
+.glass.thick > .gl {
+  box-shadow: var(--shadow-sheet);
 }
 
 .glass > .gl > .gs {
@@ -269,13 +342,15 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
     --hairline: rgba(255, 255, 255, 0.4);
     --scrim: 0.9;
   }
-  .glass > .gl {
+  .glass > .gl,
+  .glass.thick > .gl {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 0 2px #000;
   }
 }
 
 @media (forced-colors: active) {
-  .glass > .gl {
+  .glass > .gl,
+  .glass.thick > .gl {
     background: Canvas;
     border: 1px solid CanvasText;
     box-shadow: none;
@@ -306,23 +381,47 @@ html[data-shot-bg] body {
 /* ------------------------------------------------------- controls on glass */
 
 /* Two-tone focus, so it holds 3:1 on the glass and on whatever is behind
-   it. */
+   it: a light ring on the outline, a dark halo beyond it. The halo is a
+   second shadow, so a control keeps its own rim (each sets --own-shadow). */
 :focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.92);
+  outline: 2px solid rgb(255 255 255 / 0.92);
   outline-offset: 2px;
-  box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--own-shadow, none), 0 0 0 5px rgb(0 0 0 / 0.38);
+}
+
+/* Icons come from renderer/icons.svg (one family, one weight). */
+.ico {
+  flex: 0 0 auto;
+  width: var(--ico-i);
+  height: var(--ico-i);
+  overflow: visible;
 }
 
 .g-icon {
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: var(--ctl);
+  height: var(--ctl);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--r-cap);
   color: var(--label-2);
   transition: background var(--d-fast) ease, color var(--d-fast) ease, transform 120ms var(--ease-out);
+}
+
+.g-icon > svg {
+  width: var(--ico);
+  height: var(--ico);
+}
+
+.g-icon.small {
+  width: var(--ctl-s);
+  height: var(--ctl-s);
+}
+
+.g-icon.small > svg {
+  width: var(--ico-s);
+  height: var(--ico-s);
 }
 
 .g-icon:hover {
@@ -338,15 +437,16 @@ html[data-shot-bg] body {
 }
 
 .g-btn {
+  --own-shadow: var(--chip-rim);
   flex: 0 0 auto;
-  min-height: 32px;
-  padding: 0 14px;
+  min-height: var(--ctl);
+  padding: 0 var(--sp-4);
   border-radius: var(--r-cap);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
   color: var(--label);
   background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+  box-shadow: var(--own-shadow);
   transition: background var(--d-fast) ease, transform 240ms var(--ease-settle);
 }
 
@@ -355,8 +455,8 @@ html[data-shot-bg] body {
 }
 
 .g-btn.prominent {
+  --own-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 0 0 var(--px) rgb(255 255 255 / 0.18);
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
 }
 
 .g-btn.prominent:hover {
@@ -369,16 +469,17 @@ html[data-shot-bg] body {
 }
 
 .g-chip {
+  --own-shadow: var(--chip-rim);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 12px;
+  gap: var(--sp-1);
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-3);
   border-radius: var(--r-cap);
-  font-size: 13px;
+  font-size: var(--t-caption);
   color: var(--label);
   background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+  box-shadow: var(--own-shadow);
   transition: background var(--d-fast) ease;
 }
 
@@ -390,16 +491,224 @@ kbd,
 .keycap {
   display: inline-flex;
   align-items: center;
-  min-height: 18px;
-  padding: 0 5px;
+  min-height: calc(18px * var(--text-scale));
+  padding: 0 var(--sp-1);
   border-radius: var(--r-key);
   font: inherit;
-  font-size: 12px;
-  font-weight: 500;
+  font-family: var(--font-small);
+  font-size: var(--t-meta);
+  font-weight: var(--w-body);
   color: var(--label-2);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------- sheet bar */
+
+/* The one title bar (Outputs, Settings, History): 44 px, the title left
+   aligned in 13/18 semibold, 28 px tools 4 px apart, the last one 8 px from
+   the glass. A hairline under it only once content scrolls beneath
+   (body[data-scrolled="1"], or data-scrolled on the bar). */
+.sheet-bar {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--sheet-bar-h);
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  cursor: default;
+}
+
+.sheet-bar-title {
+  flex: 1;
+  min-width: 0;
+  font: var(--w-strong) var(--t-caption) / var(--lh-caption) var(--font-text);
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-bar-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.sheet-bar-tools > .g-icon {
+  width: var(--ctl-s);
+  height: var(--ctl-s);
+}
+
+.sheet-bar-tools > .g-icon > svg {
+  width: var(--ico-s);
+  height: var(--ico-s);
+}
+
+.sheet-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--px);
+  background: var(--hairline);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--d-fast) ease;
+}
+
+body[data-scrolled="1"] .sheet-bar::after,
+.sheet-bar[data-scrolled="1"]::after {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ menus */
+
+/* One menu (the token's, the window menu, model pickers, Settings' combo):
+   thin glass, r16 with 4 px inside, rows r12 so they are concentric, hover
+   --fill-1, the selected row --fill-2 and the shared check at its right.
+   In a page that is already glass (Settings) add .solid: the opaque body,
+   same rim and radius, never glass on glass. */
+.g-menu {
+  --r: var(--r-card);
+  list-style: none;
+  padding: var(--inset-menu);
+  font-size: var(--t-row);
+  line-height: var(--lh-row);
+  color: var(--label);
+  animation: g-drop-in 220ms var(--ease-morph);
+}
+
+.g-menu > .gl {
+  box-shadow: var(--shadow-menu);
+}
+
+.g-menu.solid > .gl {
+  background: var(--solid);
+}
+
+.g-menu.solid > .gl > .gs {
+  display: none;
+}
+
+.g-menu.solid > .gl::before {
+  background: transparent;
+}
+
+.g-menu.closing {
+  animation: g-fade-out 120ms ease forwards;
+  pointer-events: none;
+}
+
+.g-menu-row,
+.g-menu [role="option"],
+.g-menu [role="menuitem"],
+.g-menu [role="menuitemradio"],
+.g-menu [role="menuitemcheckbox"] {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: calc(36px * var(--text-scale));
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-plate);
+  color: var(--label);
+  cursor: default;
+  outline: none;
+  transition: background var(--d-fast) ease;
+}
+
+.g-menu-row:hover,
+.g-menu [role="option"]:hover,
+.g-menu [role^="menuitem"]:hover,
+.g-menu [data-active="true"] {
+  background: var(--fill-1);
+}
+
+.g-menu-row:focus-visible,
+.g-menu [role="option"]:focus-visible,
+.g-menu [role^="menuitem"]:focus-visible {
+  background: var(--fill-1);
+  outline: 2px solid rgb(255 255 255 / 0.92);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+.g-menu [role][aria-selected="true"],
+.g-menu [role][aria-checked="true"],
+.g-menu .g-menu-row.selected {
+  background: var(--fill-2);
+}
+
+.g-menu [aria-disabled="true"] {
+  color: var(--label-3);
+}
+
+.g-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.g-menu-keys {
+  display: inline-flex;
+  gap: var(--sp-1);
+}
+
+/* The shared check: present in every row so the labels never move, seen
+   only on the selected one. */
+.g-check {
+  flex: 0 0 auto;
+  width: var(--ico-s);
+  height: var(--ico-s);
+  color: var(--label);
+  visibility: hidden;
+}
+
+.g-menu [aria-selected="true"] .g-check,
+.g-menu [aria-checked="true"] .g-check,
+.g-menu .selected .g-check {
+  visibility: visible;
+}
+
+.g-menu-group-label {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font-family: var(--font-small);
+  font-size: var(--t-meta);
+  line-height: var(--lh-meta);
+  font-weight: var(--w-strong);
+  color: var(--label-2);
+}
+
+.g-menu-sep {
+  height: var(--px);
+  margin: var(--sp-1) var(--sp-3);
+  background: var(--hairline);
+}
+
+.g-menu-empty {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+@keyframes g-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+@keyframes g-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 @media (forced-colors: active) {
@@ -411,6 +720,15 @@ kbd,
   .g-chip,
   kbd {
     border: 1px solid ButtonText;
+  }
+  .g-menu {
+    border: 1px solid CanvasText;
+  }
+  .g-menu [aria-selected="true"],
+  .g-menu [aria-checked="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
   }
 }
 
