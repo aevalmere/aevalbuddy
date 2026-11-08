@@ -599,3 +599,9 @@ allowlisted channel has no row anywhere.
 
 OpenAI: the GPT-6 family takes tool calls only through the Responses API, so `Llm::supports_tools`
 answers false for OpenAI and the agent uses the one-JSON-object fallback there (checked 2026-11-07).
+
+Two rules the merge added. `state::Hooks::refresh_flags` copies buddy, region, Find and agent state into
+`AppState`; the core calls `state::refresh(app)` at the top of every function that reads those flags
+(`hotkeys::apply`, `overlay_state`, `on_escape`, `toggle_visibility`, ...), never with the state lock held.
+`backdrop`'s pace hook runs with the backdrop lock released and reads visibility through Win32: a Tauri
+window getter off the main thread waits for the main thread, and holding the lock meanwhile deadlocked boot.

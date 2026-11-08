@@ -39,9 +39,14 @@ use tauri::{Manager, RunEvent};
 fn quiet_run() -> bool {
     // The CI checks too: a first-run tour would put the buddy's full-screen
     // window over the points the desktop selfcheck probes.
-    ["AEVAL_SMOKE", "AEVAL_SHOT", "AEVAL_CAPTURE_CHECK", "AEVAL_DESKTOP_CHECK"]
-        .iter()
-        .any(|k| std::env::var_os(k).is_some())
+    [
+        "AEVAL_SMOKE",
+        "AEVAL_SHOT",
+        "AEVAL_CAPTURE_CHECK",
+        "AEVAL_DESKTOP_CHECK",
+    ]
+    .iter()
+    .any(|k| std::env::var_os(k).is_some())
 }
 
 /// main.js presenceToast (LIFE-12): once per fresh install, or whenever the
