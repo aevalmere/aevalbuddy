@@ -31,6 +31,8 @@ pub mod state;
 pub mod store;
 pub mod tray;
 pub mod updater;
+// voice lane
+mod voice;
 pub mod windows;
 
 use tauri::webview::PageLoadEvent;
@@ -215,6 +217,8 @@ pub fn run() {
             desktop::setup(&handle);
             // Ask, Find, the agent and the hooks between the splits.
             host::setup(&handle);
+            // voice lane: the dictation chord and its pill.
+            voice::setup(&handle);
             store::get().decide_presence();
             // Not apply: boot leaves Task Manager's StartupApproved alone.
             autostart::sync();

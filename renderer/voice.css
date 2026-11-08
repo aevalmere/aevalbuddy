@@ -1,0 +1,90 @@
+/* The bar's mic (renderer/voice.js, entries/voice.md). At rest it is one of
+   the bar's icon buttons. Listening, it takes the accent glass and its icon
+   becomes a five-bar level meter, so the person can see they are heard.
+   Writing it down, it breathes; an error tints it. Tokens are glass.css's. */
+
+#mic-btn {
+  --l: 0;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#mic-btn .mic-meter {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 2px; /* optical: five bars in an icon's width */
+  width: var(--ico);
+  height: var(--ico);
+}
+
+#mic-btn .mic-meter > i {
+  --k: 1;
+  width: 2px;
+  min-height: 2px;
+  height: calc(var(--ico) * (0.16 + 0.84 * var(--l) * var(--k)));
+  border-radius: var(--r-cap);
+  background: currentColor;
+  transition: height 80ms linear;
+}
+
+#mic-btn .mic-meter > i:nth-child(1),
+#mic-btn .mic-meter > i:nth-child(5) {
+  --k: 0.45;
+}
+
+#mic-btn .mic-meter > i:nth-child(2),
+#mic-btn .mic-meter > i:nth-child(4) {
+  --k: 0.75;
+}
+
+#mic-btn[data-state="listening"] {
+  background: var(--accent-glass);
+  color: var(--accent-text);
+}
+
+#mic-btn[data-state="listening"] > svg {
+  display: none;
+}
+
+#mic-btn[data-state="listening"] .mic-meter {
+  display: inline-flex;
+}
+
+#mic-btn[data-state="working"] > svg,
+#mic-btn[data-state="preparing"] > svg {
+  animation: mic-breathe 1.2s ease-in-out infinite alternate;
+}
+
+#mic-btn[data-state="error"] {
+  color: var(--danger);
+}
+
+@keyframes mic-breathe {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mic-btn .mic-meter > i {
+    transition: none;
+  }
+  #mic-btn[data-state="working"] > svg,
+  #mic-btn[data-state="preparing"] > svg {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+@media (forced-colors: active) {
+  #mic-btn[data-state="listening"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  #mic-btn .mic-meter > i {
+    background: ButtonText;
+  }
+}

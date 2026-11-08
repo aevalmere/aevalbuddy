@@ -138,6 +138,15 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
+    // voice lane
+    "voice:start",
+    "voice:stop",
+    "voice:cancel",
+    "voice:get",
+    "voice:set",
+    "voice:download",
+    "voice:capture-hotkey",
+    // end voice lane
 ];
 
 /// Channels a page may listen on. Must equal `LISTEN_CHANNELS` in preload.js.
@@ -191,6 +200,11 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
+    // voice lane
+    "voice:state",
+    "voice:level",
+    "voice:progress",
+    // end voice lane
 ];
 
 const BRIDGE_JS: &str = include_str!("../bridge/aeval-bridge.js");
@@ -327,6 +341,8 @@ fn family(channel: &str) -> Option<&'static [Caller]> {
         "bar" | "overlay" => BAR,
         "glass" | "a11y" => ANY,
         "window" => PAGES,
+        // voice lane: the bar's mic and Settings' Voice section.
+        "voice" => APP,
         _ => return None,
     })
 }
@@ -471,6 +487,10 @@ async fn dispatch(window: &WebviewWindow, channel: &str, payload: Value) -> Resu
         return r;
     }
     if let Some(r) = crate::host::agent::route(&app, channel, &payload).await {
+        return r;
+    }
+    // voice lane
+    if let Some(r) = crate::voice::ipc::route(&app, &label, channel, &payload).await {
         return r;
     }
     if channel == "ui:context-menu" {
@@ -934,6 +954,7 @@ mod tests {
             include_str!("host/find.rs"),
             include_str!("host/agent.rs"),
             include_str!("host/settings.rs"),
+            include_str!("voice/ipc.rs"), // voice lane
         ]
         .concat();
         // Arms are `"x" =>`, `"x" | "y" =>`, or `channel == "x"`.
@@ -1201,6 +1222,7 @@ mod tests {
                     include_str!("../../renderer/intent.js"),
                     include_str!("../../renderer/overlay.js"),
                     include_str!("../../renderer/bar.js"),
+                    include_str!("../../renderer/voice.js"), // voice lane
                 ],
             ),
             (
@@ -1215,7 +1237,12 @@ mod tests {
             ),
             (
                 Caller::Settings,
-                vec![glass, frame, include_str!("../../settings/settings.js")],
+                vec![
+                    glass,
+                    frame,
+                    include_str!("../../settings/settings.js"),
+                    include_str!("../../renderer/voice-settings.js"), // voice lane
+                ],
             ),
             (
                 Caller::History,

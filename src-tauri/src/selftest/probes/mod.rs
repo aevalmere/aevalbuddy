@@ -11,6 +11,8 @@ pub mod llm;
 pub mod platform;
 pub mod settings;
 pub mod sheet;
+// voice lane
+pub mod voice;
 pub mod windows;
 
 use std::collections::BTreeMap;
@@ -24,7 +26,7 @@ pub type Probe = fn(&mut Cx);
 /// Every lane's probe, in the order they run: the harness first (it checks
 /// the API the others use, then runs the desktop selfcheck), the `v2desktop`
 /// lanes last.
-pub const LANES: [(&str, Probe); 9] = [
+pub const LANES: [(&str, Probe); 10] = [
     ("harness", harness::run),
     ("platform", platform::run),
     ("windows", windows::run),
@@ -34,6 +36,8 @@ pub const LANES: [(&str, Probe); 9] = [
     ("settings", settings::run),
     ("agent", agent::run),
     ("llm", llm::run),
+    // voice lane: works in the smoke's Notepad, so it runs last.
+    ("voice", voice::run),
 ];
 
 /// Electron's four block labels (main.js:3881-3914), each standing for a
@@ -50,7 +54,7 @@ pub const BLOCKS: [(&str, &[&str]); 4] = [
 ];
 
 /// The `v2desktop` block: the lanes that work in the smoke's Notepad.
-const NOTEPAD_LANES: &[&str] = &["llm"];
+const NOTEPAD_LANES: &[&str] = &["llm", "voice"]; // voice lane
 
 /// The Notepad half of the smoke runs on CI, or when asked (main.js:3837).
 pub fn notepad_enabled() -> bool {
@@ -99,7 +103,7 @@ mod tests {
         let mut sorted = lanes.clone();
         sorted.sort_unstable();
         sorted.dedup();
-        assert_eq!(sorted.len(), 9);
+        assert_eq!(sorted.len(), 10); // voice lane
         assert_eq!(lanes[0], "harness");
         let grouped: Vec<&str> = BLOCKS.iter().flat_map(|b| b.1.iter().copied()).collect();
         for lane in &lanes[1..] {

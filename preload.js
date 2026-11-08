@@ -125,6 +125,15 @@ const INVOKE_CHANNELS = new Set([
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----
+  // voice lane
+  'voice:start',
+  'voice:stop',
+  'voice:cancel',
+  'voice:get',
+  'voice:set',
+  'voice:download',
+  'voice:capture-hotkey',
+  // end voice lane
 ]);
 
 const LISTEN_CHANNELS = new Set([
@@ -177,6 +186,11 @@ const LISTEN_CHANNELS = new Set([
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----
+  // voice lane
+  'voice:state',
+  'voice:level',
+  'voice:progress',
+  // end voice lane
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {

@@ -1362,3 +1362,12 @@ html[data-motion="reduced"] .state[data-status="checking"] svg {
     outline-color: Highlight;
   }
 }
+
+/* ------------------------------------------------------- voice lane */
+
+/* The Voice page's language and microphone lists: a field, full width. */
+.voice-select {
+  flex: none;
+  width: 100%;
+  appearance: auto;
+}

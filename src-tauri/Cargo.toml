@@ -81,6 +81,13 @@ reqwest = { version = "0.12", default-features = false, features = [
 # ---- lane: agent ----
 # ---- end ----
 
+# ---- lane: voice ----
+# Microphone capture over WASAPI, and Whisper (whisper.cpp) on this PC: the
+# free, offline default for voice input (entries/voice.md, D-voice-1).
+cpal = "0.15"
+whisper-rs = "0.14"
+# ---- end ----
+
 # Shared Windows bindings: one feature per line, inside the owning lane's
 # block. A feature another lane already lists is not repeated.
 windows-sys = { version = "0.59", features = [
@@ -110,6 +117,12 @@ windows-sys = { version = "0.59", features = [
   # ---- lane: llm ----
   # ---- end ----
   # ---- lane: agent ----
+  # ---- end ----
+  # ---- lane: voice ----
+  # The clipboard paste with save and restore, and the push-to-talk hook.
+  "Win32_System_DataExchange",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
   # ---- end ----
 ] }
 

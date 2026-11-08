@@ -7,6 +7,7 @@
   <title>AevalBuddy</title>
   <link rel="stylesheet" href="glass.css" />
   <link rel="stylesheet" href="overlay.css" />
+  <link rel="stylesheet" href="voice.css" />
 </head>
 <body data-mode="pill" data-surface="bar">
   <!-- The orb. One glass circle with the product's pointer in it; what it
@@ -69,6 +70,17 @@
           <span class="ico i-x" aria-hidden="true"></span>
         </button>
       </div>
+      <!-- voice lane: speak instead of typing (renderer/voice.js). Click, or
+           hold and let go; listening, the icon becomes a level meter. -->
+      <button id="mic-btn" class="g-icon" type="button" aria-pressed="false"
+              aria-label="Speak instead of typing" title="Speak instead of typing">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="3" width="6" height="11" rx="3" />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+        </svg>
+        <span class="mic-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      </button>
       <button id="region-btn" class="g-icon" type="button" aria-label="Ask about an area of the screen"
               aria-keyshortcuts="Control+R" title="Ask about an area (Ctrl+R)">
         <span class="ico i-area" aria-hidden="true"></span>
@@ -156,5 +168,6 @@
   <script src="intent.js"></script>
   <script src="overlay.js"></script>
   <script src="bar.js"></script>
+  <script src="voice.js"></script>
 </body>
 </html>
