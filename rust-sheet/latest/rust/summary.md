@@ -1,12 +1,11 @@
-# rust: failure
+# rust: cancelled
 
 - Workflow: rust
-- Run: [42465942919](https://github.com/aevalmere/aevalbuddy/actions/runs/42465942919), attempt 1, on push
-- Commit: a2ab4d8d8577cfd39fa272fe0a27c50c90a16ffd
+- Run: [42492595589](https://github.com/aevalmere/aevalbuddy/actions/runs/42492595589), attempt 1, on push
+- Commit: fe4f1281d557112689b490d9658388e70e19a8bd
 - Ref: rust/sheet
-- Conclusion: **failure**
-- Failed: Build installer
-- Finished: 2026-11-08T09:26:38Z
+- Conclusion: **cancelled**
+- Finished: 2026-11-08T15:12:40Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -20,10 +19,13 @@
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
-| Build installer | failure | [build.log](build.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | success |  |
+| Build installer | cancelled | [build.log](build.log) |
 | Smoke | skipped |  |
-| Capture check | success | [capture.log](capture.log) |
-| Desktop selfcheck | success | [desktop.log](desktop.log) |
+| Capture check | skipped |  |
+| Desktop selfcheck | skipped |  |
 | Upload installer | skipped |  |
 
-errors.txt: 1 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
