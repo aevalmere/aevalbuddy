@@ -62,8 +62,9 @@ const hide = (s) => String(s).replace(/x-access-token:[^@\s]+@/g, 'x-access-toke
 
 const ANSI = /\x1b\[[0-?]*[ -/]*[@-~]/g;
 // A rustc/clippy diagnostic, a rustfmt diff or a panic runs until the next
-// empty line (30 lines at most).
+// empty line or cargo status line (30 lines at most).
 const BLOCK = /^(error|warning)(\[[\w-]+\])?: |^Diff in |panicked at /;
+const STATUS = /^\s+(Compiling|Checking|Finished|Running|Doc-tests|Fresh) /;
 const LINE =
   /^test .+ \.\.\. FAILED$|^test result: FAILED|=FAIL|\] pageerror|\] failed: |^\s*\w*Error\b[: ]|^npm (ERR!|error)|timed out/;
 
@@ -84,7 +85,8 @@ function errorLines(lines) {
   for (let i = 0; i < lines.length && out.length < ERR_LINES; i++) {
     if (BLOCK.test(lines[i])) {
       let j = i;
-      while (j < lines.length && lines[j] !== '' && j - i < 30) out.push(lines[j++]);
+      do out.push(lines[j++]);
+      while (j < lines.length && lines[j] !== '' && !STATUS.test(lines[j]) && j - i < 30);
       out.push('');
       i = j - 1;
     } else if (LINE.test(lines[i])) {

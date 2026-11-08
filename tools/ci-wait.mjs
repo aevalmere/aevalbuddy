@@ -72,16 +72,20 @@ const sha = (() => {
   process.exit(2);
 })();
 
-// The branches this sha was pushed to, from the remote-tracking refs.
+// The branches this sha was pushed to, from the remote-tracking refs: those
+// whose tip it is, else (the ref moved on since) those that contain it.
 const holders = (() => {
   if (refArg) return [refArg];
   if (!full(sha)) return [];
-  const r = git(['for-each-ref', '--contains', sha, '--format=%(refname:lstrip=3)', 'refs/remotes/origin/']);
-  if (r.status !== 0) return [];
-  return r.stdout
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s && !['HEAD', 'ci-logs', 'shots'].includes(s));
+  for (const how of ['--points-at', '--contains']) {
+    const r = git(['for-each-ref', how, sha, '--format=%(refname:lstrip=3)', 'refs/remotes/origin/']);
+    const refs = (r.status === 0 ? r.stdout : '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s && !['HEAD', 'ci-logs', 'shots'].includes(s));
+    if (refs.length) return refs;
+  }
+  return [];
 })();
 
 let lastFetchError = '';
