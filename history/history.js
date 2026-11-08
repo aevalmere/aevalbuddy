@@ -42,6 +42,15 @@ function call(channel, payload) {
   }
 }
 
+// A glyph from the shared sprite (renderer/icons.svg through glass.css).
+function icon(name) {
+  if (window.AevalGlass && window.AevalGlass.icon) return window.AevalGlass.icon(name);
+  const span = document.createElement('span');
+  span.className = `ico i-${name}`;
+  span.setAttribute('aria-hidden', 'true');
+  return span;
+}
+
 function listen(channel, cb) {
   try {
     window.aeval.on(channel, cb);
@@ -81,7 +90,7 @@ function when(at) {
     if (delta < HOUR) return `${Math.floor(delta / MIN)} min ago`;
     return `${Math.floor(delta / HOUR)} h ago`;
   }
-  if (at >= t0 - 6 * DAY) return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (at >= t0 - 6 * DAY) return new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
@@ -111,10 +120,6 @@ function withHighlight(text, term) {
   frag.appendChild(document.createTextNode(value.slice(from)));
   return frag;
 }
-
-const TRASH =
-  '<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
-  '<path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6M8.75 8.5v4.5M11.25 8.5v4.5" vector-effect="non-scaling-stroke"/></svg>';
 
 function row(entry, n) {
   const item = document.createElement('div');
@@ -153,7 +158,7 @@ function row(entry, n) {
   del.type = 'button';
   del.className = 'del';
   del.setAttribute('aria-label', `Delete "${entry.title}"`);
-  del.innerHTML = TRASH;
+  del.appendChild(icon('trash'));
   item.appendChild(del);
 
   return item;

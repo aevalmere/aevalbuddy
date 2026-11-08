@@ -60,10 +60,19 @@ function el(tag, attrs, text) {
   return node;
 }
 
+// A glyph from the shared sprite (renderer/icons.svg through glass.css).
+function icon(name, cls) {
+  if (window.AevalGlass && window.AevalGlass.icon) return window.AevalGlass.icon(name, cls);
+  return el('span', { class: `ico i-${name}${cls ? ` ${cls}` : ''}`, 'aria-hidden': 'true' });
+}
+
+// The status glyphs the sprite does not have yet (ring, spinner, circled
+// check, cross, alert, clock and dash, and the drag grip), drawn on the
+// sprite's grid: 20 units, a 1.5 stroke that does not scale, round ends.
 function svg(markup, size) {
   const s = size || 16;
   const span = document.createElement('span');
-  span.className = 'ico';
+  span.className = 'glyph';
   span.setAttribute('aria-hidden', 'true');
   span.innerHTML = `<svg viewBox="0 0 20 20" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${markup}</svg>`;
   return span;
@@ -71,7 +80,6 @@ function svg(markup, size) {
 
 const NS = 'vector-effect="non-scaling-stroke"';
 const ICON = {
-  chevron: `<path d="M8 5l5 5-5 5" ${NS}/>`,
   ring: `<circle cx="10" cy="10" r="6" ${NS}/>`,
   check: `<circle cx="10" cy="10" r="7" ${NS}/><path d="M7 10.2l2 2 4-4.4" ${NS}/>`,
   cross: `<circle cx="10" cy="10" r="7" ${NS}/><path d="M7.5 7.5l5 5M12.5 7.5l-5 5" ${NS}/>`,
@@ -80,7 +88,6 @@ const ICON = {
   dash: `<circle cx="10" cy="10" r="7" ${NS}/><path d="M7 10h6" ${NS}/>`,
   spin: `<circle cx="10" cy="10" r="6.5" opacity=".28" ${NS}/><path d="M10 3.5a6.5 6.5 0 0 1 6.5 6.5" ${NS}/>`,
   grip: `<path d="M7.5 5v.01M12.5 5v.01M7.5 10v.01M12.5 10v.01M7.5 15v.01M12.5 15v.01" stroke-width="2.4" ${NS}/>`,
-  pick: `<path d="M5 10.5l3.2 3.2L15 6.5" ${NS}/>`,
 };
 
 // Status lines share one helper so none can leave stale text behind or
@@ -525,8 +532,7 @@ function buildRow(id) {
   const state = el('span', { class: 'state' });
   head.appendChild(state);
   head.appendChild(el('span', { class: 'default-cap' }, 'Default'));
-  const chev = svg(ICON.chevron, 14);
-  chev.classList.add('chev');
+  const chev = icon('chevron', 'chev');
   head.appendChild(chev);
   li.appendChild(head);
 
@@ -1374,6 +1380,7 @@ function makeCombo(config) {
   const state = { index: new Map(), offline: '', current: '', provider: 'openrouter' };
   let typed = '';
   let typedAt = 0;
+  button.appendChild(icon('chevron', 'combo-chev'));
 
   function optionDetail(m) {
     return [m.tag ? `${m.tag}.` : '', m.note, m.detail].filter(Boolean).join(' ');
@@ -1408,16 +1415,14 @@ function makeCombo(config) {
     for (const group of res.groups || []) {
       g += 1;
       const wrap = el('div', { class: 'menu-group', role: 'group', 'aria-label': group.label });
-      wrap.appendChild(el('div', { class: 'menu-head', 'aria-hidden': 'true' }, group.label));
+      wrap.appendChild(el('div', { class: 'g-menu-group-label', 'aria-hidden': 'true' }, group.label));
       for (const m of group.models) {
         state.index.set(m.id, m);
         const opt = el('div', { class: 'menu-row', role: 'option', tabindex: '-1', 'data-id': m.id, title: m.id, id: `${rootId}-o-${g}-${state.index.size}` });
         opt.appendChild(el('span', { class: 'opt-name' }, m.name));
         const d = optionDetail(m);
         if (d) opt.appendChild(el('span', { class: 'opt-detail' }, d));
-        const tick = svg(ICON.pick, 16);
-        tick.classList.add('tick');
-        opt.appendChild(tick);
+        opt.appendChild(icon('check', 'g-check'));
         wrap.appendChild(opt);
       }
       list.appendChild(wrap);

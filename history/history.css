@@ -3,18 +3,7 @@
    renderer/glass.css or the token block below. One layer. */
 
 :root {
-  /* Shared tokens the bar lane's K-40 adds to glass.css, at the same values.
-     Delete these once K-40 is merged. */
-  --font-small: "Segoe UI Variable Small", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --accent-text: #EBC0E9;
-  --w-body: 450;
-  --w-strong: 600;
-  --r-plate: 12px;
-  --shadow-menu:
-    0 0 0 var(--px) rgb(0 0 0 / 0.3),
-    0 8px 18px -6px rgb(0 0 0 / 0.45);
-
-  /* This page's own values. */
+  /* This page's own values; everything shared is in glass.css. */
   --row-min: 60px;
   --foot-h: 44px;
   --measure: 760px;
@@ -103,42 +92,6 @@ h2 {
   margin: 0;
 }
 
-/* ------------------------------------------------------------ sheet bar */
-
-/* Mirrors glass.css's shared .sheet-bar (K-40) until it is merged. */
-.sheet-bar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: var(--sheet-bar-h);
-  padding: 0 var(--sp-2) 0 var(--sp-4);
-}
-
-.sheet-bar-title {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-small);
-  font-weight: var(--w-strong);
-  line-height: 18px;
-  color: var(--label);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sheet-bar-tools {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-}
-
-.sheet-bar-tools > .g-icon {
-  width: var(--ctl-s);
-  height: var(--ctl-s);
-}
-
 /* --------------------------------------------------------------- search */
 
 #searchbar {
@@ -209,7 +162,7 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   flex: 0 0 auto;
   padding: 0 var(--sp-4) var(--sp-2);
   font-size: var(--fs-small);
-  line-height: 18px;
+  line-height: var(--lh-caption);
   color: var(--label-2);
 }
 
@@ -250,7 +203,7 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   font-family: var(--font-small);
   font-size: var(--fs-meta);
   font-weight: var(--w-strong);
-  line-height: 16px;
+  line-height: var(--lh-meta);
   color: var(--label-2);
 }
 
@@ -298,13 +251,13 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
 
 .q {
   font-size: var(--fs-row);
-  line-height: 20px;
+  line-height: var(--lh-row);
   color: var(--label);
 }
 
 .a {
   font-size: var(--fs-small);
-  line-height: 18px;
+  line-height: var(--lh-caption);
   color: var(--label-2);
 }
 
@@ -315,7 +268,7 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
 .meta {
   font-family: var(--font-small);
   font-size: var(--fs-meta);
-  line-height: 16px;
+  line-height: var(--lh-meta);
   color: var(--label-3);
 }
 
@@ -339,6 +292,11 @@ mark {
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
+.del > .ico {
+  width: var(--ico-s);
+  height: var(--ico-s);
+}
+
 .del:hover,
 .del:focus-visible {
   color: var(--label);
@@ -359,7 +317,7 @@ mark {
 .empty p {
   max-width: 320px;
   font-size: var(--fs-row);
-  line-height: 20px;
+  line-height: var(--lh-row);
   color: var(--label-2);
 }
 
@@ -456,36 +414,11 @@ mark {
   border-radius: var(--r-card);
   background: var(--solid);
   box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
-  animation: menu-in var(--d-med) var(--ease-morph);
 }
 
+/* Rows are the shared menu's; these are buttons, so they start flush. */
 .row-menu [role="menuitem"] {
-  display: flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 var(--sp-3);
-  border-radius: var(--r-plate);
-  font-size: var(--fs-row);
-  color: var(--label);
-  outline: none;
-}
-
-.row-menu [role="menuitem"]:hover,
-.row-menu [role="menuitem"]:focus-visible {
-  background: var(--fill-1);
-  box-shadow: none;
-}
-
-.row-menu [role="menuitem"]:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
-}
-
-@keyframes menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
-  }
+  text-align: left;
 }
 
 /* ----------------------------------------------------------- preferences */
