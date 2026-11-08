@@ -298,6 +298,7 @@ Stop when every item below and the standing labels task is green on CI at your b
 - C1 (K-01, K-02, K-08, K-09, B-087, capabilities, Cargo.toml lane blocks): at 3e74cba Format, Clippy, Unit tests, Capture check and Desktop selfcheck passed; Build installer failed on `http status: 504` downloading nsis_tauri_utils.dll (a network error, not the code). Re-run at caadb51 (same code, this file only): the same gates passed and Build installer failed on the same 504.
 - C1 green at caadb51 (the coordinator's standing rule: a run whose only red step is a bundler download 504 in Build installer counts as green); merged into rust-rewrite as 17e55bb.
 - d7e5e5f (P0 and P1 batch): Unit tests passed; Format failed on one assert in hotkeys.rs and Clippy on `fetch_update` (deprecated in Rust 1.99, renamed `try_update`) and a `manual_contains` in a test; Capture check and Desktop selfcheck only failed because no exe was built behind Clippy. Fixed in the next push.
+- 8cdeb18: Format and Unit tests passed (including the B-081..B-083 tests); Clippy failed on `try_update`, which is newer than the crate's MSRV 1.77 (`incompatible_msrv`). Replaced by a compare-exchange loop.
 - In progress (pushed, awaiting CI): B-001, B-002, B-003, B-004 (P0); B-011, B-012, B-013, B-015, B-016, B-017; B-076, B-077, B-079, B-086 (code; its probe waits on K-26, K-30); B-177; B-081, B-082, B-083.
 
 ## Blockers

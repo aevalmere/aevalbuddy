@@ -410,7 +410,16 @@ impl Depth {
     /// True when this call gave it back (1 to 0). A resume with no suspend
     /// is ignored.
     fn resume(&self) -> bool {
-        self.0.try_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+        // A compare-exchange loop: `fetch_update` is deprecated on the CI
+        // toolchain and its replacement is newer than the crate's MSRV.
+        let mut d = self.0.load(SeqCst);
+        while d > 0 {
+            match self.0.compare_exchange_weak(d, d - 1, SeqCst, SeqCst) {
+                Ok(_) => return d == 1,
+                Err(now) => d = now,
+            }
+        }
+        false
     }
 
     fn suspended(&self) -> bool {
