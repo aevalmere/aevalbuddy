@@ -24,6 +24,8 @@ pub fn route(
     match channel {
         "glass:hello" => {
             backdrop::hello(window.label());
+            // The page's first state (ARCHITECTURE 10.3, 11.2).
+            crate::windows::on_hello(window.app_handle(), window.label());
             Some(Ok(
                 serde_json::json!({ "intensity": backdrop::intensity() }),
             ))

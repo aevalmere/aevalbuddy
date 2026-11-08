@@ -8,6 +8,12 @@ use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder};
 
 use crate::{ipc, paths};
 
+/// A page's first invoke (`glass:hello`): split (a)'s `windows::on_hello`
+/// sends the page its first state. This no-op stands in on the scaffold so
+/// `desktop::channels` can call it now; (a)'s windows/mod.rs replaces this
+/// file at the merge. (agent c)
+pub fn on_hello(_app: &AppHandle, _label: &str) {}
+
 /// Label and page of each window the scaffold opens.
 pub const SCAFFOLD_WINDOWS: [(&str, &str); 2] = [
     ("overlay", "renderer/index.html"),
