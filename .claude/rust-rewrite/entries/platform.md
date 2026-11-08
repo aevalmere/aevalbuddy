@@ -91,3 +91,26 @@ status: UNIT menu::tests::edit_and_selection_templates_match_main_js, menu::test
 Add (note to the row):
 `lib.rs` `stop_for_exit()` stops a running task through the agent service with "Stopped because AevalBuddy quit." on RunEvent::Exit (the port used the reasonless stop hook).
 status: code done; SMOKE+ quitStopReason pending the platform probe (K-26, K-30)
+
+## PARITY · STORE-01 · B-082
+Add (note to the row):
+The v1 fields are the OpenRouter key's source of truth in both builds: `get_provider_key("openrouter")` reads `apiKeyEncrypted` / `apiKeyPlain`, and every load rewrites `apiKeys.openrouter` from them when they differ, so a key the Electron build changed or cleared after a rollback stays changed or cleared after the upgrade back.
+status: UNIT store::tests::v1_fields_win_after_rollback
+
+## PARITY · STORE-26 · B-083
+Add (note to the row):
+An entry is cut at 500 UTF-16 units, as JavaScript's `slice(0, 500)`; a surrogate pair is kept whole or dropped, never split.
+status: UNIT store::tests::input_history
+
+## PARITY · HIST-01 · B-083
+Add (note to the row):
+The 4 MB budget counts UTF-16 units of the serialized JSON, as `JSON.stringify(list).length` did (the port counted UTF-8 bytes and dropped CJK history early). Each entry is measured once per trim, so trimming is linear. Titles cut at 89 UTF-16 units plus `…` without splitting a surrogate pair. `history:list` rows carry only what history.js reads (id, at, title, asked, reply).
+status: UNIT history::tests::cjk_budget_matches_electron, history::tests::trim_result_serializes_under_4mb, history::tests::emoji_title_cut_on_unit_boundary; SMOKE historyTitle, historySearch pending the platform probe
+
+## PARITY · SYS-03 · B-081, D-11
+Replace "StartupApproved respected." with:
+StartupApproved respected at boot; turning the setting on in Settings marks it enabled (D-11).
+
+Add (note to the row):
+The Settings switch writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run` value `com.aevalbuddy.app` = REG_BINARY `02` and eleven zero bytes (Task Manager's "Enabled"), as Electron's `setLoginItemSettings` did. Boot (`autostart::sync`) writes only the Run value. D-11: an explicit toggle means the person wants it to run, while a Task Manager disable must survive every restart (Electron rewrote StartupApproved on every launch).
+status: SMOKE+ launchAtLogin pending the platform probe

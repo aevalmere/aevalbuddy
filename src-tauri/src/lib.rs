@@ -191,7 +191,8 @@ pub fn run() {
             // Ask, Find, the agent and the hooks between the splits.
             host::setup(&handle);
             store::get().decide_presence();
-            autostart::apply();
+            // Not apply: boot leaves Task Manager's StartupApproved alone.
+            autostart::sync();
             // Before hotkeys::apply, which refreshes the tray labels.
             if let Err(e) = tray::init(&handle) {
                 crash::write("tray", &e.to_string());

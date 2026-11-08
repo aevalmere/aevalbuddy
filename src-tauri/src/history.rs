@@ -26,7 +26,9 @@ use serde_json::{json, Value};
 use crate::store::durable;
 
 pub const MAX_ENTRIES: usize = 200;
-const MAX_BYTES: usize = 4 * 1024 * 1024;
+/// JavaScript's `JSON.stringify(list).length`: UTF-16 units, not bytes.
+const MAX_UNITS: usize = 4 * 1024 * 1024;
+/// UTF-16 units, as JavaScript's `line.length`.
 const TITLE_MAX: usize = 90;
 /// From the first change to the write it schedules.
 const THROTTLE: Duration = Duration::from_millis(400);
@@ -79,24 +81,29 @@ fn read_file(path: &Path) -> io::Result<Vec<u8>> {
     fs::read(path)
 }
 
-/// Whitespace collapsed, 90 characters with an ellipsis.
+/// Whitespace collapsed; past 90 UTF-16 units, the first 89 and an
+/// ellipsis, as history.js counted, except that a surrogate pair is never
+/// split (B-083).
 pub fn first_line(text: &str) -> String {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let chars: Vec<char> = line.chars().collect();
-    if chars.len() > TITLE_MAX {
-        let mut s: String = chars[..TITLE_MAX - 1].iter().collect();
-        s.push('…');
-        s
-    } else {
-        line
+    if line.encode_utf16().count() <= TITLE_MAX {
+        return line;
     }
+    let mut out = String::new();
+    let mut units = 0;
+    for c in line.chars() {
+        units += c.len_utf16();
+        if units > TITLE_MAX - 1 {
+            break;
+        }
+        out.push(c);
+    }
+    out.push('…');
+    out
 }
 
 fn text_of(m: &Value) -> String {
-    m.get("text")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
+    text_ref(m).to_string()
 }
 
 fn at_of(e: &Value) -> f64 {
@@ -107,10 +114,10 @@ fn id_of(e: &Value) -> &str {
     e.get("id").and_then(Value::as_str).unwrap_or_default()
 }
 
-/// The JSON length JavaScript's JSON.stringify would give, near enough for a
-/// 4 MB budget (serde escapes the same characters).
-fn json_len(list: &[Value]) -> usize {
-    serde_json::to_string(list).map(|s| s.len()).unwrap_or(0)
+/// The length JavaScript's JSON.stringify gives `v`, in UTF-16 units (serde
+/// escapes the same characters).
+fn js_len(v: &Value) -> usize {
+    serde_json::to_string(v).map_or(0, |s| s.encode_utf16().count())
 }
 
 impl History {
@@ -325,23 +332,21 @@ impl History {
                 }
                 messages(e)
                     .iter()
-                    .any(|m| text_of(m).to_lowercase().contains(&q))
+                    .any(|m| text_ref(m).to_lowercase().contains(&q))
             })
             .map(|e| {
+                // What history.js reads: id, at, title, asked, reply.
                 let msgs = messages(e);
                 let reply = msgs
                     .iter()
                     .find(|m| m["role"] == "assistant")
-                    .map(text_of)
-                    .unwrap_or_default();
+                    .map_or("", text_ref);
                 json!({
                     "id": e.get("id").cloned().unwrap_or(Value::Null),
                     "at": e.get("at").cloned().unwrap_or(Value::Null),
                     "title": e.get("title").cloned().unwrap_or(Value::Null),
-                    "model": e.get("model").cloned().unwrap_or(Value::Null),
-                    "count": msgs.len(),
                     "asked": msgs.iter().filter(|m| m["role"] == "user").count(),
-                    "reply": first_line(&reply),
+                    "reply": first_line(reply),
                 })
             })
             .collect();
@@ -405,19 +410,29 @@ impl History {
     }
 }
 
-fn messages(e: &Value) -> Vec<Value> {
+fn messages(e: &Value) -> &[Value] {
     e.get("messages")
         .and_then(Value::as_array)
-        .cloned()
+        .map(Vec::as_slice)
         .unwrap_or_default()
 }
 
-/// Newest first, at most 200, then oldest dropped while over 4 MB.
+fn text_ref(m: &Value) -> &str {
+    m.get("text").and_then(Value::as_str).unwrap_or_default()
+}
+
+/// Newest first, at most 200, then the oldest dropped while the list's JSON
+/// is over 4 Mi UTF-16 units. Each entry is measured once: the array's
+/// length is the entries' plus the brackets and commas, so the trim is
+/// linear (B-083).
 fn trim(list: &mut Vec<Value>) {
     list.sort_by(|a, b| at_of(b).total_cmp(&at_of(a)));
     list.truncate(MAX_ENTRIES);
-    while list.len() > 1 && json_len(list) > MAX_BYTES {
+    let sizes: Vec<usize> = list.iter().map(js_len).collect();
+    let mut total = 2 + sizes.iter().sum::<usize>() + sizes.len().saturating_sub(1);
+    while list.len() > 1 && total > MAX_UNITS {
         list.pop();
+        total -= sizes[list.len()] + 1;
     }
 }
 
@@ -477,7 +492,11 @@ mod tests {
         let rows = h.list("");
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0]["id"], "c2");
-        assert_eq!(rows[1]["count"], 3);
+        // Only what history.js reads; the transcript stays behind.
+        assert!(rows[1].get("count").is_none());
+        assert!(rows[1].get("messages").is_none());
+        let kept = h.entry("c1").unwrap()["messages"].as_array().unwrap().len();
+        assert_eq!(kept, 3, "system and empty messages are not saved");
         assert_eq!(rows[1]["asked"], 1);
         assert_eq!(rows[1]["reply"], "Run cargo clean.");
         assert_eq!(h.list("CARGO").len(), 1);
@@ -612,5 +631,51 @@ mod tests {
         assert_eq!(v["conversations"].as_array().map(Vec::len), Some(60));
         let dir = h.file.parent().unwrap();
         assert_eq!(names(dir), vec!["history.json".to_string()]);
+    }
+
+    fn entry(id: &str, at: u64, text: &str) -> Value {
+        json!({ "id": id, "at": at, "title": "t", "model": "", "messages": [msg("user", text)] })
+    }
+
+    #[test]
+    fn cjk_budget_matches_electron() {
+        // 3 MB of UTF-8 each, 1 Mi UTF-16 units each: JavaScript keeps both.
+        let text = "漢".repeat(1024 * 1024);
+        let mut list = vec![entry("a", 2, &text), entry("b", 1, &text)];
+        trim(&mut list);
+        assert_eq!(list.len(), 2);
+        let v = Value::Array(list);
+        let bytes = serde_json::to_string(&v).unwrap().len();
+        assert!(js_len(&v) < MAX_UNITS, "counted in UTF-16 units");
+        assert!(bytes > MAX_UNITS, "over the budget in UTF-8 bytes");
+    }
+
+    #[test]
+    fn trim_result_serializes_under_4mb() {
+        let text = "x".repeat(300 * 1024);
+        let mut list: Vec<Value> = (0..30u64)
+            .map(|i| entry(&format!("c{i}"), i, &text))
+            .collect();
+        trim(&mut list);
+        let kept = list.len();
+        assert!(kept > 1 && kept < 30, "{kept}");
+        assert_eq!(list[0]["id"], "c29", "newest first");
+        let units = js_len(&Value::Array(list.clone()));
+        assert!(units <= MAX_UNITS, "{units}");
+        // One more and it would not have fitted.
+        list.push(entry("older", 0, &text));
+        assert!(js_len(&Value::Array(list)) > MAX_UNITS);
+    }
+
+    #[test]
+    fn emoji_title_cut_on_unit_boundary() {
+        let title = first_line(&"😀".repeat(100));
+        assert!(title.ends_with('…'));
+        // 89 units would split the 45th emoji: 44 of them, then the ellipsis.
+        assert_eq!(title.chars().filter(|c| *c == '😀').count(), 44);
+        assert_eq!(title.encode_utf16().count(), 89);
+        let mixed = first_line(&format!("{}😀tail", "a".repeat(88)));
+        assert_eq!(mixed, format!("{}…", "a".repeat(88)));
+        assert_eq!(first_line(&"😀".repeat(45)), "😀".repeat(45));
     }
 }

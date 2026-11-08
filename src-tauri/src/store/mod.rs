@@ -532,6 +532,34 @@ impl Store {
             }
             d.insert("apiKeysVersion".into(), json!(API_KEYS_VERSION));
         }
+        self.mirror_v1_key();
+    }
+
+    /// B-082: the v1 fields are the OpenRouter key's source of truth (the
+    /// Electron build reads and writes only them), so the copy in `apiKeys`
+    /// follows them: a key changed or cleared after a rollback stays changed
+    /// or cleared.
+    fn mirror_v1_key(&self) {
+        let enc = self.str_of("apiKeyEncrypted");
+        let plain = self.str_of("apiKeyPlain");
+        let mut d = self.data.lock();
+        let keys = d.entry("apiKeys").or_insert_with(|| json!({}));
+        if !keys.is_object() {
+            *keys = json!({});
+        }
+        let Some(m) = keys.as_object_mut() else {
+            return;
+        };
+        let entry = m.get("openrouter");
+        let same = js_string(entry.and_then(|e| e.get("encrypted"))) == enc
+            && js_string(entry.and_then(|e| e.get("plain"))) == plain;
+        let nothing = entry.is_none() && enc.is_empty() && plain.is_empty();
+        if !same && !nothing {
+            m.insert(
+                "openrouter".into(),
+                json!({ "encrypted": enc, "plain": plain }),
+            );
+        }
     }
 
     // ---------------------------------------------------------------- keys
@@ -554,6 +582,10 @@ impl Store {
     /// The saved key for one provider, decrypted. '' when none or when it
     /// cannot be decrypted (the person re-enters it; never a crash).
     pub fn get_provider_key(&self, provider: &str) -> String {
+        if provider == "openrouter" {
+            // B-082: the v1 fields win (see `mirror_v1_key`).
+            return self.legacy_api_key();
+        }
         let entry = self
             .raw("apiKeys")
             .and_then(|k| k.get(provider).cloned())
@@ -563,13 +595,7 @@ impl Store {
         if !enc.is_empty() && self.crypt.available() {
             return self.decrypt_b64(&enc);
         }
-        if !plain.is_empty() {
-            return plain;
-        }
-        if provider == "openrouter" {
-            return self.legacy_api_key();
-        }
-        String::new()
+        plain
     }
 
     /// lib/store.js getApiKey: the OpenRouter key in the v1 fields.
@@ -997,7 +1023,7 @@ impl Store {
     }
 
     pub fn push_input_history(&self, text: &str) -> Vec<String> {
-        let t: String = text.trim().chars().take(500).collect();
+        let t = utf16_prefix(text.trim(), 500);
         if t.is_empty() || !self.get_save_history() {
             return self.get_input_history();
         }
@@ -1112,6 +1138,18 @@ impl Store {
 
 fn truthy_ref(v: &Value) -> bool {
     truthy(Some(v))
+}
+
+/// JavaScript's `s.slice(0, units)`, counted in UTF-16 units, except that a
+/// surrogate pair is kept whole or dropped, never split.
+fn utf16_prefix(s: &str, units: usize) -> String {
+    let mut used = 0;
+    s.chars()
+        .take_while(|c| {
+            used += c.len_utf16();
+            used <= units
+        })
+        .collect()
 }
 
 fn wh(v: &Value) -> (i64, i64) {
@@ -1283,6 +1321,12 @@ mod tests {
         assert_eq!(s.get_input_history().len(), 50);
         s.set_save_history(false);
         assert_eq!(s.push_input_history("zzz").last().unwrap(), "59");
+        // 500 UTF-16 units, as JavaScript's slice(0, 500): 250 emoji.
+        s.set_save_history(true);
+        let kept = s.push_input_history(&"😀".repeat(300));
+        assert_eq!(kept.last().unwrap(), &"😀".repeat(250));
+        let odd = s.push_input_history(&format!("a{}", "😀".repeat(300)));
+        assert_eq!(odd.last().unwrap(), &format!("a{}", "😀".repeat(249)));
     }
 
     #[test]
@@ -1327,6 +1371,37 @@ mod tests {
                 > 10
         );
         assert_eq!(f["apiKeysVersion"], 1);
+    }
+
+    #[test]
+    fn v1_fields_win_after_rollback() {
+        let dir = temp("rollback");
+        let a = crypto::seal(&[3u8; 32], &[5u8; 12], "sk-or-a").unwrap();
+        let b = crypto::seal(&[3u8; 32], &[6u8; 12], "sk-or-b").unwrap();
+        let (a, b) = (B64.encode(a), B64.encode(b));
+        // This build saved A in both places; the Electron build, after a
+        // rollback, changed the v1 field to B.
+        let text = json!({
+            "apiKeyEncrypted": b,
+            "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
+            "apiKeysVersion": 1
+        });
+        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_api_key(), "sk-or-b");
+        assert_eq!(file(&dir)["apiKeys"]["openrouter"]["encrypted"], b);
+        // Then it cleared the key: both v1 fields empty.
+        let text = json!({
+            "apiKeyEncrypted": "",
+            "apiKeyPlain": "",
+            "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
+            "apiKeysVersion": 1
+        });
+        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_api_key(), "");
+        assert!(!s.has_provider_key("openrouter"));
+        assert_eq!(file(&dir)["apiKeys"]["openrouter"]["encrypted"], "");
     }
 
     #[test]

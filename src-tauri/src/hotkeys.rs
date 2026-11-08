@@ -410,7 +410,7 @@ impl Depth {
     /// True when this call gave it back (1 to 0). A resume with no suspend
     /// is ignored.
     fn resume(&self) -> bool {
-        self.0.fetch_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+        self.0.try_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
     }
 
     fn suspended(&self) -> bool {
@@ -765,7 +765,7 @@ mod tests {
     impl Keys for Fake {
         fn register(&mut self, acc: &str, _action: &str) -> bool {
             self.calls.push(format!("+{acc}"));
-            let ok = !self.taken.iter().any(|t| *t == acc);
+            let ok = !self.taken.contains(&acc);
             if ok {
                 self.on.push(acc.to_string());
             }
@@ -892,6 +892,9 @@ mod tests {
         // Ctrl+Alt+A is already one of ours, so it is not offered or probed.
         assert_eq!(probed, ["Super+Shift+Space", "Ctrl+Shift+Space"]);
         assert!(free_alternatives(&ours, |_| false).is_empty());
-        assert_eq!(TAKEN, "Another app already uses that shortcut. Try another.");
+        assert_eq!(
+            TAKEN,
+            "Another app already uses that shortcut. Try another."
+        );
     }
 }
