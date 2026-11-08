@@ -28,6 +28,11 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 11 | bar | checkpoint | `462b98f` | `ae0d323` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green. Newer tip `e04d998` fails its own new `styleStable` smoke label, so it was not taken |
 | 12 | sheet | checkpoint | `a2ab4d8` | `31e213c` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green |
 | 13 | settings | checkpoint | `bf5e553` | `24a1c0e` | green at `8c50561` | green at `8c50561` | Lane sha red only on the NSIS 504 (Smoke skipped); ui-shots green |
+| 14 | windows | checkpoint | `c8c2a37` | `e825929` | pending (run for `075577b` superseded by #18's push) | green at `075577b` | Rust green at the lane sha. Contains `3c071b0`, the WS_EX_NOACTIVATE-after-collapse fix bar's `styleStable` waits on |
+| 15 | llm | checkpoint | `8aacd1c` | `d1a91ec` | pending | green at `075577b` | Rust green at the lane sha |
+| 16 | agent | checkpoint | `771d149` | `caf41ad` | pending | green at `075577b` | Green at the lane sha. Newer `0db3912` failed 2 unit tests, so it was not taken |
+| 17 | settings | checkpoint | `493483b` | `075577b` | pending | green at `075577b` | Lane finished. Final tip; code last changed at `e415b9c` (ui-shots green there) |
+| 18 | harness | checkpoint | `76c8c95` | see `git log` (merge before this log commit) | pending | pending | Lane finished; rust (Smoke included) and ui-shots green at the lane sha. Brings `tools/ui-shots/css-lint.mjs`, which unblocks settings' B-175. `b01e049` on top is Progress only |
 
 ## Reverts
 
@@ -42,6 +47,13 @@ None.
 - NSIS 504 outage (from about 08:40 UTC on 2026-11-08): `ff9f52c` (#9) seeds NSIS, and rust-rewrite was fully green at `6d34ad7`. A lane sha from before that seed has no Smoke result, so the rust-rewrite run after its merge is its first Smoke.
 - harness tip (`d14b471` and before, since `9b90864`): ui-shots fails `globOnClock` and `globOnClock-150` ("done at 336 ms=true, at 536 ms=true (open takes 440 ms)"), harness's own check of the sheet's glob timing. It was a bug in the check (each `t.shot` advances the virtual clock 120 ms) and harness has the fix. Merge the rest of rust/harness only at a tip with green ui-shots. Never merge a harness sha that prints `deliberateFailure=FAIL`: `fc019b1` is B-009's throwaway proof that the gate fails.
 - Coordinator rule (standing): a C1 or checkpoint commit whose only red step is a bundler download 504 in Build installer counts as green. If rust-rewrite's own Build installer flakes the same way, push an empty commit to re-run; do not revert.
+
+## Queue and pending CI (as of the #14-#18 push, 2026-11-08)
+
+- Pending: rust for the head that carries #14-#18 (`node tools/ci-wait.mjs origin/rust-rewrite`), and ui-shots for the same head (harness changed `tools/ui-shots/`). When rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (run URL in `origin/ci-logs:rust-rewrite/<sha>/rust/` meta).
+- Coordinator plan now: a testable build for Andy. Merge each lane's green tip as it lands; a lane whose tip is not green stays at its last checkpoint; skip re-runs unless a real failure needs one.
+- Queued: platform `941a42d` (its edit of harness-owned `tools/ui-shots/bridge.test.mjs` for `editMenuInFields` is approved by harness; on conflict keep harness's side unless harness adopted it; also B-085 one-click installer.nsi); windows `29ab55a`; agent `fe650d1`; bar (tip `688cb40` at last fetch; take it once its rust run is green with `styleStable`, now that #14 has the windows fix). Each needs `ci-wait <sha> --timeout-min 0` exit 0 first; all were pending at last check.
+- Not green at last check: capture `9b0fee8` (smoke `lensFirstDraw`; newer tip `921d0c4` unchecked), sheet `1bedb11` (smoke `markdownStructure`, ui-shots `textInsetIs16InEveryKind`), platform `fef3044` (ui-shots `editMenuInFields`, fixed in `941a42d`).
 
 ## Base
 
