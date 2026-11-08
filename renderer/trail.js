@@ -279,7 +279,7 @@ window.aeval.on('agent:state', ({ state, message, step }) => {
       block.el.insertBefore(banner, block.meta);
     }
     banner.innerHTML = '';
-    banner.appendChild(el('span', '', message || ''));
+    banner.appendChild(el('span', 'banner-text', message || ''));
     const go = el('button', 'retry-btn', state === 'plan' ? 'Start' : 'Continue');
     go.type = 'button';
     go.addEventListener('click', () => window.aeval.invoke('agent:continue', {}));
