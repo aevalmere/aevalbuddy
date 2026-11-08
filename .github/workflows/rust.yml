@@ -127,6 +127,11 @@ jobs:
           if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Output '::error::smoke timed out' }
           Get-Content $out, $err -ErrorAction SilentlyContinue
           $text = Get-Content $out -Raw -ErrorAction SilentlyContinue
+          # The boot log as an annotation, readable without a token (a panic
+          # in host::setup or a hook shows here).
+          $tail = ((Get-Content $out, $err -Tail 40 -ErrorAction SilentlyContinue) -join "`n").Replace("`r", '')
+          if ($tail.Length -gt 4000) { $tail = $tail.Substring($tail.Length - 4000) }
+          Write-Output "::notice title=scaffold smoke::$($tail.Replace('%', '%25').Replace("`n", '%0A'))"
           if ($text -notmatch '\[SMOKE\] scaffold\.bridge=ok') {
             Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
             exit 1
