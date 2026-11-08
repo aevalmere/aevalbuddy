@@ -1,17 +1,17 @@
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 58.31s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.47s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-b77af1f62641cbf6.exe)
 
-running 243 tests
+running 246 tests
 test agent::gate::tests::chords_are_canonical ... ok
 test agent::describe::tests::passwords_are_dotted_and_errors_named ... ok
 test agent::gate::tests::chord_risks ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
-test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::quotes_are_cut ... ok
-test agent::run::tests::points_scale_from_the_last_screenshot ... ok
+test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
+test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::trail_text_numbers_the_steps ... ok
 test agent::tools::tests::json_rules_list_every_tool ... ok
@@ -49,18 +49,19 @@ test capture::screen::tests::dip_bounds_divide_by_scale ... ok
 test capture::screen::tests::dip_round_trip_on_a_scaled_display ... ok
 test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
+test capture::screen::tests::physical_points_map_through_their_own_display ... ok
 test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
 test crash::tests::log_lines_and_trimming ... ok
 test desktop::channels::tests::every_owned_channel_is_allowlisted ... ok
-test desktop::checks::tests::lanczos_keeps_fine_stripes ... ok
 test capture::encode::tests::lanczos_is_sharper_than_a_box_average ... ok
+test desktop::checks::tests::lanczos_keeps_fine_stripes ... ok
 test desktop::client::tests::deaths_disable_after_three_in_a_minute ... ok
 test desktop::client::tests::fail_all_rejects_every_pending_call ... ok
 test desktop::client::tests::helper_is_down_until_started ... ok
 test desktop::client::tests::overlap_rule ... ok
+test desktop::client::tests::bootstrap_carries_the_real_host_sources ... ok
 test desktop::protocol::tests::bootstrap_is_one_line_with_every_variable ... ok
 test desktop::protocol::tests::escape_detection ... ok
-test desktop::client::tests::bootstrap_carries_the_real_host_sources ... ok
 test desktop::protocol::tests::handles ... ok
 test desktop::protocol::tests::read_page_lines ... ok
 test desktop::protocol::tests::rect_shapes ... ok
@@ -72,8 +73,8 @@ test desktop::protocol::tests::timeouts ... ok
 test desktop::protocol::tests::tree_truncates_with_the_hint ... ok
 test desktop::scoring::tests::dice_values ... ok
 test desktop::scoring::tests::exact_prefix_word_contains ... ok
-test desktop::scoring::tests::norm_matches_the_js ... ok
 test desktop::scoring::tests::nodes ... ok
+test desktop::scoring::tests::norm_matches_the_js ... ok
 test desktop::selfcheck::tests::inside_with_slack ... ok
 test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::report_collects_failures ... ok
@@ -81,13 +82,13 @@ test desktop::win::tests::descendants_walks_the_tree_once ... ok
 test find::tests::an_unreadable_window_offers_ask ... ok
 test desktop::win::tests::our_own_pid_is_always_listed ... ok
 test agent::run::tests::stop_ends_the_run_at_once ... ok
-test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
+test find::tests::budget_keeps_spans_near_the_hits ... ok
 test find::tests::fold_strips_accents_and_widths ... ok
+test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
+test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
+test find::tests::one_edit_is_a_typo ... ok
 test find::tests::line_reader_takes_objects_only ... ok
 test find::tests::literal_matching_stages ... ok
-test find::tests::one_edit_is_a_typo ... ok
-test find::tests::budget_keeps_spans_near_the_hits ... ok
-test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
 test find::tests::snippets_are_cut_around_the_match ... ok
 test find::tests::sub_rects_follow_lines ... ok
 test find::tests::tokens_split_camel_snake_and_digits ... ok
@@ -170,12 +171,12 @@ test llm::sse::tests::lines_survive_any_split ... ok
 test llm::prompt::tests::reports_are_checked_and_unfenced ... ok
 test llm::sse::tests::meter_adds_usage_and_cost ... ok
 test llm::sse::tests::only_data_lines_count ... ok
-test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
 test llm::wire::tests::anthropic_body_maps_system_images_and_tools ... ok
+test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
 test llm::wire::tests::anthropic_stream ... ok
 test llm::wire::tests::gemini_stream ... ok
-test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
 test llm::wire::tests::http_errors_carry_the_body_message ... ok
+test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
 test llm::wire::tests::key_checks_spend_nothing ... ok
 test llm::wire::tests::openai_drops_temperature_and_raises_the_limit ... ok
 test llm::wire::tests::openrouter_body_is_the_electron_body_plus_usage ... ok
@@ -187,6 +188,7 @@ test paths::tests::user_data_is_electrons_folder ... ok
 test paths::tests::webview_profile_is_not_in_the_userdata_root ... ok
 test region::tests::origin_is_added_and_rounded ... ok
 test region::tests::small_drags_cancel ... ok
+test region::tests::the_area_remembers_its_display ... ok
 test skills::tests::parse_handles_bom_crlf_and_missing_front_matter ... ok
 test skills::tests::built_ins_load_in_picker_order ... ok
 test skills::tests::unknown_skills_sort_after_the_known_ones_by_name ... ok
@@ -226,12 +228,12 @@ test updater::tests::latest_yml ... ok
 test updater::tests::notes_prefer_list_items ... ok
 test updater::tests::problem_texts_are_plain ... ok
 test updater::tests::versions_and_hashes ... ok
-test store::tests::input_history ... ok
 test windows::flags::tests::bar_resizes_sideways_only ... ok
 test windows::flags::tests::edges_and_corners_on_the_margin ... ok
 test windows::flags::tests::frameless_window_band_is_inside ... ok
-test windows::layout::tests::docked_and_free_placement ... ok
 test windows::layout::tests::bounds_hug_and_clamp ... ok
+test windows::layout::tests::docked_and_free_placement ... ok
+test store::tests::input_history ... ok
 test windows::layout::tests::dodge ... ok
 test windows::layout::tests::nudges_step_the_grid ... ok
 test windows::layout::tests::output_heights ... ok
@@ -240,14 +242,15 @@ test windows::motion::tests::glide_curve_matches_the_browser ... ok
 test windows::motion::tests::lerp_and_shrink ... ok
 test windows::outputs::tests::output_labels ... ok
 test windows::outputs::tests::chat_sync_sends_the_whole_transcript ... ok
-test windows::screen::tests::primary_at_150_percent ... ok
 test windows::screen::tests::enumerates_at_least_one ... ok
+test windows::screen::tests::latch_reads_the_display_it_recorded ... ok
+test windows::screen::tests::primary_at_150_percent ... ok
 test windows::screen::tests::secondary_display_origin ... ok
 test windows::stage::tests::margin_round_trip ... ok
 test find::tests::concepts_come_from_the_correlate_stage ... ok
 test find::tests::related_terms_arrive_after_the_pause ... ok
 
-test result: ok. 243 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+test result: ok. 246 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.93s
 
      Running unittests src\main.rs (target\debug\deps\aevalbuddy-c8ff0ec2da8d9d52.exe)
 
