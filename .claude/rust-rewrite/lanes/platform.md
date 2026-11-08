@@ -307,7 +307,7 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-085: installer.nsi (copy of tauri-bundler 2.10.4) wired as bundle.windows.nsis.template; pushed with the bridge check fix.
 - B-015, B-016: code done (lib.rs force_shot_scale, installer-hooks.nsh); acceptance lives in harness's installer job (B-052), see Blockers.
 - 941a42d: ui-shots bridge checks green (editMenuInFields=ok, harness approved the check change); Screenshots step failed only on globSmooth "longest frame 50.0 ms" in sheet's timing check, which passes on every other branch and on rust-rewrite; this diff touches no renderer or shots code, so it is a runner stall. The rust run for 941a42d was still running when the session was cut off.
-- Next step: node tools/ci-wait.mjs 941a42d rust --timeout-min 70 (expect green; the only new build input is installer.nsi). For a fresh ui-shots run push a change under a ui-shots path, or ask the coordinator to re-run 42508910504. Then send main the final green sha. Do not start new items: remaining work is the Blockers below.
+- 941a42d rust was cancelled by the 5f6b541 push after Format, Clippy and Unit tests passed. The next tip adds a one-line comment to aeval-bridge.js, so ui-shots runs again after the globSmooth stall; rust and ui-shots at that tip are the final result (see the line below).
 
 ## Blockers
 

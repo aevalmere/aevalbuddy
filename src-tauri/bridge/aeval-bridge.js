@@ -87,6 +87,7 @@ function aevalBridge(invokeList, listenList) {
   // anything they leave would be WebView2's Back / Reload / Save as / Print.
   // In its place, as Electron's attachContextMenu did: a text field gets
   // Cut, Copy, Paste and Select all, a selection gets Copy and Select all.
+  // host/menu.rs builds both from menu::edit_template (B-077).
   window.addEventListener('contextmenu', (e) => {
     if (e.defaultPrevented) return;
     e.preventDefault();
