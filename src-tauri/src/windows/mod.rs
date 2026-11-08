@@ -11,6 +11,7 @@ pub mod flags;
 pub mod layout;
 pub mod motion;
 pub mod outputs;
+mod rebuild;
 pub mod screen;
 pub mod stage;
 pub mod text_scale;
@@ -51,14 +52,86 @@ pub fn mark_start() {
 // ------------------------------------------------------------- plumbing
 
 /// Sends an event to one window, as Electron's per-webContents send, and
-/// mirrors it on the bus for the smoke run.
+/// mirrors it on the bus for the smoke run. An output window whose page has
+/// not said hello yet gets it on hello instead (B-019).
 pub fn emit(app: &AppHandle, label: &str, channel: &str, payload: Value) {
+    if let Some(payload) = hold_if_unready(label, channel, payload) {
+        send_now(app, label, channel, payload);
+    }
+}
+
+/// Sends at once, even to a window whose events are held.
+pub fn send_now(app: &AppHandle, label: &str, channel: &str, payload: Value) {
     let _ = app.emit_to(label, channel, payload.clone());
     let _ = shared(app).bus.send(BusEvent {
         channel: channel.to_string(),
         target: label.to_string(),
         payload,
     });
+}
+
+/// At most this many events wait for one page; the oldest go first.
+const HELD_MAX: usize = 2000;
+
+/// Per output label, the `(channel, payload)` events waiting for its page.
+type Held = HashMap<String, Vec<(String, Value)>>;
+
+/// Events for output windows whose page has not said hello (B-019). Tauri
+/// drops an event nobody listens for yet, so they wait here, in order.
+fn held() -> &'static Mutex<Held> {
+    static H: OnceLock<Mutex<Held>> = OnceLock::new();
+    H.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// A new output window: its events wait for its hello.
+pub fn hold_events(label: &str) {
+    held().lock().insert(label.to_string(), Vec::new());
+}
+
+/// Keeps the event if `label` is held; else hands the payload back.
+fn hold_if_unready(label: &str, channel: &str, payload: Value) -> Option<Value> {
+    let mut h = held().lock();
+    let Some(q) = h.get_mut(label) else {
+        return Some(payload);
+    };
+    if q.len() >= HELD_MAX {
+        q.remove(0);
+    }
+    q.push((channel.to_string(), payload));
+    None
+}
+
+fn is_held(label: &str) -> bool {
+    held().lock().contains_key(label)
+}
+
+/// What is held for `label` so far; it stays held.
+pub fn take_held(label: &str) -> Option<Vec<(String, Value)>> {
+    held().lock().get_mut(label).map(std::mem::take)
+}
+
+/// Sends what arrived since `take_held`, in order, then stops holding.
+pub fn release_held(app: &AppHandle, label: &str) {
+    loop {
+        let batch = {
+            let mut h = held().lock();
+            match h.get_mut(label) {
+                Some(q) if !q.is_empty() => std::mem::take(q),
+                _ => {
+                    h.remove(label);
+                    return;
+                }
+            }
+        };
+        for (channel, payload) in batch {
+            send_now(app, label, &channel, payload);
+        }
+    }
+}
+
+/// The window is gone: what it held goes with it.
+pub fn drop_held(label: &str) {
+    held().lock().remove(label);
 }
 
 pub fn window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {
@@ -69,23 +142,37 @@ fn hwnd(app: &AppHandle, label: &str) -> Option<isize> {
     flags::hwnd_for(label).or_else(|| window(app, label).and_then(|w| flags::hwnd_of(&w)))
 }
 
+fn debounce_gens() -> &'static Mutex<HashMap<String, u64>> {
+    static GEN: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
+    GEN.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// The next ticket for `key`; only the newest one runs.
+fn debounce_ticket(key: &str) -> u64 {
+    let mut g = debounce_gens().lock();
+    let e = g.entry(key.to_string()).or_insert(0);
+    *e += 1;
+    *e
+}
+
 /// Debounce by key: only the newest call within `ms` runs.
 fn debounce(key: &str, ms: u64, f: impl FnOnce() + Send + 'static) {
-    static GEN: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
-    let gens = GEN.get_or_init(|| Mutex::new(HashMap::new()));
-    let ticket = {
-        let mut g = gens.lock();
-        let e = g.entry(key.to_string()).or_insert(0);
-        *e += 1;
-        *e
-    };
+    let ticket = debounce_ticket(key);
     let key = key.to_string();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(ms)).await;
-        if gens.lock().get(&key).copied() == Some(ticket) {
+        if debounce_gens().lock().get(&key).copied() == Some(ticket) {
             f();
         }
     });
+}
+
+/// B-093: a closed window's debounce keys (`<label>-resize`, `-move`,
+/// `-hello`) go with it; a pending call for it never runs.
+fn forget_debounces(label: &str) {
+    let prefix = format!("{label}-");
+    let mut gens = debounce_gens().lock();
+    gens.retain(|k, _| !k.starts_with(&prefix));
 }
 
 /// Telling an app-driven bounds change from a drag (main.js markApp).
@@ -139,7 +226,8 @@ pub fn create_page(
         .transparent(true)
         .shadow(false)
         .resizable(true)
-        .maximizable(false)
+        // Settings, History and outputs maximize (B-024); the bar never.
+        .maximizable(label != OVERLAY)
         .minimizable(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -152,6 +240,8 @@ pub fn create_page(
         .initialization_script(&bridge)
         .build()?;
     flags::adopt(app, &w, meta);
+    // A dead renderer reloads; a dead browser process rebuilds the window.
+    crate::crash::guard_webview(&w, rebuild::on_browser_exit);
     Ok(w)
 }
 
@@ -172,7 +262,7 @@ pub fn on_page_loaded(app: &AppHandle, label: &str) {
                     false
                 }
             };
-            if first {
+            if first || rebuild::overlay_loaded() {
                 if let Some(h) = hwnd(&app, OVERLAY) {
                     flags::show_inactive(h);
                 }
@@ -180,6 +270,13 @@ pub fn on_page_loaded(app: &AppHandle, label: &str) {
             send_overlay_state(&app);
         } else if outputs::is_output(&label) {
             outputs::on_loaded(&app, &label);
+            // A page that never says hello still gets what was held for it.
+            let (a, l) = (app.clone(), label.clone());
+            debounce(&format!("{label}-hello"), 3000, move || {
+                if is_held(&l) {
+                    outputs::on_hello(&a, &l);
+                }
+            });
         } else if label == SETTINGS {
             // The section goes with the page's hello; this is the fallback
             // for a page that never says it.
@@ -209,14 +306,14 @@ fn send_section(app: &AppHandle) {
 /// state goes (ARCHITECTURE.md 10.3). Whoever answers `glass:hello` calls
 /// this.
 pub fn on_hello(app: &AppHandle, label: &str) {
-    text_scale::send_to(app, label);
     if label == OVERLAY {
         emit(app, OVERLAY, "overlay:state", overlay_state(app, None));
     } else if outputs::is_output(label) {
-        outputs::on_loaded(app, label);
+        outputs::on_hello(app, label);
     } else if label == SETTINGS {
         send_section(app);
     }
+    text_scale::send_to(app, label);
 }
 
 fn tour_notify(app: &AppHandle, event: &str) {
@@ -229,13 +326,19 @@ fn anchor() -> Anchor {
     Anchor::from_value(&store::get().get_overlay_pos())
 }
 
+/// B-025: where the bar and new windows go: the work area of the display
+/// the person was on when they last called the bar up.
+pub fn bar_area() -> Rect {
+    screen::work_area_of(screen::latched())
+}
+
 fn pill_rect() -> Rect {
-    layout::pill_bounds(screen::work_area(), &anchor())
+    layout::pill_bounds(bar_area(), &anchor())
 }
 
 fn input_rect(height: f64) -> Rect {
     let w = store::get().get_input_width() as f64;
-    layout::input_bounds(screen::work_area(), &anchor(), w, height)
+    layout::input_bounds(bar_area(), &anchor(), w, height)
 }
 
 /// The bar's glass rect as it is now, or where it would be.
@@ -259,7 +362,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     crate::state::refresh(app);
     let extra = shared(app).call_value(app, |h| h.overlay_extra.as_ref());
     let store = store::get();
-    let wa = screen::work_area();
+    let wa = bar_area();
     // main.js sent `activeRegion`: the area picked for the next question,
     // or the one the focused conversation is about.
     let picked = crate::region::active_region().map(|r| (r.width, r.height));
@@ -367,6 +470,16 @@ pub fn send_overlay_state(app: &AppHandle) {
 
 /// Creates the overlay and the warm output window (LIFE-06).
 pub fn boot(app: &AppHandle) -> tauri::Result<()> {
+    screen::latch_active();
+    create_overlay(app)?;
+    outputs::create_spare(app)?;
+    flags::start_poll(app);
+    text_scale::start_watch(app);
+    Ok(())
+}
+
+/// The overlay window as the orb, hidden until its page loads.
+fn create_overlay(app: &AppHandle) -> tauri::Result<()> {
     let glass = pill_rect();
     let outer = stage::inflate(glass, stage::MARGIN);
     let meta = Meta {
@@ -381,9 +494,20 @@ pub fn boot(app: &AppHandle) -> tauri::Result<()> {
         motion::set_glass(h, glass);
     }
     flags::set_click_through(&w, true);
-    outputs::create_spare(app)?;
-    flags::start_poll(app);
-    text_scale::start_watch(app);
+    Ok(())
+}
+
+/// B-090: the bar's page went with the browser process; it comes back as
+/// the orb.
+fn rebuild_overlay(app: &AppHandle) -> tauri::Result<()> {
+    {
+        let st = shared(app);
+        let mut s = st.lock();
+        s.mode = Mode::Pill;
+        s.input_height = layout::DEFAULT_INPUT_HEIGHT;
+    }
+    create_overlay(app)?;
+    hotkeys::apply(app);
     Ok(())
 }
 
@@ -442,8 +566,52 @@ fn set_input_bounds(app: &AppHandle, r: Rect) {
     };
     mark_app(OVERLAY);
     flags::set_limits(h, (1.0, 1.0), (0.0, 0.0));
-    motion::set_glass(h, r);
+    motion::set_glass_on(h, r, screen::latched());
     apply_input_limits(app);
+}
+
+/// The rect the bar's glass belongs on in its current mode.
+fn bar_home(app: &AppHandle) -> Rect {
+    let (mode, height) = {
+        let st = shared(app);
+        let s = st.lock();
+        (s.mode, s.input_height)
+    };
+    if mode == Mode::Panel {
+        input_rect(height)
+    } else {
+        pill_rect()
+    }
+}
+
+/// B-025: the person called the bar up here, so it and new windows belong
+/// on this display. The bar jumps over rather than gliding across screens.
+fn latch_display(app: &AppHandle) {
+    let d = screen::latch_active();
+    let Some(h) = hwnd(app, OVERLAY) else {
+        return;
+    };
+    if screen::matching_px(flags::rect_px(h)).id != d.id {
+        motion::stop(h);
+        set_input_bounds(app, bar_home(app));
+    }
+}
+
+/// B-025: a display came, went or changed scale. The bar goes back to its
+/// place and every output stays inside its own display.
+pub fn on_display_change(app: &AppHandle) {
+    let a = app.clone();
+    debounce("display-change", layout::DROP_SETTLE_MS, move || {
+        replace_windows(&a);
+    });
+}
+
+fn replace_windows(app: &AppHandle) {
+    if shared(app).lock().mode != Mode::Hud {
+        set_input_bounds(app, bar_home(app));
+    }
+    outputs::clamp_all(app);
+    send_overlay_state(app);
 }
 
 fn sync_input_bounds(app: &AppHandle) {
@@ -582,6 +750,7 @@ pub fn trigger_capture(app: &AppHandle) {
         }
         s.hidden = false;
     }
+    latch_display(app);
     expand_panel(app);
     outputs::show_with_chat(app);
 }
@@ -659,6 +828,7 @@ pub fn toggle_visibility(app: &AppHandle) {
         flags::hide(&w);
         outputs::hide_windows(app);
     } else {
+        latch_display(app);
         if mode == Mode::Panel {
             flags::show_focused(&w);
         } else if let Some(h) = flags::hwnd_of(&w) {
@@ -755,6 +925,7 @@ pub fn on_hotkey(app: &AppHandle, action: &str) {
             }
         }
         "captureRegion" => {
+            latch_display(app);
             shared(app).call(app, |h| h.start_region.as_ref());
         }
         "toggleVisibility" => toggle_visibility(app),
@@ -881,7 +1052,7 @@ pub fn nudge_window(app: &AppHandle, label: &str, d: (f64, f64, f64, f64)) -> bo
     };
     let m = flags::meta(h);
     let from = motion::glass(h);
-    let wa = screen::matching(from).work_area;
+    let wa = screen::matching_px(flags::rect_px(h)).work_area;
     let to = layout::nudge_rect(wa, from, d, m.min, m.max);
     mark_app(label);
     motion::stop(h);
@@ -929,7 +1100,7 @@ pub fn enter_hud(app: &AppHandle) {
     flags::set_click_through(&w, false);
     flags::set_focusable(h, true);
     let size = hud_size();
-    let r = layout::bounds_for_size(screen::work_area(), size, &Anchor::from_value(&pending));
+    let r = layout::bounds_for_size(bar_area(), size, &Anchor::from_value(&pending));
     mark_app(OVERLAY);
     flags::set_limits(h, (1.0, 1.0), (0.0, 0.0));
     motion::set_glass(h, r);
@@ -960,8 +1131,8 @@ pub fn exit_hud(app: &AppHandle) {
         }
         s.hud_pending.take()
     };
-    let pos = pending
-        .unwrap_or_else(|| layout::pos_from_rect(screen::work_area(), motion::glass(h)).to_value());
+    let pos =
+        pending.unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
     store::get().set_overlay_pos(&pos);
     apply_input_limits(app);
     collapse_panel(app, false);
@@ -977,7 +1148,7 @@ fn settle_hud_drag(app: &AppHandle) {
     if shared(app).lock().mode != Mode::Hud {
         return;
     }
-    let wa = screen::work_area();
+    let wa = bar_area();
     let rect = motion::glass(h);
     let pending = match layout::find_snap(wa, rect, hud_size()) {
         Some((pos, r)) => {
@@ -999,7 +1170,7 @@ pub fn hud_nudge(app: &AppHandle, dx: f64, dy: f64) {
     if shared(app).lock().mode != Mode::Hud {
         return;
     }
-    let r = layout::nudge(screen::work_area(), motion::glass(h), dx, dy);
+    let r = layout::nudge(bar_area(), motion::glass(h), dx, dy);
     mark_app(OVERLAY);
     motion::set_glass(h, r);
     settle_hud_drag(app);
@@ -1040,7 +1211,7 @@ pub fn open_help(app: &AppHandle) -> Value {
 }
 
 fn frame_rect(width: i64, height: i64) -> Rect {
-    let wa = screen::work_area();
+    let wa = bar_area();
     let h = layout::clamp(height as f64, 360.0, wa.height - 40.0);
     let w = width as f64;
     Rect::new(
@@ -1051,17 +1222,84 @@ fn frame_rect(width: i64, height: i64) -> Rect {
     )
 }
 
+/// Settings and History: no maximum, so a drag or a maximize may take the
+/// whole work area (B-024).
 fn frame_meta() -> Meta {
     Meta {
         margin: 0.0,
         resize: Resize::All,
         min: (380.0, 360.0),
-        max: (900.0, 0.0),
+        max: (0.0, 0.0),
+    }
+}
+
+/// Whether `label` is maximized now.
+fn maximized(app: &AppHandle, label: &str) -> bool {
+    hwnd(app, label).is_some_and(flags::is_maximized)
+}
+
+/// B-024: a maximized output has no stage margin (its page drops its own
+/// under html[data-maximized]), so the hit-test and click-through meet the
+/// screen's edge; restored, the margin comes back.
+fn sync_output_margin(app: &AppHandle, label: &str) {
+    if let Some(h) = hwnd(app, label) {
+        let margin = if flags::is_maximized(h) {
+            0.0
+        } else {
+            stage::MARGIN
+        };
+        flags::set_meta(h, |m| m.margin = margin);
+    }
+}
+
+/// Per label, a Settings or History window on its way out, and
+/// `Some(section)` when it was asked to open again meanwhile.
+type Closing = HashMap<String, Option<Option<String>>>;
+
+fn closing() -> &'static Mutex<Closing> {
+    static C: OnceLock<Mutex<Closing>> = OnceLock::new();
+    C.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Opens `label` again once Tauri has let go of the old window.
+async fn reopen(app: &AppHandle, label: &str, section: Option<String>) {
+    for _ in 0..40 {
+        if window(app, label).is_none() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    if label == SETTINGS {
+        open_settings(app, section.as_deref());
+    } else if label == HISTORY {
+        open_history(app);
+    }
+}
+
+/// B-092: asked to open while the old window is closing, it opens again
+/// once that one is gone instead of focusing a window that never shows.
+fn reopen_after_close(label: &str, section: Option<&str>) -> bool {
+    match closing().lock().get_mut(label) {
+        Some(again) => {
+            *again = Some(section.map(String::from));
+            true
+        }
+        None => false,
+    }
+}
+
+fn close_frame(app: &AppHandle, label: &str) {
+    if let Some(w) = window(app, label) {
+        closing().lock().entry(label.to_string()).or_insert(None);
+        let _ = w.close();
     }
 }
 
 /// WIN-06: opens Settings, or focuses it and jumps to a section.
 pub fn open_settings(app: &AppHandle, section: Option<&str>) {
+    if reopen_after_close(SETTINGS, section) {
+        return;
+    }
     if let Some(w) = window(app, SETTINGS) {
         flags::show_focused(&w);
         if let Some(id) = section {
@@ -1074,19 +1312,31 @@ pub fn open_settings(app: &AppHandle, section: Option<&str>) {
     *pending_section().lock() = section.map(String::from);
     show_on_load().lock().insert(SETTINGS.into());
     let r = frame_rect(w, h);
-    if let Err(e) = create_page(app, SETTINGS, "settings/settings.html", r, frame_meta()) {
-        crate::crash::write("open-settings", &e.to_string());
+    open_frame(app, SETTINGS, "settings/settings.html", r);
+}
+
+/// Settings or History at `r`, written through the latched display: the
+/// builder's position cannot say which display's DIPs it means (B-025).
+fn open_frame(app: &AppHandle, label: &str, page: &str, r: Rect) {
+    match create_page(app, label, page, r, frame_meta()) {
+        Ok(w) => {
+            if let Some(h) = flags::hwnd_of(&w) {
+                motion::set_glass_on(h, r, screen::latched());
+            }
+        }
+        Err(e) => crate::crash::write(&format!("open-{label}"), &e.to_string()),
     }
 }
 
 pub fn close_settings(app: &AppHandle) {
-    if let Some(w) = window(app, SETTINGS) {
-        let _ = w.close();
-    }
+    close_frame(app, SETTINGS);
 }
 
 /// WIN-07.
 pub fn open_history(app: &AppHandle) {
+    if reopen_after_close(HISTORY, None) {
+        return;
+    }
     if let Some(w) = window(app, HISTORY) {
         flags::show_focused(&w);
         return;
@@ -1094,15 +1344,11 @@ pub fn open_history(app: &AppHandle) {
     let (w, h) = store::get().get_history_size();
     show_on_load().lock().insert(HISTORY.into());
     let r = frame_rect(w, h);
-    if let Err(e) = create_page(app, HISTORY, "history/history.html", r, frame_meta()) {
-        crate::crash::write("open-history", &e.to_string());
-    }
+    open_frame(app, HISTORY, "history/history.html", r);
 }
 
 pub fn close_history(app: &AppHandle) {
-    if let Some(w) = window(app, HISTORY) {
-        let _ = w.close();
-    }
+    close_frame(app, HISTORY);
 }
 
 pub fn notify_history_changed(app: &AppHandle) {
@@ -1143,6 +1389,7 @@ pub fn on_window_event(w: &tauri::Window, event: &tauri::WindowEvent) {
         }
         E::Resized(_) => on_resized(&app, &label),
         E::Moved(_) => on_moved(&app, &label),
+        E::ScaleFactorChanged { .. } => on_display_change(&app),
         E::Destroyed => on_destroyed(&app, &label),
         _ => {}
     }
@@ -1163,6 +1410,7 @@ fn on_resized(app: &AppHandle, label: &str) {
             }
         });
     } else if outputs::is_output(label) {
+        sync_output_margin(app, label);
         let l = label.to_string();
         debounce(
             &format!("{label}-resize"),
@@ -1173,23 +1421,29 @@ fn on_resized(app: &AppHandle, label: &str) {
         );
     } else if label == SETTINGS {
         debounce("settings-resize", layout::DROP_SETTLE_MS, move || {
-            if let Some(w) = window(&a, SETTINGS) {
-                if let (Ok(s), Ok(f)) = (w.inner_size(), w.scale_factor()) {
-                    let l = s.to_logical::<f64>(f);
-                    store::get().set_settings_size(l.width, l.height);
-                }
+            if let Some((w, h)) = restored_size(&a, SETTINGS) {
+                store::get().set_settings_size(w, h);
             }
         });
     } else if label == HISTORY {
         debounce("history-resize", 50, move || {
-            if let Some(w) = window(&a, HISTORY) {
-                if let (Ok(s), Ok(f)) = (w.inner_size(), w.scale_factor()) {
-                    let l = s.to_logical::<f64>(f);
-                    store::get().set_history_size(l.width, l.height);
-                }
+            if let Some((w, h)) = restored_size(&a, HISTORY) {
+                store::get().set_history_size(w, h);
             }
         });
     }
+}
+
+/// The window's size in DIPs, unless it is maximized: the size to open at
+/// next is the one the person chose (B-024).
+fn restored_size(app: &AppHandle, label: &str) -> Option<(f64, f64)> {
+    if maximized(app, label) {
+        return None;
+    }
+    let w = window(app, label)?;
+    let scale = w.scale_factor().ok()?;
+    let l = w.inner_size().ok()?.to_logical::<f64>(scale);
+    Some((l.width, l.height))
 }
 
 fn on_moved(app: &AppHandle, label: &str) {
@@ -1217,16 +1471,38 @@ fn on_moved(app: &AppHandle, label: &str) {
 }
 
 fn on_destroyed(app: &AppHandle, label: &str) {
-    flags::forget(label);
+    // The window's flags, frame and animation entries went with its handle
+    // (flags::forget_hwnd on WM_NCDESTROY), so a window reopened under the
+    // same label at once keeps its own (B-092).
+    let rebuilt = rebuild::take(label);
     crate::backdrop::forget(label);
     lowered().lock().remove(label);
+    forget_debounces(label);
+    app_marks().lock().remove(label);
+    if rebuilt && outputs::is_output(label) {
+        // What is sent while the window is built again waits for its page.
+        held().lock().entry(label.to_string()).or_default();
+    } else {
+        drop_held(label);
+    }
+    let again = closing().lock().remove(label).flatten();
+    if let Some(section) = again {
+        let (a, l) = (app.clone(), label.to_string());
+        tauri::async_runtime::spawn(async move {
+            reopen(&a, &l, section).await;
+        });
+    }
+    if rebuilt {
+        let (a, l) = (app.clone(), label.to_string());
+        tauri::async_runtime::spawn(rebuild::rebuild(a, l));
+    }
     if label == SETTINGS {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
             hotkeys::set_capture_mode(&app, false);
             tour_notify(&app, "settings-closed");
         });
-    } else if outputs::is_output(label) {
+    } else if outputs::is_output(label) && !rebuilt {
         outputs::on_destroyed(app, label);
     }
 }
@@ -1297,5 +1573,171 @@ mod tests {
         assert_eq!(outputs::target_fields(&s).0, Value::Null);
         s.hidden = true;
         assert_eq!(outputs::target_fields(&s).1, 0);
+    }
+
+    #[test]
+    fn settings_history_have_no_max() {
+        assert_eq!(frame_meta().max, (0.0, 0.0));
+        assert_eq!(frame_meta().min, (380.0, 360.0));
+        assert_eq!(outputs::meta().max, (0.0, 0.0));
+        assert!(outputs::meta().min.0 > 0.0);
+    }
+
+    fn channels(events: &[(String, Value)]) -> Vec<&str> {
+        events.iter().map(|(c, _)| c.as_str()).collect()
+    }
+
+    fn ev(channel: &str, gen: u64) -> (String, Value) {
+        (channel.to_string(), json!({ "gen": gen }))
+    }
+
+    #[test]
+    fn events_to_unready_output_are_replayed_in_order() {
+        let label = "output-9001";
+        hold_events(label);
+        let sent = [
+            ("chat:user", json!({ "gen": 1, "text": "q" })),
+            ("query:start", json!({ "gen": 1 })),
+            ("overlay:state", json!({})),
+            ("query:delta", json!({ "gen": 1, "text": "a" })),
+            ("lens:draw", json!({})),
+        ];
+        for (c, p) in sent {
+            assert!(hold_if_unready(label, c, p).is_none());
+        }
+        // Another window's events go straight out.
+        assert!(hold_if_unready("output-9002", "query:start", json!({})).is_some());
+        let first = take_held(label).unwrap();
+        let replay = outputs::replayable(first);
+        assert_eq!(
+            channels(&replay),
+            ["query:start", "query:delta", "lens:draw"]
+        );
+        assert_eq!(replay[1].1["text"], "a");
+        // Until it is released, a late event still waits its turn.
+        assert!(hold_if_unready(label, "query:done", json!({ "gen": 1 })).is_none());
+        assert_eq!(channels(&take_held(label).unwrap()), ["query:done"]);
+        drop_held(label);
+        assert!(hold_if_unready(label, "query:done", json!({})).is_some());
+        // An Ask that finished before the page loaded is all in chat:sync;
+        // one that failed keeps its start and its error.
+        let ended = vec![
+            ev("query:start", 2),
+            ev("query:delta", 2),
+            ev("query:done", 2),
+            ev("query:start", 3),
+            ev("query:stage", 3),
+            ev("query:error", 3),
+            ev("agent:step", 3),
+        ];
+        assert_eq!(
+            channels(&outputs::replayable(ended)),
+            ["query:start", "query:error", "agent:step"]
+        );
+    }
+
+    #[test]
+    fn closed_output_leaves_no_gen_entries() {
+        debounce_ticket("output-9003-resize");
+        debounce_ticket("output-9003-move");
+        debounce_ticket("output-90031-move");
+        forget_debounces("output-9003");
+        {
+            let g = debounce_gens().lock();
+            assert!(!g.contains_key("output-9003-resize"));
+            assert!(!g.contains_key("output-9003-move"));
+            assert!(g.contains_key("output-90031-move"));
+        }
+        let h = 0x7_9003;
+        motion::stop(h);
+        assert!(motion::tracks(h));
+        flags::forget_hwnd(h);
+        assert!(!motion::tracks(h));
+    }
+
+    /// B-094: nothing slow or locking runs while `overlay_state` holds the
+    /// shared lock: no store read, hook, area or network check between
+    /// taking the lock and dropping it.
+    #[test]
+    fn overlay_state_lock_scope() {
+        let src = include_str!("mod.rs");
+        let start = src.find("pub fn overlay_state(").unwrap();
+        let body = &src[start..];
+        // The function ends at the first brace in column 0 (LF or CRLF).
+        let body = &body[..body.find("\n}").unwrap()];
+        let held = &body[body.find("st.lock()").unwrap()..body.find("drop(s);").unwrap()];
+        for slow in ["store", "region::", "updater::", ".call", "motion::"] {
+            assert!(!held.contains(slow), "{slow} under the lock");
+        }
+    }
+
+    /// B-096: the `overlay:state` field set: main.js's (POS-13), then the
+    /// Tauri additions, then the ones an output window alone gets.
+    #[test]
+    fn overlay_state_field_set() {
+        const ELECTRON: [&str; 21] = [
+            "mode",
+            "orbAt",
+            "reducedMotion",
+            "hasKey",
+            "captureOk",
+            "inputAnchor",
+            "outputPos",
+            "pillState",
+            "inputWidth",
+            "outputWidth",
+            "outputFixedHeight",
+            "chatMax",
+            "region",
+            "busy",
+            "barMode",
+            "agent",
+            "pillError",
+            "offline",
+            "findOpen",
+            "shortcuts",
+            "hotkeyFailed",
+        ];
+        const TAURI: [&str; 6] = [
+            "glassIntensity",
+            "hasSentFirstRequest",
+            "keys",
+            "outputs",
+            "target",
+            "visibleOutputs",
+        ];
+        const OUTPUT_ONLY: [&str; 2] = ["label", "focused"];
+        let src = include_str!("mod.rs");
+        let start = src.find("pub fn overlay_state(").unwrap();
+        let body = &src[start..];
+        let body = &body[..body.find("\n}").unwrap()];
+        let mut got = top_level_keys(body);
+        let mut want: Vec<&str> = ELECTRON
+            .iter()
+            .chain(TAURI.iter())
+            .chain(OUTPUT_ONLY.iter())
+            .copied()
+            .collect();
+        got.sort_unstable();
+        want.sort_unstable();
+        assert_eq!(got, want);
+    }
+
+    /// The keys a function's `json!({ .. })` literal and `v["key"] = ..`
+    /// lines set, one per line, as this crate's code lays them out.
+    fn top_level_keys(body: &str) -> Vec<&str> {
+        let mut keys = Vec::new();
+        for line in body.lines().map(str::trim) {
+            if let Some(rest) = line.strip_prefix('"') {
+                if let Some(end) = rest.find("\":") {
+                    keys.push(&rest[..end]);
+                }
+            } else if let Some(rest) = line.strip_prefix("v[\"") {
+                if let Some(end) = rest.find('"') {
+                    keys.push(&rest[..end]);
+                }
+            }
+        }
+        keys
     }
 }
