@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42491700898](https://github.com/aevalmere/aevalbuddy/actions/runs/42491700898), attempt 1, on push
-- Commit: e04d99808952672da3956b69ce338605fbbea8a9
+- Run: [42494282185](https://github.com/aevalmere/aevalbuddy/actions/runs/42494282185), attempt 1, on push
+- Commit: e87e29ba9e77b4e22c581235174012655bc7b6c5
 - Ref: rust/bar
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-08T14:58:44Z
+- Finished: 2026-11-08T15:37:52Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -20,6 +20,9 @@
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | success |  |
 | Build installer | success | [build.log](build.log) |
 | Smoke | failure | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |

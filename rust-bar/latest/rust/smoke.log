@@ -43,7 +43,7 @@
 [SMOKE] v2desktop=ok
 [SMOKE] failed: styleStable
 --- stderr ---
-[1108/145829.186:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/153735.156:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 1
 [GATE] SMOKE lines=36 listed=31
 [GATE] fail styleStable=FAIL:overlay pill-again WS_EX_NOACTIVATE=false (want true)
