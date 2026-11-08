@@ -1,0 +1,4 @@
+== shots.log ==
+[UI] sheetReportsGlassRect=FAIL:{"glass":{"top":20,"height":446},"rect":{"top":20,"height":474}}
+[UI] globOpenOnClock-150=FAIL:done at 470 ms=true; at 530 ms {"done":true,"clean":true,"clip":""}
+[UI] sheetReportsGlassRect-150=FAIL:{"glass":{"top":20,"height":446},"rect":{"top":20,"height":474}}
