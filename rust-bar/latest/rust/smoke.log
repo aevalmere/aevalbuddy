@@ -1,7 +1,0 @@
-[SMOKE] version=1.1.1
-[SMOKE] userData=D:\a\_temp\aeval-smoke
-[SMOKE] webviewData=D:\a\_temp\aeval-smoke\WebView2
-[SMOKE] scaffold.pages=output-1,overlay
-[SMOKE] scaffold.bridge=ok
-[SMOKE] done
-[1108/063113.840:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
