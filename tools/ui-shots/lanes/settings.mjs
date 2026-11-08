@@ -534,7 +534,7 @@ scenes.push(
       await t.shot();
       await f.click('#model-combo-btn');
       await t.settle(300);
-      await t.shot('settings-models-anthropic-open');
+      await t.shot('settings-models-combo-open');
       await f.click('#model-combo-list [role="option"][aria-selected="false"]');
       await t.settle(200);
       const calls = await t.calls('settings', 'settings:save-model');
