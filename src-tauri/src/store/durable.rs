@@ -48,18 +48,23 @@ fn wide(p: &Path) -> Vec<u16> {
     p.as_os_str().encode_wide().chain(Some(0)).collect()
 }
 
-/// Moves `from` over `to` and flushes the move to the disk. Retried a few
-/// times: a virus scanner or the search indexer can hold the target open
-/// for a moment.
+/// Moves `from` over `to` and flushes the move to the disk.
+///
+/// `MoveFileExW` refuses (access denied) while any other handle has the
+/// target open, even one that shares delete: a reader polling the file, a
+/// virus scanner or the search indexer. `std::fs::rename` uses POSIX rename
+/// semantics, which replace a file that is open elsewhere, so it is the
+/// fallback; the bytes were already flushed by `write_synced`. Both are
+/// retried with a growing pause (about 1.5 s in all) before giving up.
 pub fn replace(from: &Path, to: &Path) -> io::Result<()> {
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
     };
     let (src, dst) = (wide(from), wide(to));
     let mut last = io::Error::other("not attempted");
-    for attempt in 0..4 {
+    for attempt in 0..7u32 {
         if attempt > 0 {
-            std::thread::sleep(Duration::from_millis(50));
+            std::thread::sleep(Duration::from_millis(25 << attempt.min(4)));
         }
         let flags = MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH;
         // SAFETY: two NUL-terminated UTF-16 paths that outlive the call.
@@ -67,6 +72,10 @@ pub fn replace(from: &Path, to: &Path) -> io::Result<()> {
             return Ok(());
         }
         last = io::Error::last_os_error();
+        match fs::rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(e) => last = e,
+        }
     }
     Err(last)
 }
@@ -120,6 +129,19 @@ mod tests {
             .collect();
         assert_eq!(names, vec!["a.json".to_string()]);
         assert_ne!(temp_name(&target), temp_name(&target));
+    }
+
+    /// A reader holding the target open (the probe polling it, a scanner)
+    /// must not make the save fail.
+    #[test]
+    fn replaces_a_target_another_handle_has_open() {
+        let dir = temp("open");
+        let target = dir.join("a.json");
+        write(&target, b"one").unwrap();
+        let held = fs::File::open(&target).unwrap();
+        write(&target, b"two").unwrap();
+        drop(held);
+        assert_eq!(fs::read(&target).unwrap(), b"two");
     }
 
     #[test]
