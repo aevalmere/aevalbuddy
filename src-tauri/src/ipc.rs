@@ -415,8 +415,7 @@ fn output_for(app: &AppHandle, caller: &str, p: &Value) -> Option<String> {
     if outputs::is_output(caller) {
         return Some(caller.to_string());
     }
-    outputs::focused(app)
-        .filter(|l| outputs::with(app, l, |o| o.active).unwrap_or(false))
+    outputs::focused(app).filter(|l| outputs::with(app, l, |o| o.active).unwrap_or(false))
 }
 
 async fn route(
@@ -493,8 +492,7 @@ async fn route(
         }
         // `{label?}` -> `{ok}`: "Start over" undone within its 10 s.
         "output:undo-reset" => {
-            let done = output_for(app, &label, &p)
-                .is_some_and(|l| outputs::undo_reset(app, &l));
+            let done = output_for(app, &label, &p).is_some_and(|l| outputs::undo_reset(app, &l));
             return Ok(json!({ "ok": done }));
         }
         // `{top, height}`: the visible sheet inside the glass, glass DIPs.

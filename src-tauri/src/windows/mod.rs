@@ -1274,11 +1274,7 @@ mod tests {
     #[test]
     fn overlay_state_has_target_and_count() {
         let mut s = AppState::default();
-        for (label, active) in [
-            ("output-1", true),
-            ("output-2", true),
-            ("output-3", false),
-        ] {
+        for (label, active) in [("output-1", true), ("output-2", true), ("output-3", false)] {
             let mut o = Output {
                 label: label.into(),
                 active,
