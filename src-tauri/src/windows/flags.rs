@@ -17,6 +17,7 @@
 //! Never SetLayeredWindowAttributes or opacity (WIN-15).
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -28,11 +29,12 @@ use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, IsWindowVisible, SetForegroundWindow,
-    SetWindowDisplayAffinity, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE,
-    HWND_TOPMOST, MINMAXINFO, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER,
-    SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, WM_GETMINMAXINFO, WM_NCDESTROY,
-    WM_NCHITTEST, WM_POWERBROADCAST, WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    GetForegroundWindow, GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId,
+    IsWindow, IsWindowVisible, SetForegroundWindow, SetWindowDisplayAffinity, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, GWL_EXSTYLE, GW_HWNDNEXT, HWND_TOPMOST, MINMAXINFO, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
+    SW_SHOWNOACTIVATE, WM_GETMINMAXINFO, WM_NCDESTROY, WM_NCHITTEST, WM_POWERBROADCAST,
+    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
 };
 
 use crate::state::Rect;
@@ -272,6 +274,86 @@ pub fn show_focused(w: &WebviewWindow) {
             SetForegroundWindow(h(hwnd));
         }
         pin_on_top(hwnd);
+    }
+}
+
+/// The app that was in front when the bar last took focus.
+static PREV_FOREGROUND: AtomicIsize = AtomicIsize::new(0);
+
+fn foreground() -> isize {
+    // SAFETY: a query.
+    unsafe { GetForegroundWindow() as isize }
+}
+
+fn is_ours(hwnd: isize) -> bool {
+    let mut pid = 0u32;
+    // SAFETY: an out-parameter; a stale handle leaves it 0.
+    unsafe { GetWindowThreadProcessId(h(hwnd), &mut pid) };
+    pid == std::process::id()
+}
+
+/// Notes the app in front before the bar takes focus (POS-09's blur half),
+/// unless that is one of our windows.
+pub fn remember_foreground() {
+    let fg = foreground();
+    if fg != 0 && !is_ours(fg) {
+        PREV_FOREGROUND.store(fg, Ordering::Relaxed);
+    }
+}
+
+/// The label of our window that has the foreground, if one does.
+pub fn foreground_label() -> Option<String> {
+    let fg = foreground();
+    if fg == 0 {
+        return None;
+    }
+    labels()
+        .lock()
+        .iter()
+        .find(|(_, v)| **v == fg)
+        .map(|(l, _)| l.clone())
+}
+
+/// The first visible app window below `from` in z-order that is not ours
+/// and not a tool window, or 0.
+fn next_app_window(from: isize) -> isize {
+    let mut cur = from;
+    for _ in 0..512 {
+        // SAFETY: walks the z-order; a stale handle ends the walk with 0.
+        cur = unsafe { GetWindow(h(cur), GW_HWNDNEXT) as isize };
+        if cur == 0 {
+            return 0;
+        }
+        let style = ex_style(cur);
+        let skip = style & (WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) as isize != 0;
+        if is_visible(cur) && !skip && !is_ours(cur) {
+            return cur;
+        }
+    }
+    0
+}
+
+/// Gives the foreground back when `hwnd` has it: to the app that was in
+/// front when the bar opened if it is still there, else to the next app
+/// window below. Collapsing the bar and Esc in an output (`output:blur`)
+/// call it, so the person keeps typing where they were (D-01).
+pub fn blur(hwnd: isize) {
+    if foreground() != hwnd {
+        return;
+    }
+    let prev = PREV_FOREGROUND.load(Ordering::Relaxed);
+    // SAFETY: a query on a handle that may be stale.
+    let alive = prev != 0 && unsafe { IsWindow(h(prev)) } != 0;
+    let to = if alive && is_visible(prev) && !is_ours(prev) {
+        prev
+    } else {
+        next_app_window(hwnd)
+    };
+    if to != 0 {
+        // SAFETY: we hold the foreground, so we may hand it on.
+        unsafe {
+            SetForegroundWindow(h(to));
+        }
     }
 }
 
