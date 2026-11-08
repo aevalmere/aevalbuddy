@@ -484,11 +484,128 @@ pub fn next_free_model(kind: Kind, tried: &[String], all: Option<&[Value]>) -> O
         .map(|m| m.id.to_string())
 }
 
+/// One model from a native provider's own list (B-123).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeModel {
+    pub id: String,
+    pub name: String,
+    pub images: bool,
+    pub tools: bool,
+}
+
+/// OpenAI ids that are not chat models: embeddings, speech, images,
+/// moderation and the like.
+const OPENAI_NOT_CHAT: [&str; 11] = [
+    "embedding",
+    "tts",
+    "whisper",
+    "dall-e",
+    "audio",
+    "realtime",
+    "transcribe",
+    "image",
+    "moderation",
+    "search",
+    "instruct",
+];
+
+/// A provider's `/models` reply as the chat models it lists, in its order.
+/// Anthropic lists `data[{id, display_name}]`; OpenAI `data[{id}]`, which
+/// includes embeddings and speech models; Gemini `models[{name, displayName,
+/// supportedGenerationMethods}]`. Image and tool support come from the
+/// metadata where it is given, else the family: every Claude and Gemini chat
+/// model reads images and calls tools; OpenAI's do except GPT-3.5.
+pub fn parse_native_list(provider: super::provider::Provider, body: &Value) -> Vec<NativeModel> {
+    use super::provider::Provider;
+    let text = |v: &Value, k: &str| v[k].as_str().unwrap_or_default().trim().to_string();
+    let rows = |k: &str| body[k].as_array().cloned().unwrap_or_default();
+    match provider {
+        Provider::OpenRouter => Vec::new(),
+        Provider::Anthropic => rows("data")
+            .iter()
+            .filter(|m| !matches!(m["type"].as_str(), Some(t) if t != "model"))
+            .map(|m| (text(m, "id"), text(m, "display_name")))
+            .filter(|(id, _)| id.starts_with("claude"))
+            .map(|(id, name)| NativeModel {
+                name: if name.is_empty() { id.clone() } else { name },
+                id,
+                images: true,
+                tools: true,
+            })
+            .collect(),
+        Provider::OpenAi => rows("data")
+            .iter()
+            .map(|m| text(m, "id"))
+            .filter(|id| {
+                let chat = id.starts_with("gpt-")
+                    || id.starts_with("chatgpt-")
+                    || (id.starts_with('o') && id[1..].starts_with(|c: char| c.is_ascii_digit()));
+                chat && !OPENAI_NOT_CHAT.iter().any(|w| id.contains(w))
+            })
+            .map(|id| NativeModel {
+                name: id.clone(),
+                images: !id.starts_with("gpt-3.5"),
+                tools: true,
+                id,
+            })
+            .collect(),
+        Provider::Gemini => rows("models")
+            .iter()
+            .filter(|m| {
+                m["supportedGenerationMethods"]
+                    .as_array()
+                    .is_some_and(|a| a.iter().any(|x| x == "generateContent"))
+            })
+            .map(|m| {
+                let id = text(m, "name");
+                let id = id.strip_prefix("models/").unwrap_or(&id).to_string();
+                (id, text(m, "displayName"))
+            })
+            .filter(|(id, _)| id.starts_with("gemini"))
+            .map(|(id, name)| NativeModel {
+                name: if name.is_empty() { id.clone() } else { name },
+                id,
+                images: true,
+                tools: true,
+            })
+            .collect(),
+    }
+}
+
+/// A stored native id the provider no longer lists heals to the provider's
+/// default for the job, in memory only; the stored pick is left as it is.
+/// Without a list nothing is known to be gone, so the id is kept.
+pub fn heal_native(id: &str, default: &str, live: Option<&[NativeModel]>) -> String {
+    let id = id.trim();
+    match live.filter(|l| !l.is_empty()) {
+        Some(list) if !id.is_empty() && !list.iter().any(|m| m.id == id) => default.to_string(),
+        _ if id.is_empty() => default.to_string(),
+        _ => id.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const CATALOGUE: &str = include_str!("../../../tools/fixtures/llm/catalogue.json");
+
+    #[test]
+    fn native_retired_id_heals_in_memory() {
+        let live = vec![NativeModel {
+            id: "claude-sonnet-5-5".into(),
+            name: "Claude Sonnet 5.5".into(),
+            images: true,
+            tools: true,
+        }];
+        let d = "claude-sonnet-5-5";
+        assert_eq!(heal_native("claude-2-old", d, Some(&live)), d);
+        assert_eq!(heal_native("claude-sonnet-5-5", d, Some(&live)), d);
+        // Unknown until the list is fetched: kept.
+        assert_eq!(heal_native("my-custom-id", d, None), "my-custom-id");
+        assert_eq!(heal_native("my-custom-id", d, Some(&[])), "my-custom-id");
+        assert_eq!(heal_native(" ", d, None), d);
+    }
 
     fn catalogue() -> Vec<Value> {
         let v: Value = serde_json::from_str(CATALOGUE).unwrap();

@@ -18,7 +18,7 @@
 //! built-in skill of the same id.
 
 use std::cmp::Ordering;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -185,6 +185,11 @@ fn locale_cmp(a: &str, b: &str) -> Ordering {
     la.cmp(&lb).then_with(|| b.cmp(a))
 }
 
+/// `<exe folder>\skills`: where a person's own answer styles live.
+pub fn folder_of(exe: &Path) -> Option<PathBuf> {
+    exe.parent().map(|p| p.join("skills"))
+}
+
 /// Every loaded skill, in picker order.
 #[derive(Clone, Debug, Default)]
 pub struct Skills {
@@ -285,6 +290,17 @@ impl Skills {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn folder_path_is_exe_relative() {
+        let exe = Path::new(r"C:\Program Files\AevalBuddy\AevalBuddy.exe");
+        let dir = folder_of(exe).unwrap();
+        assert_eq!(
+            dir,
+            Path::new(r"C:\Program Files\AevalBuddy").join("skills")
+        );
+        assert!(folder_of(Path::new("")).is_none());
+    }
 
     #[test]
     fn built_ins_load_in_picker_order() {

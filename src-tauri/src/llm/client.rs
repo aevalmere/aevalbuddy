@@ -4,6 +4,7 @@
 //! MODEL-08, PROMPT-01, PROMPT-04, PROMPT-05). Port of the request half of
 //! lib/openrouter.js, with the native providers behind the same calls.
 
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -14,14 +15,16 @@ use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::catalogue::{self, Kind};
+use super::catalogue::{self, Kind, NativeModel};
 use super::errors::{self, ApiError};
 use super::failover::BadModels;
 use super::fake::Fake;
+use super::payloads::{Action, TestKeyReply};
 use super::prompt::{self, ExactText, SkillText, SystemPromptOpts};
 use super::provider::Provider;
 use super::settings::Active;
 use super::sse::{data_payload, LineBuffer, Meter};
+use super::status::Status;
 use super::wire::{self, HttpRequest, Method, StreamDecoder, Turn};
 
 pub type BodyStream = Pin<Box<dyn Stream<Item = Result<Vec<u8>, ApiError>> + Send>>;
@@ -106,15 +109,21 @@ pub struct ReqwestTransport {
 
 impl ReqwestTransport {
     pub fn new() -> Self {
-        // A dead route fails in 10 s instead of the OS's minutes, and the
-        // keep-alive notices a connection that vanished mid-answer.
-        let client = reqwest::Client::builder()
+        let client = Self::builder().build().unwrap_or_default();
+        ReqwestTransport { client }
+    }
+
+    /// rustls with the Windows certificate store as well as its built-in
+    /// roots, so a TLS-inspection proxy's root is trusted, and the system
+    /// proxy from the registry (both by the crate's features, Decision
+    /// D-19). A dead route fails in 10 s instead of the OS's minutes, and
+    /// the keep-alive notices a connection that vanished mid-answer.
+    fn builder() -> reqwest::ClientBuilder {
+        reqwest::Client::builder()
+            .use_rustls_tls()
             .user_agent(concat!("AevalBuddy/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(10))
             .tcp_keepalive(Duration::from_secs(30))
-            .build()
-            .unwrap_or_default();
-        ReqwestTransport { client }
     }
 }
 
@@ -222,23 +231,104 @@ pub struct ReaderOpts<'a> {
     pub exact_text: Option<&'a ExactText>,
 }
 
-/// `settings:test-key`'s answer.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// `settings:test-key`'s answer: what a key can do, in the words of
+/// design-ux section 3.2.
+#[derive(Clone, Debug, PartialEq)]
 pub struct KeyCheck {
+    /// The key works, whatever it can reach. A rejected key or a failed
+    /// check is false.
     pub ok: bool,
+    pub status: Status,
     pub message: String,
+    /// OpenRouter credit left, in dollars, when the check reported it.
+    pub credit: Option<f64>,
+    pub actions: Vec<Action>,
 }
 
+/// C-57.
+const WORKS: &str = "Works. Checked just now.";
+
+/// C-65.
+const FREE_MODELS_OFF: &str = "Works, but your OpenRouter privacy setting blocks free models. \
+Turn on \"Free model publication\", or add credit and pick a paid model.";
+
+/// The free-model probe may queue; a slow one says nothing about the key.
+const PROBE_WAIT: Duration = Duration::from_secs(5);
+
 impl KeyCheck {
-    fn new(ok: bool, message: impl Into<String>) -> KeyCheck {
+    fn ready(message: impl Into<String>, credit: Option<f64>) -> KeyCheck {
         KeyCheck {
-            ok,
+            ok: true,
+            status: Status::Ready,
             message: message.into(),
+            credit,
+            actions: Vec::new(),
         }
     }
 
-    pub fn to_json(&self) -> Value {
-        json!({ "ok": self.ok, "message": self.message })
+    fn failed(status: Status, message: impl Into<String>) -> KeyCheck {
+        KeyCheck {
+            ok: false,
+            status,
+            message: message.into(),
+            credit: None,
+            actions: Vec::new(),
+        }
+    }
+
+    fn unreachable(provider: Provider) -> KeyCheck {
+        let p = provider.name();
+        let text = format!(
+            "Can't reach {p} right now. The key is saved; AevalBuddy checks again when you're \
+online."
+        );
+        Self::failed(Status::Unchecked, text)
+    }
+
+    fn rejected(provider: Provider) -> KeyCheck {
+        let p = provider.name();
+        let text = format!(
+            "{p} rejected this key. It may have been revoked or mistyped. AevalBuddy is \
+skipping {p} until you replace it."
+        );
+        Self::failed(Status::Rejected, text)
+    }
+
+    fn no_credit(provider: Provider, credit: Option<f64>) -> KeyCheck {
+        let message = if provider == Provider::OpenRouter {
+            "The key works, but the account has no credit, so only free models answer.".to_string()
+        } else {
+            let p = provider.name();
+            format!("The key works, but the {p} account has no credit. AevalBuddy is skipping {p}.")
+        };
+        KeyCheck {
+            ok: true,
+            status: Status::NoCredit,
+            message,
+            credit,
+            actions: vec![errors::add_credit_action(provider)],
+        }
+    }
+
+    fn free_models_off(credit: Option<f64>) -> KeyCheck {
+        KeyCheck {
+            ok: true,
+            status: Status::Blocked,
+            message: FREE_MODELS_OFF.to_string(),
+            credit,
+            actions: vec![errors::privacy_action()],
+        }
+    }
+
+    /// What the page receives.
+    pub fn to_reply(&self) -> TestKeyReply {
+        TestKeyReply {
+            ok: self.ok,
+            status: self.status.as_str().to_string(),
+            message: self.message.clone(),
+            credit: self.credit,
+            actions: self.actions.clone(),
+        }
     }
 }
 
@@ -256,12 +346,16 @@ struct CatalogueCache {
     data: Option<Arc<Vec<Value>>>,
 }
 
+/// A native provider's own model list, fetched with its key (B-123).
+type NativeCache = HashMap<Provider, (Instant, Arc<Vec<NativeModel>>)>;
+
 /// The model client.
 pub struct Llm {
     transport: Arc<dyn Transport>,
     fake: Option<Arc<Fake>>,
     offline: Option<bool>,
     catalogue: Mutex<CatalogueCache>,
+    native: Mutex<NativeCache>,
     bad: BadModels,
     idle: Duration,
     overall: Duration,
@@ -301,6 +395,7 @@ impl Llm {
             fake,
             offline: None,
             catalogue: Mutex::new(CatalogueCache::default()),
+            native: Mutex::new(HashMap::new()),
             bad: BadModels::default(),
             idle: IDLE_TIMEOUT,
             overall: OVERALL_TIMEOUT,
@@ -320,10 +415,16 @@ impl Llm {
         self.offline = Some(offline);
     }
 
-    // Test seam.
+    // The self-test scripts it (K-26).
     #[allow(dead_code)]
     pub fn fake(&self) -> Option<&Arc<Fake>> {
         self.fake.as_ref()
+    }
+
+    /// The HTTP path, for requests that are not to a model (Connect
+    /// OpenRouter's token exchange).
+    pub fn transport(&self) -> Arc<dyn Transport> {
+        self.transport.clone()
     }
 
     /// `AEVAL_OFFLINE=1` makes every network call fail the way a dropped
@@ -636,46 +737,88 @@ impl Llm {
         Ok(wire::parse_turn(dialect, &data, now_ms()))
     }
 
-    /// Checks a key and says what it can see, before the first question.
+    /// The key check's reply, from the provider or the fixtures.
+    async fn key_reply(
+        &self,
+        provider: Provider,
+        key: &str,
+        cancel: &CancellationToken,
+    ) -> Result<Reply, ApiError> {
+        if self.forced_offline() {
+            return Err(ApiError::network("fetch failed (offline)"));
+        }
+        match &self.fake {
+            Some(fake) => fake.key_reply(provider, cancel).await,
+            None => {
+                let req = wire::key_request(provider, key);
+                self.transport.send(req, cancel).await
+            }
+        }
+    }
+
+    /// Checks a key and says what it can do, before the first question.
     pub async fn test_key(&self, provider: Provider, key: &str) -> KeyCheck {
         let key = key.trim();
         if key.is_empty() {
-            return KeyCheck::new(false, "No key saved yet.");
+            return KeyCheck::failed(Status::NotAdded, "No key saved yet.");
         }
         let p = provider.name();
         let cancel = CancellationToken::new();
-        let req = wire::key_request(provider, key);
-        let reply = match self.transport.send(req, &cancel).await {
-            Ok(r) => r,
-            Err(_) => {
-                let msg = format!("Could not reach {p}. Check your connection.");
-                return KeyCheck::new(false, msg);
-            }
+        let Ok(reply) = self.key_reply(provider, key, &cancel).await else {
+            return KeyCheck::unreachable(provider);
         };
         let rejected = reply.status == 401
             || (provider.is_native() && reply.status == 403)
             || (provider == Provider::Gemini && reply.status == 400);
         if rejected {
-            let msg = format!("{p} rejected this key. Check it and save again.");
-            return KeyCheck::new(false, msg);
+            return KeyCheck::rejected(provider);
+        }
+        if reply.status == 402 {
+            return KeyCheck::no_credit(provider, None);
         }
         if !reply.ok() {
-            return KeyCheck::new(false, format!("{p} replied HTTP {}.", reply.status));
+            let text = format!("{p} replied HTTP {}.", reply.status);
+            return KeyCheck::failed(Status::Unchecked, text);
         }
-        let body = match reply.bytes(&cancel).await {
-            Ok(b) => b,
-            Err(_) => {
-                let msg = format!("Could not reach {p}. Check your connection.");
-                return KeyCheck::new(false, msg);
-            }
+        let Ok(body) = reply.bytes(&cancel).await else {
+            return KeyCheck::unreachable(provider);
         };
         if provider.is_native() {
-            return KeyCheck::new(true, "Key works.");
+            return KeyCheck::ready(WORKS, None);
         }
         let Ok(parsed) = serde_json::from_slice::<Value>(&body) else {
-            return KeyCheck::new(false, "Could not reach OpenRouter. Check your connection.");
+            return KeyCheck::unreachable(provider);
         };
-        openrouter_credit(&parsed)
+        let check = openrouter_credit(&parsed);
+        if self.free_models_refused(key).await {
+            return KeyCheck::free_models_off(check.credit);
+        }
+        check
+    }
+
+    /// One `max_tokens: 1` request to the default free model: a key can be
+    /// fine and still reach no free model, when the account's privacy
+    /// setting refuses them (design-ux U1). Only that refusal counts; a busy
+    /// or slow model says nothing about the key.
+    async fn free_models_refused(&self, key: &str) -> bool {
+        let model = catalogue::default_for(Kind::Vision);
+        let body = json!({
+            "model": model,
+            "stream": false,
+            "max_tokens": 1,
+            "messages": [{ "role": "user", "content": "Hi" }],
+        });
+        let active = Active {
+            provider: Provider::OpenRouter,
+            key: key.to_string(),
+        };
+        let cancel = CancellationToken::new();
+        let meta = Meta::purpose("key-probe");
+        let sent = self.request_json(&active, &body, &cancel, &meta);
+        match tokio::time::timeout(PROBE_WAIT, sent).await {
+            Ok(Err(e)) => errors::code_of(active.provider, &e, model) == errors::codes::DATA_POLICY,
+            _ => false,
+        }
     }
 
     /// The live OpenRouter catalogue, or `None` when it cannot be fetched.
@@ -759,7 +902,11 @@ impl Llm {
     /// True when the model takes images.
     pub fn sees_images(&self, provider: Provider, id: &str) -> bool {
         if provider.is_native() {
-            return true;
+            let live = self.known_native_list(provider);
+            let listed = live
+                .as_ref()
+                .and_then(|l| l.iter().find(|m| m.id == id).cloned());
+            return listed.map_or(true, |m| m.images);
         }
         let all = self.known_catalogue();
         catalogue::sees_images(all.as_deref().map(Vec::as_slice), id)
@@ -779,21 +926,97 @@ impl Llm {
         self.bad.first(id, |skip| self.next_free_model(kind, skip))
     }
 
+    /// A native provider's own list of chat models, cached for five minutes
+    /// like OpenRouter's catalogue. `None` offline, under the fake LLM, or
+    /// when the provider would not say.
+    pub async fn native_catalogue(
+        &self,
+        provider: Provider,
+        key: &str,
+    ) -> Option<Arc<Vec<NativeModel>>> {
+        if !provider.is_native() || self.fake.is_some() || self.forced_offline() {
+            return None;
+        }
+        if let Some((at, list)) = self.native.lock().get(&provider) {
+            if at.elapsed() < CATALOGUE_TTL {
+                return Some(list.clone());
+            }
+        }
+        let key = key.trim();
+        if key.is_empty() {
+            return None;
+        }
+        let cancel = CancellationToken::new();
+        let req = wire::native_list_request(provider, key);
+        let fetched = async {
+            let reply = self.transport.send(req, &cancel).await.ok()?;
+            if !reply.ok() {
+                return None;
+            }
+            let bytes = reply.bytes(&cancel).await.ok()?;
+            let body: Value = serde_json::from_slice(&bytes).ok()?;
+            let list = catalogue::parse_native_list(provider, &body);
+            (!list.is_empty()).then_some(list)
+        };
+        let list = tokio::time::timeout(Duration::from_secs(8), fetched)
+            .await
+            .ok()
+            .flatten()?;
+        let list = Arc::new(list);
+        self.native
+            .lock()
+            .insert(provider, (Instant::now(), list.clone()));
+        Some(list)
+    }
+
+    /// Whatever native list is cached; never waits.
+    pub fn known_native_list(&self, provider: Provider) -> Option<Arc<Vec<NativeModel>>> {
+        self.native.lock().get(&provider).map(|(_, l)| l.clone())
+    }
+
+    /// The native id a request goes out with: `id`, unless the provider's
+    /// cached list no longer has it, in which case the provider's default
+    /// for the job (in memory only, B-123).
+    pub fn known_native(&self, provider: Provider, kind: Kind, id: &str) -> String {
+        let live = self.known_native_list(provider);
+        let default = provider.default_model(kind);
+        catalogue::heal_native(id, default, live.as_deref().map(Vec::as_slice))
+    }
+
     /// The picker for one provider and job (`listModels`).
     pub async fn list_models(&self, provider: Provider, kind: Kind, include_paid: bool) -> Value {
         if provider.is_native() {
-            let models: Vec<Value> = provider
-                .models(kind)
-                .iter()
-                .map(|c| {
+            let live = self.known_native_list(provider);
+            let curated = provider.models(kind);
+            let note_of = |id: &str| {
+                curated
+                    .iter()
+                    .find(|c| c.id == id)
+                    .map(|c| c.note)
+                    .unwrap_or_default()
+            };
+            let rows: Vec<(String, String, bool)> = match &live {
+                Some(list) => list
+                    .iter()
+                    .filter(|m| kind != Kind::Vision || m.images)
+                    .map(|m| (m.id.clone(), m.name.clone(), m.tools))
+                    .collect(),
+                None => curated
+                    .iter()
+                    .map(|c| (c.id.to_string(), c.id.to_string(), true))
+                    .collect(),
+            };
+            let models: Vec<Value> = rows
+                .into_iter()
+                .map(|(id, name, tools)| {
                     let mut m = json!({
-                        "id": c.id,
-                        "name": c.id,
-                        "note": c.note,
+                        "id": id,
+                        "name": name,
+                        "note": note_of(&id),
                         "tier": "paid",
                         "detail": "",
                     });
-                    if kind == Kind::Agent {
+                    if kind == Kind::Agent && tools {
                         m["tag"] = json!("Tools");
                         m["tools"] = json!(true);
                     }
@@ -802,32 +1025,32 @@ impl Llm {
                 .collect();
             let label = format!("{} (your key)", provider.name());
             let group = json!({ "tier": "paid", "label": label, "models": models });
-            return json!({ "groups": [group], "live": false, "provider": provider.id() });
+            let live = live.is_some();
+            return json!({ "groups": [group], "live": live, "provider": provider.id() });
         }
         let all = self.fetch_catalogue().await;
         catalogue::list_models(kind, include_paid, all.as_deref().map(Vec::as_slice))
     }
 }
 
-/// The OpenRouter `/key` reply as one sentence about the credit left.
+/// The OpenRouter `/key` reply as a sentence about the credit left. A
+/// `limit` of null means no limit was set: a free account, or pay-as-you-go
+/// with a balance OpenRouter does not report here.
 pub fn openrouter_credit(body: &Value) -> KeyCheck {
     let d = &body["data"];
-    let limit = catalogue::js_number(d.get("limit").unwrap_or(&Value::Bool(true)));
-    let used = catalogue::js_number(d.get("usage").unwrap_or(&Value::Bool(true)));
-    let has = |k: &str| d.get(k).is_some();
-    if has("limit") && has("usage") && limit.is_finite() && used.is_finite() {
+    let number = |k: &str| d[k].as_f64().filter(|n| n.is_finite());
+    if let (Some(limit), Some(used)) = (number("limit"), number("usage")) {
         let left = (limit - used).max(0.0);
         if left > 0.0 {
-            return KeyCheck::new(true, format!("Key works. About ${left:.2} of credit left."));
+            let text = format!("{WORKS} About ${left:.2} of credit left.");
+            return KeyCheck::ready(text, Some(left));
         }
-        return KeyCheck::new(
-            true,
-            "Key works, but the credit is used up. Add credit, or pick a Free model.",
-        );
+        return KeyCheck::no_credit(Provider::OpenRouter, Some(0.0));
     }
-    // No limit set means a pay-as-you-go account whose balance OpenRouter
-    // does not report here; the key itself is confirmed good.
-    KeyCheck::new(true, "Key works.")
+    if d["is_free_tier"].as_bool() == Some(true) {
+        return KeyCheck::ready(format!("{WORKS} Free models only."), None);
+    }
+    KeyCheck::ready(WORKS, None)
 }
 
 #[cfg(test)]
@@ -893,45 +1116,191 @@ mod tests {
         s
     }
 
+    const REJECTED: &str = "OpenRouter rejected this key. It may have been revoked or mistyped. \
+AevalBuddy is skipping OpenRouter until you replace it.";
+
+    const UNREACHABLE: &str = "Can't reach OpenRouter right now. The key is saved; AevalBuddy \
+checks again when you're online.";
+
     #[test]
     fn test_key_messages() {
+        let works = "Works. Checked just now.";
+        let credit = "Works. Checked just now. About $7.50 of credit left.";
+        let free = "Works. Checked just now. Free models only.";
+        let none = "The key works, but the account has no credit, so only free models answer.";
+        let tier = r#"{"data":{"limit":null,"usage":4,"is_free_tier":true}}"#;
         let cases = [
+            (Ok((401, String::new())), REJECTED, Status::Rejected),
             (
-                Ok((401, String::new())),
-                "OpenRouter rejected this key. Check it and save again.",
+                Ok((500, String::new())),
+                "OpenRouter replied HTTP 500.",
+                Status::Unchecked,
             ),
-            (Ok((500, String::new())), "OpenRouter replied HTTP 500."),
             (
                 Ok((200, r#"{"data":{"limit":10,"usage":2.5}}"#.into())),
-                "Key works. About $7.50 of credit left.",
+                credit,
+                Status::Ready,
             ),
             (
                 Ok((200, r#"{"data":{"limit":1,"usage":3}}"#.into())),
-                "Key works, but the credit is used up. Add credit, or pick a Free model.",
+                none,
+                Status::NoCredit,
             ),
-            (Ok((200, r#"{"data":{"limit":null}}"#.into())), "Key works."),
+            (
+                Ok((200, r#"{"data":{"limit":null}}"#.into())),
+                works,
+                Status::Ready,
+            ),
+            (
+                Ok((200, r#"{"data":{"limit":null,"usage":4}}"#.into())),
+                works,
+                Status::Ready,
+            ),
+            (Ok((200, tier.into())), free, Status::Ready),
             (
                 Err(ApiError::network("down")),
-                "Could not reach OpenRouter. Check your connection.",
+                UNREACHABLE,
+                Status::Unchecked,
             ),
         ];
-        for (reply, want) in cases {
+        for (reply, want, status) in cases {
             let (llm, canned) = client(vec![reply]);
             let got = block(llm.test_key(Provider::OpenRouter, " sk-or-k "));
             assert_eq!(got.message, want);
+            assert_eq!(got.status, status, "{want}");
             assert_eq!(canned.sent.lock()[0].url, wire::OPENROUTER_KEY);
         }
         let (llm, _) = client(vec![]);
         let got = block(llm.test_key(Provider::OpenRouter, "  "));
-        assert_eq!(got, KeyCheck::new(false, "No key saved yet."));
+        assert!(!got.ok);
+        assert_eq!(got.status, Status::NotAdded);
+        assert_eq!(got.message, "No key saved yet.");
         let (llm, canned) = client(vec![Ok((200, "{}".into()))]);
         let got = block(llm.test_key(Provider::Anthropic, "sk-ant-k"));
-        assert_eq!(got, KeyCheck::new(true, "Key works."));
+        assert!(got.ok);
+        assert_eq!(got.message, works);
         assert_eq!(canned.sent.lock()[0].url, wire::ANTHROPIC_MODELS);
         let (llm, _) = client(vec![Ok((400, "{}".into()))]);
         let got = block(llm.test_key(Provider::Gemini, "AIzaX"));
-        let want = "Google Gemini rejected this key. Check it and save again.";
+        let want = "Google Gemini rejected this key. It may have been revoked or mistyped. \
+AevalBuddy is skipping Google Gemini until you replace it.";
         assert_eq!(got.message, want);
+        assert_eq!(got.status, Status::Rejected);
+    }
+
+    #[test]
+    fn native_list_parsing() {
+        const LISTS: &str = include_str!("../../../tools/fixtures/llm/native-models.json");
+        let all: Value = serde_json::from_str(LISTS).unwrap();
+        let ids = |list: &[NativeModel]| list.iter().map(|m| m.id.clone()).collect::<Vec<_>>();
+
+        let a = catalogue::parse_native_list(Provider::Anthropic, &all["anthropic"]);
+        let want = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
+        assert_eq!(ids(&a), want);
+        assert_eq!(a[0].name, "Claude Opus 5.5");
+        assert!(a.iter().all(|m| m.images && m.tools));
+
+        let o = catalogue::parse_native_list(Provider::OpenAi, &all["openai"]);
+        let want = [
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6-luna",
+            "o5-mini",
+            "gpt-3.5-turbo",
+        ];
+        assert_eq!(
+            ids(&o),
+            want,
+            "embeddings, speech and moderation are dropped"
+        );
+        assert!(!o[4].images, "GPT-3.5 reads no images");
+
+        let g = catalogue::parse_native_list(Provider::Gemini, &all["gemini"]);
+        let want = [
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+            "gemini-3.5-flash-lite",
+        ];
+        assert_eq!(
+            ids(&g),
+            want,
+            "only generateContent models, without models/"
+        );
+        assert_eq!(g[0].name, "Gemini 3.8 Flash");
+
+        // Fetched once with the key, then cached; the picker lists it and a
+        // retired pick heals in memory.
+        let body = all["anthropic"].to_string();
+        let (llm, canned) = client(vec![Ok((200, body))]);
+        let got = block(llm.native_catalogue(Provider::Anthropic, "sk-ant-k")).unwrap();
+        assert_eq!(got.len(), 3);
+        assert!(block(llm.native_catalogue(Provider::Anthropic, "sk-ant-k")).is_some());
+        assert_eq!(canned.sent.lock().len(), 1, "cached");
+        assert!(canned.sent.lock()[0]
+            .url
+            .starts_with(wire::ANTHROPIC_MODELS));
+        let healed = llm.known_native(Provider::Anthropic, Kind::Find, "claude-3-retired");
+        assert_eq!(healed, Provider::Anthropic.default_model(Kind::Find));
+        let kept = llm.known_native(Provider::Anthropic, Kind::Find, "claude-opus-5-5");
+        assert_eq!(kept, "claude-opus-5-5");
+        let list = block(llm.list_models(Provider::Anthropic, Kind::Vision, false));
+        assert_eq!(list["live"], true);
+        assert_eq!(list["groups"][0]["models"][0]["name"], "Claude Opus 5.5");
+
+        // A provider that fails to list leaves the curated table in charge.
+        let (llm, _) = client(vec![Ok((500, String::new()))]);
+        assert!(block(llm.native_catalogue(Provider::Gemini, "AIzaX")).is_none());
+        let list = block(llm.list_models(Provider::Gemini, Kind::Vision, false));
+        assert_eq!(list["live"], false);
+        let kept = llm.known_native(Provider::Gemini, Kind::Vision, "my-own-id");
+        assert_eq!(kept, "my-own-id");
+    }
+
+    #[test]
+    fn data_policy_probe_reports_blocked() {
+        const TABLE: &str = include_str!("../../../tools/fixtures/llm/errors.json");
+        let rows: Vec<Value> = serde_json::from_str(TABLE).unwrap();
+        let row = rows.iter().find(|r| r["code"] == "data-policy").unwrap();
+        let refusal = json!({ "error": { "message": row["detail"] } }).to_string();
+        let status = row["status"].as_u64().unwrap() as u16;
+        let key = r#"{"data":{"limit":10,"usage":2.5}}"#;
+        let (llm, canned) = client(vec![Ok((200, key.into())), Ok((status, refusal))]);
+        let got = block(llm.test_key(Provider::OpenRouter, "sk-or-k"));
+        assert!(got.ok, "the key itself works");
+        assert_eq!(got.status, Status::Blocked);
+        let want = "Works, but your OpenRouter privacy setting blocks free models. Turn on \
+\"Free model publication\", or add credit and pick a paid model.";
+        assert_eq!(got.message, want);
+        assert_eq!(got.credit, Some(7.5));
+        assert_eq!(got.actions[0].id, "privacy");
+        assert_eq!(got.actions[0].label, "Open OpenRouter privacy settings");
+        let sent = canned.sent.lock();
+        assert_eq!(sent[1].url, wire::OPENROUTER_CHAT);
+        let body = sent[1].body.as_ref().unwrap();
+        assert_eq!(body["max_tokens"], 1);
+        assert_eq!(body["model"], catalogue::default_for(Kind::Vision));
+        assert!(body["model"].as_str().unwrap().ends_with(":free"));
+        // A busy free model says nothing about the key.
+        let busy = json!({ "error": { "message": "busy" } }).to_string();
+        let (llm, _) = client(vec![Ok((200, key.into())), Ok((429, busy))]);
+        let got = block(llm.test_key(Provider::OpenRouter, "sk-or-k"));
+        assert_eq!(got.status, Status::Ready);
+    }
+
+    #[test]
+    fn builder_uses_native_roots_and_proxy() {
+        // Reqwest does not expose what it was built with, so the settings
+        // are read where they live: its features, and no call that turns
+        // the system proxy off.
+        const MANIFEST: &str = include_str!("../../Cargo.toml");
+        assert!(MANIFEST.contains("\"rustls-tls-native-roots\""));
+        assert!(MANIFEST.contains("\"system-proxy\""));
+        const SOURCE: &str = include_str!("client.rs");
+        let off = concat!(".no", "_proxy(");
+        assert!(!SOURCE.contains(off));
+        let certs_off = concat!("root_certs", "(false)");
+        assert!(!SOURCE.contains(certs_off));
+        assert!(ReqwestTransport::builder().build().is_ok());
     }
 
     #[test]

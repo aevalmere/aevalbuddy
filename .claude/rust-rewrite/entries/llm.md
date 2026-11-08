@@ -13,6 +13,12 @@
 - `settings:clip-key`
 - `settings:use-clip-key`
 - `settings:test-key` (its arm moved here from `host::ask::route` once windows C1 added `host/settings.rs` to the `every_invoke_channel_has_a_route` scan)
+- `settings:set-provider-order` (B-038)
+- `settings:set-failover` (B-038)
+- `auth:openrouter-connect` (B-039)
+- `skills:open-folder` (B-181)
+
+Listen `provider:status {id, status, statusText, busyUntil, notice?}` goes to Settings and the overlay after every key test, save, clear, and any answer that changes a provider's state.
 
 ## ARCHITECTURE · 12 (LLM) · C1 contracts
 
@@ -87,3 +93,15 @@ Replace "Every message captures fresh (follow-ups see the screen now). Region st
 Every message captures fresh (follow-ups see the screen now); the shot taken when an area was picked stands in only while it is under 1 s old. Region sticks to the conversation until cleared or New chat.
 Reason: in Electron the pick-time shot answered the first question however long the person took to type it, so a screen that changed meanwhile was described as it had been.
 status: changed; evidence: UNIT host::ask::tests::stale_pick_shot_is_not_reused
+
+## ARCHITECTURE · 12 (LLM) · B-038, B-039
+Add:
+Keys are tested before they are stored: `settings:save-key {provider, key}` answers `{ok, status, message, keyHint, provider, credit}`, or `{ok:false, error, detected}` for a key whose prefix names another provider; a rejected key is not stored, a key that could not be checked is kept as `unchecked`. `settings:test-key {provider}` answers `{ok, status, message, credit, actions}`; for OpenRouter it also sends one `max_tokens: 1` request to the default free vision model, and a data-policy refusal reads `blocked` (C-65) with `Open OpenRouter privacy settings`. `settings:get` carries `providers` (rows in try order), `failover`, `keyHints` and `keyStorage`. Statuses live in `llm::status` (in memory, per key fingerprint) and change on key tests and on answers: 401 rejected, 402 no credit (native), a native 429 busy for Retry-After or 60 s; an answer clears them. `auth:openrouter-connect` runs OAuth PKCE S256 through a loopback listener on 127.0.0.1 (`llm::auth`), 5 min timeout, then stores and tests the key. Checked against openrouter.ai/docs (OAuth PKCE guide) on 2026-11-08: `/auth?callback_url&code_challenge&code_challenge_method=S256`, then `POST /api/v1/auth/keys {code, code_verifier, code_challenge_method}` returning `{key}`.
+
+## ARCHITECTURE · 12 (LLM) · B-123
+Add:
+Native model lists come from the providers (`GET /v1/models` for Anthropic and OpenAI, `GET /v1beta/models` for Gemini), cached 5 minutes and filtered to chat models; the curated table stays the fallback and the source of defaults. A stored native id the cached list lacks goes out as the provider's default for the job, in memory only.
+
+## ARCHITECTURE · 12 (LLM) · B-040
+Add:
+Each output window has its own Ask: a new question cancels only the one running in its window, `query:cancel` stops the caller's window (or the focused output), and `Hooks.abort_query_for` stops one window's Ask. Busy follows `AppState::query_started/ended`.

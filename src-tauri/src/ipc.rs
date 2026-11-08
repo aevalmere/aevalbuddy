@@ -131,6 +131,10 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "buddy:ready",
     // ---- end: capture ----
     // ---- lane: llm ----
+    "settings:set-provider-order",
+    "settings:set-failover",
+    "auth:openrouter-connect",
+    "skills:open-folder",
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
@@ -183,6 +187,7 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     "buddy:reset",
     // ---- end: capture ----
     // ---- lane: llm ----
+    "provider:status",
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
@@ -291,6 +296,9 @@ const EXCEPTIONS: &[(&str, &[Caller])] = &[
     ("bar:prefill-open", ASK),
     // An output's trail may start only its own task again (`authorize`).
     ("agent:start", BAR),
+    // llm lane: Settings' Connect OpenRouter and custom answer styles.
+    ("auth:openrouter-connect", APP),
+    ("skills:open-folder", APP),
 ];
 
 /// B-089: the windows that may call `channel`; None for a channel with no

@@ -20,6 +20,9 @@
 //! - `stallAfterHeadersMs`: send the headers, then nothing for this long
 //!   before the body (a stalled connection).
 //! - `times`: match this many requests, then drop out.
+//!
+//! Purpose `key` scripts a key check ([`Fake::key_reply`]) and `key-probe`
+//! the free-model probe that follows it.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::OnceLock;
@@ -358,6 +361,26 @@ impl Fake {
         let reply = message(body, json!({ "role": "assistant", "content": text }));
         let ms = f["stallAfterHeadersMs"].as_u64().unwrap_or(0);
         Ok(stall(reply, ms))
+    }
+
+    /// A key check under `AEVAL_FAKE_LLM`: a fixture with purpose `key`
+    /// scripts it (a `status`, or the body in `json`); without one, any key
+    /// is good. The free-model probe is purpose `key-probe`.
+    pub async fn key_reply(
+        &self,
+        provider: Provider,
+        cancel: &CancellationToken,
+    ) -> Result<Reply, ApiError> {
+        let want = Want {
+            purpose: "key",
+            provider: provider.id(),
+            model: "",
+        };
+        match self.take(&want, |_| true) {
+            Some(f) if scripted(&f) => self.scripted_reply(&f, &Value::Null, cancel).await,
+            Some(f) => Ok(Reply::full(200, f["json"].to_string())),
+            None => Ok(Reply::full(200, r#"{"data":{"limit":null,"usage":0}}"#)),
+        }
     }
 
     /// Answers one chat request as OpenRouter would.
