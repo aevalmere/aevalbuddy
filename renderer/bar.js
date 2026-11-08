@@ -25,6 +25,10 @@ const guessRun = document.getElementById('guess-run');
 const guessFind = document.getElementById('guess-find');
 const examplesEl = document.getElementById('examples');
 const announcer = document.getElementById('announce');
+const targetChip = document.getElementById('target-chip');
+const targetText = document.getElementById('target-text');
+const targetNew = document.getElementById('target-new');
+const targetDesc = document.getElementById('target-desc');
 
 const PREFIX = { find: '/', ask: '?', do: '>' };
 const ENTER_SAYS = { ask: 'Enter asks', find: 'Enter goes to the next match', do: 'Enter starts the task' };
@@ -47,9 +51,76 @@ const bar = {
   findOn: false,
   findSwitch: null,
   announceTimer: null,
+  // The target's label as last shown, and whether Ctrl+Tab is moving it.
+  targetLabel: '',
+  cycling: false,
 };
 let findState = null;
 let barHint = '';
+
+// ------------------------------------------------------------------- rows
+
+// The field grows with its text up to seven rows, then scrolls; the bar's
+// glass grows with it and overlay.js's ResizeObserver reports the new
+// height (overlay:resize, capped by Rust's INPUT_MAX_HEIGHT).
+const MAX_ROWS = 7;
+let fieldWidth = 0;
+
+function fieldMetrics() {
+  const cs = getComputedStyle(input);
+  return {
+    lh: parseFloat(cs.lineHeight) || 24,
+    pad: (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0),
+  };
+}
+
+function fitField() {
+  // Hidden with the panel: nothing to measure. Opening refits it.
+  if (!input.clientWidth) return;
+  const { lh, pad } = fieldMetrics();
+  input.style.height = 'auto';
+  const need = input.scrollHeight;
+  const max = Math.round(lh * MAX_ROWS + pad);
+  input.style.height = `${Math.min(need, max)}px`;
+  input.style.overflowY = need > max + 1 ? 'auto' : 'hidden';
+  barEl.dataset.rows = String(Math.max(1, Math.min(MAX_ROWS, Math.round((need - pad) / lh))));
+}
+
+// A twin of the field, off screen, answers "how many rows would this text
+// take at the field's width?", which tells whether the caret is on the
+// first or the last row, wrapped lines included.
+let mirror = null;
+function rowsOf(text) {
+  if (!mirror) {
+    mirror = document.createElement('textarea');
+    mirror.className = 'query-mirror';
+    mirror.rows = 1;
+    mirror.tabIndex = -1;
+    mirror.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(mirror);
+  }
+  mirror.style.width = `${input.clientWidth}px`;
+  mirror.value = text;
+  const { lh, pad } = fieldMetrics();
+  return Math.max(1, Math.round((mirror.scrollHeight - pad) / lh));
+}
+
+// Up recalls only from the first row and Down only from the last, so the
+// arrows move through a long question before they reach the history.
+function caretAtEdge(dir) {
+  const v = input.value;
+  if (input.selectionStart !== input.selectionEnd) return false;
+  if (!v.includes('\n') && rowsOf(v) === 1) return true;
+  const at = input.selectionStart;
+  return dir < 0 ? rowsOf(v.slice(0, at)) === 1 : rowsOf(v.slice(0, at)) === rowsOf(v);
+}
+
+new ResizeObserver(() => {
+  if (input.clientWidth === fieldWidth) return;
+  fieldWidth = input.clientWidth;
+  fitField();
+}).observe(input);
+window.addEventListener('aeval:text-scale', () => requestAnimationFrame(fitField));
 
 // ------------------------------------------------------------- the guess
 
@@ -84,6 +155,7 @@ function flipToken(change) {
 }
 
 function renderToken() {
+  fitField();
   const now = barIntent();
   const wasLocked = token.dataset.locked === 'true';
   const name = Intent.NAME[now];
@@ -114,6 +186,53 @@ function renderToken() {
   syncFind();
   renderStatus();
   renderNotice();
+  renderTarget();
+}
+
+// ------------------------------------------------------------- the target
+
+// With two or more answer windows open, the bar says which one the next
+// question continues (overlay:state.target and visibleOutputs, from Rust).
+// Find never goes to a window, so the chip steps aside while Find is what
+// Enter does. One window, or none: no chip.
+function renderTarget() {
+  const t = state.target;
+  const title = t && t.title ? String(t.title) : '';
+  const show = !!title && Number(state.visibleOutputs || 0) >= 2 && barIntent() !== 'find';
+  const label = show ? String(t.label || title) : '';
+  if (show) {
+    const short = title.length > 28 ? `${title.slice(0, 27).trimEnd()}…` : title;
+    targetText.textContent = `Continues: ${short}`;
+    targetChip.title = `Continues: ${title}`;
+    targetDesc.textContent = `Continues the conversation "${title}".`;
+    // After Ctrl+Tab, the new target is said once Rust has moved it.
+    if (bar.cycling && label !== bar.targetLabel) {
+      bar.cycling = false;
+      announce(`Continues "${title}"`);
+    }
+  } else {
+    targetDesc.textContent = '';
+  }
+  bar.targetLabel = label;
+  if (targetChip.hidden === !show) return;
+  targetChip.hidden = !show;
+  requestResize();
+}
+
+targetNew.addEventListener('click', () => {
+  window.aeval.invoke('chat:new').catch(() => {});
+  announce('The next question starts a new conversation.');
+  input.focus();
+});
+
+// Ctrl+Tab and Ctrl+Shift+Tab move the target through the open windows;
+// Rust answers with the new target in overlay:state.
+function cycleTarget(dir) {
+  if (Number(state.visibleOutputs || 0) < 2) return;
+  bar.cycling = true;
+  window.aeval.invoke('output:cycle-target', { dir }).catch(() => {
+    bar.cycling = false;
+  });
 }
 
 function setLock(next, opts) {
@@ -430,10 +549,17 @@ const WAITING_PLACEHOLDER = {
 // Called by overlay.js whenever the state changes.
 function syncBarFromState() {
   const w = agentWaiting();
+  const was = document.body.dataset.waiting || '';
   input.placeholder = WAITING_PLACEHOLDER[w] || PLACEHOLDER;
   input.setAttribute('aria-label', WAITING_PLACEHOLDER[w] || 'Ask, find, or tell me what to do');
   document.body.dataset.waiting = w || '';
+  // A task that starts asking while someone is in the bar: say where the
+  // answer goes, at once. Elsewhere the trail says it, so only here.
+  if (w === 'asking' && was !== 'asking' && state.mode === 'panel' && document.hasFocus()) {
+    announce('The task has a question. Type your answer here and press Enter.', 'assertive');
+  }
   renderExamplesShown();
+  renderTarget();
 }
 
 function onEnter(e) {
@@ -513,8 +639,14 @@ input.addEventListener('keydown', (e) => {
     setLock(null, { say: true });
     return;
   }
-  if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.altKey && recallKey(e.key === 'ArrowUp' ? -1 : 1)) {
+  if (e.key === 'Tab' && e.ctrlKey && !e.altKey) {
     e.preventDefault();
+    cycleTarget(e.shiftKey ? -1 : 1);
+    return;
+  }
+  if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.altKey && !e.shiftKey && !e.ctrlKey) {
+    const dir = e.key === 'ArrowUp' ? -1 : 1;
+    if (caretAtEdge(dir) && recallKey(dir)) e.preventDefault();
     return;
   }
   if (e.key === 'Escape') {
@@ -530,6 +662,9 @@ input.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key !== 'Enter') return;
+  // Shift+Enter starts a new line, except while Find is running, where it
+  // has always gone to the previous match (a Find is one line).
+  if (e.shiftKey && !e.ctrlKey && !e.altKey && !(barIntent() === 'find' && bar.findOn)) return;
   e.preventDefault();
   onEnter(e);
 });
@@ -573,12 +708,19 @@ window.addEventListener('keydown', (e) => {
 
 // ------------------------------------------------------------- announcer
 
-// The window's one live region. Notices, Find counts and the guess all
-// speak through it, so a screen reader hears one voice, not three.
-function announce(text) {
+// One voice for the bar: notices, Find counts and the guess all speak
+// through AevalA11y (glass.js), which uses this window's live regions while
+// it has focus and asks Rust to say it elsewhere when it does not. Errors
+// and a task's question are assertive; everything else is polite.
+function announce(text, priority) {
+  const t = String(text || '');
+  if (window.AevalA11y) {
+    window.AevalA11y.say(t, priority === 'assertive' ? 'assertive' : 'polite');
+    return;
+  }
   announcer.textContent = '';
   requestAnimationFrame(() => {
-    announcer.textContent = String(text || '');
+    announcer.textContent = t;
   });
 }
 

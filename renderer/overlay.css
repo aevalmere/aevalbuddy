@@ -228,14 +228,17 @@ body[data-anchor-v="bottom"] #panel {
 }
 
 .panel-top {
-  /* A capsule at every text size: 28 at 100%. */
+  /* A capsule at every text size: 28 at 100%. A question of several lines
+     grows it into a rounded sheet with the same corners; the token and the
+     buttons stay on the first line. Every control is --ctl tall, so the
+     padding puts one line exactly where centring would. */
   --r: calc(var(--bar-h) / 2);
-  height: var(--bar-h);
+  min-height: var(--bar-h);
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-2);
-  padding: 0 var(--sp-3);
+  padding: calc((var(--bar-h) - var(--ctl)) / 2) var(--sp-3);
 }
 
 /* The content waits for the shape: while the orb grows into the bar, its
@@ -270,25 +273,92 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   transform: translateY(var(--sp-2)) scale(0.98);
 }
 
-#query-input {
+/* The field and its measuring twin (bar.js sizes the field to its rows and
+   asks the twin which row the caret is on) share one box model. */
+#query-input,
+.query-mirror {
   flex: 1;
   min-width: 0;
-  height: 100%;
+  /* One row: line-height plus this padding is --ctl. bar.js sets the
+     height for more rows, up to seven, then the field scrolls. */
+  height: var(--ctl);
+  padding: calc((var(--ctl) - var(--lh-bar)) / 2) 0;
   font-family: var(--font-display);
   font-size: var(--t-bar);
   line-height: var(--lh-bar);
   font-weight: var(--w-body);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  border: none;
+  resize: none;
+  overflow: hidden;
+}
+
+#query-input {
+  display: block;
   color: var(--label);
   background: none;
-  border: none;
-  padding: 0;
   user-select: text;
   caret-color: var(--accent-text);
   text-shadow: none;
+  scrollbar-width: thin;
 }
 
 #query-input::placeholder {
   color: var(--label-3);
+}
+
+.query-mirror {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  height: auto;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Where the next question goes, once two or more answer windows are open:
+   "Continues: <title>" and an x that starts a new conversation instead. It
+   sits on the first line between the field and the area button. */
+#target-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(40%, calc(240px * var(--text-scale)));
+  height: var(--ctl-s);
+  margin-top: calc((var(--ctl) - var(--ctl-s)) / 2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  /* The x is 24 in a 28 capsule: 2 px from the end, concentric. */
+  padding: 0 2px 0 var(--sp-3);
+  border-radius: var(--r-cap);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  font: var(--w-body) var(--t-meta) / var(--lh-meta) var(--font-text);
+  color: var(--label-2);
+  white-space: nowrap;
+  animation: g-drop-in var(--d-reveal) var(--ease-morph);
+}
+
+#target-chip[hidden] {
+  display: none;
+}
+
+#target-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#target-new {
+  width: calc(24px * var(--text-scale));
+  height: calc(24px * var(--text-scale));
+  flex: 0 0 auto;
+}
+
+#target-new > .ico {
+  width: var(--ico-i);
+  height: var(--ico-i);
 }
 
 /* The field's focus is the capsule's: its rim brightens and a two-tone
@@ -534,7 +604,7 @@ body[data-region="1"] #region-btn {
   color: var(--label-2);
 }
 
-#notice span {
+#notice-text {
   flex: 1;
   color: var(--label);
 }
