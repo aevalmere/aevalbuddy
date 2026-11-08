@@ -99,12 +99,31 @@ const INVOKE_CHANNELS = new Set([
   'output:bar',
   'output:close',
   'settings:set-glass',
+  // ---- lane: windows (do not edit outside your lane) ----
+  'settings:set-text-scale',
+  'output:blur',
+  'output:cycle-target',
+  'output:close-all',
+  'output:last-answer',
+  'output:undo-reset',
+  'output:glass',
+  'window:nudge',
+  'bar:dirty',
+  'bar:ready',
+  'bar:prefill-open',
+  'a11y:announce',
+  // ---- end: windows ----
+  // ---- lane: capture ----
+  // ---- end: capture ----
+  // ---- lane: llm ----
+  // ---- end: llm ----
+  // ---- lane: agent ----
+  // ---- end: agent ----
 ]);
 
 const LISTEN_CHANNELS = new Set([
   'overlay:state',
   'hud:snapped',
-  'hud:docked',
   'query:start',
   'query:stage',
   'query:delta',
@@ -119,8 +138,6 @@ const LISTEN_CHANNELS = new Set([
   'buddy:show',
   'buddy:hide',
   'buddy:done',
-  'buddy:move',
-  'settings:data',
   'update:state',
   'find:hits',
   'find:state',
@@ -139,6 +156,19 @@ const LISTEN_CHANNELS = new Set([
   'glass:frame',
   'glass:tier',
   'lens:loupe',
+  // ---- lane: windows (do not edit outside your lane) ----
+  'output:meta',
+  'ui:text-scale',
+  'bar:clear',
+  'bar:note',
+  'a11y:say',
+  // ---- end: windows ----
+  // ---- lane: capture ----
+  // ---- end: capture ----
+  // ---- lane: llm ----
+  // ---- end: llm ----
+  // ---- lane: agent ----
+  // ---- end: agent ----
 ]);
 
 contextBridge.exposeInMainWorld('aeval', {
