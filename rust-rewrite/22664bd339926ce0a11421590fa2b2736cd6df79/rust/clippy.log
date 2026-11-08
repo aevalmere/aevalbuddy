@@ -1,0 +1,20 @@
+    Updating crates.io index
+     Locking 556 packages to highest compatible versions
+      Adding aes-gcm v0.10.3 (available: v0.11.1)
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding fancy-regex v0.14.0 (available: v0.20.0)
+      Adding fast_image_resize v5.5.0 (available: v6.1.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding jpeg-encoder v0.6.1 (available: v0.7.1)
+      Adding parking_lot v0.12.5 (available: v0.13.0)
+      Adding rand v0.8.8 (available: v0.10.3)
+      Adding reqwest v0.12.28 (available: v0.13.5)
+      Adding sha2 v0.10.9 (available: v0.11.1)
+      Adding tauri-winrt-notification v0.7.3 (available: v0.8.1)
+      Adding toml v0.8.2 (available: v0.8.23)
+      Adding toml_datetime v0.6.3 (available: v0.6.11)
+      Adding toml_edit v0.20.2 (available: v0.20.7)
+      Adding windows-sys v0.59.0 (available: v0.61.2)
+      Adding winreg v0.55.0 (available: v0.56.0)
+   Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.85s
