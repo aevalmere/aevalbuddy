@@ -1,0 +1,50 @@
+[BRIDGE] shape=ok
+[BRIDGE] blockedInvoke=ok
+[BRIDGE] blockedOn=ok
+[BRIDGE] onReturnsUnsubscribe=ok
+[BRIDGE] invokeWaitsForListen=ok
+[BRIDGE] invokeAfterListen=ok
+[BRIDGE] invokeUngatedLater=ok
+[BRIDGE] rejectionIsError=ok
+[BRIDGE] unsubscribe=ok
+[BRIDGE] blocksF5=ok
+[BRIDGE] blocksCtrlF=ok
+[BRIDGE] blocksCtrlP=ok
+[BRIDGE] blocksCtrlR=ok
+[BRIDGE] blocksAltLeft=ok
+[BRIDGE] keepsCtrl1=ok
+[BRIDGE] keepsCtrlC=ok
+[BRIDGE] keepsF6=ok
+[BRIDGE] noBrowserMenu=ok
+[BRIDGE] editMenuInFields=ok
+[BRIDGE] laneFiles=ok
+[BRIDGE] cssLintFilesExist=ok
+[CSSLINT] self-test a radius token passes=ok
+[CSSLINT] self-test a raw radius fails=ok
+[CSSLINT] self-test a corner radius fails=ok
+[CSSLINT] self-test an odd radius is not a token value=ok
+[CSSLINT] self-test the grid passes=ok
+[CSSLINT] self-test off the grid fails=ok
+[CSSLINT] self-test 2 px needs a comment=ok
+[CSSLINT] self-test 2 px with a hairline comment passes=ok
+[CSSLINT] self-test the comment may sit on the line above=ok
+[CSSLINT] self-test 3 px is never excused=ok
+[CSSLINT] self-test colours in :root pass=ok
+[CSSLINT] self-test colours in :root[data-theme] pass=ok
+[CSSLINT] self-test colours in :root inside @media pass=ok
+[CSSLINT] self-test a raw hex fails=ok
+[CSSLINT] self-test a raw rgba fails=ok
+[CSSLINT] self-test a token colour passes=ok
+[CSSLINT] self-test comments are not code=ok
+[CSSLINT] self-test a selector with an id is not a colour=ok
+[CSSLINT] self-test keyframes colours fail=ok
+[CSSLINT] self-test a local custom property colour fails=ok
+[BRIDGE] cssLintSelfTest=ok
+[BRIDGE] css-lint: 3 files enforced, 0 violations
+[BRIDGE] cssLint=ok
+[BRIDGE] css-lint report renderer/cursor-buddy.css: 32 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/glass.css: 17 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/lens.css: 20 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/overlay.css: 47 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/region.css: 6 violations (not enforced yet)
+[BRIDGE] done failed=0

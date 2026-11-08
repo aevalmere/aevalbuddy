@@ -1,12 +1,12 @@
-# ui-shots: cancelled
+# ui-shots: success
 
 - Workflow: ui-shots
-- Run: [42494079618](https://github.com/aevalmere/aevalbuddy/actions/runs/42494079618), attempt 1, on push
-- Commit: 58725b9d87f3724992772fe892352b1fbcb9c925
+- Run: [42508512635](https://github.com/aevalmere/aevalbuddy/actions/runs/42508512635), attempt 1, on push
+- Commit: 76c8c95a981126ed34644bba8497f180a31cc34b
 - Ref: rust/harness
-- Conclusion: **cancelled**
-- Finished: 2026-11-08T15:48:21Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/harness/58725b9d87f3724992772fe892352b1fbcb9c925 (/ in the ref becomes -)
+- Conclusion: **success**
+- Finished: 2026-11-08T18:13:31Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/harness/76c8c95a981126ed34644bba8497f180a31cc34b (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -14,8 +14,8 @@
 | Node | success |  |
 | Bridge unit checks | success | [bridge.log](bridge.log) |
 | Install Playwright | success | [playwright.log](playwright.log) |
-| Screenshots and renderer checks | cancelled | [shots.log](shots.log) |
+| Screenshots and renderer checks | success | [shots.log](shots.log) |
 | Upload screenshots | success |  |
 | Publish to the shots branch | success |  |
 
-errors.txt: 1 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
