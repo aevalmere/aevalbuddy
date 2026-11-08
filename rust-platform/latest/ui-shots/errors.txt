@@ -1,2 +1,2 @@
-== bridge.log ==
-[BRIDGE] editMenuInFields=FAIL:
+== shots.log ==
+[UI] globSmooth=FAIL:longest frame 50.0 ms
