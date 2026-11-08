@@ -3,5 +3,9 @@
   "identifier": "default",
   "description": "Every AevalBuddy page: core events for the window.aeval bridge.",
   "windows": ["*"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging"
+  ]
 }
