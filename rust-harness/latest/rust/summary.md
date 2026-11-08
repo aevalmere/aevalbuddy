@@ -1,11 +1,11 @@
-# rust: success
+# rust: cancelled
 
 - Workflow: rust
-- Run: [42464018076](https://github.com/aevalmere/aevalbuddy/actions/runs/42464018076), attempt 1, on push
-- Commit: 3bc261fd6e7b1552d3ba687f73aa0b44cec5b252
+- Run: [42465233728](https://github.com/aevalmere/aevalbuddy/actions/runs/42465233728), attempt 1, on push
+- Commit: 9ba110247e756e09f7ae2b4dc9e32b4c1c618cfd
 - Ref: rust/harness
-- Conclusion: **success**
-- Finished: 2026-11-08T08:58:35Z
+- Conclusion: **cancelled**
+- Finished: 2026-11-08T09:02:48Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -18,11 +18,11 @@
 | Format | success |  |
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | success | [test.log](test.log) |
-| Build installer | success | [build.log](build.log) |
-| Smoke | success | [smoke.log](smoke.log) |
-| Capture check | success | [capture.log](capture.log) |
-| Desktop selfcheck | success | [desktop.log](desktop.log) |
-| Upload installer | success |  |
+| Unit tests | cancelled | [test.log](test.log) |
+| Build installer | skipped |  |
+| Smoke | skipped |  |
+| Capture check | skipped |  |
+| Desktop selfcheck | skipped |  |
+| Upload installer | skipped |  |
 
 errors.txt: 0 error and warning lines from the logs.
