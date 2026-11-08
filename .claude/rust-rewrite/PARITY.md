@@ -798,6 +798,14 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 
 - B-115: status: done; evidence: UNIT `desktop::checks::tests::notepad_gating` (Notepad only when `GITHUB_ACTIONS` is set or `AEVAL_DESKTOP_NOTEPAD` is set and not "0"; the Rust port had defaulted to on); desktop selfcheck log `desktopNotepadIncluded=ok`
 
+### WIN-06
+
+- B-073: status: renderer half done; evidence: ui-shots scenes settings-maximized and check oneTitleBarSystem (frame sizing rules are the windows lane's)
+
+### WIN-07
+
+- B-073: status: renderer half done; evidence: ui-shots scene history-maximized
+
 ### WIN-14
 
 - B-077: The bridge shows the menu wherever a page did not handle `contextmenu`: `ui:context-menu {kind:'edit'}` on a text field, `{kind:'selection'}` on a non-empty selection; `menu::edit_template` is the template as data (Electron roles). The context menu's pending actions are swapped in after the items are made and taken out with one lock, never held across a main-thread round trip (B-076).
@@ -817,6 +825,14 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### KEY-12
 
 - B-177: status: done (Rust half); evidence: UNIT hotkeys::tests::taken_returns_free_alternatives, hotkeys::tests::validation_matches_main_js
+
+### RKEY-07
+
+- B-176: status: changed; evidence: ui-shots checks radiosRoveWithArrows, providerRowsHaveExpandedState (Enter saves a key in every provider field; listbox arrows/Home/End/Enter/Escape/Tab plus type-ahead; shortcut recorder Escape cancels and needs a modifier, C-55)
+
+### RKEY-08
+
+- B-174: status: changed; evidence: ui-shots checks historyArrowsMove, deleteIsUndoable (Escape still clears the search then closes; Up/Down, Enter, Delete and type-to-search added)
 
 ### TRAY-01
 
