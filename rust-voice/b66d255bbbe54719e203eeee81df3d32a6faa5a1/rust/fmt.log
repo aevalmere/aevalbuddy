@@ -1,0 +1,949 @@
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:12:
+ use crate::selftest::{notepad, Cx, Input};
+ use crate::voice::{self, capture, insert, model, pill, settings, wav, whisper};
+ 
+-const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/voice/fixtures/dictation.wav");
++const FIXTURE: &str = concat!(
++    env!("CARGO_MANIFEST_DIR"),
++    "/src/voice/fixtures/dictation.wav"
++);
+ const CLIP: &str = "voice probe clipboard";
+ 
+ pub fn run(cx: &mut Cx) {
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:38:
+ /// exe, so it starts on a PC without the Visual C++ redistributable.
+ fn runtime(cx: &Cx) {
+     let exe = std::env::current_exe().and_then(std::fs::read);
+-    let dlls = exe.map(|b| imports(&b).unwrap_or_default()).unwrap_or_default();
++    let dlls = exe
++        .map(|b| imports(&b).unwrap_or_default())
++        .unwrap_or_default();
+     let bad: Vec<&String> = dlls
+         .iter()
+         .filter(|d| d.starts_with("msvcp") || d.starts_with("vcomp") || d.starts_with("vcruntime"))
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:53:
+ /// The DLL names in a PE32+ file's import table, lowercased.
+ fn imports(b: &[u8]) -> Option<Vec<String>> {
+     let u16_at = |o: usize| b.get(o..o + 2).map(|s| u16::from_le_bytes([s[0], s[1]]));
+-    let u32_at = |o: usize| b.get(o..o + 4).map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]));
++    let u32_at = |o: usize| {
++        b.get(o..o + 4)
++            .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
++    };
+     let pe = u32_at(0x3C)? as usize;
+     let sections = u16_at(pe + 6)? as usize;
+     let opt = pe + 24;
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:93:
+         .map(|(s, rate)| wav::resample(&s, rate, wav::RATE));
+     let text = samples.and_then(|s| whisper::transcribe(&model::path(spec), &s, "en"));
+     cx.log("voiceHeard", format!("{text:?}"));
+-    let heard = text.as_ref().is_ok_and(|t| t.to_lowercase().contains("tomorrow"));
++    let heard = text
++        .as_ref()
++        .is_ok_and(|t| t.to_lowercase().contains("tomorrow"));
+     cx.must("voiceTranscribe", heard, format!("{text:?}"));
+     heard
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:108:
+             .and_then(|v| v.as_str().map(str::to_lowercase))
+             .unwrap_or_default()
+     };
+-    let mic = |what: &str| cx.eval("overlay", &format!("document.getElementById('mic-btn').{what}"));
++    let mic = |what: &str| {
++        cx.eval(
++            "overlay",
++            &format!("document.getElementById('mic-btn').{what}"),
++        )
++    };
+     let _ = mic("click()");
+     let listening = cx.wait_for(Duration::from_secs(3), || {
+         mic("dataset.state") == Ok(json!("listening"))
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:152:
+         let i = km::INPUT {
+             r#type: km::INPUT_KEYBOARD,
+             Anonymous: km::INPUT_0 {
+-                ki: km::KEYBDINPUT { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 },
++                ki: km::KEYBDINPUT {
++                    wVk: vk,
++                    wScan: scan,
++                    dwFlags: flags,
++                    time: 0,
++                    dwExtraInfo: 0,
++                },
+             },
+         };
+         km::SendInput(1, &i, std::mem::size_of::<km::INPUT>() as i32);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\voice.rs:185:
+     cx.must("voicePill", shown, "the pill did not show listening");
+ 
+     let typed = cx.wait_for(Duration::from_secs(40), || {
+-        notepad_text(cx, &handle).to_lowercase().contains("tomorrow")
++        notepad_text(cx, &handle)
++            .to_lowercase()
++            .contains("tomorrow")
+     });
+-    cx.must("voiceDictation", typed, format!("{:?}", notepad_text(cx, &handle)));
++    cx.must(
++        "voiceDictation",
++        typed,
++        format!("{:?}", notepad_text(cx, &handle)),
++    );
+     cx.sleep(800);
+     let clip = insert::clipboard_text();
+-    cx.must("voiceClipboard", clip.as_deref() == Some(CLIP), format!("{clip:?}"));
++    cx.must(
++        "voiceClipboard",
++        clip.as_deref() == Some(CLIP),
++        format!("{clip:?}"),
++    );
+ 
+     // Put the file's text back for the lanes after.
+     let _ = insert::set_clipboard_text(notepad::TEXT);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:138:
+     let now = wav::level(wav::rms(&mono));
+     // Fast attack, slower release, so speech reads as a steady meter.
+     let was = f32::from_bits(level.load(Ordering::Relaxed));
+-    let next = if now > was { now } else { was * 0.8 + now * 0.2 };
++    let next = if now > was {
++        now
++    } else {
++        was * 0.8 + now * 0.2
++    };
+     level.store(next.to_bits(), Ordering::Relaxed);
+     buf.lock().extend_from_slice(&mono);
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:160:
+     let stream = match cfg.sample_format() {
+         cpal::SampleFormat::F32 => dev.build_input_stream(
+             &sc,
+-            move |d: &[f32], _: &cpal::InputCallbackInfo| push(&buf, &level, d.iter().copied(), channels),
++            move |d: &[f32], _: &cpal::InputCallbackInfo| {
++                push(&buf, &level, d.iter().copied(), channels)
++            },
+             on_err,
+             None,
+         ),
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:167:
+         cpal::SampleFormat::I16 => dev.build_input_stream(
+             &sc,
+             move |d: &[i16], _: &cpal::InputCallbackInfo| {
+-                push(&buf, &level, d.iter().map(|s| *s as f32 / 32768.0), channels)
++                push(
++                    &buf,
++                    &level,
++                    d.iter().map(|s| *s as f32 / 32768.0),
++                    channels,
++                )
+             },
+             on_err,
+             None,
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:175:
+         cpal::SampleFormat::U16 => dev.build_input_stream(
+             &sc,
+             move |d: &[u16], _: &cpal::InputCallbackInfo| {
+-                push(&buf, &level, d.iter().map(|s| (*s as f32 - 32768.0) / 32768.0), channels)
++                push(
++                    &buf,
++                    &level,
++                    d.iter().map(|s| (*s as f32 - 32768.0) / 32768.0),
++                    channels,
++                )
+             },
+             on_err,
+             None,
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:182:
+         ),
+-        other => return Err(format!("The microphone sends {other:?} audio, which is not supported.")),
++        other => {
++            return Err(format!(
++                "The microphone sends {other:?} audio, which is not supported."
++            ))
++        }
+     }
+     .map_err(mic_error)?;
+     stream.play().map_err(mic_error)?;
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:267:
+ 
+     #[test]
+     fn a_fixture_records_like_a_microphone() {
+-        let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/voice/fixtures/dictation.wav"));
++        let path = PathBuf::from(concat!(
++            env!("CARGO_MANIFEST_DIR"),
++            "/src/voice/fixtures/dictation.wav"
++        ));
+         let rec = start_fixture(path).unwrap();
+         thread::sleep(Duration::from_millis(600));
+         assert!(rec.level() > 0.0, "the meter never moved");
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\capture.rs:283:
+     #[test]
+     fn microphone_errors_read_as_sentences() {
+         assert_eq!(mic_error("Access is denied. (0x80070005)"), MIC_BLOCKED);
+-        assert_eq!(mic_error("The requested device is no longer available."), NO_MIC);
++        assert_eq!(
++            mic_error("The requested device is no longer available."),
++            NO_MIC
++        );
+         assert!(mic_error("boom").starts_with("The microphone did not start"));
+     }
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:108:
+     let mut out = tags.replace_all(reply, "").trim().to_string();
+     for (a, b) in [('"', '"'), ('\u{201c}', '\u{201d}'), ('\'', '\'')] {
+         if out.len() > 2 && out.starts_with(a) && out.ends_with(b) && !raw.trim().starts_with(a) {
+-            out = out[a.len_utf8()..out.len() - b.len_utf8()].trim().to_string();
++            out = out[a.len_utf8()..out.len() - b.len_utf8()]
++                .trim()
++                .to_string();
+         }
+     }
+     if out.is_empty() {
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:132:
+ 
+ /// Cleans `raw` with `llm`, within `budget`. Always returns text: the
+ /// cleaned words, or [`tidy`] of the raw ones.
+-pub async fn clean_with(llm: &Llm, settings: &dyn LlmSettings, raw: &str, budget: Duration) -> (String, Outcome) {
++pub async fn clean_with(
++    llm: &Llm,
++    settings: &dyn LlmSettings,
++    raw: &str,
++    budget: Duration,
++) -> (String, Outcome) {
+     let raw = raw.trim();
+     let Some(c) = free_candidate(settings) else {
+         return (tidy(raw), Outcome::NoFreeModel);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:220:
+ 
+     #[tokio::test]
+     async fn a_free_model_cleans_the_words() {
+-        let (llm, fake) = llm(vec![json!({ "purpose": PURPOSE, "text": "So I think we should meet at 4pm tomorrow." })]);
++        let (llm, fake) = llm(vec![
++            json!({ "purpose": PURPOSE, "text": "So I think we should meet at 4pm tomorrow." }),
++        ]);
+         let s = openrouter("clean", "acme/tiny:free");
+         let (text, why) = clean_with(&llm, &s, RAW, BUDGET).await;
+-        assert_eq!((text.as_str(), why), ("So I think we should meet at 4pm tomorrow.", Outcome::Cleaned));
++        assert_eq!(
++            (text.as_str(), why),
++            (
++                "So I think we should meet at 4pm tomorrow.",
++                Outcome::Cleaned
++            )
++        );
+         let sent = fake.requests();
+         assert_eq!(sent.len(), 1);
+         assert_eq!(sent[0].model.as_deref(), Some("acme/tiny:free"));
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:230:
+         assert!(sent[0].body.contains("<transcript>"), "{}", sent[0].body);
+-        assert!(sent[0].body.contains("Never add"), "the prompt forbids additions");
++        assert!(
++            sent[0].body.contains("Never add"),
++            "the prompt forbids additions"
++        );
+     }
+ 
+     #[tokio::test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:245:
+         assert!(fake.requests().is_empty());
+         // A failing provider, a slow one, and one that answers instead.
+         let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "status": 429 })]);
+-        assert_eq!(clean_with(&l, &openrouter("busy", "a/b:free"), RAW, BUDGET).await.1, Outcome::Failed);
+-        let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "text": "Late.", "delayMs": 3000 })]);
+-        let slow = clean_with(&l, &openrouter("slow", "a/b:free"), RAW, Duration::from_millis(150)).await;
++        assert_eq!(
++            clean_with(&l, &openrouter("busy", "a/b:free"), RAW, BUDGET)
++                .await
++                .1,
++            Outcome::Failed
++        );
++        let (l, _) = llm(vec![
++            json!({ "purpose": PURPOSE, "text": "Late.", "delayMs": 3000 }),
++        ]);
++        let slow = clean_with(
++            &l,
++            &openrouter("slow", "a/b:free"),
++            RAW,
++            Duration::from_millis(150),
++        )
++        .await;
+         assert_eq!(slow, (tidied.to_string(), Outcome::TimedOut));
+         let chat = "Sure! Here is your text. Also, I would suggest booking a room for the meeting and inviting the whole team.";
+         let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "text": chat })]);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:254:
+-        assert_eq!(clean_with(&l, &openrouter("chat", "a/b:free"), RAW, BUDGET).await.1, Outcome::Rejected);
++        assert_eq!(
++            clean_with(&l, &openrouter("chat", "a/b:free"), RAW, BUDGET)
++                .await
++                .1,
++            Outcome::Rejected
++        );
+     }
+ 
+     #[test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:258:
+     fn replies_that_add_or_chat_are_refused() {
+-        assert_eq!(accept("hi there", "\"Hi there.\""), Some("Hi there.".into()));
+-        assert_eq!(accept("hi there", "<transcript>Hi there.</transcript>"), Some("Hi there.".into()));
++        assert_eq!(
++            accept("hi there", "\"Hi there.\""),
++            Some("Hi there.".into())
++        );
++        assert_eq!(
++            accept("hi there", "<transcript>Hi there.</transcript>"),
++            Some("Hi there.".into())
++        );
+         assert_eq!(accept("hi there", "  "), None);
+-        assert_eq!(accept("what time is it", "It is 4pm, and here is a long explanation of time zones."), None);
++        assert_eq!(
++            accept(
++                "what time is it",
++                "It is 4pm, and here is a long explanation of time zones."
++            ),
++            None
++        );
+         assert_eq!(accept("call mom", "Sure, call Mom."), None);
+-        assert_eq!(accept("sure thing see you then", "Sure thing, see you then."), Some("Sure thing, see you then.".into()));
++        assert_eq!(
++            accept("sure thing see you then", "Sure thing, see you then."),
++            Some("Sure thing, see you then.".into())
++        );
+     }
+ 
+     #[test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\cleanup.rs:268:
+     fn the_local_tidy_only_takes_out_hesitations() {
+-        assert_eq!(tidy("um, so I think we should, uh, meet"), "So I think we should meet");
++        assert_eq!(
++            tidy("um, so I think we should, uh, meet"),
++            "So I think we should meet"
++        );
+         assert_eq!(tidy("I think, um. Yes"), "I think. Yes");
+         assert_eq!(tidy("Umbrella, hmm, number"), "Umbrella number");
+-        assert_eq!(strip_noise("[BLANK_AUDIO] hello (music) there [ Silence ]"), "hello there");
++        assert_eq!(
++            strip_noise("[BLANK_AUDIO] hello (music) there [ Silence ]"),
++            "hello there"
++        );
+         assert_eq!(strip_noise("  "), "");
+     }
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\engine.rs:12:
+ 
+ /// The Whisper model a `whisper-*` engine uses.
+ pub fn spec(s: &VoiceSettings) -> Option<&'static model::Spec> {
+-    s.whisper_size().map(|size| model::spec_for(size, &s.language))
++    s.whisper_size()
++        .map(|size| model::spec_for(size, &s.language))
+ }
+ 
+ /// Whether the engine can run now without a download or a missing key.
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\engine.rs:30:
+ ) -> Result<Heard, String> {
+     let Some(m) = spec(s) else {
+         let text = gemini::transcribe(&samples, &s.language, s.cleanup).await?;
+-        return Ok(Heard { text, cleaned: s.cleanup });
++        return Ok(Heard {
++            text,
++            cleaned: s.cleanup,
++        });
+     };
+     if !whisper::cpu_ok() {
+         return Err(whisper::OLD_CPU.into());
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\engine.rs:37:
+     }
+     let path = model::ensure(m, on_progress).await?;
+     let language = s.language.clone();
+-    let text = tauri::async_runtime::spawn_blocking(move || whisper::transcribe(&path, &samples, &language))
+-        .await
+-        .map_err(|_| "Transcription stopped unexpectedly.".to_string())??;
+-    Ok(Heard { text, cleaned: false })
++    let text = tauri::async_runtime::spawn_blocking(move || {
++        whisper::transcribe(&path, &samples, &language)
++    })
++    .await
++    .map_err(|_| "Transcription stopped unexpectedly.".to_string())??;
++    Ok(Heard {
++        text,
++        cleaned: false,
++    })
+ }
+ 
+ /// While the person is still talking: load the model if it is on disk, so
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\gemini.rs:13:
+ use crate::llm::provider::Provider;
+ use crate::llm::settings::{model_for, usable_key};
+ 
+-pub const NO_KEY: &str = "Gemini needs its key. Add it under Settings, Providers, or switch Voice to this PC.";
++pub const NO_KEY: &str =
++    "Gemini needs its key. Add it under Settings, Providers, or switch Voice to this PC.";
+ const FAILED: &str = "Gemini could not transcribe that. Try again, or switch Voice to this PC.";
+ 
+ /// Whether a Gemini key is saved.
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\gemini.rs:43:
+ 
+ /// The text of a generateContent reply.
+ pub fn reply_text(v: &Value) -> String {
+-    let parts = v["candidates"][0]["content"]["parts"].as_array().cloned().unwrap_or_default();
++    let parts = v["candidates"][0]["content"]["parts"]
++        .as_array()
++        .cloned()
++        .unwrap_or_default();
+     parts
+         .iter()
+         .filter_map(|p| p["text"].as_str())
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\gemini.rs:63:
+         ] }],
+         "generationConfig": { "temperature": 0 },
+     });
+-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
++    let url =
++        format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
+     let client = reqwest::Client::builder()
+         .use_rustls_tls()
+         .connect_timeout(Duration::from_secs(10))
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\gemini.rs:80:
+     let status = resp.status();
+     let v: Value = resp.json().await.unwrap_or(Value::Null);
+     if !status.is_success() {
+-        crate::crash::write("voice-gemini", &format!("HTTP {status}: {}", v["error"]["message"]));
++        crate::crash::write(
++            "voice-gemini",
++            &format!("HTTP {status}: {}", v["error"]["message"]),
++        );
+         return Err(match status.as_u16() {
+             400 | 401 | 403 => "Gemini refused the key. Check it under Settings, Providers.".into(),
+             429 => "Gemini is busy or out of free requests for now. Try again in a minute.".into(),
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\insert.rs:69:
+     if n as usize == events.len() {
+         Ok(())
+     } else {
+-        Err("Windows did not take the keystrokes. An app running as administrator may have focus.".into())
++        Err(
++            "Windows did not take the keystrokes. An app running as administrator may have focus."
++                .into(),
++        )
+     }
+ }
+ 
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\insert.rs:281:
+         }
+         let no = 0u32.to_le_bytes().to_vec();
+         let marks = [
+-            (register("ExcludeClipboardContentFromMonitorProcessing"), no.clone()),
++            (
++                register("ExcludeClipboardContentFromMonitorProcessing"),
++                no.clone(),
++            ),
+             (register("CanIncludeInClipboardHistory"), no.clone()),
+             (register("CanUploadToCloudClipboard"), no),
+         ];
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\insert.rs:378:
+         events
+             .iter()
+             // SAFETY: every event built here is a keyboard event.
+-            .map(|e| unsafe { (e.Anonymous.ki.wVk, e.Anonymous.ki.wScan, e.Anonymous.ki.dwFlags & km::KEYEVENTF_KEYUP != 0) })
++            .map(|e| unsafe {
++                (
++                    e.Anonymous.ki.wVk,
++                    e.Anonymous.ki.wScan,
++                    e.Anonymous.ki.dwFlags & km::KEYEVENTF_KEYUP != 0,
++                )
++            })
+             .collect()
+     }
+ 
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\insert.rs:392:
+         assert_eq!(u[1], (0, 'a' as u16, true));
+         assert_eq!((u[2].1, u[4].1), (0xD83D, 0xDE00));
+         assert_eq!(u[6].0, VK_RETURN);
+-        assert!(ev.iter().all(|e| unsafe { e.Anonymous.ki.dwExtraInfo } == OWN_INPUT));
++        assert!(ev
++            .iter()
++            .all(|e| unsafe { e.Anonymous.ki.dwExtraInfo } == OWN_INPUT));
+         assert!(unicode_inputs("").is_empty());
+     }
+ 
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:65:
+ 
+ const SOURCE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/";
+ 
+-pub const DOWNLOAD_FAILED: &str = "Couldn't download the voice model. Check the connection and try again.";
++pub const DOWNLOAD_FAILED: &str =
++    "Couldn't download the voice model. Check the connection and try again.";
+ pub const DAMAGED: &str = "The voice model arrived damaged. Try again.";
+ 
+ /// The model for a Whisper size (`tiny`, `base`, `small`) and language.
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:130:
+ /// The model's path, downloading it first if need be. One download at a
+ /// time; a second caller waits for the first and then finds the file.
+ /// `on_progress(received, total)` runs about once per percent.
+-pub async fn ensure(spec: &'static Spec, on_progress: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<PathBuf, String> {
++pub async fn ensure(
++    spec: &'static Spec,
++    on_progress: &(dyn Fn(u64, u64) + Send + Sync),
++) -> Result<PathBuf, String> {
+     let file = path(spec);
+     if ready_at(&file, spec) {
+         return Ok(file);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:154:
+         .map_err(|_| DOWNLOAD_FAILED.to_string())
+ }
+ 
+-async fn download(spec: &'static Spec, file: &Path, on_progress: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<(), String> {
++async fn download(
++    spec: &'static Spec,
++    file: &Path,
++    on_progress: &(dyn Fn(u64, u64) + Send + Sync),
++) -> Result<(), String> {
+     let folder = file.parent().ok_or(DOWNLOAD_FAILED)?;
+     std::fs::create_dir_all(folder).map_err(|_| DOWNLOAD_FAILED.to_string())?;
+     let part = folder.join(format!("{}.part", spec.file));
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:164:
+         DOWNLOAD_FAILED.to_string()
+     };
+     let url = format!("{SOURCE}{}", spec.file);
+-    let resp = client()?.get(&url).send().await.map_err(|e| failed(e.to_string()))?;
++    let resp = client()?
++        .get(&url)
++        .send()
++        .await
++        .map_err(|e| failed(e.to_string()))?;
+     if !resp.status().is_success() {
+         return Err(failed(format!("{url}: HTTP {}", resp.status())));
+     }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:197:
+     let hex = format!("{:x}", hash.finalize());
+     if let Err(e) = verify(spec, got, &hex) {
+         let _ = std::fs::remove_file(&part);
+-        crate::crash::write("voice-model", &format!("{}: {got} bytes, sha256 {hex}", spec.file));
++        crate::crash::write(
++            "voice-model",
++            &format!("{}: {got} bytes, sha256 {hex}", spec.file),
++        );
+         return Err(e);
+     }
+     std::fs::rename(&part, file).map_err(|e| failed(e.to_string()))?;
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\model.rs:216:
+         assert_eq!(spec_for("tiny", "en").id, "tiny.en");
+         assert_eq!(spec_for("small", "fr").id, "small-q5_1");
+         assert_eq!(spec_for("huge", "en").id, "base.en");
+-        assert!(MODELS.iter().all(|m| m.sha256.len() == 64 && m.file.ends_with(".bin")));
++        assert!(MODELS
++            .iter()
++            .all(|m| m.sha256.len() == 64 && m.file.ends_with(".bin")));
+     }
+ 
+     #[test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\pill.rs:26:
+ }
+ 
+ fn create(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+-    let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/voice-pill.html".into()))
+-        .title("AevalBuddy dictation")
+-        .decorations(false)
+-        .transparent(true)
+-        .shadow(false)
+-        .resizable(false)
+-        .focusable(false)
+-        .focused(false)
+-        .always_on_top(true)
+-        .skip_taskbar(true)
+-        .content_protected(true)
+-        .visible(false)
+-        .data_directory(crate::paths::webview_data_dir())
+-        .initialization_script(crate::ipc::bridge_script())
+-        .on_page_load(|w, p| {
+-            if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+-                if let Some(v) = last().clone() {
+-                    let _ = tauri::Emitter::emit_to(&w, LABEL, "voice:state", v);
+-                }
++    let win = WebviewWindowBuilder::new(
++        app,
++        LABEL,
++        WebviewUrl::App("renderer/voice-pill.html".into()),
++    )
++    .title("AevalBuddy dictation")
++    .decorations(false)
++    .transparent(true)
++    .shadow(false)
++    .resizable(false)
++    .focusable(false)
++    .focused(false)
++    .always_on_top(true)
++    .skip_taskbar(true)
++    .content_protected(true)
++    .visible(false)
++    .data_directory(crate::paths::webview_data_dir())
++    .initialization_script(crate::ipc::bridge_script())
++    .on_page_load(|w, p| {
++        if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
++            if let Some(v) = last().clone() {
++                let _ = tauri::Emitter::emit_to(&w, LABEL, "voice:state", v);
+             }
+-        })
+-        .build()?;
++        }
++    })
++    .build()?;
+     let raw = capture::hwnd_of(&win);
+     win::tool_window(raw, true);
+     let _ = win.set_ignore_cursor_events(true);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\pill.rs:146:
+ 
+     #[test]
+     fn it_sits_at_the_bottom_centre() {
+-        let work = PxRect { x: 0, y: 0, width: 1920, height: 1040 };
++        let work = PxRect {
++            x: 0,
++            y: 0,
++            width: 1920,
++            height: 1040,
++        };
+         let r = place_on(work, 1.0);
+         assert_eq!((r.x, r.width, r.y + r.height), (860, 200, 1020));
+-        let r2 = place_on(PxRect { x: -2560, y: 0, width: 2560, height: 1400 }, 2.0);
++        let r2 = place_on(
++            PxRect {
++                x: -2560,
++                y: 0,
++                width: 2560,
++                height: 1400,
++            },
++            2.0,
++        );
+         assert_eq!((r2.x, r2.width), (-2560 + 880, 400));
+     }
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:69:
+         0x21 => "PageUp".into(),
+         0x22 => "PageDown".into(),
+         0x70..=0x87 => format!("F{}", vk - 0x6F),
+-        v => char::from_u32(v as u32).map(String::from).unwrap_or_default(),
++        v => char::from_u32(v as u32)
++            .map(String::from)
++            .unwrap_or_default(),
+     }
+ }
+ 
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:88:
+                 if key.is_some() {
+                     return Err("Use one key with the modifiers.".into());
+                 }
+-                key = Some(key_code(part).ok_or_else(|| format!("{part} can't be part of the dictation shortcut."))?);
++                key =
++                    Some(key_code(part).ok_or_else(|| {
++                        format!("{part} can't be part of the dictation shortcut.")
++                    })?);
+             }
+         }
+     }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:95:
+-    let n = [mods.ctrl, mods.alt, mods.shift, mods.win].iter().filter(|m| **m).count();
++    let n = [mods.ctrl, mods.alt, mods.shift, mods.win]
++        .iter()
++        .filter(|m| **m)
++        .count();
+     match (n, key) {
+         (0, _) => Err("Add Ctrl, Alt, Shift or Win to the shortcut.".into()),
+         (1, None) => Err("Hold two modifiers, like Ctrl+Win, or add a key.".into()),
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:99:
+-        (1, Some(_)) if mods.shift => Err("Shift and one key would type a capital. Add Ctrl, Alt or Win.".into()),
++        (1, Some(_)) if mods.shift => {
++            Err("Shift and one key would type a capital. Add Ctrl, Alt or Win.".into())
++        }
+         _ => Ok(Chord { mods, key }),
+     }
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:105:
+ pub fn accelerator(c: &Chord) -> String {
+     let mut parts: Vec<String> = Vec::new();
+     let m = c.mods;
+-    for (on, name) in [(m.ctrl, "Ctrl"), (m.alt, "Alt"), (m.shift, "Shift"), (m.win, "Super")] {
++    for (on, name) in [
++        (m.ctrl, "Ctrl"),
++        (m.alt, "Alt"),
++        (m.shift, "Shift"),
++        (m.win, "Super"),
++    ] {
+         if on {
+             parts.push(name.into());
+         }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:146:
+     Idle,
+     Held,
+     /// Hands-free; `released` once the chord has been let go.
+-    Latched { released: bool },
++    Latched {
++        released: bool,
++    },
+     /// Waits for every key of the chord to be up before it can start again.
+     Spent,
+ }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:228:
+     fn all_up(&self, c: &Chord) -> bool {
+         let m = self.mods;
+         let want = c.mods;
+-        !(want.ctrl && m.ctrl || want.alt && m.alt || want.shift && m.shift || want.win && m.win || self.key_down)
++        !(want.ctrl && m.ctrl
++            || want.alt && m.alt
++            || want.shift && m.shift
++            || want.win && m.win
++            || self.key_down)
+     }
+ 
+     /// One key event. Returns what to tell the session and whether the key
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:243:
+             self.key_down = down;
+         }
+         if self.paused {
+-            let mask = down && self.mods.win && (self.mods.ctrl || self.mods.alt || self.mods.shift);
++            let mask =
++                down && self.mods.win && (self.mods.ctrl || self.mods.alt || self.mods.shift);
+             return (mask.then_some(Event::Mask), false);
+         }
+         match (self.phase, down) {
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:279:
+             }
+             (Phase::Held, false) => {
+                 if self.chord_part_up(&c) {
+-                    self.phase = if self.all_up(&c) { Phase::Idle } else { Phase::Spent };
++                    self.phase = if self.all_up(&c) {
++                        Phase::Idle
++                    } else {
++                        Phase::Spent
++                    };
+                     return (Some(Event::Finish), is_key);
+                 }
+                 (None, false)
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:400:
+         return;
+     }
+     *MACHINE.lock() = Some(Machine::new(chord));
+-    let _ = std::thread::Builder::new().name("voice-ptt-events".into()).spawn(move || {
+-        for e in rx {
+-            on_event(e);
+-        }
+-    });
+-    let _ = std::thread::Builder::new().name("voice-ptt".into()).spawn(|| {
+-        // SAFETY: a low-level hook for this module, kept for the life of the
+-        // app; this thread pumps the messages it needs.
+-        unsafe {
+-            let module = GetModuleHandleW(std::ptr::null());
+-            let h = wm::SetWindowsHookExW(wm::WH_KEYBOARD_LL, Some(hook), module, 0);
+-            if h.is_null() {
+-                crate::crash::write("voice-ptt", "SetWindowsHookExW failed");
+-                return;
++    let _ = std::thread::Builder::new()
++        .name("voice-ptt-events".into())
++        .spawn(move || {
++            for e in rx {
++                on_event(e);
+             }
+-            let mut msg: wm::MSG = std::mem::zeroed();
+-            while wm::GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
+-            wm::UnhookWindowsHookEx(h);
+-        }
+-    });
++        });
++    let _ = std::thread::Builder::new()
++        .name("voice-ptt".into())
++        .spawn(|| {
++            // SAFETY: a low-level hook for this module, kept for the life of the
++            // app; this thread pumps the messages it needs.
++            unsafe {
++                let module = GetModuleHandleW(std::ptr::null());
++                let h = wm::SetWindowsHookExW(wm::WH_KEYBOARD_LL, Some(hook), module, 0);
++                if h.is_null() {
++                    crate::crash::write("voice-ptt", "SetWindowsHookExW failed");
++                    return;
++                }
++                let mut msg: wm::MSG = std::mem::zeroed();
++                while wm::GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
++                wm::UnhookWindowsHookEx(h);
++            }
++        });
+ }
+ 
+ #[cfg(test)]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:431:
+     const D: u16 = 0x44;
+ 
+     fn feed(m: &mut Machine, keys: &[(u16, bool)]) -> Vec<Event> {
+-        keys.iter().filter_map(|(k, d)| m.on_key(*k, *d).0).collect()
++        keys.iter()
++            .filter_map(|(k, d)| m.on_key(*k, *d).0)
++            .collect()
+     }
+ 
+     #[test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:440:
+         assert_eq!((c.mods.ctrl, c.mods.win, c.key), (true, true, None));
+         assert_eq!(label(DEFAULT), "Ctrl+Win");
+         assert_eq!(accelerator(&parse("win+control").unwrap()), "Ctrl+Super");
+-        assert_eq!(accelerator(&parse("Ctrl+Alt+space").unwrap()), "Ctrl+Alt+Space");
++        assert_eq!(
++            accelerator(&parse("Ctrl+Alt+space").unwrap()),
++            "Ctrl+Alt+Space"
++        );
+         assert_eq!(parse("Alt+F9").unwrap().key, Some(0x78));
+         assert!(parse("Ctrl").is_err());
+         assert!(parse("Shift+A").is_err());
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:452:
+     fn hold_then_release_dictates_and_a_shortcut_does_not() {
+         let mut m = Machine::new(parse(DEFAULT).ok());
+         // Either order of the two modifiers starts it; letting go finishes.
+-        assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true), (WIN, true)]), [Event::Start]);
+-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false)]), [Event::Finish]);
+-        assert_eq!(feed(&mut m, &[(WIN, true), (CTRL, true), (CTRL, false), (WIN, false)]), [Event::Start, Event::Finish]);
++        assert_eq!(
++            feed(&mut m, &[(CTRL, true), (WIN, true), (WIN, true)]),
++            [Event::Start]
++        );
++        assert_eq!(
++            feed(&mut m, &[(WIN, false), (CTRL, false)]),
++            [Event::Finish]
++        );
++        assert_eq!(
++            feed(
++                &mut m,
++                &[(WIN, true), (CTRL, true), (CTRL, false), (WIN, false)]
++            ),
++            [Event::Start, Event::Finish]
++        );
+         // Ctrl+Win+D is the desktop shortcut: no words, no restart until up.
+-        assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true), (D, true), (D, false)]), [Event::Start, Event::Abort]);
+-        assert_eq!(feed(&mut m, &[(WIN, false), (WIN, true), (CTRL, false)]), []);
++        assert_eq!(
++            feed(&mut m, &[(CTRL, true), (WIN, true), (D, true), (D, false)]),
++            [Event::Start, Event::Abort]
++        );
++        assert_eq!(
++            feed(&mut m, &[(WIN, false), (WIN, true), (CTRL, false)]),
++            []
++        );
+         // Ctrl+Shift+Win is a different chord.
+-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, true), (0xA0, true), (WIN, true)]), []);
++        assert_eq!(
++            feed(
++                &mut m,
++                &[(WIN, false), (CTRL, true), (0xA0, true), (WIN, true)]
++            ),
++            []
++        );
+         let mut off = Machine::new(None);
+         assert_eq!(feed(&mut off, &[(CTRL, true), (WIN, true)]), []);
+     }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:480:
+         assert_eq!(m.on_key(WIN, true), (Some(Event::Start), false));
+         assert_eq!(m.on_key(VK_SPACE, true), (Some(Event::Latch), true));
+         assert_eq!(m.on_key(VK_SPACE, false), (None, true));
+-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false), (0x41, true), (0x41, false)]), []);
++        assert_eq!(
++            feed(
++                &mut m,
++                &[(WIN, false), (CTRL, false), (0x41, true), (0x41, false)]
++            ),
++            []
++        );
+         assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true)]), [Event::Finish]);
+         assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false)]), []);
+         assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true)]), [Event::Start]);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\ptt.rs:487:
+         assert_eq!(m.on_key(VK_ESCAPE, true), (Some(Event::Cancel), true));
+-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false), (CTRL, true), (WIN, true)]), [Event::Start]);
++        assert_eq!(
++            feed(
++                &mut m,
++                &[(WIN, false), (CTRL, false), (CTRL, true), (WIN, true)]
++            ),
++            [Event::Start]
++        );
+     }
+ 
+     #[test]
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\settings.rs:111:
+ 
+ /// `cur` with the fields of `patch` applied, or a sentence saying why not.
+ /// `taken` lists the app's other shortcuts, which the chord may not equal.
+-pub fn merge(cur: &VoiceSettings, patch: &Value, taken: &[String]) -> Result<VoiceSettings, String> {
++pub fn merge(
++    cur: &VoiceSettings,
++    patch: &Value,
++    taken: &[String],
++) -> Result<VoiceSettings, String> {
+     let mut next = cur.clone();
+     if let Some(b) = patch.get("dictation").and_then(Value::as_bool) {
+         next.dictation = b;
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\settings.rs:121:
+     }
+     if let Some(h) = patch.get("hotkey").and_then(Value::as_str) {
+         let chord = ptt::parse(h)?;
+-        let clash = taken.iter().any(|t| ptt::parse(t).is_ok_and(|o| o == chord));
++        let clash = taken
++            .iter()
++            .any(|t| ptt::parse(t).is_ok_and(|o| o == chord));
+         if clash {
+-            return Err(format!("{} already opens AevalBuddy. Choose another.", ptt::label(h)));
++            return Err(format!(
++                "{} already opens AevalBuddy. Choose another.",
++                ptt::label(h)
++            ));
+         }
+         next.hotkey = ptt::accelerator(&chord);
+     }
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\settings.rs:157:
+     fn missing_or_bad_fields_read_as_defaults() {
+         assert_eq!(from_value(None), VoiceSettings::default());
+         assert_eq!(from_value(Some(&json!("x"))), VoiceSettings::default());
+-        let s = from_value(Some(&json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "cleanup": 0 })));
++        let s = from_value(Some(
++            &json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "cleanup": 0 }),
++        ));
+         assert_eq!(s.hotkey, "Ctrl+Super");
+         assert_eq!(s.engine, "whisper-base");
+         assert_eq!(s.language, "fr");
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\settings.rs:170:
+     fn a_patch_is_checked_before_it_is_kept() {
+         let cur = VoiceSettings::default();
+         let taken = vec!["Ctrl+Alt+Space".to_string()];
+-        let next = merge(&cur, &json!({ "hotkey": "alt+shift+d", "cleanup": false }), &taken).unwrap();
++        let next = merge(
++            &cur,
++            &json!({ "hotkey": "alt+shift+d", "cleanup": false }),
++            &taken,
++        )
++        .unwrap();
+         assert_eq!((next.hotkey.as_str(), next.cleanup), ("Alt+Shift+D", false));
+         assert!(merge(&cur, &json!({ "hotkey": "Control+Alt+Space" }), &taken).is_err());
+         assert!(merge(&cur, &json!({ "hotkey": "Ctrl" }), &taken).is_err());
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\wav.rs:13:
+         return Err("not a WAV file".into());
+     }
+     let u16_at = |i: usize| u16::from_le_bytes([bytes[i], bytes[i + 1]]);
+-    let u32_at = |i: usize| u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
++    let u32_at =
++        |i: usize| u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
+     let mut fmt: Option<(u16, usize, u32, usize)> = None;
+     let mut at = 12;
+     while at + 8 <= bytes.len() {
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\whisper.rs:49:
+         return Ok(l.ctx.clone());
+     }
+     *slot = None;
+-    let p = path.to_str().ok_or("The voice model's folder has a name Whisper can't read.")?;
++    let p = path
++        .to_str()
++        .ok_or("The voice model's folder has a name Whisper can't read.")?;
+     let ctx = WhisperContext::new_with_params(p, WhisperContextParameters::default())
+         .map_err(|e| format!("The voice model did not load ({e:?})."))?;
+     let ctx = Arc::new(ctx);
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\voice\whisper.rs:114:
+     let n = state.full_n_segments().map_err(|e| format!("{e:?}"))?;
+     let mut out = String::new();
+     for i in 0..n {
+-        let seg = state.full_get_segment_text(i).map_err(|e| format!("{e:?}"))?;
++        let seg = state
++            .full_get_segment_text(i)
++            .map_err(|e| format!("{e:?}"))?;
+         out.push_str(&seg);
+     }
+     if let Some(l) = LOADED.lock().as_mut() {
