@@ -1,0 +1,16 @@
+diff --git a/src-tauri/src/crash.rs b/src-tauri/src/crash.rs
+index 0238939..fdabcd6 100644
+--- a/src-tauri/src/crash.rs
++++ b/src-tauri/src/crash.rs
+@@ -447,7 +447,10 @@ mod tests {
+         assert_eq!(toast_for(true, true), Toast::ByGuard);
+         assert_eq!(toast_for(false, true), Toast::HasToRestart);
+         assert_eq!(toast_for(false, false), Toast::StillRunning);
+-        assert_eq!(HAS_TO_RESTART.0, "AevalBuddy hit a problem and has to restart.");
++        assert_eq!(
++            HAS_TO_RESTART.0,
++            "AevalBuddy hit a problem and has to restart."
++        );
+     }
+ 
+     #[test]

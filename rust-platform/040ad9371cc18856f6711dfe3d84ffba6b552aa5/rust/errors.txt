@@ -1,0 +1,178 @@
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\crash.rs:447:
+         assert_eq!(toast_for(true, true), Toast::ByGuard);
+         assert_eq!(toast_for(false, true), Toast::HasToRestart);
+         assert_eq!(toast_for(false, false), Toast::StillRunning);
+-        assert_eq!(HAS_TO_RESTART.0, "AevalBuddy hit a problem and has to restart.");
++        assert_eq!(
++            HAS_TO_RESTART.0,
++            "AevalBuddy hit a problem and has to restart."
++        );
+     }
+ 
+     #[test]
+
+
+== clippy.log ==
+error[E0277]: `?` couldn't convert the error to `windows_core::Error`
+   --> src\crash.rs:328:59
+    |
+325 |     ) -> windows_core::Result<()> {
+    |          ------------------------ expected `windows_core::Error` because of this
+...
+328 |         let core = unsafe { pw.controller().CoreWebView2()? };
+    |                                             --------------^ the trait `std::convert::From<windows::windows_core::Error>` is not implemented for `windows_core::Error`
+    |                                             |
+    |                                             this can't be annotated with `?` because it has type `Result<_, windows::windows_core::Error>`
+    |
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: item with same name found
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-result-0.4.1\src\error.rs:46:1
+    |
+ 46 | pub struct Error {
+    | ^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: `windows_core::Error` implements trait `std::convert::From<T>`:
+              std::convert::From<std::io::Error>
+              std::convert::From<std::num::TryFromIntError>
+              std::convert::From<std::string::FromUtf16Error>
+              std::convert::From<std::string::FromUtf8Error>
+              std::convert::From<windows::Win32::Foundation::NTSTATUS>
+              std::convert::From<windows::Win32::Foundation::WIN32_ERROR>
+              std::convert::From<windows_core::HRESULT>
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error[E0599]: no method named `cast` found for struct `webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2ProcessFailedEventArgs` in the current scope
+   --> src\crash.rs:337:34
+    |
+337 |             if let Ok(a2) = args.cast::<ICoreWebView2ProcessFailedEventArgs2>() {
+    |                                  ^^^^ method not found in `webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2ProcessFailedEventArgs`
+    |
+note: there are multiple different versions of crate `windows_core` in the dependency graph
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-core-0.62.2\src\interface.rs:14:1
+    |
+ 14 | pub unsafe trait Interface: Sized + Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-core-0.61.2\src\interface.rs:14:1
+    |
+ 14 | pub unsafe trait Interface: Sized + Clone {
+    | ----------------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error[E0277]: `?` couldn't convert the error to `windows_core::Error`
+   --> src\crash.rs:368:62
+    |
+325 |     ) -> windows_core::Result<()> {
+    |          ------------------------ expected `windows_core::Error` because of this
+...
+368 |         unsafe { core.add_ProcessFailed(&handler, &mut token)? };
+    |                       ---------------------------------------^ the trait `std::convert::From<windows::windows_core::Error>` is not implemented for `windows_core::Error`
+    |                       |
+    |                       this can't be annotated with `?` because it has type `Result<_, windows::windows_core::Error>`
+    |
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: item with same name found
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-result-0.4.1\src\error.rs:46:1
+    |
+ 46 | pub struct Error {
+    | ^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: `windows_core::Error` implements trait `std::convert::From<T>`:
+              std::convert::From<std::io::Error>
+              std::convert::From<std::num::TryFromIntError>
+              std::convert::From<std::string::FromUtf16Error>
+              std::convert::From<std::string::FromUtf8Error>
+              std::convert::From<windows::Win32::Foundation::NTSTATUS>
+              std::convert::From<windows::Win32::Foundation::WIN32_ERROR>
+              std::convert::From<windows_core::HRESULT>
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error: could not compile `aevalbuddy` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `aevalbuddy` (lib test) due to 3 previous errors
+
+
+== test.log ==
+error[E0277]: `?` couldn't convert the error to `windows_core::Error`
+   --> src\crash.rs:328:59
+    |
+325 |     ) -> windows_core::Result<()> {
+    |          ------------------------ expected `windows_core::Error` because of this
+...
+328 |         let core = unsafe { pw.controller().CoreWebView2()? };
+    |                                             --------------^ the trait `From<windows::windows_core::Error>` is not implemented for `windows_core::Error`
+    |                                             |
+    |                                             this can't be annotated with `?` because it has type `Result<_, windows::windows_core::Error>`
+    |
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: item with same name found
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-result-0.4.1\src\error.rs:46:1
+    |
+ 46 | pub struct Error {
+    | ^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: `windows_core::Error` implements trait `From<T>`:
+              From<FromUtf16Error>
+              From<FromUtf8Error>
+              From<TryFromIntError>
+              From<std::io::Error>
+              From<windows::Win32::Foundation::NTSTATUS>
+              From<windows::Win32::Foundation::WIN32_ERROR>
+              From<windows_core::HRESULT>
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error[E0599]: no method named `cast` found for struct `ICoreWebView2ProcessFailedEventArgs` in the current scope
+   --> src\crash.rs:337:34
+    |
+337 |             if let Ok(a2) = args.cast::<ICoreWebView2ProcessFailedEventArgs2>() {
+    |                                  ^^^^ method not found in `ICoreWebView2ProcessFailedEventArgs`
+    |
+note: there are multiple different versions of crate `windows_core` in the dependency graph
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-core-0.62.2\src\interface.rs:14:1
+    |
+ 14 | pub unsafe trait Interface: Sized + Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-core-0.61.2\src\interface.rs:14:1
+    |
+ 14 | pub unsafe trait Interface: Sized + Clone {
+    | ----------------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error[E0277]: `?` couldn't convert the error to `windows_core::Error`
+   --> src\crash.rs:368:62
+    |
+325 |     ) -> windows_core::Result<()> {
+    |          ------------------------ expected `windows_core::Error` because of this
+...
+368 |         unsafe { core.add_ProcessFailed(&handler, &mut token)? };
+    |                       ---------------------------------------^ the trait `From<windows::windows_core::Error>` is not implemented for `windows_core::Error`
+    |                       |
+    |                       this can't be annotated with `?` because it has type `Result<_, windows::windows_core::Error>`
+    |
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: item with same name found
+   --> C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\windows-result-0.4.1\src\error.rs:46:1
+    |
+ 46 | pub struct Error {
+    | ^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: `windows_core::Error` implements trait `From<T>`:
+              From<FromUtf16Error>
+              From<FromUtf8Error>
+              From<TryFromIntError>
+              From<std::io::Error>
+              From<windows::Win32::Foundation::NTSTATUS>
+              From<windows::Win32::Foundation::WIN32_ERROR>
+              From<windows_core::HRESULT>
+    = note: there are multiple different versions of crate `windows_result` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+
+error: could not compile `aevalbuddy` (lib) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `aevalbuddy` (lib test) due to 3 previous errors
+
