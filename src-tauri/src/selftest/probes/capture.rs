@@ -584,13 +584,24 @@ fn reload(cx: &Cx) {
     let crashed = crash_renderer(cx, buddy::LABEL);
     let t = Instant::now();
     let new_page = "window.smokeBefore === undefined";
+    // Each condition on its own, so a failure says which one held out. The
+    // page check has a short timeout: a script started in a page that is
+    // being replaced never settles, and a 5 s eval would use up the budget.
+    let (mut through, mut ready, mut fresh) = (false, false, false);
     let back = cx.wait_for(Duration::from_secs(5), || {
-        buddy::lets_mouse_through()
-            && buddy::is_ready()
-            && cx.eval(buddy::LABEL, new_page) == Ok(json!(true))
+        through = buddy::lets_mouse_through();
+        ready = buddy::is_ready();
+        if through && ready && !fresh {
+            let short = Duration::from_millis(400);
+            fresh = cx.eval_for(buddy::LABEL, new_page, short) == Ok(json!(true));
+        }
+        through && ready && fresh
     });
     let ms = t.elapsed().as_millis();
-    let value = format!("shown={shown} crash={crashed:?} back={back} in {ms}ms");
+    let value = format!(
+        "shown={shown} crash={crashed:?} back={back} in {ms}ms \
+         (clickThrough={through} ready={ready} freshPage={fresh})"
+    );
     check(cx, "buddyReload", shown && crashed.is_ok() && back, value);
     buddy::cancel();
 }
