@@ -1,5 +1,5 @@
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 50.43s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 57.88s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-b77af1f62641cbf6.exe)
 
 running 243 tests
@@ -7,8 +7,8 @@ test agent::gate::tests::chords_are_canonical ... ok
 test agent::describe::tests::passwords_are_dotted_and_errors_named ... ok
 test agent::gate::tests::chord_risks ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
-test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::quotes_are_cut ... ok
+test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
 test agent::run::tests::points_scale_from_the_last_screenshot ... ok
@@ -45,9 +45,9 @@ test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
 test capture::encode::tests::lanczos_keeps_flat_colour_and_size ... ok
 test capture::encode::tests::long_edge_fit ... ok
 test capture::encode::tests::whole_screen_matches_electron_thumbnail_sizes ... ok
-test capture::encode::tests::lanczos_is_sharper_than_a_box_average ... ok
 test capture::screen::tests::dip_bounds_divide_by_scale ... ok
 test capture::screen::tests::dip_round_trip_on_a_scaled_display ... ok
+test capture::encode::tests::lanczos_is_sharper_than_a_box_average ... ok
 test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
 test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
@@ -68,14 +68,14 @@ test desktop::protocol::tests::request_line_shape ... ok
 test desktop::protocol::tests::sha_validation ... ok
 test desktop::protocol::tests::targets ... ok
 test desktop::protocol::tests::timeouts ... ok
+test desktop::checks::tests::lanczos_keeps_fine_stripes ... ok
 test desktop::protocol::tests::tree_truncates_with_the_hint ... ok
 test desktop::scoring::tests::dice_values ... ok
-test desktop::checks::tests::lanczos_keeps_fine_stripes ... ok
 test desktop::scoring::tests::exact_prefix_word_contains ... ok
 test desktop::scoring::tests::norm_matches_the_js ... ok
 test desktop::scoring::tests::nodes ... ok
-test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::inside_with_slack ... ok
+test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::report_collects_failures ... ok
 test desktop::win::tests::descendants_walks_the_tree_once ... ok
 test find::tests::an_unreadable_window_offers_ask ... ok
@@ -150,11 +150,11 @@ test llm::fake::tests::agent_turns_follow_the_assistant_count_and_fill_vars ... 
 test llm::fake::tests::correlate_answers_with_the_span_holding_the_match ... ok
 test llm::fake::tests::embedded_fixtures_load ... ok
 test llm::fake::tests::statuses_delays_and_streams ... ok
-test llm::fake::tests::the_log_is_capped ... ok
 test history::tests::caps_at_two_hundred_newest_first ... ok
+test llm::fake::tests::the_log_is_capped ... ok
 test llm::points::tests::coordinate_directives_are_taken_out_across_deltas ... ok
-test llm::points::tests::loose_shapes_and_names ... ok
 test llm::points::tests::malformed_directive_is_swallowed ... ok
+test llm::points::tests::loose_shapes_and_names ... ok
 test llm::points::tests::unclosed_directive_is_released_after_the_hold ... ok
 test llm::points::tests::other_brackets_are_kept ... ok
 test llm::prompt::tests::reader_prompt_shape ... ok
@@ -173,8 +173,8 @@ test llm::sse::tests::only_data_lines_count ... ok
 test llm::wire::tests::anthropic_body_maps_system_images_and_tools ... ok
 test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
 test llm::wire::tests::anthropic_stream ... ok
-test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
 test llm::wire::tests::gemini_stream ... ok
+test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
 test llm::wire::tests::http_errors_carry_the_body_message ... ok
 test llm::wire::tests::key_checks_spend_nothing ... ok
 test llm::wire::tests::openai_drops_temperature_and_raises_the_limit ... ok
@@ -201,8 +201,8 @@ test store::crypto::tests::seals_byte_for_byte_like_chromium ... ok
 test store::crypto::tests::wrong_key_or_garbage_is_none_not_a_panic ... ok
 test store::tests::chosen_flag_rules ... ok
 test store::tests::corrupt_file_is_kept_aside ... ok
-test store::tests::electron_key_is_migrated ... ok
 test skills::tests::routing_matches_the_self_test ... ok
+test store::tests::electron_key_is_migrated ... ok
 test store::tests::fresh_file_gets_every_default_in_order ... ok
 test store::tests::find_and_agent_settings ... ok
 test store::tests::js_helpers ... ok
@@ -232,22 +232,22 @@ test windows::flags::tests::frameless_window_band_is_inside ... ok
 test windows::layout::tests::bounds_hug_and_clamp ... ok
 test windows::layout::tests::docked_and_free_placement ... ok
 test windows::layout::tests::dodge ... ok
-test store::tests::input_history ... ok
 test windows::layout::tests::nudges_step_the_grid ... ok
 test windows::layout::tests::output_heights ... ok
-test windows::motion::tests::glide_curve_matches_the_browser ... ok
 test windows::layout::tests::pos_from_rect_and_snap ... ok
+test windows::motion::tests::glide_curve_matches_the_browser ... ok
 test windows::motion::tests::lerp_and_shrink ... ok
-test windows::outputs::tests::output_labels ... ok
 test windows::outputs::tests::chat_sync_sends_the_whole_transcript ... ok
+test windows::outputs::tests::output_labels ... ok
 test windows::screen::tests::enumerates_at_least_one ... ok
 test windows::screen::tests::primary_at_150_percent ... ok
 test windows::screen::tests::secondary_display_origin ... ok
 test windows::stage::tests::margin_round_trip ... ok
+test store::tests::input_history ... ok
 test find::tests::concepts_come_from_the_correlate_stage ... ok
 test find::tests::related_terms_arrive_after_the_pause ... ok
 
-test result: ok. 243 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+test result: ok. 243 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
 
      Running unittests src\main.rs (target\debug\deps\aevalbuddy-c8ff0ec2da8d9d52.exe)
 
