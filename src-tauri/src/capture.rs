@@ -1,11 +1,13 @@
 //! Screen capture: DXGI Desktop Duplication with a GDI fallback, then the
 //! JPEG pipeline main.js's `captureScreen` ran (PARITY CAP-01..12).
 //!
-//! Answer quality is bounded by capture fidelity, so the numbers are kept
-//! exactly: the whole screen at its DIP size shrunk to a 1600 px long edge,
-//! an area at the display's native pixels cropped by the size that arrived,
-//! Lanczos3 for every resample, JPEG 88 stepping down by 8 to a floor of 62
-//! while over 1.6 MB. Our own windows are kept out with
+//! Answer quality is bounded by capture fidelity (D-09, B-032): the whole
+//! screen at its physical pixels shrunk to a 1600 px long edge, an area at
+//! the display's native pixels cropped by the size that arrived, Lanczos3
+//! for every resample, JPEG 88 with 4:4:4 chroma stepping down by 8 to a
+//! floor of 62 while over 1.6 MB. The whole screen is the display the bar
+//! was opened on (`screen::latched_display`), an area the display it was
+//! picked on (B-005). Our own windows are kept out with
 //! WDA_EXCLUDEFROMCAPTURE, never WDA_MONITOR (which would paint them black
 //! into the shot and into screen shares).
 //!
@@ -20,6 +22,7 @@ pub mod screen;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
 use base64::Engine as _;
 use serde::Serialize;
@@ -43,6 +46,24 @@ impl Frame {
     pub fn rgb(&self) -> Rgb {
         Rgb::from_bgra(self.width, self.height, self.width as usize * 4, &self.bgra)
     }
+
+    /// One rectangle converted and the rest left alone (B-030); the caller
+    /// has clamped it inside the frame.
+    pub fn rgb_rect(&self, x: u32, y: u32, width: u32, height: u32) -> Rgb {
+        let stride = self.width as usize * 4;
+        let start = y as usize * stride + x as usize * 4;
+        Rgb::from_bgra(width, height, stride, &self.bgra[start..])
+    }
+
+    /// The whole frame at `width` x `height`, shrunk while it is still BGRA
+    /// so only the small result is converted (B-030).
+    pub fn scaled(&self, width: u32, height: u32) -> Rgb {
+        if (width, height) == (self.width, self.height) {
+            return self.rgb();
+        }
+        encode::resize_bgra(self.width, self.height, &self.bgra, width, height)
+            .unwrap_or_else(|| self.rgb().resize(width, height))
+    }
 }
 
 /// Which backend produced the last frame (for smoke lines).
@@ -64,36 +85,84 @@ pub fn last_backend() -> &'static str {
 
 type Job = Box<dyn FnOnce(&mut dxgi::Cache) + Send>;
 
+/// How long a capture may take before its thread is presumed hung (B-110).
+const JOB_LIMIT: Duration = Duration::from_secs(3);
+
+/// A capture thread with its own DXGI cache. If the thread cannot start, the
+/// receiver is dropped with it and every send fails, so captures fail
+/// rather than panic.
+fn spawn_worker() -> mpsc::Sender<Job> {
+    let (tx, rx) = mpsc::channel::<Job>();
+    let _ = std::thread::Builder::new()
+        .name("aeval-capture".into())
+        .spawn(move || {
+            let mut cache = dxgi::Cache::default();
+            while let Ok(job) = rx.recv() {
+                // A panic inside one capture must not take the thread (and
+                // every later capture) with it.
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut cache)));
+            }
+        });
+    tx
+}
+
 fn worker() -> &'static Mutex<mpsc::Sender<Job>> {
     static TX: OnceLock<Mutex<mpsc::Sender<Job>>> = OnceLock::new();
-    TX.get_or_init(|| {
-        let (tx, rx) = mpsc::channel::<Job>();
-        std::thread::Builder::new()
-            .name("aeval-capture".into())
-            .spawn(move || {
-                let mut cache = dxgi::Cache::default();
-                while let Ok(job) = rx.recv() {
-                    // A panic inside one capture must not take the thread
-                    // (and every later capture) with it.
-                    let _ =
-                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut cache)));
-                }
-            })
-            .expect("spawn capture thread");
-        Mutex::new(tx)
-    })
+    TX.get_or_init(|| Mutex::new(spawn_worker()))
+}
+
+fn replace_worker(slot: &Mutex<mpsc::Sender<Job>>) {
+    *slot.lock().unwrap_or_else(|e| e.into_inner()) = spawn_worker();
 }
 
 /// Runs `f` on the capture thread and waits for it.
 fn on_capture_thread<T: Send + 'static>(
     f: impl FnOnce(&mut dxgi::Cache) -> T + Send + 'static,
-) -> Option<T> {
+) -> Result<T, String> {
+    run_on(worker(), JOB_LIMIT, f)
+}
+
+/// Runs `f` on the worker in `slot`, waiting at most `limit`. A worker that
+/// does not answer in time is presumed hung: a fresh one takes its place for
+/// every later capture, and this one fails so the query falls back to text
+/// (CAP-06, B-110). The hung thread exits once its job returns, because its
+/// sender is gone.
+fn run_on<T: Send + 'static>(
+    slot: &Mutex<mpsc::Sender<Job>>,
+    limit: Duration,
+    f: impl FnOnce(&mut dxgi::Cache) -> T + Send + 'static,
+) -> Result<T, String> {
     let (tx, rx) = mpsc::channel();
     let job: Job = Box::new(move |c| {
         let _ = tx.send(f(c));
     });
-    worker().lock().ok()?.send(job).ok()?;
-    rx.recv().ok()
+    let sent = slot.lock().unwrap_or_else(|e| e.into_inner()).send(job);
+    if sent.is_err() {
+        replace_worker(slot);
+        return Err("capture thread is gone".into());
+    }
+    match rx.recv_timeout(limit) {
+        Ok(v) => Ok(v),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            replace_worker(slot);
+            Err(format!("capture took over {} ms", limit.as_millis()))
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err("capture panicked".into()),
+    }
+}
+
+/// The smoke's CAP-06 probe (B-110): keeps the capture thread busy for `d`,
+/// as a driver hang would, without waiting for it.
+pub fn stall_worker(d: Duration) {
+    let job: Job = Box::new(move |_| std::thread::sleep(d));
+    let _ = worker().lock().unwrap_or_else(|e| e.into_inner()).send(job);
+}
+
+/// Drops the duplication of `display`, so the next grab opens a new one
+/// (the capture check's first-frame test, B-029).
+pub fn reset_dxgi(display: &Display) -> Result<(), String> {
+    let device = display.device.clone();
+    on_capture_thread(move |cache| cache.forget(&device))
 }
 
 fn forced_backend() -> Option<Backend> {
@@ -130,8 +199,7 @@ pub fn grab(display: &Display) -> Result<Arc<Frame>, String> {
                 Arc::new(f)
             })
             .map_err(|e| format!("dxgi: {dxgi_err}; gdi: {e}"))
-    })
-    .unwrap_or_else(|| Err("capture thread is gone".into()))
+    })?
 }
 
 /// What a query sends to the model (CAP-06), same keys as main.js.
@@ -171,30 +239,34 @@ pub fn target_display(
 pub fn shot_image(region: Option<Rect>) -> Result<(Rgb, Display), String> {
     let list = screen::all_displays();
     let device = region.as_ref().and_then(crate::region::device_for);
-    let whole = || screen::active_display(&list);
+    let whole = || screen::latched_display(&list);
     let target = target_display(&list, region.as_ref(), device.as_deref(), whole);
     let frame = grab(&target)?;
-    let full = frame.rgb();
-    let b = target.bounds;
     let img = match region {
-        Some(want) => {
-            let (x, y, w, h) = encode::crop_plan(
-                (want.x, want.y, want.width, want.height),
-                (b.x, b.y, b.width, b.height),
-                (full.width, full.height),
-            );
-            let cut = full.crop(x, y, w, h);
-            match encode::fit_long_edge(cut.width, cut.height) {
-                Some((tw, th)) => cut.resize(tw, th),
-                None => cut,
-            }
-        }
+        Some(want) => crop_area(&frame, &target, want),
         None => {
-            let (tw, th) = encode::whole_screen_size(b.width, b.height);
-            full.resize(tw, th)
+            // Sized from the pixels that arrived, not the DIP size (B-032).
+            let (tw, th) = encode::whole_screen_size(frame.width, frame.height);
+            frame.scaled(tw, th)
         }
     };
     Ok((img, target))
+}
+
+/// An area of one display's frame (CAP-03): cut by the size that arrived,
+/// then held to the long-edge budget.
+fn crop_area(full: &Frame, display: &Display, want: Rect) -> Rgb {
+    let b = display.bounds;
+    let (x, y, w, h) = encode::crop_plan(
+        (want.x, want.y, want.width, want.height),
+        (b.x, b.y, b.width, b.height),
+        (full.width, full.height),
+    );
+    let cut = full.rgb_rect(x, y, w, h);
+    match encode::fit_long_edge(cut.width, cut.height) {
+        Some((tw, th)) => cut.resize(tw, th),
+        None => cut,
+    }
 }
 
 /// A JPEG of the screen, or of one area of it (DIP), plus what the pointer
@@ -223,18 +295,20 @@ pub async fn capture_screen_async(region: Option<Rect>) -> Option<Shot> {
         .flatten()
 }
 
-/// A full-resolution cut of what is under a DIP rect (the lens loupe).
-pub fn crop_dip(rect: Rect) -> Option<Rgb> {
+/// A full-resolution cut of what is under a DIP rect (the lens loupe), from
+/// the display the rect was placed on (`display`, a `Display::id`), else the
+/// one it matches (B-005).
+pub fn crop_dip(rect: Rect, display: Option<u32>) -> Option<Rgb> {
     let list = screen::all_displays();
-    let d = screen::matching(&list, &rect);
+    let on = display.and_then(|id| list.iter().find(|d| d.id == id).cloned());
+    let d = on.unwrap_or_else(|| screen::matching(&list, &rect));
     let frame = grab(&d).ok()?;
-    let full = frame.rgb();
-    let k = full.width as f64 / d.bounds.width.max(1.0);
-    let x = (((rect.x - d.bounds.x) * k).round().max(0.0) as u32).min(full.width - 1);
-    let y = (((rect.y - d.bounds.y) * k).round().max(0.0) as u32).min(full.height - 1);
-    let w = ((rect.width * k).round().max(1.0) as u32).min(full.width - x);
-    let h = ((rect.height * k).round().max(1.0) as u32).min(full.height - y);
-    Some(full.crop(x, y, w, h))
+    let k = frame.width as f64 / d.bounds.width.max(1.0);
+    let x = (((rect.x - d.bounds.x) * k).round().max(0.0) as u32).min(frame.width - 1);
+    let y = (((rect.y - d.bounds.y) * k).round().max(0.0) as u32).min(frame.height - 1);
+    let w = ((rect.width * k).round().max(1.0) as u32).min(frame.width - x);
+    let h = ((rect.height * k).round().max(1.0) as u32).min(frame.height - y);
+    Some(frame.rgb_rect(x, y, w, h))
 }
 
 /// Windows 10 2004 (build 19041) is where WDA_EXCLUDEFROMCAPTURE exists;
@@ -280,4 +354,99 @@ pub fn exclude_window(hwnd: isize) -> bool {
 /// version Tauri itself links).
 pub fn hwnd_of<R: tauri::Runtime>(win: &tauri::WebviewWindow<R>) -> isize {
     win.hwnd().map(|h| h.0 as isize).unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `coded`'s pixels as the BGRA frame a capture delivers.
+    fn as_frame(img: &Rgb) -> Frame {
+        let bgra = img
+            .data
+            .chunks_exact(3)
+            .flat_map(|p| [p[2], p[1], p[0], 255])
+            .collect();
+        Frame {
+            width: img.width,
+            height: img.height,
+            bgra,
+        }
+    }
+
+    /// A frame whose pixels say where they are.
+    fn coded(w: u32, h: u32) -> Rgb {
+        let mut data = Vec::with_capacity(w as usize * h as usize * 3);
+        for y in 0..h {
+            for x in 0..w {
+                let hi = (x / 256 * 16 + y / 256) as u8;
+                data.extend_from_slice(&[(x % 256) as u8, (y % 256) as u8, hi]);
+            }
+        }
+        Rgb {
+            width: w,
+            height: h,
+            data,
+        }
+    }
+
+    #[test]
+    fn area_on_primary_crops_primary() {
+        let d = screen::tests::mixed();
+        // In the band both displays claimed under the old layout.
+        let area = Rect::new(1500.0, 200.0, 300.0, 150.0);
+        let t = target_display(&d, Some(&area), None, || d[1].clone());
+        assert_eq!(t.device, r"\\.\DISPLAY1");
+        // A remembered display that is gone falls back to matching.
+        let gone = Some(r"\\.\DISPLAY9");
+        let t = target_display(&d, Some(&area), gone, || d[1].clone());
+        assert_eq!(t.device, r"\\.\DISPLAY1");
+        // Cut from the primary's own pixels.
+        let frame = coded(1920, 1080);
+        let cut = crop_area(&as_frame(&frame), &t, area);
+        assert_eq!((cut.width, cut.height), (300, 150));
+        assert_eq!(cut.pixel(0, 0), frame.pixel(1500, 200));
+        assert_eq!(cut.pixel(299, 149), frame.pixel(1799, 349));
+    }
+
+    #[test]
+    fn area_on_the_scaled_display_crops_its_pixels() {
+        let d = screen::tests::mixed();
+        let area = Rect::new(1930.0, 10.0, 100.0, 100.0);
+        let t = target_display(&d, Some(&area), None, || d[0].clone());
+        assert_eq!(t.device, r"\\.\DISPLAY2");
+        // Straddling the edge evenly: the display it was picked on wins.
+        let picked = Some(r"\\.\DISPLAY2");
+        let edge = Rect::new(1900.0, 10.0, 40.0, 40.0);
+        let t2 = target_display(&d, Some(&edge), picked, || d[0].clone());
+        assert_eq!(t2.device, r"\\.\DISPLAY2");
+        let frame = coded(2560, 1440);
+        let cut = crop_area(&as_frame(&frame), &t, area);
+        assert_eq!((cut.width, cut.height), (150, 150));
+        assert_eq!(cut.pixel(0, 0), frame.pixel(15, 15));
+    }
+
+    #[test]
+    fn hung_worker_is_replaced() {
+        let slot = Mutex::new(spawn_worker());
+        let limit = Duration::from_millis(300);
+        // A job that outlives the limit fails the call...
+        let hung = run_on(&slot, limit, move |_| std::thread::sleep(limit * 10));
+        assert!(hung.is_err());
+        // ...and the next one runs at once on a fresh thread.
+        let t = std::time::Instant::now();
+        assert_eq!(run_on(&slot, limit, |_| 7), Ok(7));
+        assert!(t.elapsed() < Duration::from_secs(2));
+        // A job that panics fails its call and leaves the thread working.
+        let boom: Result<(), String> = run_on(&slot, limit, |_| panic!("capture failed"));
+        assert!(boom.is_err());
+        assert_eq!(run_on(&slot, limit, |_| 8), Ok(8));
+    }
+
+    #[test]
+    fn whole_screen_is_the_whole_target() {
+        let d = screen::tests::mixed();
+        let t = target_display(&d, None, Some(r"\\.\DISPLAY1"), || d[1].clone());
+        assert_eq!(t.device, r"\\.\DISPLAY2");
+    }
 }

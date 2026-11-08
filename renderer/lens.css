@@ -1,25 +1,17 @@
 /* The lens has no surface of its own: it sits over whatever is on screen,
-   white documents and black editors alike. So it uses the bright accent
-   rather than grape soda (which is a smudge on a dark editor), and every mark
-   has a dark rim so it holds up on pale content. Tokens and reasons are in
-   DESIGN.md, "v2: Find, Agent, and the command bar". */
+   white documents and black editors alike. So marks use the bright accent
+   rather than grape soda (a smudge on a dark editor), and every mark has a
+   dark rim so it holds up on pale content. Colours, radii, type and motion
+   are glass.css tokens; the two below are the lens's own mixes of them.
+   DESIGN.md, "v2: Find, Agent, and the command bar" and "Material and Find". */
 
 :root {
-  --accent: #823A80;
-  --slate: #C9CFDD;
-  --accent-bright: #C56FC3;
   /* --accent-bright at 22%: black text under it stays readable on white, and
      it still shows on a dark editor. */
-  --hit-fill: rgba(197, 111, 195, 0.22);
+  --hit-fill: rgb(197 111 195 / 0.22);
   /* The rim that keeps a ring legible against pale content, the job
      --danger-edge does for the warning. */
-  --hit-rim: rgba(0, 0, 0, 0.55);
-  --control-frame: #823A80;
-  --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
-  --d-fast: 150ms;
-  --d-med: 240ms;
-  --skin: linear-gradient(#3E404A, #262930);
-  --edge: rgba(201, 207, 221, 0.17);
+  --hit-rim: rgb(0 0 0 / 0.55);
 }
 
 * {
@@ -34,17 +26,19 @@ body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  font-family: -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-text);
   pointer-events: none;
 }
 
+/* Literal hits are filled, related and concept hits outlined: outline versus
+   fill is the whole distinction, so no second colour is needed. */
 .hit {
   position: fixed;
   left: 0;
   top: 0;
-  border-radius: 4px;
+  border-radius: var(--r-key);
   opacity: 0;
-  animation: hit-in var(--d-fast) ease-out forwards;
+  animation: hit-in var(--d-fast) var(--ease-out) forwards;
 }
 
 @keyframes hit-in {
@@ -53,31 +47,28 @@ body {
   }
 }
 
-/* Literal hits are filled, related and concept hits outlined: outline versus
-   fill is the whole distinction, so no second colour is needed. */
 .hit.literal {
   background: var(--hit-fill);
-  box-shadow: 0 0 0 1px var(--hit-rim);
+  box-shadow: 0 0 0 var(--px) var(--hit-rim);
 }
 
 .hit.related,
 .hit.concept {
   border: 1.5px solid var(--accent-bright);
-  box-shadow: 0 0 0 1px var(--hit-rim), inset 0 0 0 1px var(--hit-rim);
+  box-shadow: 0 0 0 var(--px) var(--hit-rim), inset 0 0 0 var(--px) var(--hit-rim);
 }
 
+/* The current hit. Translate plus size, on the glide curve: the size moves
+   too because a scaled 2px ring stops being 2px (DESIGN.md records it). */
 #ring {
   position: fixed;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
-  border-radius: 6px;
-  border: 2px solid var(--accent-bright);
-  box-shadow: 0 0 0 1px var(--hit-rim);
+  border-radius: var(--r-row);
+  box-shadow: 0 0 0 2px var(--accent-bright), 0 0 0 3px var(--hit-rim);
   opacity: 0;
-  /* Translate plus size, on the glide curve. The size moves too because a
-     scaled 2px border stops being 2px; DESIGN.md records the exception. */
   transition: transform var(--d-med) var(--ease-glide), width var(--d-med) var(--ease-glide),
     height var(--d-med) var(--ease-glide), opacity var(--d-fast) ease;
 }
@@ -86,61 +77,86 @@ body {
   opacity: 1;
 }
 
-/* The why chip for a related hit, in the buddy bubble's style. */
-#why {
+/* The magnifier: the pixels under the hit, cut at full resolution and grown
+   1.18 inside a thin glass rim, so it reads as the word made bigger rather
+   than as a button. */
+#ring .loupe {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-row);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1);
+}
+
+#ring.loupe-on {
+  box-shadow: none;
+}
+
+#ring.loupe-on .loupe {
+  opacity: 1;
+  transform: scale(1.18);
+  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.35), 0 0 0 1.5px var(--accent-bright),
+    0 0 0 2.5px var(--hit-rim), 0 6px 16px rgb(0 0 0 / 0.35);
+  transition: transform var(--d-morph) var(--ease-settle), opacity var(--d-fast) ease;
+}
+
+/* The why chip and the agent's chip: the solid tier of thin glass. A one-line
+   chip is a capsule; one that wraps is a card. */
+#why,
+#chip {
   position: fixed;
   left: 0;
   top: 0;
-  max-width: 360px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: var(--skin);
-  border: 1px solid var(--edge);
-  box-shadow: inset 0 1px 0 rgba(201, 207, 221, 0.11), 0 8px 24px rgba(0, 0, 0, 0.5);
-  color: var(--slate);
-  font-size: 12px;
-  line-height: 1.45;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-cap);
+  background: rgb(var(--tint) / 0.9);
+  box-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.16), inset 0 0 0 var(--px) var(--hairline),
+    var(--shadow-menu);
+  color: var(--label);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   opacity: 0;
+}
+
+#why {
+  max-width: 360px;
   transition: transform var(--d-med) var(--ease-glide), opacity var(--d-fast) ease;
 }
 
-#why.on {
+#why.multi {
+  border-radius: var(--r-card);
+}
+
+#why.on,
+#chip.on {
   opacity: 1;
 }
 
-/* While the agent runs: a solid frame inside the edges of the display it is
-   controlling. Solid, not glowing, not pulsing; it is information. */
+#chip {
+  top: var(--sp-3);
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: var(--w-strong);
+  white-space: nowrap;
+  transition: opacity var(--d-fast) ease;
+}
+
+/* While the agent runs: DESIGN's 2px grape-soda frame inside the edges of the
+   display it controls, with a dark outer line so it still reads on a dark
+   editor. Solid, not glowing, not pulsing; it is information. */
 #frame {
   position: fixed;
-  inset: 0;
-  border: 2px solid var(--control-frame);
-  box-shadow: inset 0 0 0 1px var(--hit-rim);
+  inset: var(--px);
+  border: 2px solid var(--accent);
+  border-radius: var(--r-plate);
+  box-shadow: 0 0 0 var(--px) rgb(0 0 0 / 0.5);
   opacity: 0;
   transition: opacity var(--d-fast) ease;
 }
 
 #frame.on {
-  opacity: 1;
-}
-
-#chip {
-  position: fixed;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: var(--skin);
-  border: 1px solid var(--edge);
-  box-shadow: inset 0 1px 0 rgba(201, 207, 221, 0.11), 0 8px 24px rgba(0, 0, 0, 0.5);
-  color: var(--slate);
-  font-size: 12px;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity var(--d-fast) ease;
-}
-
-#chip.on {
   opacity: 1;
 }
 
@@ -150,103 +166,7 @@ body {
     opacity: 1;
   }
   #ring,
-  #why {
-    transition: opacity var(--d-fast) ease;
-  }
-}
-
-/* =====================================================================
-   v2.1 Phase B (DESIGN.md, Material and Find). The list and the lens share
-   one mark: a 5px rounded swatch with a hairline highlight on top. The
-   current hit is a magnifier: the pixels under it, cut at full resolution
-   and scaled 1.18 inside a glass rim, so the word grows instead of being
-   boxed. The chips are the solid tier of thin glass; the lens window has no
-   backdrop of its own and draws none. Rules above that this restates are
-   superseded.
-   ===================================================================== */
-
-html,
-body {
-  font-family: var(--font-text);
-}
-
-.hit {
-  border-radius: 5px;
-}
-
-.hit.literal {
-  background: var(--hit-fill);
-  box-shadow: 0 0 0 1px var(--hit-rim), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.hit.related,
-.hit.concept {
-  border-radius: 5px;
-}
-
-#ring {
-  border-radius: 8px;
-  border: none;
-  box-shadow: 0 0 0 2px var(--accent-bright), 0 0 0 3px var(--hit-rim);
-}
-
-#ring .loupe {
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  opacity: 0;
-  transform: scale(1);
-  transition: none;
-}
-
-/* The lens rim: a bright specular line on top, the accent ring, and a soft
-   drop so it lifts off the page it magnifies. */
-#ring.loupe-on .loupe {
-  opacity: 1;
-  transform: scale(1.18);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-    0 0 0 2px var(--accent-bright), 0 0 0 3px var(--hit-rim), 0 8px 22px rgba(0, 0, 0, 0.45);
-  transition: transform var(--d-morph) var(--ease-settle), opacity var(--d-fast) ease;
-}
-
-#ring.loupe-on {
-  box-shadow: none;
-}
-
-#why,
-#chip {
-  border: none;
-  border-radius: var(--r-cap);
-  background: rgb(var(--tint) / 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 10px 28px rgba(0, 0, 0, 0.45);
-  color: var(--label);
-  font-size: 13px;
-}
-
-#why {
-  padding: 7px 14px;
-  border-radius: 14px;
-}
-
-#chip {
-  top: 12px;
-  padding: 7px 16px;
-  font-weight: 500;
-}
-
-/* The control frame is a bezel: the accent inside a dark hairline, with
-   rounded inner corners like a display's. */
-#frame {
-  inset: 2px;
-  border: 3px solid var(--accent-bright);
-  border-radius: 14px;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
+  #why,
   #ring.loupe-on .loupe {
     transition: opacity var(--d-fast) ease;
   }

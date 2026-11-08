@@ -11,6 +11,7 @@ const scrimLeft = document.getElementById('scrim-left');
 const scrimRight = document.getElementById('scrim-right');
 const sel = document.getElementById('sel');
 const sizeChip = document.getElementById('size');
+const live = document.getElementById('live');
 
 // Must match MIN_EDGE in lib/region.js: the chip turns red below it, and the
 // main process discards it, so the two numbers have to agree.
@@ -19,6 +20,43 @@ const CHIP_GAP = 10;
 
 let start = null;
 let rect = { x: 0, y: 0, width: 0, height: 0 };
+
+// Screen readers hear how to drive the box once, on the first key, and then
+// its size as it changes, at most every 500 ms (the last size always lands).
+const SAY_MS = 500;
+let told = false;
+let saidAt = 0;
+let sayTimer = null;
+let said = '';
+function sizeText() {
+  return `Area ${rect.width} by ${rect.height}.`;
+}
+function say(text) {
+  said = text;
+  saidAt = performance.now();
+  live.textContent = text;
+}
+function announceSize() {
+  if (!told) return;
+  const text = sizeText();
+  if (text === said || sayTimer) return;
+  const wait = SAY_MS - (performance.now() - saidAt);
+  if (wait <= 0) {
+    say(text);
+    return;
+  }
+  sayTimer = setTimeout(() => {
+    sayTimer = null;
+    if (sizeText() !== said) say(sizeText());
+  }, wait);
+}
+function announceKeys() {
+  if (told) return;
+  told = true;
+  say(`${sizeText()} Arrows move it, Alt+arrows resize, Enter asks, Esc cancels.`);
+  // What it said includes the size, so the size is not said again until it changes.
+  said = sizeText();
+}
 
 function place(el, x, y, w, h) {
   el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
@@ -45,6 +83,7 @@ function draw() {
     ? `${width} × ${height}`
     : `${width} × ${height}, too small`;
   sizeChip.classList.toggle('too-small', !ok);
+  announceSize();
 
   // Under the selection by default, above it when there is no room below, and
   // never off the side.
@@ -117,6 +156,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (!keyed) {
       keyBox();
+      announceKeys();
       draw();
       return;
     }
@@ -127,6 +167,7 @@ document.addEventListener('keydown', (e) => {
   if (!d) return;
   e.preventDefault();
   keyBox();
+  announceKeys();
   const step = e.shiftKey ? 64 : 16;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
