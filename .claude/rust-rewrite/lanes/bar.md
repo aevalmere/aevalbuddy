@@ -250,9 +250,9 @@ Stop when every item below and the standing labels task is green on CI at your b
 - C1 follow-up (icons): at c114f4a, 0319420 and 8c73071 every icon was blank (ui-shots 01 and 10 show empty buttons). The cause was that `renderer/icons.svg` was not well-formed XML: its header comment contained a double hyphen (`--ico`), so the whole image failed to load. 0319420 and 8c73071 changed how glyphs are drawn without fixing that. The fix commit removes the double hyphen and was checked with an XML parser. Icons are now a CSS mask of the whole sprite strip, slid to glyph `--i` and filled with currentColor (an image, allowed by `img-src 'self'`). Markup is `<span class="ico i-<name>" aria-hidden="true"></span>` or `AevalGlass.icon(name)`. Consumers should take the fix sha (recorded below once green), not c114f4a.
 - C1 icons fixed at d84a9d3: ui-shots green, with icons visible in 01-bar-first-run and 10-white-bar-output. rust failed only at Build installer, because the NSIS download returned HTTP 504 (runner network). The Rust sources are the same as 8c73071, whose rust run was green.
 - B-059: code landed in C1 (c114f4a): `ui:text-scale`, Ctrl+= / Ctrl+- / Ctrl+0 stepping 1.0..2.0 and invoking `settings:set-text-scale`, with a localStorage fallback. Acceptance (`zoomKeysInvokeTextScale`, the 200% scene variant) waits for harness C1 (`tools/ui-shots/lanes/bar.mjs`).
-- Every item is implemented as of e87e29b (S1 at 462b98f, B-150..B-156 at 232d253, smoke labels at f15367b, ui-shots scenes at e04d998, B-152/B-158/B-159/B-182 at 1996c41). ui-shots green at e87e29b; rust green except `styleStable` (see Blockers, windows lane).
+- Every item is implemented as of e87e29b (S1 at 462b98f, B-150..B-156 at 232d253, smoke labels at f15367b, ui-shots scenes at e04d998, B-152/B-158/B-159/B-182 at 1996c41). ui-shots green at e87e29b; rust green at 688cb40, `styleStable` included (windows fix 3c071b0 merged).
 - B-054: ui-shots green at e87e29b; tokensPresent, tokenMenuIsGMenu (and -ts200), bar-focus-ring.
-- B-055: ui-shots green at e87e29b; glassStopsDiffer, accentTextContrast, glass-level-* shots. SMOKE `styleStable` waits on the windows fix (Blockers).
+- B-055: ui-shots green at e87e29b; glassStopsDiffer, accentTextContrast, glass-level-* shots. SMOKE `styleStable` ok at 688cb40.
 - B-056: green at e87e29b; shiftEnterAddsRows, multilineSends (and -ts200), SMOKE barMultiline.
 - B-057: ui-shots green at e87e29b; targetChipOnlyWithTwoWindows, targetChipCutsTitle, targetChipDescribesField, ctrlTabCycles, targetChipStartsOver.
 - B-058: ui-shots green at e87e29b; sayRoutesByFocus, needsKeyNudgesAndAnnounces.
@@ -269,13 +269,13 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-158: ui-shots green at e87e29b; windowMenuOpens, windowMenuNudges, windowMenuOnRightClick, windowMenuMaximizes.
 - B-159: ui-shots green at e87e29b; toneFlipsWithHysteresis, lightToneDarkLabels (dark-editor and photo-busy backdrops blocked, see Blockers).
 - B-182: ui-shots green at e87e29b; reducedFoldHasNoBlur, reducedTokenLockFades (css-lint part blocked on B-145, see Blockers).
-- Standing labels: all print ok at e87e29b except `styleStable`, which fails on a windows-lane bug. The fix is 3c071b0 on origin/rust/windows (not yet on rust-rewrite); merge rust-rewrite once it lands and confirm.
+- Standing labels: all print ok at 688cb40, `styleStable` included, now that windows' 3c071b0 is on rust-rewrite.
 
 ## Blockers
 
 (Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
 
-- Standing labels, `styleStable` (also B-055's SMOKE): fails with `overlay pill-again WS_EX_NOACTIVATE=false (want true)`, a real bug where the orb can take focus after a real collapse; `src-tauri/src/windows/flags.rs` is the windows lane's. Inferred from the samples (pill 0x80c0138, bar 0x40118, pill-again 0xc0138) and not confirmed in tao's source: `set_focusable` sets the bit with a raw SetWindowLong, and the next `set_ignore_cursor_events` that changes state rewrites the extended style without it. Unblock: in `flags::set_click_through` and the poll, read WS_EX_NOACTIVATE before `w.set_ignore_cursor_events` and restore it after. Reported to the coordinator.
+- None. `styleStable` (overlay pill-again WS_EX_NOACTIVATE lost after a collapse) was a windows-lane bug, fixed by 3c071b0 and green at 688cb40.
 - B-156, row C-11 only: the placeholder stays `Answer the task's question` instead of `Type your answer for the task`, because `barAnswersTask` in `tools/ui-shots/lanes/sheet.mjs:140` requires `/question/i` and that file is the sheet lane's. Unblock: the sheet lane or integrator changes that regex to match the new copy (for example `/answer/i`) in the same merge as the placeholder change in `renderer/bar.js`.
 - B-182, "css-lint clean" only: B-145 has not landed, so there is no lint to pass and `cssLintEnforce` stays empty; glass.css and overlay.css still have raw `rgb()` values outside token blocks that B-145 will flag. Unblock: B-145 lands; then fix what it reports and list both files.
 - B-055 and B-159, the `dark-editor` and `photo-busy` runs only: `tools/ui-shots/shots.mjs` has only `wallpaper` and `white`, so those two backdrops cannot be shot, and `glassStopsDiffer` runs over wallpaper. Unblock: harness B-053 adds the backdrops; then add them to the glass-level and light-tone scenes.
