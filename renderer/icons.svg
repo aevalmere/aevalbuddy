@@ -2,14 +2,12 @@
   <!-- The one icon family (DESIGN.md "One system"): every glyph on a 20 px
        grid, a 1.5 px stroke that stays 1.5 px at any size
        (non-scaling-stroke), round caps and joins. The glyphs sit in one strip
-       24 units apart; glass.css masks a .ico element with the whole strip and
-       slides it to glyph N (.i-<name> sets --i), filled with currentColor.
-       The mask URL has no fragment on purpose: Chromium reads
-       url(icons.svg#name) in mask-image as a reference to an SVG <mask>
-       element and draws nothing for a <view>. The <view>s stay for <img>.
-       Order is the contract with glass.css: append, never reorder.
-       Sizes: 18 in a 32 px button, 16 in a 28 px button, 14 inline
-       (--ico, --ico-s, --ico-i). -->
+       24 units apart; glass.css masks a .ico element with the whole strip,
+       slides it to glyph N (set by .i-name) and fills it with currentColor.
+       The order is the contract with glass.css: append, never reorder.
+       Sizes: 18 in a 32 px button, 16 in a 28 px button, 14 inline.
+       This file must stay well-formed XML: a double hyphen inside a comment
+       makes the whole image fail to load, and every icon goes blank. -->
   <defs>
     <symbol id="s-x" viewBox="0 0 20 20">
       <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

@@ -394,10 +394,11 @@ html[data-shot-bg] body {
    whole strip, scaled so one glyph fills the box, and slid to glyph --i;
    the fill is currentColor, so an icon takes its control's colour and hover.
    The URL resolves against this file, so pages in settings/ and history/
-   find it too. It carries no #fragment: Chromium reads a fragment in
-   mask-image as an SVG <mask> reference and draws nothing.
+   find it too. It carries no #fragment, so it is plainly an image (a
+   fragment in mask-image may name an SVG <mask> element instead).
    Markup: <span class="ico i-x" aria-hidden="true"></span>, or
-   AevalGlass.icon('x'). A new glyph goes at the end of the strip. */
+   AevalGlass.icon('x'). A new glyph goes at the end of the strip, and the
+   sprite must stay well-formed XML or every icon goes blank. */
 .ico {
   --i: 0;
   display: inline-block;
