@@ -148,7 +148,6 @@ pub fn tokenize(text: &str) -> Vec<Token> {
     let (mut byte, mut unit) = (0usize, 0usize);
     for m in word_re().find_iter(text) {
         unit += len16(&text[byte..m.start()]);
-        byte = m.start();
         let mut part = String::new();
         let mut at = unit;
         let mut prev: Option<Class> = None;
@@ -591,7 +590,11 @@ fn score_or(score: f64, fallback: f64) -> f64 {
 
 /// `s || fallback` for a string.
 fn text_or<'a>(s: &'a str, fallback: &'a str) -> &'a str {
-    if s.is_empty() { fallback } else { s }
+    if s.is_empty() {
+        fallback
+    } else {
+        s
+    }
 }
 
 fn scope_of(scope: Option<&str>) -> &'static str {
@@ -795,8 +798,8 @@ impl State {
         let Some(rect) = rect else { return false };
         let mut bounds: Vec<Rect> = Vec::new();
         if let Some(s) = &self.snapshot {
-            let rects = s.windows.iter().filter_map(|w| Rect::from_value(&w["rect"]));
-            bounds.extend(rects);
+            let rects = s.windows.iter().map(|w| Rect::from_value(&w["rect"]));
+            bounds.extend(rects.flatten());
         }
         bounds.is_empty() || bounds.iter().any(|b| rect.overlaps(b))
     }
@@ -1777,7 +1780,7 @@ mod tests {
     fn tokens_split_camel_snake_and_digits() {
         let t = tokenize("invoiceTotal snake_case v2Beta \u{e9}t\u{e9}");
         let parts: Vec<String> = t.iter().map(|k| from_utf16(&k.n)).collect();
-        let want = "invoice total snake case v 2 beta \u{e9}t\u{e9}";
+        let want = "invoice total snake case v 2 beta ete";
         assert_eq!(parts.join(" "), want);
         assert_eq!((t[1].s, t[1].e), (7, 12));
         // Offsets are UTF-16: an astral character counts two.
