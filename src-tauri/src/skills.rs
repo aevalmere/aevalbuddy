@@ -28,6 +28,10 @@ use crate::llm::prompt::SkillText;
 
 pub const DEFAULT_ID: &str = "screen-assist";
 
+/// The most of a skill that rides along with a request: every question
+/// pays for it in tokens, and a free model's context is small (B-125).
+pub const MAX_BODY: usize = 8 * 1024;
+
 /// Order in the settings picker; anything else follows alphabetically.
 const ORDER: [&str; 4] = ["screen-assist", "debug", "explain", "rewrite"];
 
@@ -100,6 +104,8 @@ pub struct Skill {
     pub name: String,
     pub summary: String,
     pub body: String,
+    /// The file was longer than [`MAX_BODY`] and `body` is its start.
+    pub truncated: bool,
 }
 
 impl Skill {
@@ -148,11 +154,23 @@ pub fn parse(id: &str, raw: &str) -> Skill {
     if name.is_empty() {
         name = id.to_string();
     }
+    let body = body.trim();
+    let truncated = body.len() > MAX_BODY;
+    let body = if truncated {
+        let mut end = MAX_BODY;
+        while !body.is_char_boundary(end) {
+            end -= 1;
+        }
+        body[..end].trim_end()
+    } else {
+        body
+    };
     Skill {
         id: id.to_string(),
         name,
         summary: field(head, "summary"),
-        body: body.trim().to_string(),
+        body: body.to_string(),
+        truncated,
     }
 }
 
@@ -212,12 +230,20 @@ impl Skills {
         Skills { all }
     }
 
-    /// Every skill without its body: enough for the settings picker.
+    /// Every skill without its body: enough for the settings picker, which
+    /// says when a file was cut to [`MAX_BODY`].
     pub fn list(&self) -> Value {
         let rows: Vec<Value> = self
             .all
             .iter()
-            .map(|s| json!({ "id": s.id, "name": s.name, "summary": s.summary }))
+            .map(|s| {
+                json!({
+                    "id": s.id,
+                    "name": s.name,
+                    "summary": s.summary,
+                    "truncated": s.truncated,
+                })
+            })
             .collect();
         Value::Array(rows)
     }
@@ -292,10 +318,27 @@ mod tests {
             name: name.into(),
             summary: String::new(),
             body: "b".into(),
+            truncated: false,
         };
         let s = Skills::from_skills(vec![mk("z", "beta"), mk("y", "Alpha"), mk("debug", "D")]);
         let ids: Vec<&str> = s.all.iter().map(|k| k.id.as_str()).collect();
         assert_eq!(ids, ["debug", "y", "z"]);
+    }
+
+    #[test]
+    fn large_skill_is_truncated() {
+        let long = format!("---\nname: Long\n---\n{}", "é".repeat(MAX_BODY));
+        let k = parse("long", &long);
+        assert!(k.truncated);
+        assert!(k.body.len() <= MAX_BODY);
+        assert!(k.body.chars().all(|c| c == 'é'));
+        let s = Skills::from_skills(vec![k, parse("short", "fine")]);
+        let rows = s.list();
+        let list = rows.as_array().unwrap();
+        let row = |id: &str| list.iter().find(|r| r["id"] == id).cloned().unwrap();
+        assert_eq!(row("long")["truncated"], json!(true));
+        assert_eq!(row("short")["truncated"], json!(false));
+        assert!(!parse("x", "short body").truncated);
     }
 
     #[test]

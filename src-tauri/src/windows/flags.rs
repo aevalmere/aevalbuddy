@@ -16,7 +16,8 @@
 //!
 //! Never SetLayeredWindowAttributes or opacity (WIN-15).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -41,7 +42,19 @@ use crate::state::Rect;
 
 const WDA_EXCLUDEFROMCAPTURE: u32 = 0x11;
 const PBT_APMRESUMEAUTOMATIC: usize = 0x12;
+const WM_DISPLAYCHANGE: u32 = 0x007E;
+const WM_STYLECHANGING: u32 = 0x007C;
 const SUBCLASS_ID: usize = 0xAEBA;
+
+/// STYLESTRUCT: what WM_STYLECHANGING's lParam points at.
+#[repr(C)]
+struct StyleStruct {
+    _style_old: u32,
+    style_new: u32,
+}
+
+/// For the subclass, which Windows calls with no app in hand.
+static APP: OnceLock<AppHandle> = OnceLock::new();
 /// Resize band around the glass, DIPs.
 pub const BAND: f64 = 8.0;
 
@@ -103,6 +116,7 @@ pub fn adopt(app: &AppHandle, w: &WebviewWindow, meta: Meta) {
     let Some(hwnd) = hwnd_of(w) else {
         return;
     };
+    let _ = APP.set(app.clone());
     labels().lock().insert(w.label().to_string(), hwnd);
     metas().lock().insert(hwnd, meta);
     let _ = app.run_on_main_thread(move || {
@@ -116,11 +130,32 @@ pub fn adopt(app: &AppHandle, w: &WebviewWindow, meta: Meta) {
     });
 }
 
-pub fn forget(label: &str) {
-    if let Some(hwnd) = labels().lock().remove(label) {
-        metas().lock().remove(&hwnd);
+/// The labels registered to `hwnd`, taken out of `map`. A label already
+/// registered to a newer window stays (B-092).
+fn drop_handle(map: &mut HashMap<String, isize>, hwnd: isize) -> Vec<String> {
+    let gone: Vec<String> = map
+        .iter()
+        .filter(|(_, v)| **v == hwnd)
+        .map(|(l, _)| l.clone())
+        .collect();
+    map.retain(|_, v| *v != hwnd);
+    gone
+}
+
+/// The window behind `hwnd` is being destroyed (its subclass sees
+/// WM_NCDESTROY): everything kept for that handle goes, and nothing kept
+/// for a window that reopened under the same label at once (B-092, B-093).
+pub fn forget_hwnd(hwnd: isize) {
+    let gone = drop_handle(&mut labels().lock(), hwnd);
+    metas().lock().remove(&hwnd);
+    no_activate().lock().remove(&hwnd);
+    {
+        let mut c = clicks().lock();
+        for label in gone {
+            c.remove(&label);
+        }
     }
-    clicks().lock().remove(label);
+    super::motion::forget(hwnd);
 }
 
 pub fn set_meta(hwnd: isize, f: impl FnOnce(&mut Meta)) {
@@ -175,8 +210,32 @@ pub fn is_tool_window(hwnd: isize) -> bool {
     ex_style(hwnd) & WS_EX_TOOLWINDOW as isize != 0
 }
 
+/// Windows that must not take focus (`set_focusable(false)`).
+fn no_activate() -> &'static Mutex<HashSet<isize>> {
+    static N: OnceLock<Mutex<HashSet<isize>>> = OnceLock::new();
+    N.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// The extended style a window ends up with, whoever writes it. tao
+/// rebuilds the whole style from its own flags on any change it makes
+/// (click-through, topmost, maximize), which drops the bits it does not
+/// know: the tool-window style (WIN-03) and the orb's no-activate (D-B10).
+fn kept_ex_style(new: u32, no_activate: bool) -> u32 {
+    let tool = (new | WS_EX_TOOLWINDOW) & !WS_EX_APPWINDOW;
+    if no_activate {
+        tool | WS_EX_NOACTIVATE
+    } else {
+        tool
+    }
+}
+
 /// Electron's setFocusable: WS_EX_NOACTIVATE off or on.
 pub fn set_focusable(hwnd: isize, focusable: bool) {
+    if focusable {
+        no_activate().lock().remove(&hwnd);
+    } else {
+        no_activate().lock().insert(hwnd);
+    }
     let s = ex_style(hwnd);
     let want = if focusable {
         s & !(WS_EX_NOACTIVATE as isize)
@@ -236,6 +295,12 @@ pub fn pin_on_top(hwnd: isize) {
 pub fn is_visible(hwnd: isize) -> bool {
     // SAFETY: a query.
     unsafe { IsWindowVisible(h(hwnd)) != 0 }
+}
+
+/// Whether the window is maximized (B-024).
+pub fn is_maximized(hwnd: isize) -> bool {
+    // SAFETY: a query.
+    unsafe { windows_sys::Win32::UI::WindowsAndMessaging::IsZoomed(h(hwnd)) != 0 }
 }
 
 /// Shows without taking focus from the app in front (showInactive).
@@ -392,6 +457,9 @@ pub fn set_rect_px(hwnd: isize, r: Rect) {
 }
 
 pub fn scale_of(hwnd: isize) -> f64 {
+    if let Some(forced) = super::screen::forced_scale() {
+        return forced;
+    }
     // SAFETY: a query.
     let dpi = unsafe { GetDpiForWindow(h(hwnd)) };
     if dpi == 0 {
@@ -451,6 +519,8 @@ fn band_hit(hwnd: isize, x: f64, y: f64) -> Option<u32> {
     hit_test(rect_px(hwnd), m.margin * s, BAND * s, m.resize, x, y)
 }
 
+/// B-090: a panic in the handling never unwinds into Win32; the message
+/// then gets the default handling.
 unsafe extern "system" fn subclass(
     hwnd: HWND,
     msg: u32,
@@ -459,19 +529,29 @@ unsafe extern "system" fn subclass(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    let answered = catch_unwind(AssertUnwindSafe(|| on_message(hwnd, msg, wparam, lparam)));
+    match answered {
+        Ok(Some(r)) => r,
+        _ => DefSubclassProc(hwnd, msg, wparam, lparam),
+    }
+}
+
+/// The subclass's own handling: Some(result) when it answers the message,
+/// None for the default handling.
+unsafe fn on_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Option<LRESULT> {
     let key = hwnd as isize;
     match msg {
         WM_NCHITTEST => {
             let x = f64::from((lparam & 0xFFFF) as u16 as i16);
             let y = f64::from(((lparam >> 16) & 0xFFFF) as u16 as i16);
             if let Some(code) = band_hit(key, x, y) {
-                return code as LRESULT;
+                return Some(code as LRESULT);
             }
             let m = meta(key);
             if m.margin > 0.0 {
                 // The rest of a margined window is client area: the default
                 // border hit-test would make the invisible outer edge resize.
-                return 1;
+                return Some(1);
             }
         }
         WM_GETMINMAXINFO => {
@@ -492,18 +572,28 @@ unsafe extern "system" fn subclass(
             if m.max.1 > 0.0 {
                 info.ptMaxTrackSize.y = px(m.max.1);
             }
-            return r;
+            return Some(r);
         }
         WM_POWERBROADCAST if wparam == PBT_APMRESUMEAUTOMATIC => {
             crate::updater::on_resume();
         }
+        WM_DISPLAYCHANGE => {
+            if let Some(app) = APP.get() {
+                super::on_display_change(app);
+            }
+        }
+        WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
+            let keep = no_activate().lock().contains(&key);
+            let change = &mut *(lparam as *mut StyleStruct);
+            change.style_new = kept_ex_style(change.style_new, keep);
+        }
         WM_NCDESTROY => {
             RemoveWindowSubclass(hwnd, Some(subclass), SUBCLASS_ID);
-            metas().lock().remove(&key);
+            forget_hwnd(key);
         }
         _ => {}
     }
-    DefSubclassProc(hwnd, msg, wparam, lparam)
+    None
 }
 
 // ------------------------------------------------------------ click-through
@@ -548,9 +638,30 @@ pub fn is_click_through(label: &str) -> bool {
     clicks().lock().get(label).is_some_and(|c| c.effective)
 }
 
-fn mouse_down() -> bool {
+pub(super) fn mouse_down() -> bool {
     // SAFETY: a query.
     (unsafe { GetAsyncKeyState(i32::from(VK_LBUTTON)) } as u16 & 0x8000) != 0
+}
+
+/// The poll runs at 60 Hz while the pointer is within this many DIPs of a
+/// click-through window, else at 4 Hz (B-091).
+const NEAR: f64 = 64.0;
+
+/// Whether (x, y) is within `pad` of `r`.
+pub fn near(r: Rect, x: f64, y: f64, pad: f64) -> bool {
+    x >= r.x - pad && x <= r.x + r.width + pad && y >= r.y - pad && y <= r.y + r.height + pad
+}
+
+/// What the poll may apply to `label` now: the new value when the window
+/// still asks for click-through and the value changes, else None. The poll
+/// works from a snapshot; a `set_click_through(false)` since then wins.
+fn poll_apply(map: &mut HashMap<String, Click>, label: &str, effective: bool) -> Option<bool> {
+    let c = map.get_mut(label)?;
+    if !c.requested || c.effective == effective {
+        return None;
+    }
+    c.effective = effective;
+    Some(effective)
 }
 
 /// Starts the forwarding poll (once, at boot).
@@ -558,16 +669,15 @@ pub fn start_poll(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || loop {
         let any = clicks().lock().values().any(|c| c.requested);
-        if !any {
-            std::thread::sleep(Duration::from_millis(100));
-            continue;
-        }
-        poll_once(&app);
-        std::thread::sleep(Duration::from_millis(16));
+        let close = any && poll_once(&app);
+        std::thread::sleep(Duration::from_millis(if close { 16 } else { 250 }));
     });
 }
 
-fn poll_once(app: &AppHandle) {
+/// One look at the pointer. Returns whether it is near a click-through
+/// window, so the next look comes soon.
+fn poll_once(app: &AppHandle) -> bool {
+    let mut close = false;
     let (cx, cy) = super::screen::cursor_px();
     let down = mouse_down();
     let snapshot: Vec<(String, Click)> = clicks()
@@ -588,15 +698,24 @@ fn poll_once(app: &AppHandle) {
         };
         let r = rect_px(hwnd);
         let inside = r.contains(cx, cy);
+        let s = scale_of(hwnd);
+        close |= near(r, cx, cy, NEAR * s);
         if !down {
             let effective = band_hit(hwnd, cx, cy).is_none();
             if effective != c.effective {
                 c.effective = effective;
-                let _ = w.set_ignore_cursor_events(effective);
+                // Applied on the main thread after a fresh look at the
+                // request, so a stale snapshot never turns it back on.
+                let (a, l) = (app.clone(), label.clone());
+                let _ = app.run_on_main_thread(move || {
+                    let apply = poll_apply(&mut clicks().lock(), &l, effective);
+                    if let (Some(v), Some(w)) = (apply, a.get_webview_window(&l)) {
+                        let _ = w.set_ignore_cursor_events(v);
+                    }
+                });
             }
         }
         if c.effective {
-            let s = scale_of(hwnd);
             let px = (cx as i32, cy as i32);
             if inside && px != c.last {
                 let x = (cx - r.x) / s;
@@ -612,11 +731,11 @@ fn poll_once(app: &AppHandle) {
         }
         c.inside = inside;
         if let Some(slot) = clicks().lock().get_mut(&label) {
-            slot.effective = c.effective;
             slot.inside = c.inside;
             slot.last = c.last;
         }
     }
+    close
 }
 
 #[cfg(test)]
@@ -652,6 +771,58 @@ mod tests {
         assert_eq!(t(300.0, 114.0), None);
         assert_eq!(t(116.0, 116.0), None);
         assert_eq!(hit_test(win(), 20.0, 8.0, Resize::None, 115.0, 200.0), None);
+    }
+
+    /// The values the bar lane's `styleStable` probe sampled: tao's rewrite
+    /// dropped WS_EX_NOACTIVATE and WS_EX_TOOLWINDOW and set WS_EX_APPWINDOW.
+    #[test]
+    fn style_rewrite_keeps_our_bits() {
+        assert_eq!(kept_ex_style(0xc0138, true), 0x0808_01b8);
+        assert_eq!(kept_ex_style(0x40118, false), 0x198);
+        // Whatever else the rewrite changes, it changes.
+        let opaque = kept_ex_style(0xc0138, true) & !0x0008_0020;
+        assert_eq!(opaque, kept_ex_style(0x40118, true));
+    }
+
+    #[test]
+    fn stale_snapshot_does_not_reapply_ignore() {
+        let mut map: HashMap<String, Click> = HashMap::new();
+        let on = Click {
+            requested: true,
+            ..Click::default()
+        };
+        map.insert("overlay".into(), on);
+        // The poll's snapshot said click-through; it was turned off since.
+        map.get_mut("overlay").unwrap().requested = false;
+        assert_eq!(poll_apply(&mut map, "overlay", true), None);
+        assert!(!map["overlay"].effective);
+        // Still asked for: the change applies, once.
+        map.get_mut("overlay").unwrap().requested = true;
+        assert_eq!(poll_apply(&mut map, "overlay", true), Some(true));
+        assert_eq!(poll_apply(&mut map, "overlay", true), None);
+        assert_eq!(poll_apply(&mut map, "gone", true), None);
+    }
+
+    #[test]
+    fn poll_is_fast_only_near_a_window() {
+        let r = Rect::new(100.0, 100.0, 400.0, 200.0);
+        assert!(near(r, 300.0, 200.0, 64.0));
+        assert!(near(r, 40.0, 100.0, 64.0));
+        assert!(!near(r, 30.0, 100.0, 64.0));
+        assert!(!near(r, 300.0, 370.0, 64.0));
+    }
+
+    #[test]
+    fn forget_by_hwnd_keeps_new_window() {
+        let mut map: HashMap<String, isize> = HashMap::new();
+        // Settings closed (handle 1) and opened again at once (handle 2).
+        map.insert("settings".into(), 2);
+        map.insert("overlay".into(), 3);
+        assert!(drop_handle(&mut map, 1).is_empty());
+        assert_eq!(map.get("settings"), Some(&2));
+        assert_eq!(drop_handle(&mut map, 2), vec!["settings".to_string()]);
+        assert_eq!(map.get("overlay"), Some(&3));
+        assert_eq!(map.len(), 1);
     }
 
     #[test]

@@ -33,6 +33,7 @@ models to a paid provider`, then the storage line (C-58) from `keyStorage`.
 | --- | --- |
 | No credit and Not checked also offer a quiet `Remove` | §3.2 lists only `Add credit`/`Test again` and `Test again`; a key that cannot be checked or has no credit is the one a person most wants gone, and Remove still asks first |
 | The status line under the list is visually hidden | the open row already shows the new state; a second visible copy of it would be noise for sighted users |
+| Status glyphs (ring, spinner, circled check, cross, alert, clock, dash) and the drag grip are drawn inline, on the sprite's grid and stroke; chevrons, close, check, search and trash are sprite spans (`ico i-<name>`) | the K-40 sprite has no status set yet; these become `i-<name>` spans when it gains one |
 
 ## DESIGN · Tauri rewrite: the requests that changed the surfaces · B-070
 Add:

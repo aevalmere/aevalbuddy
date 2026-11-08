@@ -334,6 +334,11 @@ mark {
   color: var(--label-2);
 }
 
+#foot > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 #count,
 #note {
   flex: 1 1 auto;
