@@ -410,6 +410,15 @@ import `state.rs`, `store/**` or `desktop/**`.
 | `DesktopOps` | `agent/seams.rs` | (c), a match over `method` onto `desktop::Desktop` | lib/desktop/index.js as JSON: export name plus its one options object, reply as (c) returns it; errors as `DeskError {code, message}` |
 | `Emitter` | `agent/seams.rs` | (a) | `emit(channel, payload)` to the windows that render it |
 | `FindHost` | `find.rs` | (a) | Find settings (`related` off/auto/ask, `ocr`), `online()`, `active()`, the Find model id, `emit`, `on_lens`, `notify` |
+| `AgentHost` (: `Emitter`) | `agent/run.rs` | (a) | `getAgentSettings()` (`every`, `max_steps`, `screenshots`, `return_cursor`), `active()`, the agent model, `online()`, `point_at`, `frame`, `show_trail`, `dodge`, `open_target`, `own_focused`, the clipboard, `on_finish(RunReport)` (main.js `finishAgentRun`; `trail_text(rows)` is in run.rs), `on_state` |
+
+Wiring onto §11 at the merge (glue in `ipc.rs`/`state.rs` setup, nothing inside (b)'s files):
+`LlmSettings::api_key(p)` is `store::get().get_provider_key(p.id())` (the migrated OpenRouter key
+included). `AgentHost::show_trail` calls the `show_trail` hook, which owns the trail and the answer
+dodge. `settings_extra()` returns the healed ids (`Llm::resolve_known` per `Kind`) and
+`Skills::list()`. `chat:new` and `bar:mode` stay with (a); if (b) routes them, it keeps the
+§11.5 calls (`new_chat` / `outputs::reset`, the `set_bar_mode` hook). A run's events go to the
+label `outputs::target(app)` gave at `agent:start`.
 
 Providers (REQUESTS 2). `llm/provider.rs` names four: OpenRouter, Anthropic, OpenAI, Gemini. A key is
 recognised by prefix (`sk-or-`, `sk-ant-`, `sk-`/`sk-proj-`, `AIza`); `provider_override()` wins when
