@@ -17,49 +17,5 @@
       Adding toml_edit v0.20.2 (available: v0.20.7)
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
- Downloading crates ...
-  Downloaded rustls-native-certs v0.8.5
-  Downloaded schannel v0.1.30
-  Downloaded windows-registry v0.6.1
-  Downloaded png v0.17.16
-    Checking windows-sys v0.61.2
-    Checking windows v0.62.2
-    Checking windows-registry v0.6.1
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Checking bitflags v1.3.2
-    Checking png v0.17.16
-    Checking mio v1.2.4
-    Checking socket2 v0.6.5
-    Checking winapi-util v0.1.11
-    Checking same-file v1.0.6
-    Checking walkdir v2.5.0
-    Checking softbuffer v0.4.8
-    Checking tauri-utils v2.10.2
-    Checking tokio v1.54.1
-    Checking muda v0.20.0
-    Checking dirs-sys v0.5.0
-    Checking dirs v7.0.0
-    Checking tray-icon v0.25.1
-    Checking window-vibrancy v0.8.1
-    Checking schannel v0.1.30
-    Checking rustls-native-certs v0.8.5
-    Checking arboard v3.7.0
-    Checking hyper v1.12.0
-    Checking tower v0.5.3
-    Checking tokio-rustls v0.26.6
-    Checking tower-http v0.6.11
-    Checking hyper-util v0.1.21
-    Checking tokio-util v0.7.20
-    Checking hyper-rustls v0.27.10
-    Checking reqwest v0.12.28
-    Checking webview2-com-sys v0.39.1
-    Checking tao v0.37.2
-    Checking webview2-com v0.39.1
-    Checking wry v0.57.1
-    Checking tauri-runtime v2.12.2
-    Checking tauri-runtime-wry v2.12.3
-    Checking tauri v2.12.5
-    Checking tauri-plugin-clipboard-manager v2.5.0
-    Checking tauri-plugin-global-shortcut v2.4.1
-    Checking tauri-plugin-opener v2.7.2
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 59.28s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.72s

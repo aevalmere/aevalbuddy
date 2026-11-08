@@ -28,7 +28,7 @@
 [SMOKE] v2desktop=ok
 [SMOKE] done
 --- stderr ---
-[1108/145446.095:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/151128.105:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 0
 [GATE] SMOKE lines=21 listed=18
 [GATE] verdict=ok
