@@ -1,12 +1,11 @@
-# rust: failure
+# rust: success
 
 - Workflow: rust
-- Run: [42453513059](https://github.com/aevalmere/aevalbuddy/actions/runs/42453513059), attempt 1, on push
-- Commit: 3ef76295f350b57f3dc056562c9b505ca2304a87
+- Run: [42463431298](https://github.com/aevalmere/aevalbuddy/actions/runs/42463431298), attempt 1, on push
+- Commit: 89fd79a2dd90c3bb2ea27abfad47829061b59cd0
 - Ref: rust/agent
-- Conclusion: **failure**
-- Failed: Format, Capture check, Desktop selfcheck
-- Finished: 2026-11-08T06:15:05Z
+- Conclusion: **success**
+- Finished: 2026-11-08T08:45:52Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -16,14 +15,14 @@
 | Cache cargo | success |  |
 | Gate helper | success |  |
 | Prebuild desktop helper | success | [prebuild.log](prebuild.log) |
-| Format | failure | [fmt.log](fmt.log) |
-| Format patch | success | [fmt.patch](fmt.patch) |
+| Format | success |  |
+| Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
-| Build installer | skipped |  |
-| Scaffold smoke | skipped |  |
-| Capture check | failure | [capture.log](capture.log) |
-| Desktop selfcheck | failure | [desktop.log](desktop.log) |
-| Upload installer | skipped |  |
+| Build installer | success | [build.log](build.log) |
+| Scaffold smoke | success | [smoke.log](smoke.log) |
+| Capture check | success | [capture.log](capture.log) |
+| Desktop selfcheck | success | [desktop.log](desktop.log) |
+| Upload installer | success |  |
 
-errors.txt: 11 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
