@@ -1188,7 +1188,8 @@ function emptySheet() {
   return p;
 }
 
-listen('chat:reset', () => {
+listen('chat:reset', (p) => {
+  const undoMs = p && Number.isFinite(p.undoMs) ? p.undoMs : UNDO_MS;
   closeRetryMenu(false);
   stopCountdown();
   clearInterval(waitTimer);
@@ -1199,6 +1200,16 @@ listen('chat:reset', () => {
   titled = false;
   setTitle('Answer', '');
   syncOrbit();
+  clearTimeout(resetTimer);
+  opanel.hidden = false;
+  // Nothing to undo (the window was empty): the empty sheet at once.
+  if (undoMs <= 0) {
+    chatEl.appendChild(emptySheet());
+    syncCopyAll();
+    markOverflow();
+    requestResize();
+    return;
+  }
   const row = document.createElement('div');
   row.className = 'msg note-row reset-row';
   const text = document.createElement('span');
@@ -1213,21 +1224,25 @@ listen('chat:reset', () => {
     } catch (err) {
       p = Promise.reject(err);
     }
-    // Rust restores the conversation and replays it (chat:sync).
-    Promise.resolve(p).catch(() => {
+    // Rust restores the conversation and replays it (chat:sync); {ok: false}
+    // when something new was asked since, or the time ran out.
+    const failed = () => {
       undo.remove();
       text.textContent = "Couldn't bring it back here. It is in History.";
-    });
+    };
+    Promise.resolve(p)
+      .then((r) => {
+        if (r && r.ok === false) failed();
+      })
+      .catch(failed);
   });
   row.append(text, undo);
   chatEl.appendChild(row);
   say('Started over. The last conversation is in History.');
-  clearTimeout(resetTimer);
   resetTimer = setTimeout(() => {
     if (row.isConnected) row.replaceWith(emptySheet());
     requestResize();
-  }, UNDO_MS);
-  opanel.hidden = false;
+  }, undoMs);
   syncCopyAll();
   markOverflow();
   requestResize();

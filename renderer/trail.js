@@ -488,7 +488,7 @@ function hear(r, before) {
   if (!block) return;
   if (r.kind === 'ask' && r.state === 'running' && !block.said.has(`ask${r.id}`)) {
     block.said.add(`ask${r.id}`);
-    say(`The task has a question: ${r.text}. Type your answer in the bar.`, 'assertive');
+    say(`The task has a question: ${r.text}${/[.?!]$/.test(r.text) ? '' : '.'} Type your answer in the bar.`, 'assertive');
     return;
   }
   if (!isAct(r)) return;
