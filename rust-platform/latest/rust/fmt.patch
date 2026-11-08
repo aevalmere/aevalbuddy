@@ -1,0 +1,16 @@
+diff --git a/src-tauri/src/tray.rs b/src-tauri/src/tray.rs
+index 0d787fb..58cd0bf 100644
+--- a/src-tauri/src/tray.rs
++++ b/src-tauri/src/tray.rs
+@@ -327,7 +327,10 @@ fn snapshot(app: &AppHandle) -> (Vec<Item>, String) {
+         manual: &m,
+         now: crate::state::now_ms(),
+     };
+-    (template(&input), tooltip(&update, agent_running, &shortcuts))
++    (
++        template(&input),
++        tooltip(&update, agent_running, &shortcuts),
++    )
+ }
+ 
+ /// A live row: the menu item for a label, or a separator.
