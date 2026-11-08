@@ -910,7 +910,9 @@ impl Ctx {
             s.final_text = text.to_string();
             Some((s.confirming.take(), s.asking.take(), s.plan_wait.take()))
         });
-        let Some((confirming, asking, plan_wait)) = taken else { return };
+        let Some((confirming, asking, plan_wait)) = taken else {
+            return;
+        };
         self.r.cancel.cancel();
         if let Some((_, tx)) = confirming {
             let _ = tx.send(false);
@@ -1505,7 +1507,9 @@ impl Ctx {
                 "depth": 1,
                 "maxNodes": 1,
             });
-            let Ok(tree) = self.op("readTree", args).await else { return };
+            let Ok(tree) = self.op("readTree", args).await else {
+                return;
+            };
             let g = tree.get("generation").cloned();
             if g.is_some() && g == last {
                 return;
@@ -1530,8 +1534,12 @@ impl Ctx {
     /// read and added.
     async fn popups(&self, before: Option<&HashSet<String>>, target: &Value) -> (String, String) {
         let (mut text, mut summary) = (String::new(), String::new());
-        let Some(before) = before else { return (text, summary) };
-        let Ok(list) = self.op("listWindows", json!({})).await else { return (text, summary) };
+        let Some(before) = before else {
+            return (text, summary);
+        };
+        let Ok(list) = self.op("listWindows", json!({})).await else {
+            return (text, summary);
+        };
         let list = list.as_array().cloned().unwrap_or_default();
         let home = list.iter().find(|w| &w["handle"] == target);
         let fresh: Vec<&Value> = list
@@ -1578,12 +1586,16 @@ impl Ctx {
         };
         let ref_ = arg_ref(&call.args);
         let node = info.t.node.as_ref().filter(|n| truthy(&n["name"]));
-        let (Some(ref_), Some(node)) = (ref_, node) else { return Err(err) };
+        let (Some(ref_), Some(node)) = (ref_, node) else {
+            return Err(err);
+        };
         if err.code != "STALE_REF" {
             return Err(err);
         }
         let args = json!({ "windowHandle": self.target(), "filter": "interactive" });
-        let Ok(tree) = self.op("readTree", args).await else { return Err(err) };
+        let Ok(tree) = self.op("readTree", args).await else {
+            return Err(err);
+        };
         let same: Vec<&Value> = nodes_of(&tree)
             .iter()
             .filter(|n| {
@@ -1736,7 +1748,9 @@ impl Ctx {
                 match self.op("resolve", json!({ "ref": ref_ })).await {
                     Ok(again) => {
                         let now = centre(&again["node"]["rect"]);
-                        let (Some(b), Some(n)) = (before, now) else { break };
+                        let (Some(b), Some(n)) = (before, now) else {
+                            break;
+                        };
                         if (n.x - b.x).abs() <= 4 && (n.y - b.y).abs() <= 4 {
                             break;
                         }
@@ -1950,9 +1964,7 @@ impl Ctx {
 
     fn offline_text(&self) -> String {
         let turns = self.st(|s| s.turns);
-        format!(
-            "No connection. The agent stopped after step {turns}; nothing else was done."
-        )
+        format!("No connection. The agent stopped after step {turns}; nothing else was done.")
     }
 
     fn opening(&self, fg: Option<&Value>, windows: &str, first: &Obs) -> String {
