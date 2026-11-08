@@ -398,6 +398,8 @@ pub fn page_ready() {
             .is_some_and(|st| st.card);
         (s.queued.take(), s.active, s.mode, card)
     });
+    // A new page starts out letting the mouse through; so does the window.
+    set_click_through(true);
     match queued {
         Some(q) => send_show(q),
         None if active && mode == Mode::Points => show_current_point(),

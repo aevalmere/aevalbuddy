@@ -577,20 +577,49 @@ fn reuse(cx: &Cx) {
 /// B-114: a pointer page whose renderer dies comes back, and the window has
 /// stopped eating clicks.
 fn reload(cx: &Cx) {
-    buddy::show_points(vec![point_at(120.0, 140.0, "reload point")], None);
+    // The point goes in the quarter of the display away from the real
+    // cursor, which earlier probes leave wherever their input ended: a page
+    // whose bubble is under the cursor takes the mouse, as it should.
+    let d = screen::primary(&screen::all_displays());
+    let b = d.bounds;
+    let cursor = screen::cursor_phys().unwrap_or((d.phys.x, d.phys.y));
+    let left = f64::from(cursor.0 - d.phys.x) / d.scale_factor < b.width / 2.0;
+    let top = f64::from(cursor.1 - d.phys.y) / d.scale_factor < b.height / 2.0;
+    let x = if left {
+        b.x + b.width - 360.0
+    } else {
+        b.x + 120.0
+    };
+    let y = if top {
+        b.y + b.height - 260.0
+    } else {
+        b.y + 140.0
+    };
+    buddy::show_points(vec![point_at(x, y, "reload point")], Some(&d));
     let shown = pointer_shows(cx, "reload point", Duration::from_secs(5));
     buddy::set_click_through(false);
     let _ = cx.eval(buddy::LABEL, "(window.smokeBefore = 1)");
     let crashed = crash_renderer(cx, buddy::LABEL);
     let t = Instant::now();
     let new_page = "window.smokeBefore === undefined";
+    // Each condition on its own, so a failure says which one held out. The
+    // page check has a short timeout: a script started in a page that is
+    // being replaced never settles, and a 5 s eval would use up the budget.
+    let (mut through, mut ready, mut fresh) = (false, false, false);
     let back = cx.wait_for(Duration::from_secs(5), || {
-        buddy::lets_mouse_through()
-            && buddy::is_ready()
-            && cx.eval(buddy::LABEL, new_page) == Ok(json!(true))
+        through = buddy::lets_mouse_through();
+        ready = buddy::is_ready();
+        if through && ready && !fresh {
+            let short = Duration::from_millis(400);
+            fresh = cx.eval_for(buddy::LABEL, new_page, short) == Ok(json!(true));
+        }
+        through && ready && fresh
     });
     let ms = t.elapsed().as_millis();
-    let value = format!("shown={shown} crash={crashed:?} back={back} in {ms}ms");
+    let value = format!(
+        "shown={shown} crash={crashed:?} back={back} in {ms}ms \
+         (clickThrough={through} ready={ready} freshPage={fresh} cursor={cursor:?})"
+    );
     check(cx, "buddyReload", shown && crashed.is_ok() && back, value);
     buddy::cancel();
 }
