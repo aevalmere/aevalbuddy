@@ -18,7 +18,9 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 1 | capture | C1 | `f343f64` | `6fcad0f` | green at `3bc8979` | green at `3bc8979` | Pushed together with #2 |
 | 2 | bar | C1 | `c114f4a` | `8e20ad6` | green at `3bc8979` | green at `3bc8979` | Pushed together with #1. Its icons draw nothing (malformed `icons.svg`); the bar fix follow-up is merged next |
 | 3 | agent | C1 | `89fd79a` | `3849c7a` | cancelled by #4's push | n/a | `3ef7629` (red: fmt) plus its rustfmt fix |
-| 4 | bar | C1 follow-up | `d84a9d3` | `f355865` | pending | pending | Icons as CSS masks of a well-formed `icons.svg`. Renderer only. Merged on the coordinator's call with ui-shots green and its rust run red only on an NSIS download 504 in Build installer |
+| 4 | bar | C1 follow-up | `d84a9d3` | `f355865` | cancelled by #5's push | pending | Icons as CSS masks of a well-formed `icons.svg`. Renderer only. Merged on the coordinator's call with ui-shots green and its rust run red only on an NSIS download 504 in Build installer |
+| 5 | platform | C1 | `caadb51` | `17e55bb` | pending | n/a | `040ad93` + `3e74cba` (windows 0.62 core for webview2-com) + a Progress-only commit. At `3e74cba` every gate passed but Build installer (NSIS download 504); merged on the coordinator's rule |
+| 6 | harness | C1 | `3bc261f` | `bd5e3f7` | pending | pending | K-30 selftest API and probes per lane, K-31 ui-shots lane files (old scenes moved into bar, sheet, settings), strict smoke step |
 
 ## Reverts
 
@@ -30,7 +32,7 @@ None.
 
 ## Open integration issues
 
-- platform C1 `040ad93`: red (fmt diff in `crash.rs`, compile errors from two `windows_result` versions). Not merged; waiting for a green platform C1.
+- Coordinator rule (standing): a C1 or checkpoint commit whose only red step is a bundler download 504 in Build installer counts as green. If rust-rewrite's own Build installer flakes the same way, push an empty commit to re-run; do not revert.
 
 ## Base
 

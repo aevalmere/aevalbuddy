@@ -1,0 +1,4 @@
+# Every label src-tauri/src/selftest/probes/sheet.rs prints under AEVAL_SMOKE,
+# one per line. The rust workflow's Smoke step (tools/smoke-gate.mjs) fails
+# when a listed label never prints or prints =FAIL. List a label in the same
+# commit that makes it print; never remove one to get green.

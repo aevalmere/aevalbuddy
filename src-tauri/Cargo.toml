@@ -14,47 +14,114 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# Dependencies are grouped by the lane whose code needs them
+# (.claude/rust-rewrite/BACKLOG.md, "Hotspots"). A lane adds a dependency, or
+# a feature to the windows / windows-sys arrays below, only inside its own
+# block. Crates every lane uses sit in the platform block; ask platform to
+# change those.
 [dependencies]
+# ---- lane: platform ----
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-
-# Core (agent a): store, history, hotkeys, tray, updater, windows, instance.
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 parking_lot = "0.12"
 tokio = { version = "1", features = ["sync", "time", "net", "io-util", "process", "rt", "rt-multi-thread", "macros"] }
-aes-gcm = "0.10"
 base64 = "0.22"
-sha2 = "0.10"
 rand = "0.8"
 regex = "1"
+url = "2"
+aes-gcm = "0.10"
+# Also llm's PKCE (B-039).
+sha2 = "0.10"
 semver = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
-raw-window-handle = "0.6"
 winreg = "0.55"
 tauri-winrt-notification = "0.7"
-windows-sys = { version = "0.59", features = [
-  "Win32_Foundation",
-  "Win32_Graphics_Gdi",
-  "Win32_Networking_WinInet",
-  "Win32_Security",
-  "Win32_Security_Cryptography",
-  "Win32_System_Threading",
-  "Win32_UI_HiDpi",
-  "Win32_UI_Input_KeyboardAndMouse",
-  "Win32_UI_Shell",
-  "Win32_UI_WindowsAndMessaging",
-] }
+# The WebView2 COM types behind PlatformWebview::controller(). Must be the
+# version wry uses; it builds on the same windows 0.62 as the windows crate
+# below, so use windows::core with it (crash::guard_webview, harness Cx::eval
+# and CapturePreview).
+webview2-com = "0.39"
+# ---- end ----
 
-# --- split (c): desktop helper client, capture, glass backdrop ---
+# ---- lane: harness ----
+# Decodes CapturePreview PNGs for the contrast matrix (B-010).
+png = "0.17"
+# ---- end ----
+
+# ---- lane: windows ----
+raw-window-handle = "0.6"
+# ---- end ----
+
+# ---- lane: capture ----
 fast_image_resize = "5"
 jpeg-decoder = { version = "0.3", default-features = false }
 jpeg-encoder = "0.6"
 unicode-normalization = "0.1"
+# ---- end ----
+
+# ---- lane: llm ----
+async-trait = "0.1"
+fancy-regex = "0.14"
+futures-util = "0.3"
+tokio-util = "0.7"
+# Native roots and the system proxy: D-19, B-126. The updater shares it.
+reqwest = { version = "0.12", default-features = false, features = [
+  "rustls-tls",
+  "rustls-tls-native-roots",
+  "system-proxy",
+  "stream",
+  "json",
+] }
+# ---- end ----
+
+# ---- lane: agent ----
+# ---- end ----
+
+# Shared Windows bindings: one feature per line, inside the owning lane's
+# block. A feature another lane already lists is not repeated.
+windows-sys = { version = "0.59", features = [
+  # ---- lane: platform ----
+  "Win32_Foundation",
+  "Win32_Networking_WinInet",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Threading",
+  "Win32_UI_Shell",
+  # ---- end ----
+  # ---- lane: harness ----
+  # ---- end ----
+  # ---- lane: windows ----
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+  # ---- end ----
+  # ---- lane: capture ----
+  "Win32_Graphics_Gdi",
+  # ---- end ----
+  # ---- lane: llm ----
+  # ---- end ----
+  # ---- lane: agent ----
+  # ---- end ----
+] }
+
 windows = { version = "0.62", features = [
+  # ---- lane: platform ----
+  # ---- end ----
+  # ---- lane: harness ----
+  # SendInput for Cx::input (B-009).
+  "Win32_UI_Input_KeyboardAndMouse",
+  # ---- end ----
+  # ---- lane: windows ----
+  # UISettings.TextScaleFactor (B-022).
+  "Foundation",
+  "UI_ViewManagement",
+  # ---- end ----
+  # ---- lane: capture ----
   "Win32_Foundation",
   "Win32_Graphics_Direct3D",
   "Win32_Graphics_Direct3D11",
@@ -63,18 +130,22 @@ windows = { version = "0.62", features = [
   "Win32_Graphics_Gdi",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Registry",
+  # Also windows' UiaRaiseNotificationEvent (B-023).
   "Win32_UI_Accessibility",
   "Win32_UI_HiDpi",
   "Win32_UI_WindowsAndMessaging",
+  # ---- end ----
+  # ---- lane: llm ----
+  # WinHttpGetIEProxyConfigForCurrentUser, the proxy fallback (B-126).
+  "Win32_Networking_WinHttp",
+  # ---- end ----
+  # ---- lane: agent ----
+  # The helper dies with the app: a kill-on-close job object (B-138).
+  "Win32_Security",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+  # ---- end ----
 ] }
-# --- end split (c) ---
-
-# Split (b): model providers, Ask, Find, Agent (ARCHITECTURE.md section 8).
-async-trait = "0.1"
-fancy-regex = "0.14"
-futures-util = "0.3"
-tokio-util = "0.7"
-url = "2"
 
 [profile.release]
 codegen-units = 1
@@ -82,3 +153,7 @@ lto = true
 opt-level = "s"
 panic = "unwind"
 strip = true
+
+# capture: BGRA resizing is the backdrop's hot loop (B-030).
+[profile.release.package.fast_image_resize]
+opt-level = 3
