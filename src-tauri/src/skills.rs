@@ -17,9 +17,6 @@
 //! adding a skill is still dropping in a file; a file there replaces the
 //! built-in skill of the same id.
 
-// Nothing calls into this module until ipc.rs routes (b)'s channels.
-#![allow(dead_code)]
-
 use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::OnceLock;

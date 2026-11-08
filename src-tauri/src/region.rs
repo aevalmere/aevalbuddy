@@ -9,8 +9,6 @@
 //! window is excluded from capture like every other, so it never appears in
 //! the shot it triggers.
 
-#![allow(dead_code)]
-
 use std::sync::Mutex;
 
 use serde_json::Value;

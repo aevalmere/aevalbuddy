@@ -422,9 +422,12 @@ fn on_region_change(app: &AppHandle, last: &Mutex<Option<Rect>>) {
     let a = app.clone();
     tauri::async_runtime::spawn(async move {
         if picked {
-            let ok = region::take_pending_shot();
-            shared(&a).lock().capture_ok = ok.is_some();
-            ask::set_pending_shot(ok);
+            // A drawn area arrives with its shot; one set by Find's "Ask
+            // about this" has none and is captured when the question goes.
+            if let Some(shot) = region::take_pending_shot() {
+                shared(&a).lock().capture_ok = true;
+                ask::set_pending_shot(Some(shot));
+            }
             shared(&a).lock().hidden = false;
             windows::expand_panel(&a);
             outputs::show_with_chat(&a);

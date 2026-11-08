@@ -12,9 +12,6 @@
 //! All native capture runs on one dedicated thread, so neither the event
 //! loop nor an async worker ever blocks on DXGI (GLASS-06).
 
-// Much of this API is for agents (a) and (b) to call as they port.
-#![allow(dead_code)]
-
 pub mod dxgi;
 pub mod encode;
 pub mod gdi;

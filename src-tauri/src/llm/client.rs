@@ -628,6 +628,12 @@ impl Llm {
     /// True when the model can take native tool calls. Every curated native
     /// model can; OpenRouter answers from the catalogue.
     pub fn supports_tools(&self, provider: Provider, id: &str) -> bool {
+        // OpenAI's GPT-6 family takes tool calls only through the Responses
+        // API (Chat Completions refuses them; checked 2026-11-07), so the
+        // agent drives it with the one-JSON-object fallback instead.
+        if provider == Provider::OpenAi {
+            return false;
+        }
         if provider.is_native() {
             return true;
         }

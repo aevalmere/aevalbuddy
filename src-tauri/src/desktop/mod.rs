@@ -6,9 +6,6 @@
 //! Agent (b)'s find and agent modules get every op index.js exported, with
 //! the same JSON shapes.
 
-// Much of this API is for agents (a) and (b) to call as they port.
-#![allow(dead_code)]
-
 pub mod channels;
 pub mod checks;
 pub mod client;

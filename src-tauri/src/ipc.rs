@@ -4,8 +4,9 @@
 //! exactly as they did through preload.js; `bridge/aeval-bridge.js` provides
 //! that object on top of Tauri. ARCHITECTURE.md section 4 is the contract.
 //!
-//! Core channels (agent a) are routed here; the rest stay `not_ported` until
-//! their agent replaces the row.
+//! Split (c)'s rows are asked first (`desktop::channels`), then the glue in
+//! `host/` (Ask, Find, Agent, context menus), then the core rows here. Every
+//! allowlisted invoke channel has a row (`every_invoke_channel_has_a_route`).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Mutex;
@@ -221,6 +222,19 @@ pub async fn aeval_invoke(
     if let Some(r) = crate::desktop::channels::route(&window, &channel, &payload) {
         return r;
     }
+    let label = window.label().to_string();
+    if let Some(r) = crate::host::ask::route(&app, &label, &channel, &payload).await {
+        return r;
+    }
+    if let Some(r) = crate::host::find::route(&app, &channel, &payload).await {
+        return r;
+    }
+    if let Some(r) = crate::host::agent::route(&app, &channel, &payload).await {
+        return r;
+    }
+    if channel == "ui:context-menu" {
+        return Ok(crate::host::menu::popup(&app, &label, &payload));
+    }
     route(&app, &window, &channel, payload).await
 }
 
@@ -410,6 +424,8 @@ async fn route(
             if outputs::is_output(&label) {
                 outputs::reset(app, &label);
             } else {
+                // A new conversation is about the whole screen again.
+                crate::region::clear_active();
                 windows::new_chat(app);
             }
         }
@@ -439,11 +455,6 @@ async fn route(
         "hud:nudge" => windows::hud_nudge(app, p_num(&p, "dx"), p_num(&p, "dy")),
         // NEW-04: outputs float on their own; the editor has no dock switch.
         "hud:set-dock" => {}
-        "bar:mode" => {
-            windows::set_bar_mode(app, &p_str(&p, "mode"));
-            let mode = shared(app).lock().bar_mode.clone();
-            return Ok(json!({ "mode": mode }));
-        }
         "bar:history" => return Ok(json!(s.get_input_history())),
         "bar:history-push" => return Ok(json!(s.push_input_history(&p_str(&p, "text")))),
         "ui:focus-answer" => {
@@ -502,7 +513,14 @@ async fn route(
             if value.is_empty() {
                 return Ok(json!({ "ok": false, "error": "Enter a key before saving." }));
             }
-            let provider = provider_of(&p);
+            // One key field takes any of the four providers' keys: the
+            // prefix says whose it is unless the page names the provider.
+            let provider = match p_str(&p, "provider") {
+                named if !named.is_empty() => named,
+                _ => crate::llm::provider::Provider::detect(&value)
+                    .map(|v| v.id().to_string())
+                    .unwrap_or_else(|| "openrouter".into()),
+            };
             if !store::PROVIDERS.contains(&provider.as_str()) {
                 return Ok(json!({ "ok": false, "error": "Unknown provider." }));
             }
@@ -538,7 +556,7 @@ async fn route(
             return Ok(json!({ "ok": true, "model": s.set_agent_model(&p_str(&p, "model")) }));
         }
         "settings:save-skill" => {
-            let skill = s.set_skill_id(&p_str(&p, "skill"), |_| true);
+            let skill = s.set_skill_id(&p_str(&p, "skill"), crate::host::skill_exists);
             return Ok(json!({ "ok": true, "skill": skill }));
         }
         "settings:set-find" => {
@@ -573,10 +591,13 @@ async fn route(
         }
         "settings:set-surface" => {
             let v = s.set_surface(&p_str(&p, "surface"));
-            return Ok(json!({ "surface": v, "tier": "full", "reasons": [] }));
+            crate::backdrop::broadcast_tier();
+            let glass = glass_tier(app);
+            return Ok(json!({ "surface": v, "tier": glass["tier"], "reasons": glass["reasons"] }));
         }
         "settings:set-glass" => {
             let v = s.set_glass_intensity(p_num(&p, "glassIntensity"));
+            crate::backdrop::set_intensity(v);
             let glass = glass_tier(app);
             let mut tier = glass.clone();
             tier["intensity"] = json!(v);
@@ -604,6 +625,9 @@ async fn route(
     Ok(Value::Null)
 }
 
+/// No row answers this channel. Unreachable for an allowlisted channel
+/// (`every_invoke_channel_has_a_route`); kept so a future allowlist entry
+/// without a row fails loudly instead of hanging the page.
 fn not_ported(channel: &str, payload: &Value) -> Result<Value, String> {
     let shape = match payload {
         Value::Object(m) => m.keys().cloned().collect::<Vec<_>>().join(","),
@@ -637,6 +661,37 @@ mod tests {
 
     fn ours(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// Every invoke channel preload.js allows has a match arm in one of the
+    /// routers, so none falls through to `not_ported`.
+    #[test]
+    fn every_invoke_channel_has_a_route() {
+        let routers = [
+            include_str!("ipc.rs"),
+            include_str!("desktop/channels.rs"),
+            include_str!("host/ask.rs"),
+            include_str!("host/find.rs"),
+            include_str!("host/agent.rs"),
+        ]
+        .concat();
+        // Arms are `"x" =>`, `"x" | "y" =>`, or `channel == "x"`.
+        let routed = |c: &str| {
+            let q = format!("\"{c}\"");
+            routers.match_indices(&q).any(|(i, _)| {
+                let after = routers[i + q.len()..].trim_start();
+                let before = routers[..i].trim_end();
+                after.starts_with("=>")
+                    || after.starts_with('|')
+                    || before.ends_with('|')
+                    || before.ends_with("==")
+            })
+        };
+        let missing: Vec<String> = preload_set("INVOKE_CHANNELS")
+            .into_iter()
+            .filter(|c| !routed(c))
+            .collect();
+        assert!(missing.is_empty(), "no route for {missing:?}");
     }
 
     #[test]

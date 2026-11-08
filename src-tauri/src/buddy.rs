@@ -13,8 +13,6 @@
 //! Tauri has no forward flag, so while the window ignores the mouse a 60 Hz
 //! cursor poll replays mousemove into the page (ARCHITECTURE D10).
 
-#![allow(dead_code)]
-
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

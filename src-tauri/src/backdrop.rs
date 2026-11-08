@@ -19,8 +19,6 @@
 //! does not depend on that setting; the renderer's own reasons
 //! (prefers-reduced-transparency, forced-colors) still apply.
 
-#![allow(dead_code)]
-
 pub mod contrast;
 
 use std::collections::{BTreeSet, HashMap};

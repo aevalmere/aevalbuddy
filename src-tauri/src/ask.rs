@@ -1,10 +1,7 @@
 //! The Ask flow's pure parts (PARITY ASK-*): the constants main.js used,
 //! the conversation id, the visual-question test, and the pointer
 //! fraction. The submit flow itself (capture, reader, failover, streaming,
-//! pointer, history) lands with the IPC wiring, behind `llm::client`.
-
-// Nothing calls into this module until ipc.rs routes (b)'s channels.
-#![allow(dead_code)]
+//! pointer, history) is `host::ask`.
 
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};

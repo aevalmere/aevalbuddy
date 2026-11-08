@@ -7,8 +7,6 @@
 //! Rects in are DIP screen coordinates; callers convert the desktop engine's
 //! physical pixels first.
 
-#![allow(dead_code)]
-
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 

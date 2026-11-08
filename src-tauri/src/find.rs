@@ -14,9 +14,6 @@
 //! throughout. Offsets are UTF-16 code units, as in JavaScript, so a hit's
 //! start and end mean the same thing to the renderer as they did.
 
-// Nothing calls into this module until ipc.rs routes (b)'s channels.
-#![allow(dead_code)]
-
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};

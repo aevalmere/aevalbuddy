@@ -5,10 +5,6 @@
 //! FAIL-*, PROMPT-*, POINT-*, ERR-*). ARCHITECTURE.md section 10 documents
 //! the seams.
 
-// Nothing calls into this module until ipc.rs routes (b)'s channels; the
-// allow comes off when the wiring lands.
-#![allow(dead_code)]
-
 pub mod catalogue;
 pub mod client;
 pub mod elements;

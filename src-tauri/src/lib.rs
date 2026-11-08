@@ -16,6 +16,7 @@ pub mod crash;
 mod desktop;
 mod find;
 pub mod history;
+mod host;
 pub mod hotkeys;
 pub mod instance;
 pub mod ipc;
@@ -124,6 +125,8 @@ pub fn run() {
             windows::boot(&handle)?;
             // Desktop helper client, glass backdrop, CI checks (split c).
             desktop::setup(&handle);
+            // Ask, Find, the agent and the hooks between the splits.
+            host::setup(&handle);
             let h2 = handle.clone();
             instance::serve(lock.name.clone(), move || {
                 let h3 = h2.clone();
