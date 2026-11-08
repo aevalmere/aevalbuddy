@@ -75,6 +75,12 @@ export const scenes = [
           window.__globDone = true;
         });
       });
+      // open() first asks where the bar is (real time); the frames count
+      // from its first animation frame.
+      for (let i = 0; (await out.evaluate(() => document.body.dataset.glob || '')) !== 'open'; i += 1) {
+        if (i > 80) throw new Error('the glob never started');
+        await t.page.waitForTimeout(25);
+      }
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
       let at = 0;
       for (const ms of [48, 144, 240, 336]) {
