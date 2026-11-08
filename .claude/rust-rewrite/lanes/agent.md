@@ -274,7 +274,27 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-048: unit test green at 3918098 (`run::tests::pause_during_dodge_drops_the_action`); SMOKE+ `takeoverStopsStep` is printed by `agent/smoke.rs`; SMOKE `agentTakeover` is in the Notepad batch.
 - B-050: unit tests green at 3918098 (`client::tests::key_timeout_scales_with_repeat`, `run::tests::stop_while_typing_cancels_the_helper`, `run::tests::a_timed_out_step_is_an_unknown_outcome`); SMOKE+ `cancelStopsTyping`, `helperTimeoutNoLateInput` and SMOKE `agentStopMs` are in the Notepad batch.
 
-- 0db3912 carries B-047, B-130 to B-143 with their unit tests; its CI failed only on `dialect_switch_rewrites_system_prompt` and `overload_529_retries` (the fixture answered 429/529 on every retry of the same turn). The next push scripts the busy reply once and adds `agent/smoke_live.rs`, which prints `agentRun`, `agentFocusKept`, `agentJsonMode`, `agentStopMs`, `agentTakeover`, `agentMaxSteps`, `agentConfirmGate`, `passwordRedacted`, `cancelStopsTyping`, `helperTimeoutNoLateInput` and `clickExact` on CI (Notepad plus a WinForms password form of its own). Merged origin/rust-rewrite at 8f0524e. At 8fa0e89 unit tests, clippy and fmt were green; Smoke failed `cancelStopsTyping` and `helperTimeoutNoLateInput` (getText counts only the Notepad lines on screen, so lengths were noise) and `agentTakeover` (the helper sends input events only while watching, and the app watches only for its own agent). Now the two typing checks type into a text box of the check form that writes its exact length into the title, and the takeover check turns the watch on for its run (`Desktop::release_watch` hands it back). At 5af02f5 everything else was green; the two typing checks counted 203 then 360 and 519 then 648 because the form was still working through keystrokes it already held (the helper sends 24 characters per 8 ms; the form redraws its title per character), so they now wait for the length to settle before the stability window. Next: ci-wait the tip; when green, record B-047 and B-130 to B-144 and the desktop labels green at that sha.
+- Rust workflow green at 9a32c00 (merged origin/rust-rewrite 8f0524e): fmt, clippy, unit, build, smoke, capture and desktop all pass, and the labels gate passes.
+- Standing labels: every label in `tools/smoke-labels/agent.txt` prints `=ok` at 9a32c00 (gate* tables, `confirmFullText`, `takeoverStopsStep`, `agentNativeModel`, `agentRun`, `agentFocusKept`, `agentJsonMode`, `agentStopMs`, `agentTakeover`, `agentMaxSteps`, `agentConfirmGate`, `passwordRedacted`, `cancelStopsTyping`, `helperTimeoutNoLateInput`, `clickExact`). The desktop ones are in `agent/smoke_live.rs` (Notepad plus a WinForms check form).
+- B-006, B-008, B-048, B-049, B-050: SMOKE and SMOKE+ labels green at 9a32c00 (unit tests green since 3918098).
+- B-047: green at 9a32c00; UNIT `host::agent::tests::native_only_run_uses_native_model`, `pinned_model_never_fails_over`; SMOKE+ `agentNativeModel`.
+- B-051: green at 9a32c00; UNIT `host::agent::tests::consent_payload_names_provider` (recipients from `llm::recipients_with`).
+- B-130: green at 9a32c00; UNIT `run::tests::concurrent_starts_yield_one_run`.
+- B-131: green at 9a32c00; UNIT `run::tests::dialect_switch_rewrites_system_prompt`.
+- B-132: Retry-After and 529 green at 9a32c00 (UNIT `run::tests::retry_after_is_honoured`, `overload_529_retries`); the 180 s native turn is blocked, see Blockers.
+- B-133: green at 9a32c00; UNIT `run::tests::bad_coordinates_are_rejected`.
+- B-134: green at 9a32c00; UNIT `run::tests::app_label_kelvin_and_dotted_i`.
+- B-135: green at 9a32c00; UNIT `tools::tests::last_object_is_linear`.
+- B-136: green at 9a32c00; UNIT `run::tests::page_text_is_redacted`; SMOKE `passwordRedacted`.
+- B-137: green at 9a32c00; UNIT `client::tests::start_timeout_counts_as_death`, `non_utf8_line_does_not_stop_reader`.
+- B-138: green at 9a32c00; UNIT `client::tests::system_tools_use_absolute_paths`; SMOKE `helperNotAtBoot`.
+- B-139: green at 9a32c00; UNIT `protocol::tests::bootstrap_paths_are_base64`.
+- B-140: green at 9a32c00; SMOKE `desktopOwnExcluded` (handles from `windows::flags::hwnd_for`).
+- B-141: green at 9a32c00; SMOKE+ `clickExact`.
+- B-142: green at 9a32c00; host.cs registers the structure-changed handler outside `genLock` behind a placeholder generation; desktop selfcheck `uiaTreeMs=1107`.
+- B-143: green at 9a32c00; UNIT `run::tests::final_text_is_remedy_only_after_failed_step`.
+- B-144: green at 89fd79a; UNIT `run::tests::step_payload_has_plan_index`.
+- Note for the integrator: `cancelStopsTyping` and `helperTimeoutNoLateInput` read an exact length from the check form's title and wait for the form to work through input it already holds, because getText returns only the lines on screen. The takeover check turns the input watch on with `Desktop::watch_user_input(true)` and hands it back with the new `Desktop::release_watch`.
 
 ## Blockers
 
