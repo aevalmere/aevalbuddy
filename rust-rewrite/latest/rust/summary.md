@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42465265415](https://github.com/aevalmere/aevalbuddy/actions/runs/42465265415), attempt 1, on push
-- Commit: 7c88959137b622d7860ef0bcf21e800eafd77d06
+- Run: [42466195345](https://github.com/aevalmere/aevalbuddy/actions/runs/42466195345), attempt 1, on push
+- Commit: 75d531f2e95c5927b11057b98a6b99d6c44bbafb
 - Ref: rust-rewrite
 - Conclusion: **failure**
 - Failed: Build installer
-- Finished: 2026-11-08T09:11:17Z
+- Finished: 2026-11-08T09:23:32Z
 
 | Step | Outcome | Log |
 |---|---|---|
