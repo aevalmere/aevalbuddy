@@ -20,6 +20,7 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 3 | agent | C1 | `89fd79a` | `3849c7a` | cancelled by #4's push | n/a | `3ef7629` (red: fmt) plus its rustfmt fix |
 | 4 | bar | C1 follow-up | `d84a9d3` | `f355865` | cancelled by #5's push | pending | Icons as CSS masks of a well-formed `icons.svg`. Renderer only. Merged on the coordinator's call with ui-shots green and its rust run red only on an NSIS download 504 in Build installer |
 | 5 | platform | C1 | `caadb51` | `17e55bb` | pending | n/a | `040ad93` + `3e74cba` (windows 0.62 core for webview2-com) + a Progress-only commit. At `3e74cba` every gate passed but Build installer (NSIS download 504); merged on the coordinator's rule |
+| 6 | harness | C1 | `3bc261f` | `bd5e3f7` | pending | pending | K-30 selftest API and probes per lane, K-31 ui-shots lane files (old scenes moved into bar, sheet, settings), strict smoke step |
 
 ## Reverts
 
