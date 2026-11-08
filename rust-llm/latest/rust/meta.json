@@ -1,17 +1,21 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42490778674,
+  "run_id": 42491317111,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42490778674",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491317111",
   "event": "push",
-  "sha": "3eb0c052e7bbb0c4b334289b65f9a15d4a0ac438",
+  "sha": "740c6fa39eb4bb6ef82f392430186597057ee859",
   "ref": "rust/llm",
   "ref_dir": "rust-llm",
-  "conclusion": "cancelled",
-  "failed": [],
-  "finished": "2026-11-08T14:44:57Z",
-  "error_lines": 0,
+  "conclusion": "failure",
+  "failed": [
+    "Format",
+    "Capture check",
+    "Desktop selfcheck"
+  ],
+  "finished": "2026-11-08T14:52:09Z",
+  "error_lines": 90,
   "steps": [
     {
       "name": "Checkout",
@@ -45,13 +49,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -65,8 +69,8 @@
     },
     {
       "name": "Build installer",
-      "outcome": "cancelled",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Smoke",
@@ -75,13 +79,13 @@
     },
     {
       "name": "Capture check",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "failure",
+      "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "failure",
+      "log": "desktop.log"
     },
     {
       "name": "Upload installer",
