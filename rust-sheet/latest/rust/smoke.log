@@ -18,11 +18,20 @@
 [SMOKE] probe.windows=ok
 [SMOKE] probe.capture=ok
 [SMOKE] probe.llm=ok
+[SMOKE] gateBypasses=37/37
+[SMOKE] gateBypasses=ok
+[SMOKE] gatePassesPlainInput=ok
+[SMOKE] gateFailsClosed=ok
+[SMOKE] gatePlanFirst=ok
+[SMOKE] gateChords=ok
+[SMOKE] gateKeyActivation=ok
+[SMOKE] confirmFullText=ok
+[SMOKE] takeoverStopsStep=ok
 [SMOKE] probe.agent=ok
 [SMOKE] probe.bar=ok
 [SMOKE] noOutputInput=ok
 [SMOKE] markdown=ok
-[SMOKE] markdownStructure=FAIL:Ok(Object {"heads": Bool(true), "items": Number(4), "nested": Bool(true), "table": String(""), "host": String("(doc.rust-lang.org)"), "inert": Bool(true)})
+[SMOKE] markdownStructure=ok
 [SMOKE] transcriptScroll=ok
 [SMOKE] transcriptWheel=ok
 [SMOKE] chatCeiling=ok
@@ -36,12 +45,9 @@
 [SMOKE] v21basics=ok
 [SMOKE] glassGates=ok
 [SMOKE] v2desktop=ok
-[SMOKE] failed: markdownStructure
+[SMOKE] done
 --- stderr ---
-[1108/152917.536:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
---- exit code: 1
-[GATE] SMOKE lines=31 listed=28
-[GATE] fail markdownStructure=FAIL:Ok(Object {"heads": Bool(true), "items": Number(4), "nested": Bool(true), "table": String(""), "host": String("(doc.rust-lang.org)"), "inert": Bool(true)})
-[GATE] missing harness:done
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: markdownStructure; 1 listed label(s) never printed
-smoke failed: exit code 1, gate exit code 1
+[1108/183458.250:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 0
+[GATE] SMOKE lines=40 listed=36
+[GATE] verdict=ok
