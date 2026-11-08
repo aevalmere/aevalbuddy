@@ -1114,6 +1114,8 @@ as one-click buttons. Answers has `Open styles folder` with `Add a .md file to m
 style longer than 8 KB says `Only the first 8 KB is used.` General has **Bar position** (`Top right`,
 `Move…`).
 
+Task copy says "The task stopped", never "The agent stopped", and gives a remedy once: when a failed step's row already states the reason, the final message carries only what to do about it.
+
 ## Rust rewrite: decisions and notes from the lanes
 
 Folded from the lanes' entries files at the final merges: entries for a section this document did not have.

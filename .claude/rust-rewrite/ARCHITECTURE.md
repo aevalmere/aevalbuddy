@@ -730,3 +730,17 @@ Two rules the merge added. `state::Hooks::refresh_flags` copies buddy, region, F
 (`hotkeys::apply`, `overlay_state`, `on_escape`, `toggle_visibility`, ...), never with the state lock held.
 `backdrop`'s pace hook runs with the backdrop lock released and reads visibility through Win32: a Tauri
 window getter off the main thread waits for the main thread, and holding the lock meanwhile deadlocked boot.
+
+## Rust rewrite: decisions and notes from the lanes
+
+Folded from the lanes' entries files at the final merges: entries for a section this document did not have.
+
+### Agent
+
+Every act row in `agent:step` (`kind` `action` or `read`) carries `planIndex`: the index of the plan item it serves, from the model's call when given, else the number of finished actions clamped to the plan length; `null` before a plan is shown (K-20).
+
+The safety gate (`agent/gate.rs`) is an allowlist (decision D-27): a step runs without a card only when no check finds a reason to ask, and a click passes only on a readable, named control whose role or name is on the harmless list. Space, Enter and typed spaces are judged by the control with keyboard focus, which `inspect` reads through the helper's `focused` op (falling back to the tree) and passes to the gate as `Touches.focused`, with the tree it read as `Touches.tree` so the gate reads it once.
+
+### Desktop helper
+
+A window's first tree read registers its structure-changed handler outside `genLock`, with a placeholder generation published first, so one slow app cannot stall every other window's read.

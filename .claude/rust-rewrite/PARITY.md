@@ -481,8 +481,10 @@ Port of lib/agent.js (1646 lines, Electron-free). Every rule below is a quality/
 
 | ID | What | Source | Verify |
 |---|---|---|---|
-| AGENT-01 | Constants: 3 consecutive failures, 6 min wall clock, 60 s model timeout (-> 408), observation 12000 chars, thin tree < 15 nodes adds a screenshot, takeover after 24 px of mouse travel, retry backoff 2 s/6 s after acting. | agent.js:21-27 | DIFF |
-| AGENT-02 | 26 tools with exact names, descriptions, JSON schemas; JSON-mode rules text generated from the same table. | agent.js:46-160 | DIFF (serialised TOOLS equal) |
+| AGENT-01 | Constants: 3 consecutive failures, 6 min wall clock, 60 s model timeout on OpenRouter and 180 s on a native provider (-> 408)
+Replace "retry backoff 2 s/6 s after acting" with:
+after acting, a retry waits what Retry-After asked, up to 20 s, else 2 s/6 s, and a 529 is retried too, observation 12000 chars, thin tree < 15 nodes adds a screenshot, takeover after 24 px of mouse travel, retry backoff 2 s/6 s after acting. | agent.js:21-27 | DIFF |
+| AGENT-02 | 26 tools with exact names, descriptions (zoom adds that coordinates stay in the screenshot's pixels), JSON schemas; JSON-mode rules text generated from the same table. | agent.js:46-160 | DIFF (serialised TOOLS equal) |
 | AGENT-03 | Rules prompt verbatim (untrusted screen text, one action per turn, refs over coordinates, never act on our windows, ask_user over guessing, consequential flag, plain-text summary to finish). | agent.js:130-143 | DIFF |
 | AGENT-04 | JSON-mode parsing: last balanced object, `{done}` or `{tool|action|name, args|inline}`; unreadable twice -> error state. | agent.js:162-230,1284-1291 | SMOKE:agentJsonMode |
 | AGENT-05 | Gate classes read/input/consequential/refused; broken check fails closed (consequential). All rules: clipboard_read asks; read tools free; plan gate refuses until approved; `open` only http/https/mailto or an app name; NAME_VERBS on control name/automationId/helpText; VERBS in reason; model's consequential flag; dialog (#32770) title/body verbs; risky browser pages; mail/chat buttons; terminals (type/key/form_input); Run box; drags; unreadable pointer targets; key chords (HARD_CHORDS, Enter, Delete, F-keys, Win, Alt, Ctrl except FREE_CTRL, non-typing keys, repeats); Enter in address bar / compose fields; type with newline/tab, password field, unknown focus with a password present, address bar; Notepad newline exemption; form_input on password; close_window; permission `every`. | agent.js:470-692 | SMOKE:gateBypasses, gatePassesPlainInput, gateFailsClosed, gatePlanFirst, gateChords |
@@ -493,7 +495,10 @@ Port of lib/agent.js (1646 lines, Electron-free). Every rule below is a quality/
 | AGENT-10 | Takeover: physical input while running (not while acting/confirming, 150 ms after our own act) pauses with `Paused: you took over. Enter to continue, Esc to stop.` | agent.js:961-980 | SMOKE:agentTakeover |
 | AGENT-11 | Resume answers ask_user, approves a plan, or unpauses. | agent.js:982-1002 | SMOKE:agentTakeover |
 | AGENT-12 | Finish: one emit of `agent:done` with rows, steps, usage; frame off; pending confirm/ask/plan settled; history gets a collapsed trail message + final text; pill error for error/limit/offline. | agent.js:1105-1131, main.js:2247-2261 | SMOKE+ |
-| AGENT-13 | End texts verbatim: `Stopped. Nothing else was done.`, six-minute limit, `Stopped after N steps, the most one task may take. Raise it in Settings > Agent.`, offline after step N, format failure twice, `The agent stopped without saying whether the task was done. Check the app before relying on it.`, `The agent stopped: <friendly>`. | agent.js:1136-1332 | SMOKE:agentMaxSteps |
+| AGENT-13 | End texts verbatim: `Stopped. Nothing else was done.`, six-minute limit, `Stopped after N steps, the most one task may take. Raise it in Settings > Agent.`, offline after step N, format failure twice, `The task stopped without saying whether it was done. Check the app before relying on it.`
+Add:
+Also `No connection. The task stopped after step N; nothing else was done.`, the internal failure `The task stopped because of a problem inside AevalBuddy. Nothing else was done.` (C-60) and `A task is already running.` (C-62). After three failed steps whose last failure has a remedy, the final message is only the remedy (`Start Outlook normally, then Retry.`), because the failed row already says why.
+Reason: the surfaces call it a task, and the banner repeated the reason the row had just given., `The agent stopped: <friendly>`. | agent.js:1136-1332 | SMOKE:agentMaxSteps |
 | AGENT-14 | Focus kept: no step finds an AevalBuddy window in front (`ownFocused` asks the OS, not the webview). | main.js:2822-2832 | SMOKE:agentFocusKept |
 | AGENT-15 | Start flow: empty/needs-key/unsupported/busy; first-run consent card; Find closed; chat gets the task; offline -> done offline with no action; catalogue fetched and agent model resolved+healed; bar collapses keeping the trail; plan gate when started with context; region passed in physical px. | main.js:2268-2307 | SMOKE+ |
 | AGENT-16 | Control frame on the target display with chip `AevalBuddy is using your computer · Esc to stop`. | main.js:2173-2190 | SHOT:22, SMOKE:lensFirstDraw |
@@ -518,7 +523,7 @@ The C# helper (lib/desktop/host.cs, 2630 lines) and its JSON-lines client (lib/d
 | DESK-06 | Own windows excluded from every list and refused as targets (BLOCKED_OWN_WINDOW); lens/buddy registered as `{handle, block:false}` layers; process pid and child pids (WebView2 processes in Rust) included. | main.js:2770-2777; desktop/index.js:472-530 | SMOKE:desktopOwnExcluded, ownWindowBlocked |
 | DESK-07 | Low-level input watch on only while agent runs or Find is open; user-input events throttled to ~10/s; key identity never reported. | desktop/index.js:362-375; main.js:2777-2781 | SMOKE:agentTakeover |
 | DESK-08 | Physical virtual-screen pixels throughout, per-monitor-v2 DPI aware; conversion to DIP at the edge (`screenToDipRect`/`dipToScreenRect`). | desktop/index.js:17-23 | SMOKE+:dpiRoundTrip at 125/150 % |
-| DESK-09 | Ops: listWindows, foregroundWindow (never ours), focusWindow, closeWindow, monitors, readTree (text format `role "name" [ref_N] (states) value=".."`), find (local fuzzy scoring incl. role words, minScore 45), getText (UIA spans + OCR under 200 chars), ocr (Windows.Media.Ocr), capture/screenshot/zoom (maxEdge 1568, 4x cap), elementAt, windowStates, resolve, click (invoke vs SendInput), hover, drag, type (KEYEVENTF_UNICODE, FOCUS_LOST), key, scroll, scrollTo, setValue, invoke, restoreCursor, watchInput, testUserInput, ping. | desktop/index.js:46-131,468-818 | lib/desktop/selfcheck.js (all lines) |
+| DESK-09 | Ops: listWindows, foregroundWindow (never ours), focusWindow, closeWindow, monitors, readTree (text format `role "name" [ref_N] (states) value=".."`), find (local fuzzy scoring incl. role words, minScore 45), getText (UIA spans + OCR under 200 chars), ocr (Windows.Media.Ocr), capture/screenshot/zoom (maxEdge 1568, 4x cap), elementAt, focused (the element with keyboard focus when the asked window is in front, else node null; B-008), windowStates, resolve, click (invoke vs SendInput), hover, drag, type (KEYEVENTF_UNICODE, FOCUS_LOST), key, scroll, scrollTo, setValue, invoke, restoreCursor, watchInput, testUserInput, ping. | desktop/index.js:46-131,468-818 | lib/desktop/selfcheck.js (all lines) |
 | DESK-10 | Error codes: STALE_REF, NOT_FOUND, BLOCKED_OWN_WINDOW, ELEVATED_TARGET, NO_PATTERN, TIMEOUT, HELPER_DOWN, BAD_ARGS, OCCLUDED, NOT_FOREGROUND, FOCUS_LOST, DISABLED, NO_OCR, UIA_ERROR, INTERNAL, UNSUPPORTED. | desktop/index.js:117-122 | UNIT |
 | DESK-11 | Refs `ref_N` stable per RuntimeId within a helper session; generation bumps on structure change. Password values always `•••`. | desktop/index.js:107-114 | SMOKE:passwordRedacted |
 | DESK-12 | Prebuilt DLL built at package time (`tools/build-desktop.js`), SHA-256 pinned, loaded from verified bytes only. | tools/build-desktop.js, host.ps1 | SMOKE:desktopReadyMs |
@@ -925,6 +930,91 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### ERR-01..ERR-12
 
 - B-119: status: replaced by the copy deck (design-ux U14, C-61, C-70..C-74; Decision D-28): each error carries a code, the provider, the model's display name and the actions that fix it, in `tools/fixtures/llm/errors.json`. evidence: UNIT errors::tests::error_table_is_verbatim, errors::tests::codes_and_actions, errors::tests::gemini_invalid_key_is_bad_key, errors::tests::single_attempt_copy_claims_no_stand_in, host::ask::tests::error_rows_name_the_model_and_the_fix
+
+### AGENT-01
+
+
+### AGENT-02
+
+
+### AGENT-04
+
+- B-135: The scan for the last object is bounded by the reply's length (bytes, plus 64 KB), so a reply of nothing but braces cannot stall the run.
+
+### AGENT-05
+
+- D-27: Note: decision D-27, the gate is an allowlist (B-008, B-049). Changed verdicts against Electron: a left, double or triple click on a readable, named control whose role is not menubar, menu, menuitem, tab, tabitem, treeitem, scrollbar, thumb, edit, document, combobox, spinner, dataitem, headeritem or titlebar, and whose name is not one of back, bold, collapse, expand, find, forward, italic, maximize, menu, minimize, more actions, more options, options, restore, restore down, search, see more, settings, show more, underline, zoom in, zoom out, now asks (`it is not known what button "Continue" does`); a right click on a readable, named control still passes. Any double click in File Explorer or on the desktop asks. Space left the free keys: it is free only when the focused control is a text field (edit, document, combobox, spinner) or would pass as a click target, asks when a Tab, Escape, Enter or shortcut before it in the same call can move the focus, and asks when the focus cannot be told. Typed text with a space gets the same check on the focused control. Enter also names the focused control it presses. A dialog's text is read for any `dialog` node or window nested in the tree around the target (web and app dialogs), not only class #32770, when the step asks anyway or the tree is already read. New verbs: shut down, restart, trash, clear all, clear history, unsubscribe, cancel subscription, deactivate, close account, end task, plus send, delete, remove, buy, pay and post in German, French, Spanish, Italian, Portuguese, Japanese and Chinese; word boundaries are Unicode. The smoke-v21 tables keep every MUST_ASK row asking and every MUST_PASS row passing; the agent probe ports them with these verdicts. Reason: a name chosen by the page could clear a click on anything Electron's English verb list did not know, and Space pressed a focused Send button with no card.
+- D-27: status: DIFF; evidence: UNIT agent::gate::tests::space_on_focused_send_button_asks, UNIT agent::gate::tests::typed_space_on_button_asks, UNIT agent::gate::tests::space_in_text_field_is_free, UNIT agent::gate::tests::unknown_named_button_asks, UNIT agent::gate::tests::explorer_double_click_asks, UNIT agent::gate::tests::web_dialog_text_is_read, UNIT agent::gate::tests::localized_send_asks, UNIT agent::run::tests::space_on_focused_send_asks_before_any_key; SMOKE gateBypasses, gatePassesPlainInput, gateFailsClosed, gatePlanFirst, gateChords, gateKeyActivation (when the agent probe lands)
+
+### AGENT-06
+
+- B-006: Note: `agent:confirm-request` adds `value` (everything a `type` or `form_input` step will enter, dotted in a password field) and `truncated` (true when the 40-character label shows less than all of it), contract K-20. Electron sent only the label. The step label and the value are dotted in a password field.
+- B-006: status: DIFF; evidence: UNIT agent::run::tests::confirm_payload_carries_full_value, UNIT agent::describe::tests::the_card_value_is_the_whole_text
+
+### AGENT-07
+
+- B-136: `get_page_text` goes through the same `redact` as the tree.
+
+### AGENT-09
+
+- B-047: A pinned model never fails over.
+- B-131: When a stand-in changes the tool dialect, `messages[0]` is rewritten for the new dialect, so a model with native tools is not told it has none.
+
+### AGENT-10
+
+- B-048: Note: a takeover that lands after the gate passed a step (while the pointer travels or the window list is read) drops that step (row `skipped`, why `you took over`) and the rest of the turn; each dropped call answers `Not executed: the user took over.` after the person hands back. A takeover between two calls of one turn drops the calls left. Electron acted on the screen the person had changed.
+- B-048: status: DIFF; evidence: UNIT agent::run::tests::pause_during_dodge_drops_the_action; SMOKE agentTakeover, SMOKE+ takeoverStopsStep (when the agent probe lands)
+
+### AGENT-12
+
+- B-050: A step that ends in TIMEOUT is reported to the model as an unknown outcome, with the window read again, and the rest of the turn does not run. The run checks that it has not ended right before every op that acts (after the window list is read, after a stale ref is re-read, between finding a window by title and focusing it), and when a run ends while a step is in the helper (Stop, Esc, the tray, the wall clock) it sends `cancel`.
+
+### AGENT-13
+
+
+### AGENT-15
+
+- B-051: Note: `agent:consent-request` adds `provider`, `providerName`, `model`, `modelName`, `free` and `recipients: [{id, name, model, modelName, free}]` for the provider and model the run will use (K-21), so the consent card names the real recipient.
+- B-051: status: DIFF; evidence: UNIT host::agent::tests::consent_payload_names_provider
+- B-047: Note: a run picks its provider once, from the first candidate (K-16), and keeps it for its whole life: a native provider uses `model_for`, OpenRouter resolves against the live catalogue, and only an OpenRouter id is ever healed. `agent:start` and `agent:do-it` take optional `{provider, model}`; a provider that does not exist or has no usable key answers `needs-key` rather than running elsewhere. The trail opens in `outputs::fresh` (K-04), or in the window that just showed the first-run consent card.
+- B-047: status: DIFF; evidence: UNIT host::agent::tests::native_only_run_uses_native_model, UNIT host::agent::tests::pinned_model_never_fails_over, SMOKE+ agentNativeModel
+- B-051: Note: `recipients` is the ready list (K-18) with the run's own provider first, on the model the run will use; a pinned provider is listed alone.
+- B-051: status: DIFF; evidence: UNIT host::agent::tests::consent_payload_names_provider, UNIT host::agent::tests::consent_recipients_come_from_the_ready_list
+- B-130: A start holds a claim from the check until the run exists, taken under the run lock, so a second start during the catalogue fetch answers `busy`.
+
+### AGENT-17
+
+- B-133: A coordinate is checked before anything asks or moves: it needs numeric components, a finite positive screenshot scale, and a point inside the latest screenshot and the area the person chose. Otherwise the step fails with the reason and the model reads the window again.
+
+### DESK-01
+
+- B-139: $AevalCache and $AevalPrebuilt cross stdin base64-encoded like the sources, so an install path with accents, CJK or smart quotes keeps the prebuilt helper.
+
+### DESK-02
+
+- B-050: host.cs reads stdin on its own thread. Every request carries a cancel flag: the helper sets it when the request times out, and a `cancel` line (answered at once, `{ok, cancelled}`) sets it on every request running or queued. Every input primitive (SendInput, SetCursorPos, SetFocus, Invoke, Toggle, Select, SetValue, scroll patterns, focusWindow, closeWindow) checks it before acting and rejects with CANCELLED; key and button releases still go out, so nothing stays held. `type` and `key` check it per chunk and per chord. A drag stopped half way lets go where the pointer is. `Desktop::cancel()` writes the line past the op queue.
+
+### DESK-03
+
+- B-050: `key` waits 2 s plus 40 ms a press (repeat, capped at 100, times the chords), never under 4 s, so a long repeat is not abandoned while the helper is still pressing keys.
+
+### DESK-04
+
+- B-137: Note: a reply timeout marks the helper not ready and drops it at once, rejecting anything else in flight with HELPER_DOWN; a start timeout counts toward the three deaths; stdout is read by bytes with invalid UTF-8 replaced.
+- B-137: status: DIFF; evidence: UNIT desktop::client::tests::start_timeout_counts_as_death, UNIT desktop::client::tests::non_utf8_line_does_not_stop_reader
+
+### DESK-05
+
+- B-138: The helper runs in a job with KILL_ON_JOB_CLOSE, so it dies with the app however the app ends. taskkill and cmd run from %SystemRoot%\System32 by absolute path.
+
+### DESK-06
+
+- B-140: Registered windows give their handle from the `windows::flags` cache; only an unregistered window hops to the main thread for it.
+
+### DESK-09
+
+- B-049: The helper reports a Pane, Group or Custom element whose localized control type is "dialog" or "alert dialog" with role `dialog`, and keeps an unnamed one in the tree, so the gate can read a web or XAML dialog's own text.
+- B-141: A click or drag sends its button events as plain MOUSEINPUT with only the button flag, after MoveTo has corrected the position, so absolute-coordinate rounding cannot move the press.
 
 ### CAP-01
 
