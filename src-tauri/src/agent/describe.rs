@@ -49,6 +49,9 @@ fn verb_of(name: &str) -> Option<&'static str> {
 #[derive(Clone, Debug, Default)]
 pub struct Seen<'a> {
     pub node: Option<&'a Value>,
+    /// The element with keyboard focus, for a step that acts on whatever
+    /// has it (`type` and `key` without a ref).
+    pub focused: Option<&'a Value>,
     pub app: &'a str,
     pub end_node: Option<&'a Value>,
     pub end_app: &'a str,
@@ -67,6 +70,56 @@ fn in_app(app: &str) -> String {
     }
 }
 
+/// A password field: what goes into it is shown as dots, never as text.
+fn is_secret(node: Option<&Value>) -> bool {
+    let states = node.and_then(|n| n["states"].as_array());
+    states.is_some_and(|s| s.iter().any(|x| x == "password"))
+}
+
+/// One dot per character, so the card shows the length and not the text.
+fn dots(s: &str) -> String {
+    "\u{2022}".repeat(s.chars().count())
+}
+
+/// A form value as it will be set: `false` unticks, `0` is a zero.
+fn value_text(v: &Value) -> String {
+    match v {
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) if n.as_f64() == Some(0.0) => "0".into(),
+        other => js_string(other),
+    }
+}
+
+/// What a `type` or `form_input` step will enter, dotted in a password
+/// field; `None` for any other step.
+fn entered(name: &str, a: &Value, info: &Seen<'_>) -> Option<String> {
+    let raw = match name {
+        "type" => js_string(&a["text"]),
+        "form_input" => value_text(&a["value"]),
+        _ => return None,
+    };
+    let secret = is_secret(info.node) || is_secret(info.focused);
+    Some(if secret { dots(&raw) } else { raw })
+}
+
+/// The label's quote of what a step enters, as `describe` writes it.
+fn quoted(name: &str, value: &str) -> String {
+    match name {
+        "type" => quote(&line_breaks().replace_all(value, " "), 40),
+        _ => quote(value, 40),
+    }
+}
+
+/// The confirm card's full value (K-20): everything a `type` or
+/// `form_input` step will enter, and whether the label shows less than all
+/// of it. The label cuts at 40 characters and folds line breaks, so a card
+/// built from the label alone lets someone approve text they cannot see.
+pub fn full_value(name: &str, a: &Value, info: &Seen<'_>) -> Option<(String, bool)> {
+    let value = entered(name, a, info)?;
+    let truncated = quoted(name, &value) != format!("\"{value}\"");
+    Some((value, truncated))
+}
+
 /// One step in words: "Click "Save" in Notepad".
 pub fn describe(name: &str, a: &Value, info: &Seen<'_>) -> String {
     let node_name = info.node.map(|n| js_string(&n["name"])).unwrap_or_default();
@@ -83,14 +136,13 @@ pub fn describe(name: &str, a: &Value, info: &Seen<'_>) -> String {
     };
     match name {
         "type" => {
-            let t = js_string(&a["text"]);
+            let t = entered(name, a, info).unwrap_or_default();
             let enter = if t.contains(['\r', '\n']) {
                 " and press Enter"
             } else {
                 ""
             };
-            let flat = line_breaks().replace_all(&t, " ");
-            format!("Type {}{enter}{app}", quote(&flat, 40))
+            format!("Type {}{enter}{app}", quoted(name, &t))
         }
         "key" => {
             let keys = match js_string(&a["text"]) {
@@ -106,7 +158,8 @@ pub fn describe(name: &str, a: &Value, info: &Seen<'_>) -> String {
             } else {
                 label
             };
-            format!("Set {field} to {}{app}", quote(&js_string(&a["value"]), 40))
+            let value = entered(name, a, info).unwrap_or_default();
+            format!("Set {field} to {}{app}", quoted(name, &value))
         }
         "scroll" => {
             let dir = match js_string(&a["scroll_direction"]) {
@@ -273,6 +326,31 @@ mod tests {
         let bare = json!({ "role": "pane" });
         let s = seen(Some(&bare), "");
         assert_eq!(describe("hover", &json!({}), &s), "Point at the pane");
+    }
+
+    #[test]
+    fn the_card_value_is_the_whole_text() {
+        let s = seen(None, "Notepad");
+        let long = "x".repeat(200);
+        let a = json!({ "text": long });
+        assert_eq!(full_value("type", &a, &s), Some((long, true)));
+        let short = json!({ "text": "hi" });
+        assert_eq!(full_value("type", &short, &s), Some(("hi".into(), false)));
+        // The label folds a line break into a space; the card must not.
+        let two = json!({ "text": "a\nb" });
+        assert_eq!(full_value("type", &two, &s), Some(("a\nb".into(), true)));
+        let untick = json!({ "value": false });
+        let v = full_value("form_input", &untick, &seen(None, ""));
+        assert_eq!(v, Some(("false".into(), false)));
+        assert_eq!(full_value("left_click", &json!({}), &s), None);
+        let pw = json!({ "name": "Password", "role": "edit", "states": ["password"] });
+        let s = seen(Some(&pw), "Edge");
+        let secret = json!({ "text": "hunter2" });
+        let dotted = "\u{2022}".repeat(7);
+        assert_eq!(full_value("type", &secret, &s), Some((dotted, false)));
+        assert!(!describe("type", &secret, &s).contains("hunter2"));
+        let set = json!({ "value": "hunter2" });
+        assert!(!describe("form_input", &set, &s).contains("hunter2"));
     }
 
     #[test]

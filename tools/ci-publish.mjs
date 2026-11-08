@@ -13,7 +13,7 @@
 //
 // <ref> is the branch with / turned into -. Each attempt lays the files on
 // the branch's current tip, so concurrent publishers never conflict: a
-// rejected push fetches the new tip and tries again (8 attempts, jittered).
+// rejected push fetches the new tip and tries again (20 attempts, jittered).
 // Never forced. The newest 30 sha folders per ref are kept, and the folder of
 // a ref nobody published to for 45 days is dropped.
 //
@@ -30,7 +30,7 @@ import { spawnSync } from 'node:child_process';
 const BRANCH = 'ci-logs';
 const KEEP = 30;
 const STALE_DAYS = 45;
-const ATTEMPTS = 8;
+const ATTEMPTS = 20; // nine lanes and two workflows can finish in the same minute
 const MAX_LINES = 6000; // per log: the first 200 and the last 5800 are kept
 const ERR_LINES = 300; // per log, in errors.txt
 
@@ -275,7 +275,7 @@ for (let n = 1; n <= ATTEMPTS; n++) {
   } catch (e) {
     console.log(`attempt ${n}: ${e.message}`);
   }
-  if (n < ATTEMPTS) sleep(1000 + Math.random() * 2500 * n);
+  if (n < ATTEMPTS) sleep(1000 + Math.random() * 1500 * Math.min(n, 8));
 }
 console.log(`::error title=ci-logs::could not publish ${where} after ${ATTEMPTS} attempts`);
 process.exit(1);

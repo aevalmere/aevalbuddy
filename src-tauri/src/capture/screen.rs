@@ -124,6 +124,15 @@ impl Display {
         )
     }
 
+    /// Physical point on this display to DIP.
+    pub fn point_to_dip(&self, (x, y): (f64, f64)) -> (f64, f64) {
+        let s = self.scale_factor;
+        (
+            self.bounds.x + (x - self.phys.x as f64) / s,
+            self.bounds.y + (y - self.phys.y as f64) / s,
+        )
+    }
+
     /// DIP rect on this display to physical pixels.
     // (c)'s geometry API; index.js exported it.
     #[allow(dead_code)]
@@ -365,6 +374,13 @@ mod tests {
         assert_eq!(dip_to_screen_rect(&d, dip), p);
         let p2 = pr(2000, 100, 50, 50);
         assert_eq!(dip_to_screen_rect(&d, screen_to_dip_rect(&d, p2)), p2);
+    }
+
+    #[test]
+    fn physical_points_map_through_their_own_display() {
+        let d = desk();
+        assert_eq!(d[0].point_to_dip((300.0, 150.0)), (200.0, 100.0));
+        assert_eq!(d[1].point_to_dip((1930.0, 5.0)), (1930.0, 5.0));
     }
 
     #[test]

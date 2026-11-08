@@ -18,7 +18,9 @@ use crate::agent::seams::{DesktopOps, Emitter};
 use crate::capture::screen as cap;
 use crate::llm::catalogue::Kind;
 use crate::llm::client::Llm;
-use crate::llm::settings::Active;
+use crate::llm::failover::short_model;
+use crate::llm::provider::Provider;
+use crate::llm::settings::{model_for, Active, LlmSettings};
 use crate::state::{shared, OutputKind, Rect};
 use crate::windows::{self, flags, layout, motion, outputs, screen};
 use crate::{buddy, lens, store};
@@ -115,6 +117,43 @@ fn status(s: &str) -> Value {
     json!({ "status": s })
 }
 
+/// The provider and model a run starts with: the first provider with a
+/// key, with the person's pick for tasks or its default on a native
+/// provider, and OpenRouter's stored agent model checked against the
+/// cached catalogue.
+fn run_choice(s: &dyn LlmSettings, llm: &Llm) -> Option<(Provider, String)> {
+    let active = crate::llm::settings::active(s)?;
+    let model = match active.provider {
+        Provider::OpenRouter => llm.resolve_known(Kind::Agent, &s.model(Kind::Agent)),
+        p => model_for(s, p, Kind::Agent),
+    };
+    Some((active.provider, model))
+}
+
+/// `agent:consent-request` (K-21): the task, and who receives each step's
+/// screenshot and window text, so the card names the real recipient.
+fn consent_payload(task: &str, s: &dyn LlmSettings, llm: &Llm) -> Value {
+    let mut out = json!({ "task": task, "recipients": [] });
+    let Some((provider, model)) = run_choice(s, llm) else {
+        return out;
+    };
+    let name = short_model(&model);
+    let free = model.ends_with(":free");
+    out["provider"] = json!(provider.id());
+    out["providerName"] = json!(provider.name());
+    out["model"] = json!(model);
+    out["modelName"] = json!(name);
+    out["free"] = json!(free);
+    out["recipients"] = json!([{
+        "id": provider.id(),
+        "name": provider.name(),
+        "model": model,
+        "modelName": name,
+        "free": free,
+    }]);
+    out
+}
+
 /// main.js startAgentRun.
 pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
     let task = req.task.trim().to_string();
@@ -134,12 +173,8 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
         if let Some(label) = outputs::target(app) {
             set_view_chat(app, &label, true);
             outputs::show(app, &label);
-            windows::emit(
-                app,
-                &label,
-                "agent:consent-request",
-                json!({ "task": task }),
-            );
+            let payload = consent_payload(&task, &StoreSettings, &sv.llm);
+            windows::emit(app, &label, "agent:consent-request", payload);
             if let Some(w) = windows::window(app, &label) {
                 flags::show_focused(&w);
             }
@@ -512,6 +547,53 @@ impl AgentHost for Host {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::client::{Reply, Transport};
+    use crate::llm::errors::ApiError;
+    use crate::llm::settings::MemorySettings;
+    use crate::llm::wire::HttpRequest;
+    use tokio_util::sync::CancellationToken;
+
+    struct NoNet;
+
+    #[async_trait::async_trait]
+    impl Transport for NoNet {
+        async fn send(&self, _: HttpRequest, _: &CancellationToken) -> Result<Reply, ApiError> {
+            Err(ApiError::network("no network in tests"))
+        }
+    }
+
+    fn llm() -> Llm {
+        Llm::new(Arc::new(NoNet), None)
+    }
+
+    #[test]
+    fn consent_payload_names_provider() {
+        let llm = llm();
+        let ant = MemorySettings::with_key("sk-ant-test");
+        let v = consent_payload("tidy the desktop", &ant, &llm);
+        assert_eq!(v["task"], "tidy the desktop");
+        assert_eq!(v["provider"], "anthropic");
+        assert_eq!(v["providerName"], "Anthropic");
+        let native = Provider::Anthropic.default_model(Kind::Agent);
+        assert_eq!(v["model"], native);
+        assert_eq!(v["free"], false);
+        assert_eq!(v["recipients"][0]["id"], "anthropic");
+        assert_eq!(v["recipients"][0]["modelName"], v["modelName"]);
+        // A native pick for tasks is the model the card names.
+        let key = (Provider::Anthropic, Kind::Agent);
+        ant.native.lock().insert(key, "claude-test-pick".into());
+        let v = consent_payload("x", &ant, &llm);
+        assert_eq!(v["model"], "claude-test-pick");
+        let or = MemorySettings::with_key("sk-or-test");
+        let v = consent_payload("x", &or, &llm);
+        assert_eq!(v["provider"], "openrouter");
+        let free = crate::llm::catalogue::default_for(Kind::Agent);
+        assert_eq!(v["model"], free);
+        assert_eq!(v["free"], free.ends_with(":free"));
+        let none = consent_payload("x", &MemorySettings::default(), &llm);
+        assert_eq!(none["recipients"], json!([]));
+        assert!(none.get("provider").is_none());
+    }
 
     #[test]
     fn app_names_are_held_to_safe_characters() {
