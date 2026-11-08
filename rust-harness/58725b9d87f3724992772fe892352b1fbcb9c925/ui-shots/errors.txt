@@ -1,0 +1,2 @@
+== shots.log ==
+[UI] resizeZones=FAIL:eight resize zones not laid out
