@@ -957,14 +957,16 @@ function requestResize() {
   requestAnimationFrame(() => {
     resizeQueued = false;
     markOverflow();
-    const r = opanel.getBoundingClientRect();
-    const glass = `${Math.round(r.top)},${Math.ceil(r.height)}`;
+    // The layout box, not the painted one: while the sheet scales in, its
+    // transform would report it 6% short and no later resize corrects that.
+    const top = opanel.offsetTop;
+    const height = opanel.offsetHeight;
+    const glass = `${top},${height}`;
     if (glass !== lastGlass) {
       lastGlass = glass;
-      send('output:glass', { top: Math.round(r.top), height: Math.ceil(r.height) });
+      send('output:glass', { top, height });
     }
     if (fixedHeight) return;
-    const height = Math.ceil(r.height);
     if (height < lastSentHeight && liveMsg) return;
     if (Math.abs(height - lastSentHeight) < 8) return;
     lastSentHeight = height;

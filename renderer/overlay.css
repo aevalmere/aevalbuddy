@@ -792,8 +792,11 @@ body[data-target="1"] #opanel > .gl::after {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   padding-block: 2px;
-  padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
+  /* The scrollport reaches the sheet's edge, so a mark hung in the 16 px
+     gutter (the plan's checks) is not clipped; the text stays where it was. */
+  padding-inline-start: calc(var(--sp-4) + max(0px, calc((100% - var(--measure)) / 2)));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
+  margin-left: calc(var(--sp-4) * -1);
   margin-right: -10px;
   user-select: text;
 }

@@ -262,7 +262,7 @@
     if (t < T_DROP) {
       // A: a drop swells out of the bar's edge.
       const e = easeOut(t / T_DROP);
-      const a = lerp(28, DROP_HALF, e);
+      const a = Math.min(g.root, lerp(28, DROP_HALF, e));
       add(bead(f, u0, B.v1, a, lerp(3, DROP_DEPTH, e), 1));
       return out;
     }
@@ -276,7 +276,7 @@
       // waist stays narrower than both ends: a meniscus, never a tab.
       const s = smooth(T_DROP, T_PINCH, t);
       const m = smooth(0, HANDOVER, s);
-      const a = lerp(DROP_HALF, 10, s);
+      const a = Math.min(g.root, lerp(DROP_HALF, 10, s));
       const bT = Math.max(0, Math.min(lerp(DROP_HALF, 18, s), straight(q)));
       const wT = Math.min(lerp(60, 1, s ** 1.4), 0.8 * Math.min(a, bT));
       add(behind(f, u0, B.v1, a, 1));
@@ -371,6 +371,9 @@
       u0,
       gap,
       cross,
+      // How wide the shape may leave the bar: within the bar's edge. From a
+      // pill's round end, or near the end of its long side, that is narrow.
+      root: Math.max(12, Math.min(u0 - B.u0, B.u1 - u0) - 12),
       // The shape needs the sheet beside the bar: close enough for the neck
       // to stay in this window, and sharing enough of its edge.
       beside: gap >= -2 && gap <= MAX_GAP && cross >= MIN_CROSS,

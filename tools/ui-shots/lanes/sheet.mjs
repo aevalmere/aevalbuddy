@@ -73,6 +73,13 @@ async function heard(t, name) {
   return [...relayed, ...here];
 }
 
+// Playwright leaves time running after clock.install, so a clock scene stops
+// it first: from here on only t.tick and t.settle move it.
+async function stopClock(t) {
+  const now = await t.page.evaluate(() => Date.now());
+  await t.page.clock.pauseAt(now + 1000);
+}
+
 const key = (f, k, mods) =>
   f.evaluate(
     ({ k: kk, m }) => {
@@ -486,6 +493,7 @@ export const scenes = [
     clock: true,
     windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
     async run(t) {
+      await stopClock(t);
       const { out, local } = await barAndAnswer(t);
       const glass = await barGlassOf(t);
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
@@ -534,6 +542,7 @@ export const scenes = [
     clock: true,
     windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
     async run(t) {
+      await stopClock(t);
       const { out, local } = await barAndAnswer(t);
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
       for (const pct of [0, 25, 50, 75, 100]) {
@@ -910,6 +919,7 @@ export const scenes = [
     clock: true,
     windows: [outWin('out1', OUT1)],
     async run(t) {
+      await stopClock(t);
       const f = t.frame('out1');
       await listenAloud(f);
       await emitAll(f, [
@@ -1022,6 +1032,7 @@ export const scenes = [
     clock: true,
     windows: [outWin('out1', OUT1, { max: 900 })],
     async run(t) {
+      await stopClock(t);
       const f = t.frame('out1');
       await ask(f);
       await t.settle(600);
@@ -1362,6 +1373,7 @@ export const scenes = [
     scales: [1],
     windows: [outWin('out1', OUT1, { max: 900 })],
     async run(t) {
+      await stopClock(t);
       const f = t.frame('out1');
       await listenAloud(f);
       await emitAll(f, [
@@ -1396,6 +1408,7 @@ export const scenes = [
     clock: true,
     windows: [outWin('out1', OUT1, { max: 900 })],
     async run(t) {
+      await stopClock(t);
       const f = t.frame('out1');
       await emitAll(f, [
         ['overlay:state', { mode: 'panel', chatMax: 640 }],
