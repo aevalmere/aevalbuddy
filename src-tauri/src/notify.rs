@@ -28,6 +28,22 @@ pub fn show(title: &str, body: &str, on_click: Option<OnClick>) {
     });
 }
 
+/// Shows a silent toast and waits up to `timeout` for Windows to take it:
+/// for a process about to end, where a thread left running would die first.
+pub fn show_and_wait(title: &str, body: &str, timeout: std::time::Duration) {
+    let (done, wait) = std::sync::mpsc::channel();
+    let title = title.to_string();
+    let body = body.to_string();
+    std::thread::spawn(move || {
+        let toast = Toast::new(AUMID).title(&title).text1(&body).sound(None);
+        if let Err(e) = toast.show() {
+            eprintln!("[aevalbuddy] toast not shown: {e}");
+        }
+        let _ = done.send(());
+    });
+    let _ = wait.recv_timeout(timeout);
+}
+
 /// LIFE-04: the process carries the same AUMID, so a click reaches us.
 pub fn set_app_user_model_id() {
     use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
