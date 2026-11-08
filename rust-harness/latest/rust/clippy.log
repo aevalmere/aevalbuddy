@@ -17,5 +17,8 @@
       Adding toml_edit v0.20.2 (available: v0.20.7)
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
+ Downloading crates ...
+  Downloaded jiff-core v0.1.4
+  Downloaded jiff v0.2.41
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 23.74s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.76s

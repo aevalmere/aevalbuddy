@@ -25,9 +25,9 @@
 [CAPTURE] fidelity=1024x768 -> 640x480 lanczosEdge=9.12 boxEdge=10.49
 [CAPTURE] fidelityStripes=lanczosRmse=0.58 boxRmse=23.73
 [CAPTURE] fidelityLanczos=ok
-[CAPTURE] glassFrame=Some((171, 128)) wall=0.1ms encode=8.4ms
+[CAPTURE] glassFrame=Some((171, 128)) wall=0.1ms encode=8.3ms
 [CAPTURE] glassFrameSize=ok
-[CAPTURE] snapCost={"n":10,"wallP50":8.384599999999999,"wallP95":8.635299999999999,"encodeP95":8.5389,"blockP95":0.1769}
+[CAPTURE] snapCost={"n":10,"wallP50":8.1931,"wallP95":8.3333,"encodeP95":8.2572,"blockP95":0.1932}
 [CAPTURE] snapCost=ok
 [CAPTURE] glassTier=live
 [CAPTURE] glassFixture=ok
@@ -35,4 +35,4 @@
 [CAPTURE] done
 
 --- stderr ---
-[1108/152741.892:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/181838.411:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
