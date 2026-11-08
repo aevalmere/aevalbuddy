@@ -154,7 +154,7 @@
   32: RtlUserThreadStart
 
 [aevalbuddy] guard: smoke panicked and was stopped; the app keeps running: smoke: deliberate main-thread panic
-[1108/192454.103:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/193613.134:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 0
 [GATE] SMOKE lines=64 listed=61
 [GATE] verdict=ok
