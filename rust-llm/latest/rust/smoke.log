@@ -15,28 +15,28 @@
 [SMOKE] selftest.input=ok
 [SMOKE] pillCentre=Some((986, 38))
 [SMOKE] desktopReady=ok
-[SMOKE] desktopReadyMs=943
+[SMOKE] desktopReadyMs=1481
 [SMOKE] desktopDpi=per-monitor-v2
 [SMOKE] desktopWindows=ok
 [SMOKE] desktopWindowCount=1
 [SMOKE] desktopOwnExcluded=ok
 [SMOKE] ownWindowBlocked=ok
 [SMOKE] desktopNotepadIncluded=ok
-[SMOKE] notepadWindow=w10216:notepad:Notepad
+[SMOKE] notepadWindow=w10214:notepad:Notepad
 [SMOKE] focusMethod=already
 [SMOKE] uiaTree=ok
 [SMOKE] uiaTreeNodes=20
-[SMOKE] uiaTreeMs=1920
+[SMOKE] uiaTreeMs=1684
 [SMOKE] uiaTreeRoles=window,document,button,edit,menuitem
 [SMOKE] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
 [SMOKE] editor=ref_2:document:Text Editor
-[SMOKE] ocrMs=838
+[SMOKE] ocrMs=725
 [SMOKE] ocrWords=ok
 [SMOKE] ocrDetail=hits=invoice|total|due words=23 inWindow=true lang=en-US
 [SMOKE] typeFocus=element
 [SMOKE] typeReadText="System\nFile\nEdit\nFormat\nView\nHelp\nInvoice total due 42.00\n AevalBuddy smoke 4271\n  Ln 2, Col 23\n 100%\n Windows (CRLF)\n UTF-8\n"
 [SMOKE] uiaTypeRead=ok
-[SMOKE] uiaSetValueMs=99
+[SMOKE] uiaSetValueMs=114
 [SMOKE] uiaSetValueVia=sendinput
 [SMOKE] uiaSetValue=ok
 [SMOKE] getTextSpans=11
@@ -49,33 +49,33 @@
 [SMOKE] probe.platform=ok
 [SMOKE] probe.windows=ok
 [SMOKE] helperNotAtBoot=ok
-[SMOKE] capture=ok:309818bytes:1024x768
+[SMOKE] capture=ok:309394bytes:1024x768
 [SMOKE] captureActiveDisplay=0,0 1024x768
 [SMOKE] regionCapture=320x200:tagged
 [SMOKE] regionSharper=1.00x->1.00x
 [SMOKE] regionPointTarget={"x":200,"y":140}
 [SMOKE] regionSelectorCancels=true
 [SMOKE] regionEscape=cancelled:panel-kept
-[SMOKE] captureFailNull=null in 3001ms, then a shot
+[SMOKE] captureFailNull=null in 3003ms, then a shot
 [SMOKE] dpiRoundTrip=ok:5 rects within 1px
 [SMOKE] glassTier=live reasons=none canHide=true
 [SMOKE] glassLoaded=ok
-[SMOKE] snapCost=n=50 wallP50=29.6ms wallP95=56.5ms encodeP95=3ms blockP95=0.5ms
+[SMOKE] snapCost=n=50 wallP50=29.9ms wallP95=45.9ms encodeP95=3.6ms blockP95=0.7ms
 [SMOKE] snapCost=ok
-[SMOKE] glassCost=live total=0.5% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
+[SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
 [SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
 [SMOKE] lensFirstDraw=ok
 [SMOKE] lensReady=said=true ready=true
 [SMOKE] lensWhyClear=covers=0 at=243,197
 [SMOKE] lensWhyClear=ok
-[SMOKE] backdropIdle=fast=true slow=true after 0ms
+[SMOKE] backdropIdle=fast=true slow=true after 3ms
 [SMOKE] pointResolved=true
 [SMOKE] buddyPoints=true
 [SMOKE] buddyPointsDone=true
 [SMOKE] walkthrough=true
 [SMOKE] onboardingSteps=0>1>2>3
-[SMOKE] buddyReuse=points in 49ms, agent waited 16ms
-[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5000ms
+[SMOKE] buddyReuse=points in 45ms, agent waited 12ms
+[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5047ms
 [SMOKE] probe.capture=ok
 [SMOKE] intentTable=42/42
 [SMOKE] intentTable=ok
@@ -125,10 +125,10 @@
 [SMOKE] failed: buddyReload
 --- stderr ---
 [aevalbuddy] renderer: buddy render-process-exited crashed
-[1108/194154.354:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/200110.478:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 1
 [GATE] SMOKE lines=117 listed=76
-[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5000ms
+[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5047ms
 [GATE] missing harness:done
 [GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: buddyReload; 1 listed label(s) never printed
 smoke failed: exit code 1, gate exit code 1

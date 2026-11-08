@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42514927195,
+  "run_id": 42516439436,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42514927195",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42516439436",
   "event": "push",
-  "sha": "4e95f64d97b7b9fdb80b2015530b9138e6da4081",
+  "sha": "535f6bb7010c95d4ad43cb5780ed166f93710dea",
   "ref": "rust/llm",
   "ref_dir": "rust-llm",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-08T19:42:12Z",
+  "finished": "2026-11-08T20:01:29Z",
   "error_lines": 4,
   "steps": [
     {
@@ -77,7 +77,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
