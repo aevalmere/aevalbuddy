@@ -1,0 +1,80 @@
+    Updating crates.io index
+     Locking 566 packages to highest compatible versions
+      Adding aes-gcm v0.10.3 (available: v0.11.1)
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding fancy-regex v0.14.0 (available: v0.20.0)
+      Adding fast_image_resize v5.5.0 (available: v6.1.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding jpeg-encoder v0.6.1 (available: v0.7.1)
+      Adding parking_lot v0.12.5 (available: v0.13.0)
+      Adding png v0.17.16 (available: v0.18.1)
+      Adding rand v0.8.8 (available: v0.10.3)
+      Adding reqwest v0.12.28 (available: v0.13.5)
+      Adding sha2 v0.10.9 (available: v0.11.1)
+      Adding tauri-winrt-notification v0.7.3 (available: v0.8.1)
+      Adding toml v0.8.2 (available: v0.8.23)
+      Adding toml_datetime v0.6.3 (available: v0.6.11)
+      Adding toml_edit v0.20.2 (available: v0.20.7)
+      Adding windows-sys v0.59.0 (available: v0.61.2)
+      Adding winreg v0.55.0 (available: v0.56.0)
+ Downloading crates ...
+  Downloaded error-code v3.4.0
+  Downloaded adler2 v2.0.1
+  Downloaded base64 v0.23.1
+  Downloaded displaydoc v0.2.7
+  Downloaded getrandom v0.3.4
+  Downloaded schemars_derive v0.8.22
+  Downloaded darling_core v0.24.1
+  Downloaded dom_query v0.28.0
+  Downloaded aead v0.5.2
+  Downloaded cfg_aliases v0.2.2
+  Downloaded dunce v1.0.5
+  Downloaded dirs-sys v0.5.0
+  Downloaded bitflags v1.3.2
+  Downloaded anyhow v1.0.104
+  Downloaded dtoa v1.0.11
+  Downloaded glob v0.3.4
+  Downloaded crossbeam-channel v0.5.17
+  Downloaded erased-serde v0.4.11
+  Downloaded camino v1.2.6
+  Downloaded raw-window-handle v0.6.2
+  Downloaded heck v0.5.0
+  Downloaded fax v0.2.7
+  Downloaded bytes v1.12.1
+  Downloaded aho-corasick v1.1.5
+  Downloaded cookie v0.18.2
+  Downloaded hex v0.4.3
+  Downloaded darling v0.24.1
+  Downloaded foldhash v0.2.0
+  Downloaded getrandom v0.4.3
+  Downloaded version_check v0.9.5
+  Downloaded try-lock v0.2.5
+  Downloaded smallvec v1.16.5
+  Downloaded synstructure v0.14.0
+  Downloaded string_cache_codegen v0.6.1
+  Downloaded cfb v0.14.0
+  Downloaded windows-interface v0.59.3
+  Downloaded windows-strings v0.4.2
+  Downloaded tauri-build v2.7.4
+  Downloaded tauri-macros v2.7.4
+  Downloaded toml_writer v1.2.0+spec-1.1.0
+  Downloaded webview2-com v0.39.1
+  Downloaded subtle v2.6.1
+  Downloaded tauri-plugin v2.7.2
+  Downloaded tauri-runtime v2.12.2
+  Downloaded walkdir v2.5.0
+  Downloaded webview2-com-macros v0.8.1
+  Downloaded windows-future v0.3.2
+  Downloaded windows-numerics v0.2.0
+  Downloaded tauri-plugin-clipboard-manager v2.5.0
+  Downloaded tauri-winrt-notification v0.7.3
+  Downloaded time-macros v0.2.32
+  Downloaded tracing-attributes v0.1.31
+  Downloaded utf_types v1.0.0
+  Downloaded web_atoms v0.2.6
+  Downloaded windows-threading v0.2.1
+  Downloaded windows-strings v0.5.1
+  Downloaded tauri-codegen v2.7.4
+  Downloaded tauri-plugin-global-shortcut v2.4.1
+  Downloaded toml v1.2.1+spec-1.1.0
+  Downloaded weezl v0.1.12
