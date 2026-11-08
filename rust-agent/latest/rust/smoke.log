@@ -18,6 +18,15 @@
 [SMOKE] probe.windows=ok
 [SMOKE] probe.capture=ok
 [SMOKE] probe.llm=ok
+[SMOKE] gateBypasses=37/37
+[SMOKE] gateBypasses=ok
+[SMOKE] gatePassesPlainInput=ok
+[SMOKE] gateFailsClosed=ok
+[SMOKE] gatePlanFirst=ok
+[SMOKE] gateChords=ok
+[SMOKE] gateKeyActivation=ok
+[SMOKE] confirmFullText=ok
+[SMOKE] takeoverStopsStep=ok
 [SMOKE] probe.agent=ok
 [SMOKE] probe.bar=ok
 [SMOKE] probe.sheet=ok
@@ -28,7 +37,7 @@
 [SMOKE] v2desktop=ok
 [SMOKE] done
 --- stderr ---
-[1108/145048.528:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/150642.551:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 0
-[GATE] SMOKE lines=21 listed=18
+[GATE] SMOKE lines=30 listed=26
 [GATE] verdict=ok

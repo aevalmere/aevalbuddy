@@ -1,11 +1,11 @@
 # rust: success
 
 - Workflow: rust
-- Run: [42490852023](https://github.com/aevalmere/aevalbuddy/actions/runs/42490852023), attempt 1, on push
-- Commit: 3918098465c200c2ca03f733cce05de913b4a13d
+- Run: [42492528873](https://github.com/aevalmere/aevalbuddy/actions/runs/42492528873), attempt 1, on push
+- Commit: 771d1490500b304ce2dd4dc09d055fb0363b4ba4
 - Ref: rust/agent
 - Conclusion: **success**
-- Finished: 2026-11-08T14:51:06Z
+- Finished: 2026-11-08T15:06:58Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,6 +19,9 @@
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | success |  |
 | Build installer | success | [build.log](build.log) |
 | Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
