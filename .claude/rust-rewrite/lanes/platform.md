@@ -308,6 +308,8 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-015, B-016: code done (lib.rs force_shot_scale, installer-hooks.nsh); acceptance lives in harness's installer job (B-052), see Blockers.
 - 941a42d: ui-shots bridge checks green (editMenuInFields=ok, harness approved the check change); Screenshots step failed only on globSmooth "longest frame 50.0 ms" in sheet's timing check, which passes on every other branch and on rust-rewrite; this diff touches no renderer or shots code, so it is a runner stall. The rust run for 941a42d was still running when the session was cut off.
 - 941a42d rust was cancelled by the 5f6b541 push after Format, Clippy and Unit tests passed. The next tip adds a one-line comment to aeval-bridge.js, so ui-shots runs again after the globSmooth stall; rust and ui-shots at that tip are the final result (see the line below).
+- Final: f045fc2 green on rust (every step, Build installer with the one-click installer.nsi template, Smoke, Capture, Desktop) and ui-shots (editMenuInFields=ok, globSmooth=ok). B-085 code green there; its installer-job acceptance waits on harness B-052 (Blockers). Commits after f045fc2 change only this file.
+- TODO (B-112, capture): lib.rs:119-121 should call backdrop::serve_request(&request) instead of backdrop::serve(request.uri().path()) so the foreign-origin 403 fires; serve_request is only on origin/rust/capture, so make the change after capture merges into rust-rewrite.
 
 ## Blockers
 
