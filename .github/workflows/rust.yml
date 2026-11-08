@@ -1,5 +1,7 @@
 # The Tauri rewrite (branch rust-rewrite). Every gate runs here: no Rust
-# toolchain is installed on a developer machine for this project.
+# toolchain is installed on a developer machine for this project. Results,
+# pass or fail, land on the ci-logs branch under <ref>/<sha>/rust/; wait for
+# them with `node tools/ci-wait.mjs <sha>` rather than the GitHub API.
 name: rust
 
 on:
@@ -15,18 +17,23 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     defaults:
       run:
         shell: pwsh
         working-directory: src-tauri
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - id: node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
       - name: Rust toolchain
+        id: toolchain
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt,clippy
           rustup default stable
@@ -34,6 +41,7 @@ jobs:
           cargo --version
 
       - name: Cache cargo
+        id: cache
         uses: actions/cache@v4
         with:
           path: |
@@ -43,13 +51,15 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
           restore-keys: cargo-${{ runner.os }}-
 
-      # Each gate repeats the end of its output as an annotation, so a failure
-      # can be read from the public check-runs API without log access.
+      # Each gate tees its output to $RUNNER_TEMP/ci-logs/<title>.log for the
+      # ci-logs branch, and repeats the end of it as an annotation.
       - name: Gate helper
+        id: helper
         run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'ci-logs') | Out-Null
           @'
           param([string]$Title, [string]$Command)
-          $out = Join-Path $env:RUNNER_TEMP "$Title.log"
+          $out = Join-Path $env:RUNNER_TEMP "ci-logs\$Title.log"
           cmd /c "$Command 2>&1" | Tee-Object -FilePath $out
           $code = $LASTEXITCODE
           if ($code -ne 0) {
@@ -71,24 +81,29 @@ jobs:
       # The desktop helper ships prebuilt (DESK-12): compile host.cs once,
       # bundle build/desktop-<hash>.dll, and pin its SHA-256 into the exe.
       - name: Prebuild desktop helper
+        id: prebuild
         run: |
-          node ../tools/build-desktop.js
+          & "$env:RUNNER_TEMP\gate.ps1" prebuild "node ../tools/build-desktop.js"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $sha = (Get-Content ../lib/desktop/prebuilt.json -Raw | ConvertFrom-Json).sha256
           if ($sha -notmatch '^[0-9a-f]{64}$') { throw "no prebuilt sha: $sha" }
           "AEVAL_DESKTOP_DLL_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Format
+        id: fmt
         run: '& "$env:RUNNER_TEMP\gate.ps1" fmt "cargo fmt --all -- --check"'
 
       # With no local toolchain, a failed fmt gate hands back its fix: the
-      # rustfmt patch, gzipped and base64'd across warning annotations
-      # (`fmtpatch i of n`), to be applied with `git apply`.
+      # rustfmt patch, as ci-logs/<ref>/<sha>/rust/fmt.patch and gzipped and
+      # base64'd across warning annotations (`fmtpatch i of n`), to be applied
+      # with `git apply`.
       - name: Format patch
+        id: fmtpatch
         if: failure()
         run: |
           cargo fmt --all
-          git diff --output="$env:RUNNER_TEMP\fmt.patch"
-          $bytes = [IO.File]::ReadAllBytes("$env:RUNNER_TEMP\fmt.patch")
+          git diff --output="$env:RUNNER_TEMP\ci-logs\fmt.patch"
+          $bytes = [IO.File]::ReadAllBytes("$env:RUNNER_TEMP\ci-logs\fmt.patch")
           $ms = New-Object IO.MemoryStream
           $gz = New-Object IO.Compression.GZipStream($ms, [IO.Compression.CompressionMode]::Compress)
           $gz.Write($bytes, 0, $bytes.Length)
@@ -103,20 +118,25 @@ jobs:
           git checkout -- .
 
       - name: Clippy
+        id: clippy
         if: success() || failure()
         run: '& "$env:RUNNER_TEMP\gate.ps1" clippy "cargo clippy --all-targets --color never -- -D warnings"'
 
       - name: Unit tests
+        id: test
         if: success() || failure()
         run: '& "$env:RUNNER_TEMP\gate.ps1" test "cargo test --color never"'
 
       - name: Build installer
+        id: build
         run: '& "$env:RUNNER_TEMP\gate.ps1" build "npx --yes @tauri-apps/cli@2 build --bundles nsis"'
 
       - name: Scaffold smoke
+        id: smoke
         run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\smoke.log'
           $exe = 'target\release\AevalBuddy.exe'
-          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-smoke'
           New-Item -ItemType Directory -Force $scratch | Out-Null
           $env:AEVAL_SMOKE = '1'
@@ -124,8 +144,10 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'smoke.out'
           $err = Join-Path $env:RUNNER_TEMP 'smoke.err'
           $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
-          if (-not $p.WaitForExit(90000)) { $p.Kill(); Write-Output '::error::smoke timed out' }
-          Get-Content $out, $err -ErrorAction SilentlyContinue
+          $timedOut = -not $p.WaitForExit(90000)
+          if ($timedOut) { $p.Kill(); Write-Output '::error::smoke timed out' }
+          Get-Content $out, $err -ErrorAction SilentlyContinue | Tee-Object -FilePath $log
+          if ($timedOut) { Add-Content $log 'smoke timed out after 90 s' }
           $text = Get-Content $out -Raw -ErrorAction SilentlyContinue
           # The boot log as an annotation, readable without a token (a panic
           # in host::setup or a hook shows here).
@@ -134,27 +156,35 @@ jobs:
           Write-Output "::notice title=scaffold smoke::$($tail.Replace('%', '%25').Replace("`n", '%0A'))"
           if ($text -notmatch '\[SMOKE\] scaffold\.bridge=ok') {
             Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
+            Add-Content $log 'scaffold smoke failed: no "[SMOKE] scaffold.bridge=ok" line'
             exit 1
           }
 
       # Split (c): capture fidelity and exclusion on the runner's real screen,
       # then the desktop selfcheck (Notepad included).
       - name: Capture check
+        id: capture
         if: success() || failure()
         run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\capture.log'
           $exe = 'target\release\AevalBuddy.exe'
-          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           if (-not (Test-Path 'target\release\desktop')) { Write-Output '::warning::no bundled desktop/ folder beside the exe' }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-capture'
           New-Item -ItemType Directory -Force $scratch | Out-Null
           $env:AEVAL_CAPTURE_CHECK = '1'
           $env:AEVAL_USERDATA = $scratch
           $out = Join-Path $env:RUNNER_TEMP 'capture.out'
-          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'capture.err')
-          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output '::error::capture check timed out' }
+          $errFile = Join-Path $env:RUNNER_TEMP 'capture.err'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError $errFile
+          $timedOut = -not $p.WaitForExit(180000)
+          if ($timedOut) { $p.Kill(); Write-Output '::error::capture check timed out' }
           $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
-          $errText = (Get-Content (Join-Path $env:RUNNER_TEMP 'capture.err') -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+          $errText = (Get-Content $errFile -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
           Write-Output $text $errText
+          # stdout and the whole of stderr, for the ci-logs branch.
+          @($text, '--- stderr ---') + @(Get-Content $errFile -ErrorAction SilentlyContinue) | Set-Content $log
+          if ($timedOut) { Add-Content $log 'capture check timed out after 180 s' }
           $ok = $text -match '\[CAPTURE\] done'
           $lines = ($text -split "`n" | Where-Object { $_ -match '^\[CAPTURE\]' }) -join "`n"
           if (-not $ok) { $lines += "`n--- stderr ---`n" + $errText }
@@ -166,23 +196,30 @@ jobs:
             $c = $lines.Substring([Math]::Min($lines.Length, $i * 4000), [Math]::Max(0, [Math]::Min(4000, $lines.Length - $i * 4000)))
             Write-Output "::$level title=capture check $($i + 1) of $n::$($c.Replace('%', '%25').Replace("`n", '%0A'))"
           }
-          if (-not $ok) { exit 1 }
-
+          if (-not $ok) { Add-Content $log 'capture check failed: no "[CAPTURE] done" line'; exit 1 }
 
       - name: Desktop selfcheck
+        id: desktop
         if: success() || failure()
         run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\desktop.log'
           $exe = 'target\release\AevalBuddy.exe'
+          if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-desktop'
           New-Item -ItemType Directory -Force $scratch | Out-Null
           $env:AEVAL_DESKTOP_CHECK = '1'
           $env:AEVAL_USERDATA = $scratch
           $out = Join-Path $env:RUNNER_TEMP 'desktop.out'
-          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'desktop.err')
-          if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Output '::error::desktop selfcheck timed out' }
+          $errFile = Join-Path $env:RUNNER_TEMP 'desktop.err'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError $errFile
+          $timedOut = -not $p.WaitForExit(240000)
+          if ($timedOut) { $p.Kill(); Write-Output '::error::desktop selfcheck timed out' }
           $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
-          $errText = (Get-Content (Join-Path $env:RUNNER_TEMP 'desktop.err') -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+          $errText = (Get-Content $errFile -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
           Write-Output $text $errText
+          # stdout and the whole of stderr, for the ci-logs branch.
+          @($text, '--- stderr ---') + @(Get-Content $errFile -ErrorAction SilentlyContinue) | Set-Content $log
+          if ($timedOut) { Add-Content $log 'desktop selfcheck timed out after 240 s' }
           $ok = $text -match '\[DESKTOP\] done'
           $lines = ($text -split "`n" | Where-Object { $_ -match '^\[DESKTOP\]' -and $_ -notmatch 'typeReadText|editorCandidates' }) -join "`n"
           if (-not $ok) { $lines += "`n--- stderr ---`n" + $errText }
@@ -194,10 +231,40 @@ jobs:
             $c = $lines.Substring([Math]::Min($lines.Length, $i * 4000), [Math]::Max(0, [Math]::Min(4000, $lines.Length - $i * 4000)))
             Write-Output "::$level title=desktop selfcheck $($i + 1) of $n::$($c.Replace('%', '%25').Replace("`n", '%0A'))"
           }
-          if (-not $ok) { exit 1 }
+          if (-not $ok) { Add-Content $log 'desktop selfcheck failed: no "[DESKTOP] done" line'; exit 1 }
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: aevalbuddy-tauri-nsis
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+
+      # Last, pass, fail or cancel: summary.md, errors.txt and every gate's
+      # log to ci-logs/<ref>/<sha>/rust/ (tools/ci-publish.mjs). A failure to
+      # publish never turns a green run red.
+      - name: Publish to ci-logs
+        if: always()
+        continue-on-error: true
+        working-directory: .
+        env:
+          CI_WORKFLOW: rust
+          CI_STATUS: ${{ job.status }}
+          CI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_STEPS: |
+            Checkout|${{ steps.checkout.outcome }}
+            Node|${{ steps.node.outcome }}
+            Rust toolchain|${{ steps.toolchain.outcome }}
+            Cache cargo|${{ steps.cache.outcome }}
+            Gate helper|${{ steps.helper.outcome }}
+            Prebuild desktop helper|${{ steps.prebuild.outcome }}|prebuild.log
+            Format|${{ steps.fmt.outcome }}|fmt.log
+            Format patch|${{ steps.fmtpatch.outcome }}|fmt.patch
+            Clippy|${{ steps.clippy.outcome }}|clippy.log
+            Unit tests|${{ steps.test.outcome }}|test.log
+            Build installer|${{ steps.build.outcome }}|build.log
+            Scaffold smoke|${{ steps.smoke.outcome }}|smoke.log
+            Capture check|${{ steps.capture.outcome }}|capture.log
+            Desktop selfcheck|${{ steps.desktop.outcome }}|desktop.log
+            Upload installer|${{ steps.upload.outcome }}
+        run: node tools/ci-publish.mjs

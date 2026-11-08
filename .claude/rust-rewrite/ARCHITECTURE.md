@@ -311,6 +311,16 @@ file://.
 
 - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` on every push
   (`.github/workflows/rust.yml`).
+- Results without the API: every `rust.yml` and `ui-shots.yml` run on `rust-rewrite` or `rust/**`
+  ends, pass, fail or cancel, by committing to the orphan branch `ci-logs` (`tools/ci-publish.mjs`).
+  `<ref>/<sha>/<workflow>/` (`<ref>` is the branch with `/` as `-`) holds `summary.md` (run link,
+  conclusion, every step's outcome), `errors.txt` (error and warning lines) and one log per gate
+  (`fmt.log` and `fmt.patch`, `clippy.log`, `test.log`, `build.log`, `smoke.log`, `capture.log`,
+  `desktop.log`; `bridge.log`, `shots.log`). `<ref>/latest/<workflow>/` is the newest run; 30 kept.
+- After a push, `node tools/ci-wait.mjs <sha> [rust|ui-shots] [--timeout-min 30]` fetches `ci-logs`
+  every 45 s and exits 0 (green), 1 (red; prints errors.txt and the failing gate's log tail) or 2 (no
+  verdict: timed out, or cancelled by a newer push to the same ref). Agents never poll the GitHub API
+  for run status: unauthenticated, it allows 60 requests an hour for the whole machine.
 - `tauri build` produces the NSIS installer as an artifact; a scaffold smoke runs the built exe with
   `AEVAL_SMOKE=1` and requires `[SMOKE] scaffold.bridge=ok` (every page loaded and called through
   `window.aeval`).

@@ -3,6 +3,8 @@
 # window.aeval (tools/ui-shots). Screenshots go to the `shots` branch under
 # rust-d-ui/, readable without auth at
 # raw.githubusercontent.com/<repo>/shots/rust-d-ui/latest/<name>.png
+# Results and logs land on the ci-logs branch under <ref>/<sha>/ui-shots/;
+# wait for them with `node tools/ci-wait.mjs <sha> ui-shots`.
 name: ui-shots
 
 on:
@@ -32,36 +34,48 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - id: node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
       - name: Bridge unit checks
+        id: bridge
         run: |
-          node tools/ui-shots/bridge.test.mjs 2>&1 | Tee-Object -FilePath bridge.log
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\bridge.log'
+          New-Item -ItemType Directory -Force (Split-Path $log) | Out-Null
+          node tools/ui-shots/bridge.test.mjs 2>&1 | Tee-Object -FilePath $log
           $code = $LASTEXITCODE
-          Get-Content bridge.log | Where-Object { $_ -match '=FAIL' } | ForEach-Object { "::error title=bridge::$_" }
+          Get-Content $log | Where-Object { $_ -match '=FAIL' } | ForEach-Object { "::error title=bridge::$_" }
           exit $code
 
       - name: Install Playwright (drives the runner's Edge)
-        run: npm install --no-save --no-audit --no-fund --prefix tools/ui-shots playwright@1.48.2
+        id: playwright
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\playwright.log'
+          cmd /c "npm install --no-save --no-audit --no-fund --prefix tools/ui-shots playwright@1.48.2 2>&1" | Tee-Object -FilePath $log
+          exit $LASTEXITCODE
 
       - name: Screenshots and renderer checks
+        id: shots
         run: |
-          node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge 2>&1 | Tee-Object -FilePath shots.log
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\shots.log'
+          node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge 2>&1 | Tee-Object -FilePath $log
           $code = $LASTEXITCODE
-          $fails = Get-Content shots.log | Where-Object { $_ -match '=FAIL|\] pageerror' }
+          $fails = Get-Content $log | Where-Object { $_ -match '=FAIL|\] pageerror' }
           $fails | ForEach-Object { "::error title=ui-shots::$($_.Replace('%','%25'))" }
           if ($code -ne 0) {
-            $tail = (Get-Content shots.log -Tail 40) -join "`n"
+            $tail = (Get-Content $log -Tail 40) -join "`n"
             "::error title=ui-shots log tail::$($tail.Replace('%','%25').Replace("`r",'').Replace("`n",'%0A'))"
           }
-          "::notice title=ui-shots::$((Get-Content shots.log | Where-Object { $_ -match '^\[UI\] (glob|done)' }) -join '%0A')"
+          "::notice title=ui-shots::$((Get-Content $log | Where-Object { $_ -match '^\[UI\] (glob|done)' }) -join '%0A')"
           exit $code
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: ui-shots
@@ -70,6 +84,7 @@ jobs:
       # Into the shots branch beside main's folders, never touching them:
       # rust-d-ui/latest and rust-d-ui/<sha> (the five newest kept).
       - name: Publish to the shots branch
+        id: publish
         if: ${{ always() && github.event_name == 'push' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,3 +116,24 @@ jobs:
             Start-Sleep -Seconds (3 * $try)
           }
           throw 'could not publish after 5 tries'
+
+      # Last, pass, fail or cancel: summary.md, errors.txt and the logs to
+      # ci-logs/<ref>/<sha>/ui-shots/ (tools/ci-publish.mjs). A failure to
+      # publish never turns a green run red.
+      - name: Publish to ci-logs
+        if: always()
+        continue-on-error: true
+        env:
+          CI_WORKFLOW: ui-shots
+          CI_STATUS: ${{ job.status }}
+          CI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_NOTE: "Screenshots: https://github.com/${{ github.repository }}/tree/shots/rust-d-ui/${{ github.sha }}"
+          CI_STEPS: |
+            Checkout|${{ steps.checkout.outcome }}
+            Node|${{ steps.node.outcome }}
+            Bridge unit checks|${{ steps.bridge.outcome }}|bridge.log
+            Install Playwright|${{ steps.playwright.outcome }}|playwright.log
+            Screenshots and renderer checks|${{ steps.shots.outcome }}|shots.log
+            Upload screenshots|${{ steps.upload.outcome }}
+            Publish to the shots branch|${{ steps.publish.outcome }}
+        run: node tools/ci-publish.mjs
