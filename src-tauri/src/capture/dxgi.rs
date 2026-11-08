@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use windows::core::Interface;
 use windows::Win32::Foundation::HMODULE;
@@ -103,53 +104,120 @@ fn open(device_name: &str) -> Result<Dup, String> {
     }
 }
 
+/// How long a new duplication may take to produce its first image.
+const FIRST_FRAME: Duration = Duration::from_millis(900);
+
+/// One `AcquireNextFrame` and what follows it, behind a trait so the
+/// first-frame rule can be tested without a GPU.
+trait Source {
+    /// `Ok(None)` on a timeout. `Ok(Some(presented))` with a frame held;
+    /// `presented` when the desktop image changed, not only the pointer.
+    fn acquire(&mut self, timeout_ms: u32) -> Result<Option<bool>, String>;
+    /// Copies the held frame out.
+    fn copy(&mut self) -> Result<Frame, String>;
+    fn release(&mut self);
+}
+
+/// B-029: the first frame of a new duplication. Only a frame that carries a
+/// desktop image counts: DXGI can hand out a pointer-only update first,
+/// whose surface is empty, and caching it would serve a black screen until
+/// the desktop next changed. An image of all zero bytes (alpha included) is
+/// refused too. With nothing inside `budget` this fails, so the capture
+/// falls back to GDI instead of caching an empty frame.
+fn first_frame(src: &mut impl Source, budget: Duration) -> Result<Frame, String> {
+    let start = Instant::now();
+    while start.elapsed() < budget {
+        let left = budget.saturating_sub(start.elapsed());
+        let wait = left.as_millis().clamp(1, 300) as u32;
+        let Some(presented) = src.acquire(wait)? else {
+            continue;
+        };
+        let frame = presented.then(|| src.copy());
+        src.release();
+        match frame {
+            Some(Ok(f)) if !all_zero(&f.bgra) => return Ok(f),
+            Some(Err(e)) => return Err(e),
+            _ => {}
+        }
+    }
+    Err("no desktop image from DXGI".into())
+}
+
+fn all_zero(bytes: &[u8]) -> bool {
+    bytes.iter().all(|&b| b == 0)
+}
+
+/// A duplication as a `Source`, holding the acquired resource between
+/// `acquire` and `copy`.
+struct Live<'a> {
+    dup: &'a mut Dup,
+    res: Option<IDXGIResource>,
+}
+
+impl Source for Live<'_> {
+    fn acquire(&mut self, timeout_ms: u32) -> Result<Option<bool>, String> {
+        let mut info = DXGI_OUTDUPL_FRAME_INFO::default();
+        let mut res: Option<IDXGIResource> = None;
+        let dup = &self.dup.dup;
+        match unsafe { dup.AcquireNextFrame(timeout_ms, &mut info, &mut res) } {
+            Ok(()) => {
+                self.res = res;
+                let presented = info.LastPresentTime != 0 || info.AccumulatedFrames > 0;
+                Ok(Some(presented))
+            }
+            Err(e) if e.code() == DXGI_ERROR_WAIT_TIMEOUT => Ok(None),
+            Err(e) => Err(format!("acquire: {e}")),
+        }
+    }
+
+    fn copy(&mut self) -> Result<Frame, String> {
+        let res = self.res.take();
+        self.dup.copy(res)
+    }
+
+    fn release(&mut self) {
+        self.res = None;
+        unsafe {
+            let _ = self.dup.dup.ReleaseFrame();
+        }
+    }
+}
+
 impl Dup {
+    fn live(&mut self) -> Live<'_> {
+        Live {
+            dup: self,
+            res: None,
+        }
+    }
+
     /// The newest frame, or the last one when nothing changed since.
     fn frame(&mut self) -> Result<Arc<Frame>, String> {
-        // With a frame in hand a static screen answers immediately; a fresh
-        // duplication gets a moment to produce its first image.
-        let tries: &[u32] = if self.last.is_some() {
-            &[0]
-        } else {
-            &[300, 300, 300]
+        let Some(last) = self.last.clone() else {
+            let f = Arc::new(first_frame(&mut self.live(), FIRST_FRAME)?);
+            self.last = Some(f.clone());
+            return Ok(f);
         };
-        for &timeout in tries {
-            let mut info = DXGI_OUTDUPL_FRAME_INFO::default();
-            let mut res: Option<IDXGIResource> = None;
-            match unsafe { self.dup.AcquireNextFrame(timeout, &mut info, &mut res) } {
-                Ok(()) => {}
-                Err(e) if e.code() == DXGI_ERROR_WAIT_TIMEOUT => {
-                    if let Some(last) = &self.last {
-                        return Ok(last.clone());
-                    }
-                    continue;
-                }
-                Err(e) => return Err(format!("acquire: {e}")),
+        // With a frame in hand a static screen answers at once.
+        let mut src = self.live();
+        let Some(presented) = src.acquire(0)? else {
+            return Ok(last);
+        };
+        let copied = if presented {
+            src.copy().map(Some)
+        } else {
+            // Only the pointer moved; the image is the one we have.
+            Ok(None)
+        };
+        src.release();
+        match copied? {
+            Some(f) => {
+                let f = Arc::new(f);
+                self.last = Some(f.clone());
+                Ok(f)
             }
-            let copied = if info.LastPresentTime == 0 && self.last.is_some() {
-                // Only the pointer moved; the image is the one we have.
-                Ok(None)
-            } else {
-                self.copy(res).map(Some)
-            };
-            unsafe {
-                let _ = self.dup.ReleaseFrame();
-            }
-            match copied {
-                Ok(Some(f)) => {
-                    let f = Arc::new(f);
-                    self.last = Some(f.clone());
-                    return Ok(f);
-                }
-                Ok(None) => {
-                    if let Some(last) = &self.last {
-                        return Ok(last.clone());
-                    }
-                }
-                Err(e) => return Err(e),
-            }
+            None => Ok(last),
         }
-        Err("no frame from DXGI".into())
     }
 
     fn copy(&mut self, res: Option<IDXGIResource>) -> Result<Frame, String> {
@@ -215,6 +283,12 @@ impl Dup {
 }
 
 impl Cache {
+    /// Drops the duplication of one output, so the next grab opens a new one
+    /// (the capture check's first-frame test).
+    pub fn forget(&mut self, device_name: &str) {
+        self.dups.remove(device_name);
+    }
+
     pub fn grab(&mut self, device_name: &str) -> Result<Arc<Frame>, String> {
         if !self.dups.contains_key(device_name) {
             let d = open(device_name)?;
@@ -231,5 +305,75 @@ impl Cache {
             self.dups.remove(device_name);
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Hands out a scripted run of acquisitions: `None` is a timeout,
+    /// `Some((presented, fill))` a frame whose bytes are all `fill`.
+    struct Fake {
+        script: Vec<Option<(bool, u8)>>,
+        held: Option<u8>,
+        copies: usize,
+    }
+
+    impl Source for Fake {
+        fn acquire(&mut self, _timeout_ms: u32) -> Result<Option<bool>, String> {
+            if self.script.is_empty() {
+                std::thread::sleep(Duration::from_millis(5));
+                return Ok(None);
+            }
+            let next = self.script.remove(0);
+            if let Some((_, fill)) = next {
+                self.held = Some(fill);
+            }
+            Ok(next.map(|(presented, _)| presented))
+        }
+
+        fn copy(&mut self) -> Result<Frame, String> {
+            self.copies += 1;
+            let fill = self.held.ok_or("nothing held")?;
+            Ok(Frame {
+                width: 2,
+                height: 1,
+                bgra: vec![fill; 8],
+            })
+        }
+
+        fn release(&mut self) {
+            self.held = None;
+        }
+    }
+
+    fn fake(script: Vec<Option<(bool, u8)>>) -> Fake {
+        Fake {
+            script,
+            held: None,
+            copies: 0,
+        }
+    }
+
+    #[test]
+    fn pointer_only_first_frame_is_skipped() {
+        // A timeout, a pointer-only update, then the desktop.
+        let mut src = fake(vec![None, Some((false, 0)), Some((true, 200))]);
+        let f = first_frame(&mut src, FIRST_FRAME).expect("a desktop frame");
+        assert_eq!(f.bgra, vec![200; 8]);
+        // The pointer-only update was never copied out.
+        assert_eq!(src.copies, 1);
+    }
+
+    #[test]
+    fn empty_first_frame_falls_back() {
+        // An all-zero image is refused too; with nothing better inside the
+        // budget the open fails, so the capture goes to GDI instead of
+        // caching black.
+        let mut src = fake(vec![Some((true, 0)), Some((false, 0))]);
+        let budget = Duration::from_millis(50);
+        assert!(first_frame(&mut src, budget).is_err());
+        assert_eq!(src.copies, 1);
     }
 }

@@ -133,6 +133,13 @@ fn run_on<T: Send + 'static>(
     }
 }
 
+/// Drops the duplication of `display`, so the next grab opens a new one
+/// (the capture check's first-frame test, B-029).
+pub fn reset_dxgi(display: &Display) -> Result<(), String> {
+    let device = display.device.clone();
+    on_capture_thread(move |cache| cache.forget(&device))
+}
+
 fn forced_backend() -> Option<Backend> {
     match std::env::var("AEVAL_CAPTURE_BACKEND").ok()?.as_str() {
         "gdi" => Some(Backend::Gdi),
@@ -387,7 +394,7 @@ mod tests {
         let slot = Mutex::new(spawn_worker());
         let limit = Duration::from_millis(300);
         // A job that outlives the limit fails the call...
-        let hung = run_on(&slot, limit, |_| std::thread::sleep(limit * 10));
+        let hung = run_on(&slot, limit, move |_| std::thread::sleep(limit * 10));
         assert!(hung.is_err());
         // ...and the next one runs at once on a fresh thread.
         let t = std::time::Instant::now();

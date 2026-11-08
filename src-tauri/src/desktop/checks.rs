@@ -22,7 +22,16 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use super::selfcheck::{self, Report};
 use crate::capture::{self, encode, screen, Rect, Rgb};
-use crate::{backdrop, desktop};
+use crate::{backdrop, desktop, region};
+
+/// A left-button drag in the area selector, from (40, 40) to (360, 240).
+const DRAG_JS: &str = concat!(
+    "(() => {",
+    "const at = (t, x, y) => document.dispatchEvent(",
+    "new MouseEvent(t, { clientX: x, clientY: y, button: 0, bubbles: true }));",
+    "at('mousedown', 40, 40); at('mousemove', 360, 240); at('mouseup', 360, 240);",
+    "})();"
+);
 
 pub fn maybe_run(app: &AppHandle) {
     let capture_check = std::env::var_os("AEVAL_CAPTURE_CHECK").is_some();
@@ -207,6 +216,50 @@ fn box_resize(img: &Rgb, w: u32, h: u32) -> Rgb {
     }
 }
 
+/// Mean brightness and the share of near-black pixels of a JPEG.
+fn decode_look(bytes: &[u8]) -> Option<(f64, f64)> {
+    let mut d = jpeg_decoder::Decoder::new(bytes);
+    let px = d.decode().ok()?;
+    let (mut sum, mut black) = (0f64, 0u64);
+    for p in px.chunks_exact(3) {
+        let v = (p[0] as f64 + p[1] as f64 + p[2] as f64) / 3.0;
+        sum += v;
+        if v < 16.0 {
+            black += 1;
+        }
+    }
+    let n = (px.len() / 3).max(1) as f64;
+    Some((sum / n, black as f64 / n))
+}
+
+/// B-029: a new duplication's first frame shows the desktop, not an empty
+/// pointer-only surface. A runner without DXGI says so loudly instead.
+fn dxgi_first_frame(rep: &Report, d: &screen::Display, control: screen::PxRect) {
+    let _ = capture::reset_dxgi(d);
+    std::env::set_var("AEVAL_CAPTURE_BACKEND", "dxgi");
+    let t = Instant::now();
+    let got = capture::grab(d);
+    std::env::remove_var("AEVAL_CAPTURE_BACKEND");
+    match got {
+        Ok(f) => {
+            let c = probe(&f.rgb(), control, d.phys);
+            rep.log("dxgiFirstFrameMs", t.elapsed().as_millis());
+            rep.must(
+                "dxgiFirstFrame",
+                c.mean > 150.0 && c.black < 0.05,
+                &format!("controlMean={:.0} black={:.3}", c.mean, c.black),
+            );
+        }
+        Err(e) => dxgi_unavailable(rep, &e),
+    }
+}
+
+fn dxgi_unavailable(rep: &Report, why: &str) {
+    rep.log("dxgi", "unavailable");
+    rep.log("dxgiError", why);
+    eprintln!("WARNING: DXGI capture is unavailable: {why}");
+}
+
 fn decode_dims(bytes: &[u8]) -> Option<(u32, u32)> {
     let mut d = jpeg_decoder::Decoder::new(bytes);
     d.decode().ok()?;
@@ -264,6 +317,8 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         width: 200,
         height: pr.height,
     };
+    dxgi_first_frame(rep, &d, control);
+
     let mut passed_any = false;
     for backend in ["dxgi", "gdi"] {
         std::env::set_var("AEVAL_CAPTURE_BACKEND", backend);
@@ -288,27 +343,22 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 let not_blanked = p.black < 0.05 && p.mean > 150.0;
                 let sees_page = c.mean > 150.0;
                 let ok = excluded && not_blanked && sees_page;
-                if backend == "gdi" {
-                    rep.must(
-                        "gdiExcludesOwnWithoutBlanking",
-                        ok,
-                        &format!(
-                            "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
-                        ),
-                    );
-                } else {
-                    rep.log(
-                        "dxgiExcludesOwnWithoutBlanking",
-                        if ok { "ok" } else { "no" },
-                    );
-                }
+                // Whichever backend produced a frame, its result counts
+                // (B-029: a working DXGI path is gated, not just logged).
+                rep.must(
+                    &format!("{backend}ExcludesOwnWithoutBlanking"),
+                    ok,
+                    &format!(
+                        "excluded={excluded} notBlanked={not_blanked} seesPage={sees_page}"
+                    ),
+                );
                 passed_any |= ok;
             }
             Err(e) => {
                 if backend == "gdi" {
                     rep.must("gdiCapture", false, &e);
                 } else {
-                    rep.log("dxgi.unavailable", e);
+                    dxgi_unavailable(rep, &e);
                 }
             }
         }
@@ -330,6 +380,7 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
             let p = active.phys;
             let want = encode::whole_screen_size(p.width as u32, p.height as u32);
             let dims = decode_dims(&shot.jpeg);
+            let look = decode_look(&shot.jpeg);
             let b64 = base64::engine::general_purpose::STANDARD
                 .decode(&shot.base64)
                 .ok();
@@ -357,6 +408,13 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
                 "captureJpeg",
                 dims == Some((shot.width, shot.height)),
                 &format!("decoded {dims:?}"),
+            );
+            // The fixture fills the display: the shot is bright, not black
+            // (B-029).
+            rep.must(
+                "wholeScreenShowsFixture",
+                look.is_some_and(|(mean, black)| mean > 150.0 && black < 0.05),
+                &format!("mean, black share: {look:?}"),
             );
             rep.must(
                 "captureBudget",
@@ -423,6 +481,11 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
         }
         None => rep.must("regionCapture", false, "area capture returned None"),
     }
+
+    // ---------------------------------------------- area selector (CAP-11)
+    // A drag on the real selector page comes back as the box, at the
+    // display's origin, and the selector closes (B-028).
+    region_drag(app, rep, &d);
 
     // ---------------------------------------------- fidelity (CAP-13 proxy)
     if let Ok(f) = capture::grab(&d) {
@@ -507,6 +570,37 @@ fn capture_checks(app: &AppHandle, rep: &Report) {
     if let Some(w) = probe_win {
         let _ = w.destroy();
     }
+}
+
+fn region_drag(app: &AppHandle, rep: &Report, d: &screen::Display) {
+    let (a, on) = (app.clone(), d.clone());
+    let pick = std::thread::spawn(move || {
+        let select = region::select(&a, Some(on));
+        tauri::async_runtime::block_on(select)
+    });
+    let t = Instant::now();
+    while !region::ready(app) && t.elapsed() < Duration::from_secs(8) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    rep.log("regionLoadMs", t.elapsed().as_millis());
+    std::thread::sleep(Duration::from_millis(300));
+    if let Some(w) = app.get_webview_window(region::LABEL) {
+        let _ = w.eval(DRAG_JS);
+    }
+    let t = Instant::now();
+    while !pick.is_finished() && t.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    if !pick.is_finished() {
+        region::cancel(app);
+    }
+    let got = pick.join().ok().flatten();
+    let want = Rect::new(d.bounds.x + 40.0, d.bounds.y + 40.0, 320.0, 200.0);
+    rep.must(
+        "regionDragReturnsTheBox",
+        got == Some(want),
+        &format!("got {got:?} want {want:?}"),
+    );
 }
 
 async fn desktop_checks(app: &AppHandle, rep: &Report) {

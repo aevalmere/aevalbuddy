@@ -9,6 +9,7 @@
 use serde_json::Value;
 use tauri::{Manager, WebviewWindow};
 
+use crate::state::{shared, Mode};
 use crate::{backdrop, buddy, region};
 
 fn off_thread(f: impl FnOnce() + Send + 'static) {
@@ -31,10 +32,17 @@ pub fn route(
             ))
         }
         "region:pick" => {
+            // As the hotkey: never over the HUD, and through the start_region
+            // hook, which claims Escape around the pick (B-028, IPC-12).
             let app = window.app_handle().clone();
-            tauri::async_runtime::spawn(async move {
-                region::pick(&app).await;
-            });
+            if shared(&app).lock().mode == Mode::Hud {
+                return ok;
+            }
+            if !shared(&app).call(&app, |h| h.start_region.as_ref()) {
+                tauri::async_runtime::spawn(async move {
+                    region::pick(&app).await;
+                });
+            }
             ok
         }
         "region:clear" => {
