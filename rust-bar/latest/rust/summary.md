@@ -1,11 +1,12 @@
-# rust: cancelled
+# rust: failure
 
 - Workflow: rust
-- Run: [42463859962](https://github.com/aevalmere/aevalbuddy/actions/runs/42463859962), attempt 1, on push
-- Commit: 8c73071abb2363e90be63682ea00bc3e4f19bf28
+- Run: [42464112632](https://github.com/aevalmere/aevalbuddy/actions/runs/42464112632), attempt 1, on push
+- Commit: d84a9d3ee7bfbdfa13fafe8058c210fbfc07e0c3
 - Ref: rust/bar
-- Conclusion: **cancelled**
-- Finished: 2026-11-08T08:43:12Z
+- Conclusion: **failure**
+- Failed: Build installer
+- Finished: 2026-11-08T08:51:06Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,10 +20,10 @@
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
-| Build installer | cancelled | [build.log](build.log) |
+| Build installer | failure | [build.log](build.log) |
 | Scaffold smoke | skipped |  |
-| Capture check | skipped |  |
-| Desktop selfcheck | skipped |  |
+| Capture check | success | [capture.log](capture.log) |
+| Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 0 error and warning lines from the logs.
+errors.txt: 1 error and warning lines from the logs.

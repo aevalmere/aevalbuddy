@@ -1,5 +1,5 @@
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 55.89s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 42.73s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-b77af1f62641cbf6.exe)
 
 running 243 tests
@@ -9,9 +9,9 @@ test agent::gate::tests::chord_risks ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
 test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::quotes_are_cut ... ok
-test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
+test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::trail_text_numbers_the_steps ... ok
 test agent::tools::tests::json_rules_list_every_tool ... ok
@@ -41,7 +41,7 @@ test capture::encode::tests::jpeg_round_trips_with_dimensions ... ok
 test capture::encode::tests::ladder_at_budget_exactly_is_fine ... ok
 test capture::encode::tests::ladder_starts_at_88_and_stops_at_62 ... ok
 test capture::encode::tests::ladder_stops_as_soon_as_it_fits ... ok
-test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
+test capture::encode::tests::lanczos_is_sharper_than_a_box_average ... ok
 test capture::encode::tests::lanczos_keeps_flat_colour_and_size ... ok
 test capture::encode::tests::long_edge_fit ... ok
 test capture::encode::tests::whole_screen_matches_electron_thumbnail_sizes ... ok
@@ -49,10 +49,10 @@ test capture::screen::tests::dip_bounds_divide_by_scale ... ok
 test capture::screen::tests::dip_round_trip_on_a_scaled_display ... ok
 test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
+test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
 test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
-test crash::tests::log_lines_and_trimming ... ok
 test desktop::channels::tests::every_owned_channel_is_allowlisted ... ok
-test capture::encode::tests::lanczos_is_sharper_than_a_box_average ... ok
+test crash::tests::log_lines_and_trimming ... ok
 test desktop::client::tests::bootstrap_carries_the_real_host_sources ... ok
 test desktop::client::tests::deaths_disable_after_three_in_a_minute ... ok
 test desktop::client::tests::fail_all_rejects_every_pending_call ... ok
@@ -71,9 +71,9 @@ test desktop::protocol::tests::timeouts ... ok
 test desktop::protocol::tests::tree_truncates_with_the_hint ... ok
 test desktop::scoring::tests::dice_values ... ok
 test desktop::scoring::tests::exact_prefix_word_contains ... ok
-test desktop::scoring::tests::nodes ... ok
-test desktop::scoring::tests::norm_matches_the_js ... ok
 test desktop::checks::tests::lanczos_keeps_fine_stripes ... ok
+test desktop::scoring::tests::norm_matches_the_js ... ok
+test desktop::scoring::tests::nodes ... ok
 test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::inside_with_slack ... ok
 test desktop::selfcheck::tests::report_collects_failures ... ok
@@ -86,11 +86,11 @@ test find::tests::fold_strips_accents_and_widths ... ok
 test find::tests::line_reader_takes_objects_only ... ok
 test find::tests::literal_matching_stages ... ok
 test find::tests::one_edit_is_a_typo ... ok
-test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
+test find::tests::budget_keeps_spans_near_the_hits ... ok
 test find::tests::snippets_are_cut_around_the_match ... ok
 test find::tests::sub_rects_follow_lines ... ok
-test find::tests::budget_keeps_spans_near_the_hits ... ok
 test find::tests::tokens_split_camel_snake_and_digits ... ok
+test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
 test history::tests::disabled_writes_nothing_and_keeps_rows ... ok
 test history::tests::flush_writes_the_electron_shape_and_reads_back ... ok
 test history::tests::titles ... ok
@@ -136,22 +136,22 @@ test llm::client::tests::offline_refuses_everything ... ok
 test llm::client::tests::reader_rejects_prose_and_tags_its_errors ... ok
 test llm::client::tests::stream_query_sends_the_screen_and_streams_text ... ok
 test llm::client::tests::test_key_messages ... ok
-test history::tests::caps_at_two_hundred_newest_first ... ok
+test llm::elements::tests::at_most_eight_rows ... ok
 test llm::elements::tests::labels_are_normalised ... ok
 test llm::elements::tests::names_resolve_only_when_clear ... ok
-test llm::elements::tests::at_most_eight_rows ... ok
+test llm::elements::tests::rows_in_every_shape ... ok
 test llm::errors::tests::error_table_is_verbatim ... ok
 test llm::errors::tests::failover_statuses_are_the_everyday_ones ... ok
 test llm::failover::tests::a_retired_model_is_replaced ... ok
-test llm::elements::tests::rows_in_every_shape ... ok
-test llm::failover::tests::rate_limits_move_to_the_next_free_model_at_most_three_times ... ok
 test llm::failover::tests::auth_paid_and_partial_answers_never_switch ... ok
+test llm::failover::tests::rate_limits_move_to_the_next_free_model_at_most_three_times ... ok
 test llm::failover::tests::short_names ... ok
 test llm::fake::tests::agent_turns_follow_the_assistant_count_and_fill_vars ... ok
-test llm::fake::tests::embedded_fixtures_load ... ok
 test llm::fake::tests::correlate_answers_with_the_span_holding_the_match ... ok
+test llm::fake::tests::embedded_fixtures_load ... ok
 test llm::fake::tests::statuses_delays_and_streams ... ok
 test llm::fake::tests::the_log_is_capped ... ok
+test history::tests::caps_at_two_hundred_newest_first ... ok
 test llm::points::tests::coordinate_directives_are_taken_out_across_deltas ... ok
 test llm::points::tests::loose_shapes_and_names ... ok
 test llm::points::tests::malformed_directive_is_swallowed ... ok
@@ -165,18 +165,18 @@ test llm::provider::tests::every_default_is_in_its_own_list ... ok
 test llm::provider::tests::keys_are_recognised_by_prefix ... ok
 test llm::settings::tests::a_native_key_alone_is_used ... ok
 test llm::settings::tests::no_key_is_needs_key ... ok
-test llm::settings::tests::openrouter_stays_the_default_path ... ok
 test llm::prompt::tests::reports_are_checked_and_unfenced ... ok
-test llm::sse::tests::lines_survive_any_split ... ok
+test llm::settings::tests::openrouter_stays_the_default_path ... ok
 test llm::sse::tests::meter_adds_usage_and_cost ... ok
 test llm::sse::tests::only_data_lines_count ... ok
-test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
+test llm::sse::tests::lines_survive_any_split ... ok
 test llm::wire::tests::anthropic_body_maps_system_images_and_tools ... ok
+test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
 test llm::wire::tests::anthropic_stream ... ok
 test llm::wire::tests::gemini_stream ... ok
 test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
-test llm::wire::tests::http_errors_carry_the_body_message ... ok
 test llm::wire::tests::key_checks_spend_nothing ... ok
+test llm::wire::tests::http_errors_carry_the_body_message ... ok
 test llm::wire::tests::openai_drops_temperature_and_raises_the_limit ... ok
 test llm::wire::tests::openrouter_body_is_the_electron_body_plus_usage ... ok
 test llm::wire::tests::openrouter_stream ... ok
@@ -247,7 +247,7 @@ test store::tests::input_history ... ok
 test find::tests::concepts_come_from_the_correlate_stage ... ok
 test find::tests::related_terms_arrive_after_the_pause ... ok
 
-test result: ok. 243 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.96s
+test result: ok. 243 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
 
      Running unittests src\main.rs (target\debug\deps\aevalbuddy-c8ff0ec2da8d9d52.exe)
 
@@ -259,5 +259,5 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 0 tests
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
