@@ -141,3 +141,17 @@ Add: an HDR output (`IDXGIOutput6` colour space G2084/P2020) is duplicated with 
 lookup table. SDR outputs keep the BGRA path. Reason: an HDR desktop read as 8-bit comes out washed out or
 clipped, and the model reads tone as content. Not verified on HDR hardware (lane Blockers).
 evidence: UNIT `dxgi::tests::scrgb_to_srgb_at_sdr_white`; capture check `hdr=off` on the runner
+
+## PARITY · LENS-01 · B-117
+Add to the row: the current hit's loupe is a thin glass rim (inner 1 px white line, 1.5 px bright accent,
+2.5 px dark rim, soft 6/16 drop) at radius 8 with no top highlight; the control frame is DESIGN's 2 px
+`--accent` with a 1 px dark outer line; the why chip is a capsule on one line and r16 once it wraps,
+padding 8/12. lens.css uses glass.css tokens only (`--skin` and its own accent values are gone).
+status: done; evidence: SHOT `lens-hits-white`, `lens-hits-dark-editor`; lens.css in `cssLintEnforce`
+
+## PARITY · CAP-11 · B-118
+Add to the row: the hint reads "Drag to select an area" with an `Esc` keycap and "Arrows move,
+Alt+arrows resize"; the page is `role="application"` named "Choose an area of the screen", and a polite
+live region says "Area W by H. Arrows move it, Alt+arrows resize, Enter asks, Esc cancels." on the first
+key, then the size as it changes (at most every 500 ms).
+status: done; evidence: SHOT `region-idle-white`, `region-idle-dark`, `region-dragging`, `region-too-small`; check `regionAnnouncesSize`

@@ -280,3 +280,6 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 - B-112 (partial): `src-tauri/src/lib.rs:119-121` (platform) should call `backdrop::serve_request(&request)` instead of `backdrop::serve(request.uri().path())`; the handler only gets the path today, so it cannot see `Origin` and the 403 for foreign origins never fires (the CORS header is already app-only). One-line change in lib.rs; `serve_request` exists and is unit-tested through `serve_from`.
 - B-109 (hardware): verified on hardware: no. The runner has one SDR display, so the HDR path is covered only by `dxgi::tests::scrgb_to_srgb_at_sdr_white` and the `hdr=off` log line; an HDR-capable machine running the capture check would unblock it.
+- B-116: not started (coordinator asked to stop at the item in hand so Andy can test); needs the 12 px fixture webview, a lossless CapturePreview ground truth and SSIM/edge-energy in desktop/checks.rs.
+- B-180: not started (same reason); renderer/buddy.js, buddy.html and cursor-buddy.css still have the typewriter, the head row and r20; scenes `buddy-callout`, `tour-step-{1,2,3,4}` and cursor-buddy.css in cssLintEnforce come with it.
+- Desktop selfcheck labels (33): not listed in tools/smoke-labels/capture.txt until harness B-009 step 6 runs the selfcheck inside the smoke.

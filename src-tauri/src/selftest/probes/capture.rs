@@ -426,7 +426,12 @@ fn backdrop_idle(cx: &Cx) {
     let hit = lens::Hit {
         i: 0,
         kind: "literal".into(),
-        rect: Some(Rect::new(d.bounds.x + 140.0, d.bounds.y + 120.0, 64.0, 18.0)),
+        rect: Some(Rect::new(
+            d.bounds.x + 140.0,
+            d.bounds.y + 120.0,
+            64.0,
+            18.0,
+        )),
         why: Value::Null,
         offscreen: false,
     };
