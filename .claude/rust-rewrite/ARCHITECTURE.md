@@ -541,3 +541,38 @@ Written by agent (a). Everything below is `pub` in `src-tauri/src` and stable fo
 `chat:new` (bar: `new_chat`; output: `outputs::reset`), `bar:mode` (through the `set_bar_mode` hook),
 `glass:hello` (`on_hello`, returns `{intensity}`), `glass:passthrough` (output windows' margin). When b
 and c replace these rows they keep those calls.
+
+## 12. Split (b): seams to the store, the desktop and the windows
+
+Split (b) reaches the rest of the app only through these traits, so its modules build and test without
+a window, a store or the desktop helper. Whoever wires `ipc.rs` implements them; none of (b)'s files
+import `state.rs`, `store/**` or `desktop/**`.
+
+| Trait | File | Implemented by | What it carries |
+|---|---|---|---|
+| `LlmSettings` | `llm/settings.rs` | (a), over `store/**` | `api_key(provider)`, `provider_override()`, `model(kind)` (the stored OpenRouter id, default included), `heal_model(kind, id)` (Electron's healModel/healBrain/healAgentModel), `native_model(provider, kind)`, `show_paid()` |
+| `DesktopOps` | `agent/seams.rs` | (c), a match over `method` onto `desktop::Desktop` | lib/desktop/index.js as JSON: export name plus its one options object, reply as (c) returns it; errors as `DeskError {code, message}` |
+| `Emitter` | `agent/seams.rs` | (a) | `emit(channel, payload)` to the windows that render it |
+| `FindHost` | `find.rs` | (a) | Find settings (`related` off/auto/ask, `ocr`), `online()`, `active()`, the Find model id, `emit`, `on_lens`, `notify` |
+| `AgentHost` (: `Emitter`) | `agent/run.rs` | (a) | `getAgentSettings()` (`every`, `max_steps`, `screenshots`, `return_cursor`), `active()`, the agent model, `online()`, `point_at`, `frame`, `show_trail`, `dodge`, `open_target`, `own_focused`, the clipboard, `on_finish(RunReport)` (main.js `finishAgentRun`; `trail_text(rows)` is in run.rs), `on_state` |
+
+Wiring onto §11 at the merge (this section was §10 on rust/b-llm) (glue in `ipc.rs`/`state.rs` setup, nothing inside (b)'s files):
+`LlmSettings::api_key(p)` is `store::get().get_provider_key(p.id())` (the migrated OpenRouter key
+included). `AgentHost::show_trail` calls the `show_trail` hook, which owns the trail and the answer
+dodge. `settings_extra()` returns the healed ids (`Llm::resolve_known` per `Kind`) and
+`Skills::list()`. `chat:new` and `bar:mode` stay with (a); if (b) routes them, it keeps the
+§11.5 calls (`new_chat` / `outputs::reset`, the `set_bar_mode` hook). A run's events go to the
+label `outputs::target(app)` gave at `agent:start`.
+
+Providers (REQUESTS 2). `llm/provider.rs` names four: OpenRouter, Anthropic, OpenAI, Gemini. A key is
+recognised by prefix (`sk-or-`, `sk-ant-`, `sk-`/`sk-proj-`, `AIza`); `provider_override()` wins when
+that provider has a key. Order with no override: OpenRouter (the free models stay the zero-cost
+default), then Anthropic, OpenAI, Gemini; no key at all is Electron's needs-key state. Every caller
+builds one OpenAI-shaped body; `llm/wire.rs` maps it to the native API (Anthropic Messages, OpenAI
+Chat Completions, Gemini generateContent/streamGenerateContent) and maps replies, streams, tool calls
+and errors back. Provider-only state a later turn must replay (Anthropic thinking blocks, Gemini
+thought signatures) travels on the assistant message under `_native` and is stripped for OpenRouter.
+Native models never fail over (failover is for `:free` ids only). `AEVAL_FAKE_LLM` answers every
+provider in OpenRouter's dialect from `tools/fixtures/llm`, which are compiled into the binary;
+`AEVAL_FAKE_LLM_DIR` adds more at runtime. Settings stores per-provider keys and model picks; the
+store keys are (a)'s to name.

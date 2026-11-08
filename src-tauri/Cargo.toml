@@ -32,7 +32,7 @@ rand = "0.8"
 regex = "1"
 semver = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
 raw-window-handle = "0.6"
 winreg = "0.55"
 tauri-winrt-notification = "0.7"
@@ -68,6 +68,13 @@ windows = { version = "0.62", features = [
   "Win32_UI_WindowsAndMessaging",
 ] }
 # --- end split (c) ---
+
+# Split (b): model providers, Ask, Find, Agent (ARCHITECTURE.md section 8).
+async-trait = "0.1"
+fancy-regex = "0.14"
+futures-util = "0.3"
+tokio-util = "0.7"
+url = "2"
 
 [profile.release]
 codegen-units = 1
