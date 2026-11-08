@@ -1,3 +1,5 @@
+[UI] laneFiles=ok
+[UI] scene bar/bar
 [UI] shot 01-bar-first-run.png
 [UI] suggestionsBeforeFirst=ok
 [UI] noLegend=ok
@@ -6,6 +8,85 @@
 [UI] barSends=ok
 [UI] suggestionsNeverAgain=ok
 [UI] shot 02-bar-after-first.png
+[UI] scene bar/bar-focus
+[UI] tokensPresent=ok
+[UI] shot bar-focus-ring.png
+[UI] tokenMenuIsGMenu=ok
+[UI] shot bar-menu.png
+[UI] scene bar/bar-focus-ts200
+[UI] tokensPresent-ts200=ok
+[UI] shot bar-focus-ring-ts200.png
+[UI] tokenMenuIsGMenu-ts200=ok
+[UI] shot bar-menu-ts200.png
+[UI] scene bar/glass-levels
+[UI] shot glass-level-0.png
+[UI] shot glass-level-25.png
+[UI] shot glass-level-50.png
+[UI] shot glass-level-75.png
+[UI] shot glass-level-100.png
+[UI] glassStopsDiffer=ok
+[UI] scene bar/glass-levels-white
+[UI] shot glass-level-0-white.png
+[UI] shot glass-level-25-white.png
+[UI] shot glass-level-50-white.png
+[UI] shot glass-level-75-white.png
+[UI] shot glass-level-100-white.png
+[UI] accentTextContrast=ok
+[UI] scene bar/bar-multiline
+[UI] shiftEnterAddsRows=ok
+[UI] shot bar-multiline.png
+[UI] multilineSends=ok
+[UI] scene bar/bar-multiline-ts200
+[UI] shiftEnterAddsRows-ts200=ok
+[UI] shot bar-multiline-ts200.png
+[UI] multilineSends-ts200=ok
+[UI] scene bar/bar-target-chip
+[UI] targetChipOnlyWithTwoWindows=ok
+[UI] targetChipCutsTitle=ok
+[UI] targetChipDescribesField=ok
+[UI] shot bar-target-chip.png
+[UI] ctrlTabCycles=ok
+[UI] targetChipStartsOver=ok
+[UI] scene bar/bar-keys
+[UI] escClearsThenCloses=ok
+[UI] closeButtonNamed=ok
+[UI] barShortcutsInvoke=ok
+[UI] chordsNameTheTarget=ok
+[UI] zoomKeysInvokeTextScale=ok
+[UI] dirtyFlagSentAndClearHonoured=ok
+[UI] sayRoutesByFocus=ok
+[UI] scene bar/bar-token
+[UI] tokenRestsAsGlyph=ok
+[UI] shot bar-token-rest.png
+[UI] tokenShowsChoice=ok
+[UI] shot bar-token-find.png
+[UI] shot bar-token-reply.png
+[UI] tokenSaysReplyWhileAsking=ok
+[UI] tokenSaysStartOnPlan=ok
+[UI] shot bar-token-start.png
+[UI] scene bar/bar-token-ts200
+[UI] tokenRestsAsGlyph-ts200=ok
+[UI] shot bar-token-rest-ts200.png
+[UI] tokenShowsChoice-ts200=ok
+[UI] shot bar-token-find-ts200.png
+[UI] shot bar-token-reply-ts200.png
+[UI] tokenSaysReplyWhileAsking-ts200=ok
+[UI] tokenSaysStartOnPlan-ts200=ok
+[UI] shot bar-token-start-ts200.png
+[UI] scene bar/bar-notices
+[UI] shot bar-notice-nokey.png
+[UI] noOpenRouterInBarCopy=ok
+[UI] noticeNamesTheNeed=ok
+[UI] needsKeyNudgesAndAnnounces=ok
+[UI] shot bar-notice-hotkey-taken.png
+[UI] noticeHotkeyTaken=ok
+[UI] scene bar/forced-colors-bar
+[UI] forcedColorsPillDashed=ok
+[UI] shot forced-colors-bar-working.png
+[UI] scene bar/forced-colors-answer
+[UI] forcedColorsAnswerOutlined=ok
+[UI] shot forced-colors-answer-streaming.png
+[UI] scene sheet/output
 [UI] shot 03-output-answer.png
 [UI] noOutputInput=ok
 [UI] outputTitleBar=ok
@@ -13,20 +94,24 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.024
+[UI] globShapeMs=0.020
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=459 frames=28 longestFrameMs=16.7
+[UI] globOpen ms=451 frames=28 longestFrameMs=16.8
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
+[UI] scene sheet/multi
 [UI] shot 05-outputs-multi.png
 [UI] barAnswersTask=ok
 [UI] askUserRoutedFromBar=ok
 [UI] noInputInAnyOutput=ok
+[UI] scene sheet/white
+[UI] shot 10-white-bar-output.png
+[UI] scene settings/settings
 [UI] shot 08-settings-account.png
 [UI] glassLive.0=ok
 [UI] glassTier.0=ok
@@ -41,8 +126,138 @@
 [UI] noDuplicateHintInSettings=ok
 [UI] settingsResizeZones=ok
 [UI] settingsDrag=ok
+[UI] scene settings/desktop
 [UI] shot 07-settings-fullscreen.png
+[UI] scene settings/history
 [UI] shot 09-history.png
-[UI] shot 10-white-bar-output.png
+[UI] scene bar/bar-150
+[UI] shot 01-bar-first-run-150.png
+[UI] suggestionsBeforeFirst-150=ok
+[UI] noLegend-150=ok
+[UI] hintOnLeftButton-150=ok
+[UI] suggestionsGoneAfterFirst-150=ok
+[UI] barSends-150=ok
+[UI] suggestionsNeverAgain-150=ok
+[UI] shot 02-bar-after-first-150.png
+[UI] scene bar/bar-focus-150
+[UI] tokensPresent-150=ok
+[UI] shot bar-focus-ring-150.png
+[UI] tokenMenuIsGMenu-150=ok
+[UI] shot bar-menu-150.png
+[UI] scene bar/bar-focus-150-ts200
+[UI] tokensPresent-150-ts200=ok
+[UI] shot bar-focus-ring-150-ts200.png
+[UI] tokenMenuIsGMenu-150-ts200=ok
+[UI] shot bar-menu-150-ts200.png
+[UI] scene bar/glass-levels-150
+[UI] shot glass-level-0-150.png
+[UI] shot glass-level-25-150.png
+[UI] shot glass-level-50-150.png
+[UI] shot glass-level-75-150.png
+[UI] shot glass-level-100-150.png
+[UI] glassStopsDiffer-150=ok
+[UI] scene bar/glass-levels-white-150
+[UI] shot glass-level-0-white-150.png
+[UI] shot glass-level-25-white-150.png
+[UI] shot glass-level-50-white-150.png
+[UI] shot glass-level-75-white-150.png
+[UI] shot glass-level-100-white-150.png
+[UI] accentTextContrast-150=ok
+[UI] scene bar/bar-multiline-150
+[UI] shiftEnterAddsRows-150=ok
+[UI] shot bar-multiline-150.png
+[UI] multilineSends-150=ok
+[UI] scene bar/bar-multiline-150-ts200
+[UI] shiftEnterAddsRows-150-ts200=ok
+[UI] shot bar-multiline-150-ts200.png
+[UI] multilineSends-150-ts200=ok
+[UI] scene bar/bar-target-chip-150
+[UI] targetChipOnlyWithTwoWindows-150=ok
+[UI] targetChipCutsTitle-150=ok
+[UI] targetChipDescribesField-150=ok
+[UI] shot bar-target-chip-150.png
+[UI] ctrlTabCycles-150=ok
+[UI] targetChipStartsOver-150=ok
+[UI] scene bar/bar-token-150
+[UI] tokenRestsAsGlyph-150=ok
+[UI] shot bar-token-rest-150.png
+[UI] tokenShowsChoice-150=ok
+[UI] shot bar-token-find-150.png
+[UI] shot bar-token-reply-150.png
+[UI] tokenSaysReplyWhileAsking-150=ok
+[UI] tokenSaysStartOnPlan-150=ok
+[UI] shot bar-token-start-150.png
+[UI] scene bar/bar-token-150-ts200
+[UI] tokenRestsAsGlyph-150-ts200=ok
+[UI] shot bar-token-rest-150-ts200.png
+[UI] tokenShowsChoice-150-ts200=ok
+[UI] shot bar-token-find-150-ts200.png
+[UI] shot bar-token-reply-150-ts200.png
+[UI] tokenSaysReplyWhileAsking-150-ts200=ok
+[UI] tokenSaysStartOnPlan-150-ts200=ok
+[UI] shot bar-token-start-150-ts200.png
+[UI] scene bar/bar-notices-150
+[UI] shot bar-notice-nokey-150.png
+[UI] noOpenRouterInBarCopy-150=ok
+[UI] noticeNamesTheNeed-150=ok
+[UI] needsKeyNudgesAndAnnounces-150=ok
+[UI] shot bar-notice-hotkey-taken-150.png
+[UI] noticeHotkeyTaken-150=ok
+[UI] scene bar/forced-colors-bar-150
+[UI] forcedColorsPillDashed-150=ok
+[UI] shot forced-colors-bar-working-150.png
+[UI] scene bar/forced-colors-answer-150
+[UI] forcedColorsAnswerOutlined-150=ok
+[UI] shot forced-colors-answer-streaming-150.png
+[UI] scene sheet/output-150
+[UI] shot 03-output-answer-150.png
+[UI] noOutputInput-150=ok
+[UI] outputTitleBar-150=ok
+[UI] outputControls-150=ok
+[UI] noDockUi-150=ok
+[UI] resizeZones-150=ok
+[UI] shot 04a-glob-08-150.png
+[UI] shot 04b-glob-30-150.png
+[UI] shot 04c-glob-52-150.png
+[UI] shot 04d-glob-70-150.png
+[UI] shot 04e-glob-90-150.png
+[UI] globOpen-150 ms=462 frames=27 longestFrameMs=33.3
+[UI] globOpens-150=ok
+[UI] globReducedMotion-150=ok
+[UI] scene sheet/multi-150
+[UI] shot 05-outputs-multi-150.png
+[UI] barAnswersTask-150=ok
+[UI] askUserRoutedFromBar-150=ok
+[UI] noInputInAnyOutput-150=ok
+[UI] scene sheet/white-150
+[UI] shot 10-white-bar-output-150.png
+[UI] scene settings/settings-150
+[UI] shot 08-settings-account-150.png
+[UI] glassLive.0-150=ok
+[UI] glassTier.0-150=ok
+[UI] shot 06-settings-glass-000-150.png
+[UI] glassLive.0.5-150=ok
+[UI] glassTier.0.5-150=ok
+[UI] shot 06-settings-glass-050-150.png
+[UI] glassLive.1-150=ok
+[UI] glassTier.1-150=ok
+[UI] shot 06-settings-glass-100-150.png
+[UI] glassSaved-150=ok
+[UI] noDuplicateHintInSettings-150=ok
+[UI] settingsResizeZones-150=ok
+[UI] settingsDrag-150=ok
+[UI] scene settings/desktop-150
+[UI] shot 07-settings-fullscreen-150.png
+[UI] scene settings/history-150
+[UI] shot 09-history-150.png
+[UI] lane harness sceneRuns=0
+[UI] lane platform sceneRuns=0
+[UI] lane windows sceneRuns=0
+[UI] lane capture sceneRuns=0
+[UI] lane llm sceneRuns=0
+[UI] lane agent sceneRuns=0
+[UI] lane bar sceneRuns=27
+[UI] lane sheet sceneRuns=6
+[UI] lane settings sceneRuns=6
 [UI] noPageErrors=ok
-[UI] done failed=0
+[UI] done failed=0 shots=90

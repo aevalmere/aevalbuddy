@@ -1,16 +1,16 @@
 {
   "workflow": "ui-shots",
   "workflow_name": "ui-shots",
-  "run_id": 42464825101,
+  "run_id": 42491700892,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464825101",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491700892",
   "event": "push",
-  "sha": "462b98f420bfd6668612d9c4804b01e2a5219a61",
+  "sha": "e04d99808952672da3956b69ce338605fbbea8a9",
   "ref": "rust/bar",
   "ref_dir": "rust-bar",
   "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T08:54:30Z",
+  "finished": "2026-11-08T14:52:06Z",
   "error_lines": 0,
   "steps": [
     {
