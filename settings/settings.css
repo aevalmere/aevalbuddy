@@ -486,6 +486,13 @@ h1:focus-visible {
   flex: 1 1 200px;
 }
 
+/* "Free now:" leads the chords it names, on their line. */
+.free-label {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
 .confirm > span:first-child {
   flex: 1 1 auto;
   font-size: var(--fs-small);

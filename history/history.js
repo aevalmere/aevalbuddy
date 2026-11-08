@@ -240,7 +240,9 @@ function renderFoot() {
   countEl.hidden = confirming || noting || !countEl.textContent;
   noteEl.hidden = confirming || !noting;
   undoBtn.hidden = confirming || !pending;
-  clearAllBtn.hidden = confirming || !n || !!query;
+  // While a delete can still be undone, Undo stands alone: Delete all beside
+  // it would be one slip away.
+  clearAllBtn.hidden = confirming || !!pending || !n || !!query;
 }
 
 function refresh() {
