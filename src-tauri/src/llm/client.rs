@@ -15,7 +15,8 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use super::catalogue::{self, Kind};
-use super::errors::ApiError;
+use super::errors::{self, ApiError};
+use super::failover::BadModels;
 use super::fake::Fake;
 use super::prompt::{self, ExactText, SkillText, SystemPromptOpts};
 use super::provider::Provider;
@@ -56,22 +57,40 @@ impl Reply {
     /// The whole body, or an abort if `cancel` fires first.
     pub async fn bytes(mut self, cancel: &CancellationToken) -> Result<Vec<u8>, ApiError> {
         let mut out = Vec::new();
-        while let Some(chunk) = next_chunk(&mut self.body, cancel).await? {
+        while let Some(chunk) = next_chunk(&mut self.body, cancel, None).await? {
             out.extend(chunk);
         }
         Ok(out)
     }
 }
 
+/// The next chunk of a body. With `idle`, a body that sends nothing at all
+/// for that long (keep-alive comments count) is a 408, so failover moves
+/// on instead of spinning forever (B-041).
 async fn next_chunk(
     body: &mut BodyStream,
     cancel: &CancellationToken,
+    idle: Option<Duration>,
 ) -> Result<Option<Vec<u8>>, ApiError> {
+    let Some(wait) = idle else {
+        return tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Err(ApiError::abort()),
+            chunk = body.next() => chunk.transpose(),
+        };
+    };
     tokio::select! {
         biased;
         _ = cancel.cancelled() => Err(ApiError::abort()),
-        chunk = body.next() => chunk.transpose(),
+        chunk = tokio::time::timeout(wait, body.next()) => match chunk {
+            Ok(chunk) => chunk.transpose(),
+            Err(_) => Err(stalled(wait)),
+        },
     }
+}
+
+fn stalled(wait: Duration) -> ApiError {
+    ApiError::http(408, format!("no data for {} s", wait.as_secs()))
 }
 
 /// Sends one HTTP request. The real one is reqwest; tests and the fake LLM
@@ -87,8 +106,12 @@ pub struct ReqwestTransport {
 
 impl ReqwestTransport {
     pub fn new() -> Self {
+        // A dead route fails in 10 s instead of the OS's minutes, and the
+        // keep-alive notices a connection that vanished mid-answer.
         let client = reqwest::Client::builder()
             .user_agent(concat!("AevalBuddy/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(Duration::from_secs(10))
+            .tcp_keepalive(Duration::from_secs(30))
             .build()
             .unwrap_or_default();
         ReqwestTransport { client }
@@ -221,6 +244,12 @@ impl KeyCheck {
 
 const CATALOGUE_TTL: Duration = Duration::from_secs(5 * 60);
 
+/// A stream that sends nothing for this long has stalled (B-041).
+pub const IDLE_TIMEOUT: Duration = Duration::from_secs(45);
+
+/// The longest a non-streamed call may take, headers to last byte.
+pub const OVERALL_TIMEOUT: Duration = Duration::from_secs(90);
+
 #[derive(Default)]
 struct CatalogueCache {
     at: Option<Instant>,
@@ -233,6 +262,9 @@ pub struct Llm {
     fake: Option<Arc<Fake>>,
     offline: Option<bool>,
     catalogue: Mutex<CatalogueCache>,
+    bad: BadModels,
+    idle: Duration,
+    overall: Duration,
 }
 
 fn now_ms() -> u128 {
@@ -253,7 +285,14 @@ impl Llm {
         let fake = std::env::var_os("AEVAL_FAKE_LLM")
             .filter(|v| !v.is_empty())
             .map(|_| Arc::new(Fake::load()));
-        Llm::new(Arc::new(ReqwestTransport::new()), fake)
+        let mut llm = Llm::new(Arc::new(ReqwestTransport::new()), fake);
+        // The self-test shortens the stall timeout so a stalled fixture
+        // fails over in seconds.
+        let idle = std::env::var("AEVAL_LLM_IDLE_MS").ok();
+        if let Some(ms) = idle.and_then(|v| v.trim().parse::<u64>().ok()) {
+            llm.set_timeouts(Duration::from_millis(ms), OVERALL_TIMEOUT);
+        }
+        llm
     }
 
     pub fn new(transport: Arc<dyn Transport>, fake: Option<Arc<Fake>>) -> Llm {
@@ -262,7 +301,16 @@ impl Llm {
             fake,
             offline: None,
             catalogue: Mutex::new(CatalogueCache::default()),
+            bad: BadModels::default(),
+            idle: IDLE_TIMEOUT,
+            overall: OVERALL_TIMEOUT,
         }
+    }
+
+    /// The stall timeout for streams and the cap for whole calls.
+    pub fn set_timeouts(&mut self, idle: Duration, overall: Duration) {
+        self.idle = idle;
+        self.overall = overall;
     }
 
     /// Forces the offline state regardless of `AEVAL_OFFLINE` (tests).
@@ -285,8 +333,10 @@ impl Llm {
             .unwrap_or_else(|| std::env::var_os("AEVAL_OFFLINE").is_some_and(|v| !v.is_empty()))
     }
 
-    /// Every chat request goes through here. Returns the reply and the
-    /// dialect to read it in (fixtures always answer in OpenRouter's).
+    /// Every chat request goes through here. Returns a 2xx reply and the
+    /// dialect to read it in (fixtures always answer in OpenRouter's); any
+    /// other status comes back as its error, with `Retry-After` read and a
+    /// retired model remembered.
     async fn request(
         &self,
         active: &Active,
@@ -297,26 +347,88 @@ impl Llm {
         if self.forced_offline() {
             return Err(ApiError::network("fetch failed (offline)"));
         }
-        if let Some(fake) = &self.fake {
-            let reply = fake.respond(active.provider, body, cancel, meta).await?;
-            return Ok((reply, Provider::OpenRouter));
+        // A stream sends its headers at once; a whole reply only when done.
+        let stream = body["stream"].as_bool().unwrap_or(false);
+        let wait = if stream { self.idle } else { self.overall };
+        let sent = async {
+            match &self.fake {
+                Some(fake) => {
+                    let reply = fake.respond(active.provider, body, cancel, meta).await;
+                    reply.map(|r| (r, Provider::OpenRouter))
+                }
+                None => {
+                    let req = wire::chat_request(active.provider, &active.key, body);
+                    let reply = self.transport.send(req, cancel).await;
+                    reply.map(|r| (r, active.provider))
+                }
+            }
+        };
+        let (reply, dialect) = match tokio::time::timeout(wait, sent).await {
+            Ok(r) => r?,
+            Err(_) => return Err(stalled(wait)),
+        };
+        if reply.ok() {
+            return Ok((reply, dialect));
         }
-        let req = wire::chat_request(active.provider, &active.key, body);
-        let reply = self.transport.send(req, cancel).await?;
-        Ok((reply, active.provider))
+        let err = Self::fail_from(reply, cancel).await;
+        let model = body["model"].as_str().unwrap_or_default();
+        let policy = errors::code_of(active.provider, &err, model) == errors::codes::DATA_POLICY;
+        if err.status == Some(404) && !policy && !model.is_empty() {
+            self.bad.mark(model);
+        }
+        Err(err)
     }
 
     async fn fail_from(reply: Reply, cancel: &CancellationToken) -> ApiError {
         let status = reply.status;
-        match reply.bytes(cancel).await {
+        let header = reply.retry_after.clone().unwrap_or_default();
+        let wait = errors::parse_retry_after(&header, super::status::now_ms());
+        let err = match reply.bytes(cancel).await {
             Ok(body) => wire::error_from_body(status, &body),
-            Err(e) if e.is_abort() => e,
+            Err(e) if e.is_abort() => return e,
             Err(_) => ApiError::http(status, format!("HTTP {status}")),
+        };
+        err.with_retry_after(wait)
+    }
+
+    /// A non-streamed call's JSON reply, within the overall cap. A 200 whose
+    /// body is an `error` object is that error (B-125).
+    async fn request_json(
+        &self,
+        active: &Active,
+        body: &Value,
+        cancel: &CancellationToken,
+        meta: &Meta,
+    ) -> Result<(Value, Provider), ApiError> {
+        let whole = self.read_json(active, body, cancel, meta);
+        match tokio::time::timeout(self.overall, whole).await {
+            Ok(r) => r,
+            Err(_) => Err(stalled(self.overall)),
         }
+    }
+
+    async fn read_json(
+        &self,
+        active: &Active,
+        body: &Value,
+        cancel: &CancellationToken,
+        meta: &Meta,
+    ) -> Result<(Value, Provider), ApiError> {
+        let (reply, dialect) = self.request(active, body, cancel, meta).await?;
+        let bytes = reply.bytes(cancel).await?;
+        let data: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        if data.get("error").is_some_and(|e| !e.is_null()) {
+            return Err(wire::stream_error(&data["error"]));
+        }
+        if let Some(e) = wire::refusal(dialect, &data) {
+            return Err(e);
+        }
+        Ok((data, dialect))
     }
 
     /// Reads a chat stream, handing each content delta on. An empty stream
     /// is a 204 unless the caller allows it.
+    #[allow(clippy::too_many_arguments)]
     async fn read_sse(
         reply: Reply,
         dialect: Provider,
@@ -324,6 +436,7 @@ impl Llm {
         allow_empty: bool,
         meter: &mut Meter,
         cancel: &CancellationToken,
+        idle: Duration,
     ) -> Result<(), ApiError> {
         if !reply.ok() {
             return Err(Self::fail_from(reply, cancel).await);
@@ -332,8 +445,8 @@ impl Llm {
         let mut lines = LineBuffer::default();
         let mut decoder = StreamDecoder::new(dialect);
         let mut got = false;
-        'read: while let Some(chunk) = next_chunk(&mut body, cancel).await? {
-            for line in lines.push(&chunk) {
+        'read: while let Some(chunk) = next_chunk(&mut body, cancel, Some(idle)).await? {
+            for line in lines.push(&chunk)? {
                 let Some(payload) = data_payload(&line) else {
                     continue;
                 };
@@ -395,13 +508,8 @@ impl Llm {
         });
         let meta = Meta::purpose("reader");
         let stage = |e: ApiError| e.with_stage("reader");
-        let sent = self.request(active, &body, cancel, &meta).await;
-        let (reply, dialect) = sent.map_err(stage)?;
-        if !reply.ok() {
-            return Err(stage(Self::fail_from(reply, cancel).await));
-        }
-        let bytes = reply.bytes(cancel).await.map_err(stage)?;
-        let data: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        let sent = self.request_json(active, &body, cancel, &meta).await;
+        let (data, dialect) = sent.map_err(stage)?;
         let turn = wire::parse_turn(dialect, &data, now_ms());
         let report = prompt::unfence(turn.content.trim());
         if !prompt::valid_report(&report) {
@@ -435,10 +543,8 @@ impl Llm {
         };
         let system = prompt::make_system_prompt(opts, o.skill);
         let mut messages = vec![json!({ "role": "system", "content": system })];
-        for m in o.history {
-            if (m.role == "user" || m.role == "assistant") && !m.text.is_empty() {
-                messages.push(json!({ "role": m.role, "content": m.text }));
-            }
+        for m in crate::ask::sendable_history(o.history) {
+            messages.push(json!({ "role": m.role, "content": m.text }));
         }
         messages.push(json!({ "role": "user", "content": content }));
         messages
@@ -462,7 +568,8 @@ impl Llm {
         });
         let meta = Meta::purpose("answer");
         let (reply, dialect) = self.request(active, &body, cancel, &meta).await?;
-        Self::read_sse(reply, dialect, on_delta, false, meter, cancel).await
+        let idle = self.idle;
+        Self::read_sse(reply, dialect, on_delta, false, meter, cancel, idle).await
     }
 
     /// A streamed text-only completion, for Find's two stages. Returns the
@@ -496,7 +603,9 @@ impl Llm {
             text.push_str(d);
             on_delta(d);
         };
-        Self::read_sse(reply, dialect, &mut collect, true, &mut meter, cancel).await?;
+        let idle = self.idle;
+        let read = Self::read_sse(reply, dialect, &mut collect, true, &mut meter, cancel, idle);
+        read.await?;
         Ok(text)
     }
 
@@ -523,12 +632,7 @@ impl Llm {
             // One action per turn: the screen changes after each.
             body["parallel_tool_calls"] = json!(false);
         }
-        let (reply, dialect) = self.request(active, &body, cancel, meta).await?;
-        if !reply.ok() {
-            return Err(Self::fail_from(reply, cancel).await);
-        }
-        let bytes = reply.bytes(cancel).await?;
-        let data: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+        let (data, dialect) = self.request_json(active, &body, cancel, meta).await?;
         Ok(wire::parse_turn(dialect, &data, now_ms()))
     }
 
@@ -661,9 +765,18 @@ impl Llm {
         catalogue::sees_images(all.as_deref().map(Vec::as_slice), id)
     }
 
+    /// The next free stand-in: untried, not retired this session, and (once
+    /// the catalogue is known) listed and able to do the job (B-042).
     pub fn next_free_model(&self, kind: Kind, tried: &[String]) -> Option<String> {
         let all = self.known_catalogue();
-        catalogue::next_free_model(kind, tried, all.as_deref().map(Vec::as_slice))
+        let skip = self.bad.skip(tried);
+        catalogue::next_free_model(kind, &skip, all.as_deref().map(Vec::as_slice))
+    }
+
+    /// The model to ask first: `id`, unless it is a free model that already
+    /// answered 404 this session.
+    pub fn first_model(&self, kind: Kind, id: &str) -> String {
+        self.bad.first(id, |skip| self.next_free_model(kind, skip))
     }
 
     /// The picker for one provider and job (`listModels`).
@@ -913,6 +1026,92 @@ mod tests {
         assert_eq!((e.status, e.stage), (Some(204), Some("reader")));
         let e = block(llm.read_screen(&or_key(), o, &cancel)).unwrap_err();
         assert_eq!((e.status, e.stage), (Some(404), Some("reader")));
+    }
+
+    /// Sends the headers, then nothing.
+    struct Stalled;
+
+    #[async_trait]
+    impl Transport for Stalled {
+        async fn send(&self, _: HttpRequest, _: &CancellationToken) -> Result<Reply, ApiError> {
+            let body: BodyStream = Box::pin(futures_util::stream::pending());
+            Ok(Reply {
+                status: 200,
+                retry_after: None,
+                body,
+            })
+        }
+    }
+
+    #[test]
+    fn idle_stream_times_out_as_408() {
+        let mut llm = Llm::new(Arc::new(Stalled), None);
+        llm.set_offline(false);
+        llm.set_timeouts(Duration::from_millis(50), Duration::from_millis(80));
+        let o = QueryOpts {
+            model: "m:free",
+            question: "q",
+            ..QueryOpts::default()
+        };
+        let cancel = CancellationToken::new();
+        let mut meter = Meter::default();
+        let mut sink = |_: &str| {};
+        let (k, c) = (or_key(), &cancel);
+        let e = block(llm.stream_query(&k, o, c, &mut sink, &mut meter)).unwrap_err();
+        assert_eq!(e.status, Some(408));
+        assert!(crate::llm::errors::should_failover(&e));
+        // A whole reply that never ends is capped too.
+        let meta = Meta::default();
+        let e = block(llm.chat_turn(&k, "m", &[], None, c, &meta)).unwrap_err();
+        assert_eq!(e.status, Some(408));
+    }
+
+    #[test]
+    fn error_in_200_body_is_an_error() {
+        let body = r#"{"error":{"code":502,"message":"upstream failed"}}"#;
+        let (llm, _) = client(vec![Ok((200, body.into()))]);
+        let cancel = CancellationToken::new();
+        let meta = Meta::purpose("agent");
+        let turn = block(llm.chat_turn(&or_key(), "m", &[], None, &cancel, &meta));
+        assert_eq!(turn.unwrap_err(), ApiError::http(502, "upstream failed"));
+    }
+
+    #[test]
+    fn retry_after_and_retired_models_are_read() {
+        let busy = Ok((429, r#"{"error":{"message":"busy"}}"#.to_string()));
+        let gone = r#"{"error":{"message":"No endpoints found"}}"#;
+        let gone = Ok((404, gone.to_string()));
+        let canned = Canned::with(vec![busy, gone]);
+        let mut llm = Llm::new(Arc::new(Headers(canned)), None);
+        llm.set_offline(false);
+        let cancel = CancellationToken::new();
+        let meta = Meta::purpose("agent");
+        let k = or_key();
+        let first = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+        let e = block(llm.chat_turn(&k, first, &[], None, &cancel, &meta)).unwrap_err();
+        assert_eq!(e.retry_after_ms, Some(7_000));
+        assert_eq!(llm.first_model(Kind::Vision, first), first);
+        let e = block(llm.chat_turn(&k, first, &[], None, &cancel, &meta)).unwrap_err();
+        assert_eq!(e.status, Some(404));
+        // Retired this session: skipped as the first attempt and as a
+        // stand-in.
+        let stand_in = "google/gemma-4-26b-a4b-it:free";
+        assert_eq!(llm.first_model(Kind::Vision, first), stand_in);
+        let tried = [stand_in.to_string()];
+        let next = llm.next_free_model(Kind::Vision, &tried);
+        let want = "dots-studio/dots-3-note-preview:free";
+        assert_eq!(next.as_deref(), Some(want));
+    }
+
+    /// Canned replies with `Retry-After: 7` on each.
+    struct Headers(Arc<Canned>);
+
+    #[async_trait]
+    impl Transport for Headers {
+        async fn send(&self, req: HttpRequest, c: &CancellationToken) -> Result<Reply, ApiError> {
+            let reply = self.0.send(req, c).await?;
+            Ok(reply.with_retry_after(Some("7".into())))
+        }
     }
 
     #[test]

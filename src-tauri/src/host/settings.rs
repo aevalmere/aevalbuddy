@@ -171,7 +171,7 @@ fn use_clip_key(app: &AppHandle) -> Value {
 }
 
 /// `settings:test-key`: the named provider's key, else the one in use.
-pub async fn test_key(p: &Value) -> Value {
+async fn test_key(p: &Value) -> Value {
     let sv = super::services();
     let named = p
         .get("provider")
@@ -201,6 +201,7 @@ pub async fn route(
         | "settings:save-agent-model" => save_model(channel, p),
         "settings:clip-key" => clip_key(app),
         "settings:use-clip-key" => use_clip_key(app),
+        "settings:test-key" => test_key(p).await,
         _ => return None,
     };
     Some(Ok(out))

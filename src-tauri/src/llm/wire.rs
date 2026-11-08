@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 
-use super::errors::ApiError;
+use super::errors::{codes, ApiError};
 use super::provider::Provider;
 use super::sse::Usage;
 
@@ -441,10 +441,9 @@ pub fn gemini_body(body: &Value) -> Value {
         out.insert("systemInstruction".into(), instruction);
     }
     out.insert("contents".into(), json!(contents));
+    // No sampling temperature, as for OpenAI and Anthropic: Gemini's thinking
+    // models are tuned for their default (Decision D-18).
     let mut config = Map::new();
-    if let Some(t) = body["temperature"].as_f64() {
-        config.insert("temperature".into(), json!(t));
-    }
     let limit = raised_limit(body).unwrap_or(NATIVE_MIN_TOKENS);
     config.insert("maxOutputTokens".into(), json!(limit));
     out.insert("generationConfig".into(), Value::Object(config));
@@ -514,7 +513,7 @@ pub fn error_from_body(status: u16, body: &[u8]) -> ApiError {
 
 /// `obj.error.code || 500`: a number is the status, a missing or falsy code
 /// is 500, and any other code (a string) is no status at all.
-fn stream_error(err: &Value) -> ApiError {
+pub fn stream_error(err: &Value) -> ApiError {
     let status = match &err["code"] {
         Value::Number(n) => match n.as_f64() {
             Some(f) if f != 0.0 => Some(f as u16),
@@ -529,6 +528,36 @@ fn stream_error(err: &Value) -> ApiError {
         .filter(|m| !m.is_empty())
         .unwrap_or("stream error");
     ApiError::coded(status, message)
+}
+
+const GEMINI_BLOCKS: [&str; 5] = [
+    "SAFETY",
+    "PROHIBITED_CONTENT",
+    "BLOCKLIST",
+    "SPII",
+    "IMAGE_SAFETY",
+];
+
+/// A model that declined: Anthropic's `refusal` stop reason, or a Gemini
+/// safety block (B-119). Coded, so it never fails over: another model is
+/// likely to decline too, and a hop would send the screen elsewhere.
+pub fn refusal(provider: Provider, obj: &Value) -> Option<ApiError> {
+    let declined = match provider {
+        Provider::Anthropic => {
+            obj["stop_reason"] == "refusal" || obj["delta"]["stop_reason"] == "refusal"
+        }
+        Provider::Gemini => {
+            let blocked = obj["promptFeedback"]["blockReason"].is_string();
+            let finish = &obj["candidates"][0]["finishReason"];
+            blocked || GEMINI_BLOCKS.iter().any(|b| finish == b)
+        }
+        Provider::OpenRouter | Provider::OpenAi => false,
+    };
+    if !declined {
+        return None;
+    }
+    let err = ApiError::coded(None, "the model declined to answer");
+    Some(err.with_code(codes::REFUSED))
 }
 
 fn anthropic_status(kind: &str) -> u16 {
@@ -581,6 +610,9 @@ impl StreamDecoder {
         let Ok(obj) = serde_json::from_str::<Value>(payload) else {
             return Ok(out);
         };
+        if let Some(e) = refusal(self.provider, &obj) {
+            return Err(e);
+        }
         match self.provider {
             Provider::OpenRouter | Provider::OpenAi => {
                 if obj.get("error").is_some_and(|e| !e.is_null()) {
@@ -932,7 +964,7 @@ mod tests {
         assert_eq!(fr["name"], json!("left_click"));
         assert_eq!(fr["response"]["content"], json!("Clicked."));
         assert_eq!(c[2]["parts"][2]["inlineData"]["data"], json!("QUJD"));
-        assert_eq!(b["generationConfig"]["temperature"], json!(0.0));
+        assert!(b["generationConfig"].get("temperature").is_none());
         let decl = &b["tools"][0]["functionDeclarations"][0];
         assert_eq!(decl["parametersJsonSchema"]["type"], json!("object"));
         let stream = json!({ "model": "g", "stream": true, "messages": [] });
@@ -1007,6 +1039,30 @@ mod tests {
         let over = r#"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#;
         let err = decode(Provider::Anthropic, &[over]).unwrap_err();
         assert_eq!(err, ApiError::http(529, "Overloaded"));
+    }
+
+    #[test]
+    fn gemini_body_has_no_temperature() {
+        let body = json!({ "model": "g", "temperature": 0.2, "messages": [
+            { "role": "user", "content": "hi" }] });
+        let b = gemini_body(&body);
+        assert!(b["generationConfig"].get("temperature").is_none());
+        let max = &b["generationConfig"]["maxOutputTokens"];
+        assert_eq!(max, &json!(NATIVE_MIN_TOKENS));
+    }
+
+    #[test]
+    fn refusals_are_coded() {
+        let declined = r#"{"type":"message_delta","delta":{"stop_reason":"refusal"}}"#;
+        let err = decode(Provider::Anthropic, &[declined]).unwrap_err();
+        assert_eq!(err.code, Some(codes::REFUSED));
+        let blocked = r#"{"candidates":[{"finishReason":"SAFETY"}]}"#;
+        let err = decode(Provider::Gemini, &[blocked]).unwrap_err();
+        assert_eq!(err.code, Some(codes::REFUSED));
+        let prompt = json!({ "promptFeedback": { "blockReason": "OTHER" } });
+        assert!(refusal(Provider::Gemini, &prompt).is_some());
+        let done = r#"{"candidates":[{"finishReason":"STOP"}]}"#;
+        assert!(decode(Provider::Gemini, &[done]).is_ok());
     }
 
     #[test]
