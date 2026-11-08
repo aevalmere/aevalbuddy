@@ -17,33 +17,33 @@
 [SMOKE] probe.platform=ok
 [SMOKE] probe.windows=ok
 [SMOKE] helperNotAtBoot=ok
-[SMOKE] capture=ok:309742bytes:1024x768
+[SMOKE] capture=ok:291873bytes:1024x768
 [SMOKE] captureActiveDisplay=0,0 1024x768
 [SMOKE] regionCapture=320x200:tagged
 [SMOKE] regionSharper=1.00x->1.00x
 [SMOKE] regionPointTarget={"x":200,"y":140}
 [SMOKE] regionSelectorCancels=true
 [SMOKE] regionEscape=cancelled:panel-kept
-[SMOKE] captureFailNull=null in 3014ms, then a shot
+[SMOKE] captureFailNull=null in 3011ms, then a shot
 [SMOKE] dpiRoundTrip=ok:5 rects within 1px
 [SMOKE] glassTier=live reasons=none canHide=true
 [SMOKE] glassLoaded=ok
-[SMOKE] snapCost=n=50 wallP50=15ms wallP95=45.8ms encodeP95=3.4ms blockP95=0.3ms
+[SMOKE] snapCost=n=50 wallP50=29ms wallP95=45.9ms encodeP95=3.9ms blockP95=0.5ms
 [SMOKE] snapCost=ok
-[SMOKE] glassCost=live total=0.0% | solid total=0.5% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
+[SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
 [SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
 [SMOKE] lensFirstDraw=ok
 [SMOKE] lensReady=said=true ready=true
 [SMOKE] lensWhyClear=covers=0 at=243,197
 [SMOKE] lensWhyClear=ok
-[SMOKE] backdropIdle=fast=true slow=true after 0ms
+[SMOKE] backdropIdle=fast=true slow=true after 1ms
 [SMOKE] pointResolved=true
 [SMOKE] buddyPoints=true
 [SMOKE] buddyPointsDone=true
 [SMOKE] walkthrough=true
 [SMOKE] onboardingSteps=0>1>2>3
-[SMOKE] buddyReuse=points in 35ms, agent waited 12ms
-[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 863ms
+[SMOKE] buddyReuse=points in 28ms, agent waited 12ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 2375ms
 [SMOKE] probe.capture=ok
 [SMOKE] probe.llm=ok
 [SMOKE] probe.agent=ok
@@ -57,7 +57,7 @@
 [SMOKE] done
 --- stderr ---
 [aevalbuddy] renderer: buddy render-process-exited crashed
-[1108/183852.164:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/192629.974:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 0
 [GATE] SMOKE lines=49 listed=43
 [GATE] verdict=ok

@@ -1,11 +1,11 @@
 # rust: success
 
 - Workflow: rust
-- Run: [42509614984](https://github.com/aevalmere/aevalbuddy/actions/runs/42509614984), attempt 1, on push
-- Commit: 96b569f38e5ebd83cd4c0d56103aa728d063cfa2
+- Run: [42514249248](https://github.com/aevalmere/aevalbuddy/actions/runs/42514249248), attempt 1, on push
+- Commit: bf07bec48d8250906625be7d9e97e3a6844a4537
 - Ref: rust/capture
 - Conclusion: **success**
-- Finished: 2026-11-08T18:39:15Z
+- Finished: 2026-11-08T19:27:01Z
 
 | Step | Outcome | Log |
 |---|---|---|

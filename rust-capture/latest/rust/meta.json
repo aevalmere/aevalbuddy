@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42509614984,
+  "run_id": 42514249248,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509614984",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42514249248",
   "event": "push",
-  "sha": "96b569f38e5ebd83cd4c0d56103aa728d063cfa2",
+  "sha": "bf07bec48d8250906625be7d9e97e3a6844a4537",
   "ref": "rust/capture",
   "ref_dir": "rust-capture",
   "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T18:39:15Z",
+  "finished": "2026-11-08T19:27:01Z",
   "error_lines": 0,
   "steps": [
     {

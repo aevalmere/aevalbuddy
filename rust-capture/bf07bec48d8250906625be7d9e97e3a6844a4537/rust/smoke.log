@@ -1,0 +1,63 @@
+[GATE] self-test passes=ok
+[GATE] self-test a FAIL line=ok
+[GATE] self-test a bare FAIL=ok
+[GATE] self-test no done=ok
+[GATE] self-test failed line=ok
+[GATE] self-test error line=ok
+[GATE] self-test a missing label=ok
+[GATE] self-test a FAIL value is not a FAIL label=ok
+[SMOKE] version=1.1.1
+[SMOKE] userData=D:\a\_temp\aeval-smoke
+[SMOKE] webviewData=D:\a\_temp\aeval-smoke\WebView2
+[SMOKE] scaffold.pages=output-1,overlay
+[SMOKE] scaffold.bridge=ok
+[SMOKE] selftest.eval=ok
+[SMOKE] selftest.input=ok
+[SMOKE] probe.harness=ok
+[SMOKE] probe.platform=ok
+[SMOKE] probe.windows=ok
+[SMOKE] helperNotAtBoot=ok
+[SMOKE] capture=ok:291873bytes:1024x768
+[SMOKE] captureActiveDisplay=0,0 1024x768
+[SMOKE] regionCapture=320x200:tagged
+[SMOKE] regionSharper=1.00x->1.00x
+[SMOKE] regionPointTarget={"x":200,"y":140}
+[SMOKE] regionSelectorCancels=true
+[SMOKE] regionEscape=cancelled:panel-kept
+[SMOKE] captureFailNull=null in 3011ms, then a shot
+[SMOKE] dpiRoundTrip=ok:5 rects within 1px
+[SMOKE] glassTier=live reasons=none canHide=true
+[SMOKE] glassLoaded=ok
+[SMOKE] snapCost=n=50 wallP50=29ms wallP95=45.9ms encodeP95=3.9ms blockP95=0.5ms
+[SMOKE] snapCost=ok
+[SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
+[SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
+[SMOKE] lensFirstDraw=ok
+[SMOKE] lensReady=said=true ready=true
+[SMOKE] lensWhyClear=covers=0 at=243,197
+[SMOKE] lensWhyClear=ok
+[SMOKE] backdropIdle=fast=true slow=true after 1ms
+[SMOKE] pointResolved=true
+[SMOKE] buddyPoints=true
+[SMOKE] buddyPointsDone=true
+[SMOKE] walkthrough=true
+[SMOKE] onboardingSteps=0>1>2>3
+[SMOKE] buddyReuse=points in 28ms, agent waited 12ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 2375ms
+[SMOKE] probe.capture=ok
+[SMOKE] probe.llm=ok
+[SMOKE] probe.agent=ok
+[SMOKE] probe.bar=ok
+[SMOKE] probe.sheet=ok
+[SMOKE] probe.settings=ok
+[SMOKE] v2basics=ok
+[SMOKE] v21basics=ok
+[SMOKE] glassGates=ok
+[SMOKE] v2desktop=ok
+[SMOKE] done
+--- stderr ---
+[aevalbuddy] renderer: buddy render-process-exited crashed
+[1108/192629.974:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 0
+[GATE] SMOKE lines=49 listed=43
+[GATE] verdict=ok
