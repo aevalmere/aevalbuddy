@@ -1,620 +1,470 @@
-/* Same surface tokens and the same restraint as settings: hairlines between
-   things, no cards, no icons standing in for words.
-
-   One rule specific to this window. A history list is read by scanning, so the
-   question is the only thing set at full strength; the answer preview and the
-   timestamp sit back a step, and the row's own frame appears only under the
-   cursor. Fifty rows of equally loud text is a wall, not a list. */
+/* History: one sheet of thick glass on the 20 px stage, a search field, and
+   the conversations grouped by day. Every size, radius and colour comes from
+   renderer/glass.css or the token block below. One layer. */
 
 :root {
-  --black: #000000;
-  --indigo: #10254F;
-  --grey: #2B2C33;
-  --accent: #823A80;
-  --slate: #C9CFDD;
-  --twilight: #303D6A;
-  --scroll-thumb: rgba(201, 207, 221, 0.26);
-  --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
-
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --d-fast: 150ms;
-  --gutter: 16px;
-  --control: 32px;
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
+  /* This page's own values; everything shared is in glass.css. */
+  --row-min: 60px;
+  --foot-h: 44px;
+  --measure: 760px;
+  --ring: rgb(255 255 255 / 0.92);
+  --field-bg: rgb(0 0 0 / 0.26);
+  --field-bg-focus: rgb(0 0 0 / 0.34);
+  --field-rim: rgb(255 255 255 / 0.14);
+  --field-rim-focus: rgb(255 255 255 / 0.5);
+  --mark: rgb(197 111 195 / 0.42);
+  --danger-fill: rgb(242 160 168 / 0.22);
+  --danger-fill-hover: rgb(242 160 168 / 0.32);
+  --menu-rim: rgb(255 255 255 / 0.14);
+  --selection: rgb(130 58 128 / 0.6);
+  --scroll-thumb: rgb(201 207 221 / 0.26);
+  --scroll-thumb-hover: rgb(201 207 221 / 0.46);
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-/* Selected text takes the accent at low alpha, not the Windows blue the
-   engine falls back to: a bright system blue on these surfaces is a colour
-   outside the palette, and it was the loudest thing in the bar. */
+[hidden] {
+  display: none !important;
+}
+
 ::selection {
-  background: rgba(130, 58, 128, 0.6);
-  color: #C9CFDD;
+  background: var(--selection);
+  color: var(--label);
 }
 
 html,
 body {
-  background: transparent;
+  height: 100%;
+  margin: 0;
   overflow: hidden;
+  background: transparent;
   font-family: var(--font-text);
-  font-size: 14px;
+  font-size: var(--fs-row);
+  font-weight: var(--w-body);
   color: var(--label);
   user-select: none;
 }
 
-#app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
-  border: 1px solid rgba(201, 207, 221, 0.17);
-  border-radius: 12px;
-  box-shadow: var(--bevel);
-  overflow: hidden;
-}
-
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* --------------------------------------------------------------- titlebar */
-
-#titlebar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 10px 10px var(--gutter);
-}
-
-#titlebar .title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--label-2);
-}
-
-#titlebar button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  color: var(--label-2);
-  transition: background var(--d-fast), color var(--d-fast);
-}
-
-#titlebar button:hover {
-  background: rgba(201, 207, 221, 0.09);
-  color: var(--label);
-}
-
-/* ------------------------------------------------------------------ search */
-
-#searchbar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 var(--gutter) 10px;
-  padding: 0 10px;
-  height: var(--control);
-  /* Borderless at rest and separated by a background shift, because a
-     bordered field inside a bordered window is the one tell v0.4 was spent
-     removing from the query bar. Focus lifts the frame to slate at the same
-     0.3 the panel and the settings fields use; the accent is not spent on a
-     search box, it belongs to the primary action. */
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: rgba(201, 207, 221, 0.07);
-  color: var(--label-2);
-  transition: border-color var(--d-fast), background-color var(--d-fast);
-}
-
-#searchbar:focus-within {
-  border-color: rgba(201, 207, 221, 0.3);
-  background: rgba(201, 207, 221, 0.1);
-  color: var(--label-2);
-}
-
-#search {
-  flex: 1 1 auto;
-  min-width: 0;
-  font: inherit;
-  color: var(--label);
-  background: none;
-  border: none;
-  outline: none;
-  user-select: text;
-}
-
-#search::placeholder {
-  color: var(--label-2);
-}
-
-/* The platform's own clear affordance draws a second, differently-styled X
-   next to ours. */
-#search::-webkit-search-cancel-button {
-  display: none;
-}
-
-#clear-search {
-  flex: none;
-  font-size: 12px;
-  color: var(--label-2);
-}
-
-#clear-search:hover {
-  color: var(--label);
-}
-
-/* -------------------------------------------------------------------- list */
-
-#list {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0 8px 4px;
-  outline: none;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) transparent;
-}
-
-#list::-webkit-scrollbar {
-  width: 10px;
-}
-
-#list::-webkit-scrollbar-thumb {
-  background: var(--scroll-thumb);
-  border-radius: 5px;
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-
-#list::-webkit-scrollbar-thumb:hover {
-  background: var(--scroll-thumb-hover);
-  background-clip: content-box;
-}
-
-.item {
-  position: relative;
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px 34px 10px 10px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  transition: background var(--d-fast), border-color var(--d-fast);
-}
-
-.item + .item {
-  box-shadow: 0 -1px 0 var(--hairline);
-}
-
-.item:hover,
-.item:focus-visible {
-  background: rgba(201, 207, 221, 0.055);
-  border-color: rgba(201, 207, 221, 0.12);
-  box-shadow: none;
-}
-
-/* The hairline belongs to the row below; a hovered row lifts out of the list,
-   so the one after it must not keep drawing a line into its rounded corner. */
-.item:hover + .item,
-.item:focus-visible + .item {
-  box-shadow: none;
-}
-
-.item .q {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--label);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item .a {
-  display: block;
-  margin-top: 3px;
-  font-size: 12.5px;
-  color: var(--label-2);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item .meta {
-  display: block;
-  margin-top: 5px;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  color: var(--label-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.item mark {
-  background: rgba(130, 58, 128, 0.42);
-  color: var(--label);
-  border-radius: 2px;
-}
-
-.del {
-  position: absolute;
-  top: 8px;
-  right: 6px;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  border-radius: 5px;
-  color: var(--label-2);
-  opacity: 0;
-  transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast);
-}
-
-.item:hover .del,
-.del:focus-visible {
-  opacity: 1;
-}
-
-.del:hover {
-  background: rgba(228, 129, 140, 0.14);
-  color: var(--danger);
-}
-
-/* ------------------------------------------------------------------- empty */
-
-#empty {
-  flex: 1 1 auto;
-  display: grid;
-  place-items: center;
-  padding: 0 32px 24px;
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--label-2);
-}
-
-#empty[hidden] {
-  display: none;
-}
-
-/* ------------------------------------------------------------------ footer */
-
-#foot {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px var(--gutter);
-  border-top: 1px solid var(--hairline);
-  font-size: 12px;
-  color: var(--label-2);
-  font-variant-numeric: tabular-nums;
-}
-
-#foot .spacer {
-  flex: 1 1 auto;
-}
-
-.link {
-  font-size: 12px;
-  color: var(--label-2);
-  text-decoration: underline;
-  text-decoration-color: rgba(201, 207, 221, 0.28);
-  text-underline-offset: 3px;
-}
-
-.link:hover {
-  color: var(--label);
-  text-decoration-color: rgba(201, 207, 221, 0.6);
-}
-
-.link.danger:hover {
-  color: var(--danger);
-  text-decoration-color: rgba(228, 129, 140, 0.6);
-}
-
-#confirm {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-#confirm[hidden] {
-  display: none;
-}
-
-/* =====================================================================
-   v2.1 Phase B: History as a grouped glass list (DESIGN.md, Material).
-   One sheet of thick glass in a transparent margin; a capsule search
-   field; rows grouped under the day, each group one rounded list with
-   inset hairlines. Rules above this block that it restates are
-   superseded.
-   ===================================================================== */
-
-html,
 body {
-  font-family: var(--font-text);
-  color: var(--label);
+  padding: var(--stage);
 }
 
-body {
-  padding: 14px 18px 22px;
-  height: 100vh;
+html[data-maximized] body {
+  padding: 0;
 }
 
 #app {
   --r: var(--r-sheet);
   height: 100%;
-  width: 100%;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: var(--r-sheet);
-  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r);
+}
+
+html[data-maximized] #app {
+  --r: 0px;
+  border-radius: 0;
 }
 
 #app > :not(.gl) {
   position: relative;
 }
 
-#titlebar {
-  justify-content: center;
-  position: relative;
-  padding: 12px 12px 8px;
-  min-height: 52px;
+button,
+input {
+  font: inherit;
+  color: inherit;
 }
 
-#titlebar .title {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--label);
+button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+  text-align: inherit;
 }
 
-#titlebar button {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  border-radius: var(--r-cap);
-  opacity: 1;
-  color: var(--label-2);
+p,
+h2 {
+  margin: 0;
 }
 
-#titlebar button:hover {
-  background: var(--fill-1);
-  color: var(--label);
-}
+/* --------------------------------------------------------------- search */
 
 #searchbar {
-  margin: 0 16px 8px;
-  height: 36px;
-  padding: 0 8px 0 12px;
-  border: none;
+  flex: 0 0 auto;
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl);
+  padding: 0 var(--sp-1) 0 var(--sp-3);
   border-radius: var(--r-cap);
-  background: rgba(0, 0, 0, 0.26);
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
   color: var(--label-2);
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
+  transition: background var(--d-fast) ease, box-shadow var(--d-fast) ease;
 }
 
-/* Focus lifts the field instead of ringing it in white: the rim
-   brightens and a soft accent halo sits outside it (3:1 against the glass). */
-#searchbar:focus-within {
-  border: none;
-  background: rgba(0, 0, 0, 0.34);
-  box-shadow:
-    inset 0 0 0 var(--px) rgba(255, 255, 255, 0.4),
-    0 0 0 3px rgb(197 111 195 / 0.55);
+.search-field:focus-within {
+  background: var(--field-bg-focus);
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim-focus);
 }
 
-/* The capsule shows focus (#searchbar:focus-within). The field inside it
-   takes no ring of its own: the generic two-tone ring drew a second,
-   square-cornered box inside the capsule, and so does type=search. */
+/* The ring is on the field, not the bare input; it waits for the first key
+   or Tab after the window opens. */
+.search-field:has(#search:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+html.quiet-focus .search-field:has(#search:focus-visible) {
+  outline: none;
+}
+
+#search {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-row);
+  color: var(--label);
+  user-select: text;
+}
+
+#search:focus,
 #search:focus-visible {
   outline: none;
   box-shadow: none;
-}
-/* type=search draws its own field inside ours: a second, square-cornered
-   box inside the capsule. */
-#search {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  height: 100%;
-  font-size: 14px;
-  color: var(--label);
 }
 
 #search::placeholder {
   color: var(--label-3);
 }
 
-#clear-search {
-  border-radius: var(--r-cap);
-  padding: 0 10px;
-  min-height: 26px;
-  color: var(--label);
-  background: var(--fill-1);
+#search::-webkit-search-cancel-button {
+  display: none;
 }
+
+#clear-search {
+  width: var(--ctl-s);
+  height: var(--ctl-s);
+}
+
+.off-note {
+  flex: 0 0 auto;
+  padding: 0 var(--sp-4) var(--sp-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+/* ----------------------------------------------------------------- list */
 
 #list {
-  padding: 0 16px 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 0 var(--sp-2) var(--sp-3) var(--sp-3);
 }
 
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--r-cap);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  border: 4px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Group heads start where the row text starts. */
 .group-head {
-  font-size: 13px;
-  font-weight: 600;
+  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  font-family: var(--font-small);
+  font-size: var(--fs-meta);
+  font-weight: var(--w-strong);
+  line-height: var(--lh-meta);
   color: var(--label-2);
-  padding: 14px 4px 6px;
 }
 
-.group-head:first-child {
-  padding-top: 6px;
-}
-
-.group {
-  border-radius: var(--r-card);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.05);
-  overflow: hidden;
+.rows {
+  display: flex;
+  flex-direction: column;
 }
 
 .item {
   position: relative;
-  min-height: 60px;
-  padding: 10px 44px 10px 16px;
-  border-radius: 0;
-  background: none;
-}
-
-.item + .item {
-  border-top: none;
-}
-
-.item + .item::before {
-  content: "";
-  position: absolute;
-  left: 16px;
-  right: 0;
-  top: 0;
-  height: var(--px);
-  background: var(--hairline);
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-plate);
+  transition: background var(--d-fast) ease;
 }
 
 .item:hover {
   background: var(--fill-1);
 }
 
-.item:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.92);
-  outline-offset: -3px;
-  border-radius: var(--r-row);
+.item-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--row-min);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  border-radius: var(--r-plate);
+  text-align: left;
 }
 
-.item .q {
-  font-size: 14px;
-  font-weight: 500;
+.item-open:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  box-shadow: none;
+  background: var(--fill-1);
+}
+
+.item-open > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q {
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   color: var(--label);
 }
 
-.item .a {
-  font-size: 13px;
+.a {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
   color: var(--label-2);
 }
 
-.item .meta {
-  font-size: 12px;
+.a:empty {
+  display: none;
+}
+
+.meta {
+  font-family: var(--font-small);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
   color: var(--label-3);
-  font-variant-numeric: tabular-nums;
 }
 
-.item mark {
-  background: rgb(197 111 195 / 0.4);
+mark {
+  border-radius: var(--r-key);
+  background: var(--mark);
   color: var(--label);
-  border-radius: 3px;
 }
 
+/* Delete: always there, quiet until it is pointed at or focused. */
 .del {
+  flex: 0 0 auto;
+  width: var(--ctl-s);
+  height: var(--ctl-s);
+  margin-right: var(--sp-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-cap);
-  color: var(--label-2);
+  color: var(--label-3);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
-.del:hover {
-  background: var(--fill-2);
-  color: var(--label);
+.del > .ico {
+  width: var(--ico-s);
+  height: var(--ico-s);
 }
 
-#empty {
-  font-size: 14px;
-  color: var(--label-2);
-}
-
-#foot {
-  border-top: none;
-  padding: 10px 16px 14px;
-  color: var(--label-2);
-  font-size: 12px;
-}
-
-.link {
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: var(--r-cap);
-  font-size: 13px;
-  font-weight: 500;
+.del:hover,
+.del:focus-visible {
   color: var(--label);
   background: var(--fill-1);
-  box-shadow: var(--chip-rim);
-  text-decoration: none;
 }
 
-.link:hover {
-  background: var(--fill-2);
-  text-decoration: none;
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-6);
+  text-align: center;
 }
 
-.link.danger {
+.empty p {
+  max-width: 320px;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--label-2);
+}
+
+/* --------------------------------------------------------------- footer */
+
+#foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--foot-h);
+  padding: 0 var(--sp-3) var(--sp-1) var(--sp-4);
+  font-size: var(--fs-small);
+  color: var(--label-2);
+}
+
+#count,
+#note {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#note {
+  font-size: var(--fs-small);
+  color: var(--label);
+}
+
+#note + .text-btn {
+  margin-left: calc(-1 * var(--sp-1));
+}
+
+.confirm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+#confirm-text {
+  flex: 1;
+  color: var(--label);
+}
+
+.text-btn {
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  font-size: var(--fs-small);
+  font-weight: var(--w-strong);
+  color: var(--accent-text);
+  transition: background var(--d-fast) ease;
+}
+
+.text-btn:hover {
+  background: var(--fill-1);
+}
+
+.quiet-danger {
+  margin-left: auto;
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  font-size: var(--fs-small);
+  color: var(--label-2);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.quiet-danger:hover {
+  background: var(--fill-1);
   color: var(--danger);
 }
 
-@media (forced-colors: active) {
-  .group {
-    border: 1px solid CanvasText;
+.g-btn.danger {
+  background: var(--danger-fill);
+}
+
+.g-btn.danger:hover {
+  background: var(--danger-fill-hover);
+}
+
+/* ------------------------------------------------------------ row menu */
+
+/* The shared menu's solid tier: an opaque body inside a glass page. */
+#app > .row-menu {
+  position: absolute;
+  z-index: 20;
+  min-width: 180px;
+  padding: var(--sp-1);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-card);
+  background: var(--solid);
+  box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
+}
+
+/* Rows are the shared menu's; these are buttons, so they start flush. */
+.row-menu [role="menuitem"] {
+  text-align: left;
+}
+
+/* ----------------------------------------------------------- preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  .row-menu {
+    animation: none;
   }
 }
 
-.item,
-.item + .item,
-.item:hover,
-.item:focus-visible,
-.item:hover + .item,
-.item:focus-visible + .item {
-  border: none;
-  box-shadow: none;
+@media (prefers-contrast: more) {
+  .a,
+  .meta,
+  .group-head {
+    color: var(--label);
+  }
+  .del {
+    color: var(--label-2);
+  }
 }
 
-.del {
-  top: 50%;
-  right: 10px;
-  width: 28px;
-  height: 28px;
-  margin-top: -14px;
+@media (forced-colors: active) {
+  .search-field,
+  .row-menu {
+    border: 1px solid CanvasText;
+  }
+  .item-open:focus-visible,
+  .row-menu [role="menuitem"]:focus-visible {
+    outline-color: Highlight;
+  }
+  mark {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
 }
 
-/* =====================================================================
-   Tauri rewrite (REQUESTS.md 4): past 900 px, as when the window is
-   maximised, the search field and the list keep a reading measure,
-   centred, instead of running rows across the whole screen.
-   ===================================================================== */
-
+/* Maximized or wide, the list keeps a 760 px measure, centred. */
 @media (min-width: 900px) {
-  #searchbar,
-  #list > *,
-  #empty {
+  .search-field,
+  .off-note,
+  .group-head,
+  .rows,
+  #foot {
     width: 100%;
-    max-width: 760px;
+    max-width: var(--measure);
     margin-inline: auto;
   }
 }

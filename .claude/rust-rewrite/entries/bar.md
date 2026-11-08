@@ -77,3 +77,34 @@ a 2 px light outline 2 px out plus a dark 5 px halo drawn as a second shadow, so
 (`--own-shadow`). The bar's focus is its rim brightening plus a 2 px dark and 2 px `#EBC0E9` ring outside it
 (design-ux U26). Reason: two title-bar systems, two menu materials, five icon stroke weights and a focus ring
 that erased control rims were the inconsistencies request 7 named (design-visual F7, F20, F21, F40).
+
+## DESIGN · Material · D-21
+Replace "thin glass `blur(14px) saturate(1.7) brightness(0.94)`, thick glass `blur(28px) saturate(1.5) brightness(0.9)`." with:
+at the default Liquid stop, thin glass `blur(14px) saturate(1.55) brightness(0.94)`, thick glass `blur(28px) saturate(1.5) brightness(0.9)`. The slider moves both (see the level table under "Liquid glass you set").
+
+## DESIGN · Material · D-21
+Replace "thin `a = 0.46 + 0.32 Y`, thick `a = 0.72 + 0.16 Y`." with:
+thin `a = 0.58 + 0.24 Y`, thick `a = 0.72 + 0.16 Y`, so thin reads as the same glass as thick, a touch lighter (0.76 against 0.84 at Y = 0.75). Above Liquid on the slider `Y` is the 98th-percentile luma, because the thinner blur lets bright detail through. Above Liquid the outer refraction band also gets a lighter scrim than the interior (up to 0.26 lighter at Very very), so the band shows the desktop while text, inset at least 16 px, keeps the measured value: the interior is a feathered layer inset by half the band that adds the difference (`.gsc` in `glass.css`).
+
+## DESIGN · Liquid glass you set · D-21
+Replace the table that begins "| k | 0 None | 0.5 Liquid (default) | 1 Very very |" and the paragraph after it ("The scrim rule is what keeps contrast: ... does not depend on the desktop at all.") with:
+Liquidity lives at the edge, where text never sits, and the reading interior stays frosted. This is how the glass reads clear at Very very and stays legible.
+
+| | 0 None | 0.25 Subtle | 0.5 Liquid (default) | 0.75 Very | 1 Very very |
+| --- | --- | --- | --- | --- | --- |
+| Body | `--solid` | backdrop | backdrop | backdrop | backdrop |
+| Blur thin / thick | – | 16 / 30 | 14 / 28 | 12 / 26 | 10 / 24 |
+| Saturation thin / thick | – | 1.33 / 1.30 | 1.55 / 1.50 | 1.78 / 1.70 | 2.0 / 1.9 |
+| Scrim thin (y = p90 luma, p98 above 0.5) | – | `0.58+0.24y` +0.08(1−y) | `0.58+0.24y` | −0.08(1−y) | −0.16(1−y) |
+| Scrim thick | – | `0.72+0.16y` +0.075(1−y) | `0.72+0.16y` | −0.075(1−y) | −0.15(1−y) |
+| Edge band scrim (outer `--band`) | – | = interior | = interior | interior − 0.13 | interior − 0.26 |
+| Refraction band / scale thin / thick | none | 9 / 11 / 14 | 14 / 22 / 28 | 23 / 39 / 48 | 32 / 56 / 68 |
+| Refracting surfaces | – | bar, outputs, Settings, History | same | same | same |
+| Rim width / peak | 1 px / 0.55 | 1 px / 0.62 | 1 px / 0.62 | 1.5 px / 0.73 | 2 px / 0.85 |
+| Sheen (162°, top-left) | 0 | 0 | 0 | 0.08 | 0.16 |
+| Thickness shade (bottom inset) | 0 | 0 | 0 | 0.18 | 0.35 |
+| Tone | dark | auto light/dark | auto | auto | auto |
+
+In code: blur thin `18px − 8px·k`, thick `32px − 8px·k`; saturation thin `1.1 + 0.9k`, thick `1.1 + 0.8k`; `spec = max(0, 2k − 1)`; band `round(4 + 20k + 8·spec)`; scale `round(base·2k + 12·spec)` with base 22 thin and 28 thick; scrim slope `(0.5 − k)·0.32·(1 − y)` thin and `·0.30` thick. The displacement is dropped while a window moves, as it is during a morph.
+
+The contrast floor holds at every stop: the scrim slope is 0 at y = 1, so a white page keeps the 4.5:1 floor; the edge band never carries text (sheet text is inset 16 px, at least half the widest band); and the light tone takes over on bright content (D-20). None is the solid tier, so its contrast never depends on the desktop at all. Reason: at the old values Very very looked the same as Liquid on the sheets (design-visual F6), and the bar and the sheet read as two materials (F11). Settings and History opt in to refraction with `refract` on `#app` (settings lane, B-073).

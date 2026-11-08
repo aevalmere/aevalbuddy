@@ -216,10 +216,14 @@ function renderRegion() {
   if (r) regionSize.textContent = `Asking about a ${r.width} × ${r.height} area`;
 }
 
+// Something that went wrong (the shortcut is taken, capture failed) is said
+// at once; a standing state (no provider, offline) waits its turn.
 function renderNotice() {
   const was = notice.hidden ? '' : noticeText.textContent;
   const now = barIntent();
+  let urgent = false;
   if (state.hotkeyFailed) {
+    urgent = true;
     noticeText.textContent = `${state.hotkeyFailed} is taken by another app, so it does nothing. Pick another shortcut in Settings.`;
     noticeSettings.hidden = false;
     notice.hidden = false;
@@ -233,6 +237,7 @@ function renderNotice() {
     noticeSettings.hidden = true;
     notice.hidden = false;
   } else if (!state.captureOk && now === 'ask') {
+    urgent = true;
     noticeText.textContent =
       'Screen capture failed. Your question will be sent without a screenshot.';
     noticeSettings.hidden = true;
@@ -240,7 +245,7 @@ function renderNotice() {
   } else {
     notice.hidden = true;
   }
-  if (!notice.hidden && noticeText.textContent !== was) announce(noticeText.textContent);
+  if (!notice.hidden && noticeText.textContent !== was) announce(noticeText.textContent, urgent ? 'assertive' : 'polite');
 }
 
 function requestResize() {
