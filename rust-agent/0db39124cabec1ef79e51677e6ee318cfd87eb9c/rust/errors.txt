@@ -1,0 +1,17 @@
+== test.log ==
+test agent::run::tests::dialect_switch_rewrites_system_prompt ... FAILED
+test agent::run::tests::overload_529_retries ... FAILED
+thread 'agent::run::tests::dialect_switch_rewrites_system_prompt' (1220) panicked at src\agent\run.rs:3131:9:
+assertion `left == right` failed
+  left: String("error")
+ right: "done"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'agent::run::tests::overload_529_retries' (4488) panicked at src\agent\run.rs:3160:9:
+assertion `left == right` failed
+  left: String("error")
+ right: "done"
+
+test result: FAILED. 329 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.28s
+error: test failed, to rerun pass `--lib`
+
