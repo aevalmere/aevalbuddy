@@ -148,11 +148,12 @@ chatEl.addEventListener(
 
 let markQueued = false;
 new ResizeObserver(() => {
-  if (markQueued || !window.AevalMarkdown) return;
+  if (markQueued) return;
   markQueued = true;
   requestAnimationFrame(() => {
     markQueued = false;
-    window.AevalMarkdown.markScroll(chatEl);
+    markOverflow();
+    if (window.AevalMarkdown) window.AevalMarkdown.markScroll(chatEl);
   });
 }).observe(chatEl);
 
@@ -857,12 +858,16 @@ function addErrorRow(message, question, actions, tone, extra) {
     const id = String((a && (a.id || a.action)) || '').toLowerCase();
     const label = (a && a.label) || '';
     if (id === 'never-ask') {
-      const lab = document.createElement('label');
-      lab.className = 'row-check';
-      neverAsk = document.createElement('input');
-      neverAsk.type = 'checkbox';
-      lab.append(neverAsk, document.createTextNode(label || "Don't ask again"));
-      acts.appendChild(lab);
+      // A checkbox drawn as a button: an output holds no input element, the
+      // bar is the app's one input (NEW-06).
+      const box = button('row-check', label || "Don't ask again");
+      box.setAttribute('role', 'checkbox');
+      box.setAttribute('aria-checked', 'false');
+      box.addEventListener('click', () => {
+        box.setAttribute('aria-checked', String(box.getAttribute('aria-checked') !== 'true'));
+      });
+      neverAsk = box;
+      acts.appendChild(box);
       continue;
     }
     if (id === 'retry' && question) {
@@ -890,7 +895,7 @@ function addErrorRow(message, question, actions, tone, extra) {
           done();
           retryHere(a.provider, a.model);
         };
-        if (neverAsk && neverAsk.checked) send('settings:set-failover', { askBeforePaid: false }).then(go);
+        if (neverAsk && neverAsk.getAttribute('aria-checked') === 'true') send('settings:set-failover', { askBeforePaid: false }).then(go);
         else go();
       } else if (id === 'wait' || id === 'keep-waiting') {
         if (a.channel) send(a.channel, a.payload);

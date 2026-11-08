@@ -502,6 +502,25 @@
     if (done) finish(sheet);
   }
 
+  // The state of a close x ms in: first the words leave and the sheet's
+  // glass hands over to the glob (60 ms, from 20 ms), then the shape
+  // reverses into the bar.
+  const CLOSE_MS = WORDS_OUT + D_CLOSE;
+  function closeFrame(g, x, sheet) {
+    const gl = glOf(sheet);
+    if (x < WORDS_OUT) {
+      const h = clamp((x - HANDOVER_FROM) / (WORDS_OUT - HANDOVER_FROM), 0, 1);
+      if (gl) gl.style.opacity = (1 - h).toFixed(3);
+      host.style.opacity = h.toFixed(3);
+      drawShape(g, 1, sheet, false);
+      return;
+    }
+    sheet.classList.add('globbing');
+    if (gl) gl.style.opacity = '0';
+    host.style.opacity = '';
+    drawShape(g, 1 - easeGlide((x - WORDS_OUT) / D_CLOSE), sheet, false);
+  }
+
   // Pulls the sheet back into the bar, then resolves: the words leave, the
   // sheet's glass hands over to the glob, and the shape reverses. With the
   // bar closed, or the sheet away from it, the sheet scales out instead.
@@ -521,39 +540,25 @@
       const token = {};
       run = token;
       sheet.style.transformOrigin = scaleOrigin(rect, bar);
-      await frames(token, D_SCALE_CLOSE, (x) => {
-        const e = easeMorph(x / D_SCALE_CLOSE);
-        sheet.style.transform = `scale(${(1 - 0.06 * e).toFixed(4)})`;
-        sheet.style.opacity = (1 - e).toFixed(3);
-      });
+      await frames(token, D_SCALE_CLOSE, (x) => scaleOutFrame(sheet, easeMorph(x / D_SCALE_CLOSE)));
       if (run === token) run = null;
       return;
     }
     const token = g;
     run = token;
-    const gl = glOf(sheet);
     prepare(g, bar);
-    drawShape(g, 1, sheet, false);
-    host.style.opacity = '0';
-    if (window.AevalGlass) window.AevalGlass.morph(WORDS_OUT + D_CLOSE);
+    closeFrame(g, 0, sheet);
+    if (window.AevalGlass) window.AevalGlass.morph(CLOSE_MS);
     document.body.dataset.glob = 'close';
-    const total = WORDS_OUT + D_CLOSE;
-    await frames(token, total, (x) => {
-      if (x < WORDS_OUT) {
-        // The sheet's glass hands over to the glob, in 60 ms.
-        const h = clamp((x - HANDOVER_FROM) / (WORDS_OUT - HANDOVER_FROM), 0, 1);
-        if (gl) gl.style.opacity = (1 - h).toFixed(3);
-        host.style.opacity = h.toFixed(3);
-        return;
-      }
-      sheet.classList.add('globbing');
-      if (gl) gl.style.opacity = '0';
-      host.style.opacity = '';
-      drawShape(g, 1 - easeGlide((x - WORDS_OUT) / D_CLOSE), sheet, false);
-    });
+    await frames(token, CLOSE_MS, (x) => closeFrame(g, x, sheet));
     delete document.body.dataset.glob;
     host.hidden = true;
     if (run === token) run = null;
+  }
+
+  function scaleOutFrame(sheet, e) {
+    sheet.style.transform = `scale(${(1 - 0.06 * e).toFixed(4)})`;
+    sheet.style.opacity = (1 - e).toFixed(3);
   }
 
   // One still frame at time t, for the visual self-check's frame sequence.
@@ -564,6 +569,8 @@
     run = g;
     sheet.classList.add('globbing');
     sheet.classList.remove('closing');
+    sheet.style.transform = '';
+    sheet.style.opacity = '';
     if (!g.beside) {
       host.hidden = true;
       sheet.style.transformOrigin = scaleOrigin(rect, bar);
@@ -574,5 +581,34 @@
     openFrame(g, clamp(t, 0, 1), sheet);
   }
 
-  window.AevalGlob = { open, close, preview, shapeAt, polysAt, geometry, bezier, timing: { D_OPEN, D_CLOSE, T_REVEAL, T_LAND } };
+  // One still frame of a close, f of the way through (0..1).
+  function previewClose(sheet, bar, f) {
+    const rect = sheet.getBoundingClientRect();
+    const g = geometry(bar, rect);
+    run = g;
+    sheet.classList.add('closing');
+    sheet.classList.remove('reveal');
+    sheet.style.clipPath = '';
+    const x = clamp(f, 0, 1);
+    if (!g.beside) {
+      host.hidden = true;
+      sheet.style.transformOrigin = scaleOrigin(rect, bar);
+      scaleOutFrame(sheet, easeMorph(x));
+      return;
+    }
+    prepare(g, bar);
+    closeFrame(g, x * CLOSE_MS, sheet);
+  }
+
+  window.AevalGlob = {
+    open,
+    close,
+    preview,
+    previewClose,
+    shapeAt,
+    polysAt,
+    geometry,
+    bezier,
+    timing: { D_OPEN, D_CLOSE, CLOSE_MS, T_REVEAL, T_LAND },
+  };
 })();
