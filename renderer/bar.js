@@ -29,6 +29,10 @@ const targetChip = document.getElementById('target-chip');
 const targetText = document.getElementById('target-text');
 const targetNew = document.getElementById('target-new');
 const targetDesc = document.getElementById('target-desc');
+const modelChip = document.getElementById('model-chip');
+const modelChipName = document.getElementById('model-chip-name');
+const modelMenu = document.getElementById('model-menu');
+const modelList = document.getElementById('model-list');
 
 const PREFIX = { find: '/', ask: '?', do: '>' };
 const ENTER_SAYS = { ask: 'Enter asks', find: 'Enter goes to the next match', do: 'Enter starts the task' };
@@ -56,6 +60,13 @@ const bar = {
   cycling: false,
   // After Enter met "needs a provider", Tab goes to the notice's button.
   tabToNotice: false,
+  // The model chosen with @ for this one question, null for the usual one.
+  pin: null,
+  // Every ready provider's models, asked for once per opening of the bar.
+  models: null,
+  modelRows: [],
+  // Esc closed the list for this @, so the rest is plain text.
+  modelDismissed: false,
 };
 let findState = null;
 let barHint = '';
@@ -215,6 +226,7 @@ function renderToken() {
   renderStatus();
   renderNotice();
   renderTarget();
+  renderPin();
   sendDirty();
 }
 
@@ -305,6 +317,194 @@ function cycleTarget(dir) {
     bar.cycling = false;
   });
 }
+
+// ---------------------------------------------------- one question's model
+
+// @ as the first character chooses the model for this one question (U20).
+// Focus stays in the field, so typing goes on narrowing the list; the pick
+// becomes a chip after the token and goes with the question.
+function providerModels(r) {
+  const out = [];
+  for (const p of (r && r.providers) || []) {
+    const seen = new Set();
+    const models = [];
+    for (const g of p.groups || []) {
+      for (const m of g.models || []) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        models.push({ id: m.id, name: m.name || m.id });
+      }
+    }
+    if (models.length) out.push({ id: p.id, name: p.name, models });
+  }
+  return out;
+}
+
+let modelsAsked = false;
+function askForModels() {
+  if (modelsAsked) return;
+  modelsAsked = true;
+  invokeSoft('models:list', {}).then((r) => {
+    modelsAsked = false;
+    bar.models = providerModels(r);
+    syncModelMenu();
+  });
+}
+
+function closeModelMenu() {
+  if (modelMenu.hidden) return;
+  modelMenu.hidden = true;
+  input.removeAttribute('aria-activedescendant');
+  input.removeAttribute('aria-controls');
+  input.removeAttribute('aria-autocomplete');
+  requestResize();
+}
+
+function markModel(at) {
+  bar.modelRows.forEach((row, i) => row.el.setAttribute('aria-selected', i === at ? 'true' : 'false'));
+  if (at < 0) {
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+  input.setAttribute('aria-activedescendant', bar.modelRows[at].el.id);
+  bar.modelRows[at].el.scrollIntoView({ block: 'nearest' });
+}
+
+function markedModel() {
+  return bar.modelRows.findIndex((row) => row.el.getAttribute('aria-selected') === 'true');
+}
+
+function modelOption(row, n) {
+  const el = document.createElement('div');
+  el.id = `model-opt-${n}`;
+  el.setAttribute('role', 'option');
+  const label = document.createElement('span');
+  label.className = 'g-menu-label';
+  label.textContent = row.name;
+  el.appendChild(label);
+  el.addEventListener('click', () => pickModel(row));
+  row.el = el;
+  return el;
+}
+
+function renderModelMenu(filter) {
+  const needle = filter.toLowerCase();
+  const rows = [];
+  modelList.textContent = '';
+  for (const p of bar.models) {
+    const hits = p.models.filter((m) => `${m.name} ${m.id}`.toLowerCase().includes(needle));
+    if (!hits.length) continue;
+    const group = document.createElement('div');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', p.name);
+    const head = document.createElement('div');
+    head.className = 'g-menu-group-label';
+    head.setAttribute('aria-hidden', 'true');
+    head.textContent = p.name;
+    group.appendChild(head);
+    for (const m of hits) {
+      const row = { provider: p.id, providerName: p.name, model: m.id, name: m.name };
+      group.appendChild(modelOption(row, rows.length));
+      rows.push(row);
+    }
+    modelList.appendChild(group);
+  }
+  bar.modelRows = rows;
+  if (!rows.length) {
+    const none = document.createElement('div');
+    none.className = 'g-menu-empty';
+    none.textContent = `No model called "${filter}". Esc to keep typing.`;
+    modelList.appendChild(none);
+    announceSoon(none.textContent);
+  }
+  modelMenu.hidden = false;
+  input.setAttribute('aria-controls', 'model-menu');
+  input.setAttribute('aria-autocomplete', 'list');
+  markModel(rows.length ? 0 : -1);
+  requestResize();
+}
+
+// Called on every change to the field. A provider with no models, or none
+// ready, leaves the @ as ordinary text.
+function syncModelMenu() {
+  const v = input.value;
+  const typed = v.startsWith('@');
+  if (!typed) bar.modelDismissed = false;
+  if (!typed || bar.modelDismissed || bar.pin || replyState()) {
+    closeModelMenu();
+    return;
+  }
+  if (!bar.models) {
+    askForModels();
+    return;
+  }
+  if (bar.models.length) renderModelMenu(v.slice(1).trim());
+  else closeModelMenu();
+}
+
+function pickModel(row) {
+  bar.pin = { provider: row.provider, providerName: row.providerName, model: row.model, name: row.name };
+  input.value = '';
+  closeModelMenu();
+  classifyNow();
+  renderExamplesShown();
+  announce(`${row.name} for this question`);
+  input.focus();
+}
+
+function clearPin(say) {
+  if (!bar.pin) return;
+  bar.pin = null;
+  renderPin();
+  if (say) announce('Model choice removed');
+}
+
+function renderPin() {
+  const p = bar.pin;
+  if (p) {
+    const find = barIntent() === 'find';
+    modelChipName.textContent = p.name;
+    modelChip.setAttribute('aria-label', `Model for this question: ${p.name} via ${p.providerName}. Press to remove.`);
+    modelChip.dataset.ignored = find ? 'true' : 'false';
+    if (find) modelChip.title = 'Find uses the Find model';
+    else modelChip.removeAttribute('title');
+  }
+  if (modelChip.hidden === !p) return;
+  modelChip.hidden = !p;
+  requestResize();
+}
+
+// True when the list took the key.
+function modelKey(e) {
+  if (modelMenu.hidden || e.ctrlKey || e.altKey || e.metaKey) return false;
+  const rows = bar.modelRows;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (rows.length) markModel((markedModel() + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length);
+    return true;
+  }
+  if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+    e.preventDefault();
+    if (rows.length) pickModel(rows[Math.max(0, markedModel())]);
+    return true;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    bar.modelDismissed = true;
+    closeModelMenu();
+    return true;
+  }
+  return false;
+}
+
+// The field keeps focus through a click on the list.
+modelMenu.addEventListener('pointerdown', (e) => e.preventDefault());
+input.addEventListener('blur', closeModelMenu);
+modelChip.addEventListener('click', () => {
+  clearPin(true);
+  input.focus();
+});
 
 function setLock(next, opts) {
   const o = opts || {};
@@ -606,6 +806,7 @@ function pushHistory(text) {
 function clearField() {
   input.value = '';
   bar.prefixed = '';
+  bar.pin = null;
   setLock(null);
   renderExamplesShown();
 }
@@ -615,6 +816,8 @@ function clearField() {
 function send(what) {
   const text = input.value;
   const body = text.trim();
+  // Read before clearField, which gives the choice back.
+  const pin = bar.pin ? { provider: bar.pin.provider, model: bar.pin.model } : {};
   barHint = '';
   if (body) markSent();
   const recallAs = bar.lock && PREFIX[bar.lock] ? `${bar.literal ? '//' : PREFIX[bar.lock]}${body}` : body;
@@ -630,7 +833,7 @@ function send(what) {
       return;
     }
     pushHistory(`>${body}`);
-    window.aeval.invoke('agent:start', { task: body }).then((r) => {
+    window.aeval.invoke('agent:start', { task: body, ...pin }).then((r) => {
       // Waiting on consent keeps the words: declining must not cost them.
       if (r && (r.status === 'started' || r.status === 'offline')) clearField();
       else if (r && r.status === 'busy') barHint = 'A task is already running. Esc stops it.';
@@ -647,7 +850,7 @@ function send(what) {
   // Cleared at once, like a messaging app; the transcript echoes it. With
   // no key the text stays so nothing typed is lost.
   if (state.hasKey) clearField();
-  window.aeval.invoke('query:submit', { question: body, inferred }).then((result) => {
+  window.aeval.invoke('query:submit', { question: body, inferred, ...pin }).then((result) => {
     if (result && result.status === 'walkthrough') clearField();
     else if (result && result.status === 'needs-key') needsKey('ask');
   });
@@ -748,6 +951,7 @@ function onInput() {
   takePrefix();
   classifyNow();
   renderExamplesShown();
+  syncModelMenu();
 }
 
 input.placeholder = PLACEHOLDER;
@@ -756,6 +960,7 @@ input.addEventListener('input', onInput);
 input.addEventListener('keydown', (e) => {
   // An IME is still composing: Enter picks the candidate, not the action.
   if (e.isComposing || e.keyCode === 229) return;
+  if (modelKey(e)) return;
   if (e.ctrlKey && !e.altKey && !e.shiftKey && ['1', '2', '3'].includes(e.key)) {
     e.preventDefault();
     setLock(Intent.INTENTS[Number(e.key) - 1], { say: true });
@@ -771,7 +976,13 @@ input.addEventListener('keydown', (e) => {
     window.aeval.invoke('ui:focus-answer');
     return;
   }
-  // The first Backspace on an empty field gives the lock back.
+  // Backspace at the start gives back what sits before the text: the model
+  // first, then the lock.
+  if (e.key === 'Backspace' && bar.pin && input.selectionStart === 0 && input.selectionEnd === 0) {
+    e.preventDefault();
+    clearPin(true);
+    return;
+  }
   if (e.key === 'Backspace' && bar.lock && input.selectionStart === 0 && input.selectionEnd === 0) {
     e.preventDefault();
     bar.prefixed = '';
@@ -798,7 +1009,7 @@ input.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     // Text first, then the bar.
-    if (input.value || bar.lock) {
+    if (input.value || bar.lock || bar.pin) {
       clearField();
       announce('Cleared');
     } else {
@@ -969,6 +1180,8 @@ function barOpened() {
   bar.recall = -1;
   // Closing the bar closed Find with it.
   bar.findOn = false;
+  // A key added since the last time shows up in the @ list.
+  bar.models = null;
   window.aeval.invoke('bar:history').then((h) => {
     if (Array.isArray(h)) bar.history = h;
   });

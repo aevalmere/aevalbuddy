@@ -178,6 +178,213 @@
     requestAnimationFrame(layout);
   }
 
+  // ----------------------------------------------------------- window menu
+
+  // Everything a drag does, from the keyboard (U30): Alt+Space, or a
+  // right-click on a title bar, opens Move, Size, Maximize or Restore, and
+  // Close. In Move and Size the arrows go 16 px at a time (Shift, 64)
+  // through window:nudge; Enter keeps the result, Esc puts the window back.
+  // The bar has no title bar and has its own layout editor, so this is for
+  // the windows with all eight resize zones.
+  const STEP = 16;
+  const STEP_BIG = 64;
+  const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+  const CLOSERS = ['#close-out', '#close-settings', '#close-history'];
+
+  const hasMenu = () => root.dataset.resize === 'all' && !!document.querySelector('[data-drag]');
+  const say = (text) => window.AevalA11y && window.AevalA11y.say(text);
+
+  let menu = null;
+  let adjust = null;
+  let hint = null;
+
+  function menuRows() {
+    const rows = [];
+    // A maximized window has nowhere to move to.
+    if (!maxed) {
+      rows.push({ name: 'Move', run: () => startAdjust(false) });
+      rows.push({ name: 'Size', run: () => startAdjust(true) });
+    }
+    // Only the windows whose title bar maximizes on double-click.
+    if (document.querySelector('[data-drag="max"]')) {
+      rows.push({
+        name: maxed ? 'Restore' : 'Maximize',
+        run: () => {
+          const w = win();
+          if (w) w.toggleMaximize().catch(() => {});
+        },
+      });
+    }
+    rows.push({
+      name: 'Close',
+      run: () => {
+        const button = CLOSERS.map((s) => document.querySelector(s)).find(Boolean);
+        if (button) button.click();
+      },
+    });
+    return rows;
+  }
+
+  function openMenu(x, y) {
+    closeMenu(false);
+    const el = document.createElement('ul');
+    el.id = 'window-menu';
+    el.className = 'glass thin g-menu';
+    el.dataset.hit = '';
+    el.setAttribute('role', 'menu');
+    el.setAttribute('aria-label', 'Window');
+    const rows = menuRows();
+    const items = rows.map((row) => {
+      const li = document.createElement('li');
+      li.setAttribute('role', 'menuitem');
+      li.tabIndex = -1;
+      li.textContent = row.name;
+      li.addEventListener('click', () => choose(row));
+      li.addEventListener('pointermove', () => li.focus({ preventScroll: true }));
+      el.appendChild(li);
+      return li;
+    });
+    const back = document.activeElement;
+    document.body.appendChild(el);
+    const r = el.getBoundingClientRect();
+    el.style.left = `${Math.round(Math.max(8, Math.min(x, window.innerWidth - r.width - 8)))}px`;
+    el.style.top = `${Math.round(Math.max(8, Math.min(y, window.innerHeight - r.height - 8)))}px`;
+    menu = { el, items, rows, back };
+    items[0].focus();
+    if (window.AevalGlass) window.AevalGlass.placeAll();
+  }
+
+  function closeMenu(refocus) {
+    if (!menu) return;
+    const { el, back } = menu;
+    menu = null;
+    el.classList.add('closing');
+    setTimeout(() => el.remove(), 120);
+    if (refocus && back && back.focus) back.focus();
+  }
+
+  function choose(row) {
+    closeMenu(true);
+    row.run();
+  }
+
+  function menuKey(e) {
+    const { items, rows } = menu;
+    const at = items.indexOf(document.activeElement);
+    const go = (i) => items[(i + items.length) % items.length].focus();
+    if (e.key === 'ArrowDown') go(at + 1);
+    else if (e.key === 'ArrowUp') go(at < 0 ? -1 : at - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(-1);
+    else if (e.key === 'Enter' || e.key === ' ') {
+      if (at >= 0) choose(rows[at]);
+    } else if (e.key === 'Escape' || e.key === 'Tab') closeMenu(true);
+    else if (e.key.length === 1) {
+      const i = rows.findIndex((r) => r.name[0].toLowerCase() === e.key.toLowerCase());
+      if (i >= 0) go(i);
+    }
+  }
+
+  function nudge(d) {
+    window.aeval.invoke('window:nudge', d).catch(() => {});
+  }
+
+  function startAdjust(size) {
+    adjust = {
+      size,
+      sum: { dx: 0, dy: 0, dw: 0, dh: 0 },
+      x: window.screenX,
+      y: window.screenY,
+      w: window.innerWidth,
+      h: window.innerHeight,
+    };
+    const text = `${size ? 'Arrows resize the window.' : 'Arrows move the window.'} Enter keeps it, Esc puts it back.`;
+    hint = document.createElement('div');
+    hint.id = 'window-hint';
+    hint.className = 'glass thin';
+    hint.dataset.hit = '';
+    hint.textContent = text;
+    document.body.appendChild(hint);
+    say(text);
+  }
+
+  function stopAdjust() {
+    adjust = null;
+    if (hint) hint.remove();
+    hint = null;
+  }
+
+  // Rust stops a window at the edge of the work area, so the way back is
+  // what really changed. Without a real window to measure, it is the sum of
+  // the presses.
+  function putBack() {
+    const a = adjust;
+    const undo = win()
+      ? { dx: a.x - window.screenX, dy: a.y - window.screenY, dw: a.w - window.innerWidth, dh: a.h - window.innerHeight }
+      : { dx: 0 - a.sum.dx, dy: 0 - a.sum.dy, dw: 0 - a.sum.dw, dh: 0 - a.sum.dh };
+    if (undo.dx || undo.dy || undo.dw || undo.dh) nudge(undo);
+  }
+
+  function adjustKey(e) {
+    if (e.key === 'Enter') {
+      stopAdjust();
+      return;
+    }
+    if (e.key === 'Escape') {
+      putBack();
+      stopAdjust();
+      return;
+    }
+    const arrow = ARROWS[e.key];
+    if (!arrow) return;
+    const by = e.shiftKey ? STEP_BIG : STEP;
+    const [x, y] = [arrow[0] * by, arrow[1] * by];
+    const d = adjust.size ? { dx: 0, dy: 0, dw: x, dh: y } : { dx: x, dy: y, dw: 0, dh: 0 };
+    for (const k of Object.keys(d)) adjust.sum[k] += d[k];
+    nudge(d);
+  }
+
+  // In the capture phase: while either is open the keys are theirs.
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      const own = adjust ? adjustKey : menu ? menuKey : null;
+      const opens = !own && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === 'Space' && hasMenu();
+      if (!own && !opens) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (own) {
+        own(e);
+        return;
+      }
+      const bar = document.querySelector('[data-drag]').getBoundingClientRect();
+      openMenu(bar.left + 8, bar.bottom + 4);
+    },
+    true
+  );
+
+  document.addEventListener('contextmenu', (e) => {
+    const t = e.target;
+    if (!(t instanceof Element) || !hasMenu()) return;
+    if (!t.closest('[data-drag]') || t.closest(CONTROL)) return;
+    e.preventDefault();
+    openMenu(e.clientX, e.clientY);
+  });
+
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (menu && !menu.el.contains(e.target)) closeMenu(false);
+    },
+    true
+  );
+
+  // Clicking away keeps where the window got to.
+  window.addEventListener('blur', () => {
+    closeMenu(false);
+    stopAdjust();
+  });
+
   function boot() {
     requestLayout();
     const ro = new ResizeObserver(requestLayout);

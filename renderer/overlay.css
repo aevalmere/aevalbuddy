@@ -50,6 +50,8 @@ button {
 #hud[hidden],
 #bar-status[hidden],
 #intent-menu[hidden],
+#model-menu[hidden],
+#model-chip[hidden],
 #guess[hidden],
 #examples[hidden],
 #region-chip[hidden],
@@ -361,6 +363,28 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   height: var(--ico-i);
 }
 
+/* The model for this one question (@, bar.js): beside the token, and muted
+   under Find, which uses its own model. */
+#model-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(35%, calc(200px * var(--text-scale)));
+  height: var(--ctl-s);
+  margin-top: calc((var(--ctl) - var(--ctl-s)) / 2);
+  gap: var(--sp-1);
+  white-space: nowrap;
+}
+
+#model-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#model-chip[data-ignored="true"] {
+  color: var(--label-3);
+}
+
 /* The field's focus is the capsule's: its rim brightens and a two-tone
    ring sits outside it, dark inside light, so it holds 3:1 over a white
    desktop and a dark one. A ring around the text would draw a box inside
@@ -527,6 +551,18 @@ body[data-region="1"] #region-btn {
 #intent-menu {
   align-self: flex-start;
   min-width: calc(280px * var(--text-scale));
+}
+
+/* The list scrolls inside the glass, within what is left of Rust's 280 px
+   cap on the bar window's content (INPUT_MAX_HEIGHT). */
+#model-menu {
+  align-self: flex-start;
+  min-width: calc(320px * var(--text-scale));
+}
+
+#model-list {
+  max-height: calc(280px - var(--bar-h) - var(--sp-2) - 2 * var(--inset-menu));
+  overflow-y: auto;
 }
 
 @keyframes drop-in {
@@ -1813,11 +1849,18 @@ html[data-motion="reduced"] *,
 html[data-motion="reduced"] *::before,
 html[data-motion="reduced"] *::after {
   animation-name: fade-only !important;
-  animation-duration: 100ms !important;
+  animation-duration: var(--d-reduced) !important;
   animation-iteration-count: 1 !important;
   animation-delay: 0ms !important;
-  transition-duration: 100ms !important;
+  transition-duration: var(--d-reduced) !important;
   transition-delay: 0ms !important;
+}
+
+/* The bar folds without its words blurring or shrinking. */
+html[data-motion="reduced"] #panel[data-morph="out"] .panel-top > :not(.gl),
+html[data-motion="reduced"] #panel[data-morph="out"] > :not(.panel-top) {
+  filter: none;
+  transform: none;
 }
 
 /* Loops stop altogether. */
@@ -1835,9 +1878,9 @@ html[data-motion="reduced"] .trow.running .trow-mark::before {
   *,
   *::before,
   *::after {
-    animation-duration: 100ms !important;
+    animation-duration: var(--d-reduced) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 100ms !important;
+    transition-duration: var(--d-reduced) !important;
   }
 }
 

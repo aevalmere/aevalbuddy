@@ -25,7 +25,7 @@
   </div>
 
   <section id="panel" hidden aria-label="AevalBuddy">
-    <div id="bar" class="panel-top glass thin refract">
+    <div id="bar" class="panel-top glass thin refract interactive">
       <!-- The token says what Enter will do with the text: guessed while
            typing, chosen with / ? > //, Ctrl+1/2/3, or this menu (Alt+Down).
            It is the one place the Ask / Find / Do keys are taught
@@ -38,6 +38,13 @@
         <span class="ico tok-glyph g-find i-viewfinder" aria-hidden="true"></span>
         <span class="ico tok-glyph g-do i-pointer" aria-hidden="true"></span>
         <span class="intent-name">Ask</span>
+      </button>
+      <!-- The model for this one question, chosen with @ as the first
+           character (bar.js). Pressing it, or Backspace at the start of the
+           field, gives the choice back. -->
+      <button id="model-chip" class="g-chip" type="button" hidden>
+        <span id="model-chip-name"></span>
+        <span class="ico i-x" aria-hidden="true"></span>
       </button>
       <!-- One field, several lines: Enter sends, Shift+Enter starts a new
            line, and it grows to seven rows before it scrolls. -->
@@ -88,6 +95,12 @@
       <li role="option" tabindex="-1" data-intent="find"><span class="g-menu-label">Find words on screen</span><span class="g-menu-keys"><kbd>/</kbd><kbd>Ctrl+2</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
       <li role="option" tabindex="-1" data-intent="do"><span class="g-menu-label">Do it as a task</span><span class="g-menu-keys"><kbd>&gt;</kbd><kbd>Ctrl+3</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
     </ul>
+
+    <!-- Every ready provider's models, narrowed by what follows the @. Focus
+         stays in the field; the list scrolls inside the glass. -->
+    <div id="model-menu" class="glass thin g-menu" role="listbox" aria-label="Model for this question" hidden>
+      <div id="model-list" role="presentation"></div>
+    </div>
 
     <!-- A task that was only guessed never starts on Enter. -->
     <div id="guess" class="guess-card glass thick" role="group" aria-labelledby="guess-text" hidden>

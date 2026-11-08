@@ -36,6 +36,8 @@
     sx: window.screenX,
     sy: window.screenY,
     filters: 0,
+    tone: 'dark',
+    lightFrames: 0,
   };
 
   // Scrim from the brightness behind (0..1, sRGB luma, 90th percentile, or
@@ -47,6 +49,12 @@
   const SCRIM = {
     thin: (y, k) => 0.58 + 0.24 * y + (0.5 - k) * 0.32 * (1 - y),
     thick: (y, k) => 0.72 + 0.16 * y + (0.5 - k) * 0.30 * (1 - y),
+  };
+  // Over light content the tint is light too, and thins out as the page
+  // behind it gets brighter (D-20).
+  const LIGHT_SCRIM = {
+    thin: (y) => 0.42 + 0.3 * (1 - y),
+    thick: (y) => 0.62 + 0.2 * (1 - y),
   };
 
   // ---------------------------------------------------------- liquidness
@@ -140,6 +148,8 @@
     const solid = remoteSolid || !!local || !!chosen;
     root.dataset.glass = solid ? 'solid' : 'live';
     root.dataset.glassWhy = [...remote, local, chosen].filter(Boolean).join(' ') || 'none';
+    // The solid surface is dark whatever is behind it.
+    if (solid && S.tone === 'light') setTone('dark');
   }
   forcedColors.addEventListener('change', syncTier);
 
@@ -240,6 +250,27 @@
     S.raf = requestAnimationFrame(step);
   }
 
+  // A title bar marked .interactive lights the sheet under it, more softly
+  // than a control does (F32): the sheet's own glass tracks no pointer.
+  let litSheet = null;
+  function darkenSheet() {
+    if (!litSheet) return;
+    for (const p of ['--mx', '--my', '--lit']) litSheet.style.removeProperty(p);
+    litSheet = null;
+  }
+  document.addEventListener('pointermove', (e) => {
+    const on = e.target instanceof Element ? e.target.closest('.sheet-bar.interactive') : null;
+    const host = on ? on.closest('.glass') : null;
+    const gl = host && host.__gl ? host.__gl.gl : null;
+    if (gl !== litSheet) darkenSheet();
+    if (!gl) return;
+    litSheet = gl;
+    const r = gl.getBoundingClientRect();
+    gl.style.setProperty('--mx', `${Math.round(e.clientX - r.left)}px`);
+    gl.style.setProperty('--my', `${Math.round(e.clientY - r.top)}px`);
+    gl.style.setProperty('--lit', '0.06');
+  }, { passive: true });
+
   document.addEventListener('transitionrun', () => track(450), true);
   document.addEventListener('animationstart', () => track(450), true);
 
@@ -288,7 +319,8 @@
   }
 
   function scrimOf(kind, y) {
-    return SCRIM[kind === 'thick' ? 'thick' : 'thin'](y, S.k);
+    const k = kind === 'thick' ? 'thick' : 'thin';
+    return S.tone === 'light' ? LIGHT_SCRIM[k](y) : SCRIM[k](y, S.k);
   }
 
   function measure(el, r) {
@@ -317,6 +349,52 @@
     const l = [x, y, w, h].every(Number.isFinite) ? lumaUnder(x, y, x + w, y + h) : null;
     if (!l) return kind === 'thick' ? 0.86 - 0.12 * S.k : 0.66 - 0.12 * S.k;
     return Math.round(scrimOf(kind, scrimLuma(l)) * 1000) / 1000;
+  }
+
+  // ---------------------------------------------------------------- tone
+
+  // Each window's glass turns light over light content (F10): the median
+  // brightness under its largest glass layer is above 0.72 for two frames
+  // running, and it goes back below 0.55. The gap keeps a page that sits
+  // between the two from flickering.
+  const TONE_LIGHT = 0.72;
+  const TONE_DARK = 0.55;
+  const TONE_FRAMES = 2;
+  const TONE_FADE_MS = 360;
+
+  function largestRect() {
+    let best = null;
+    for (const el of S.layers) {
+      if (!el.__gl || !el.isConnected) continue;
+      const r = el.__gl.gl.getBoundingClientRect();
+      if (r.width * r.height > (best ? best.width * best.height : 0)) best = r;
+    }
+    return best;
+  }
+
+  let toneFade = null;
+  function setTone(tone) {
+    S.tone = tone;
+    root.dataset.toneFade = '';
+    clearTimeout(toneFade);
+    toneFade = setTimeout(() => delete root.dataset.toneFade, TONE_FADE_MS);
+    if (tone === 'light') root.dataset.tone = 'light';
+    else delete root.dataset.tone;
+    for (const el of S.layers) if (el.__gl) el.__gl.y = -1;
+    placeAll();
+  }
+
+  function updateTone() {
+    if (root.dataset.glass === 'solid') {
+      S.lightFrames = 0;
+      return;
+    }
+    const r = largestRect();
+    const l = r && lumaUnder(window.screenX + r.left, window.screenY + r.top, window.screenX + r.right, window.screenY + r.bottom);
+    if (!l) return;
+    S.lightFrames = l.p50 > TONE_LIGHT ? S.lightFrames + 1 : 0;
+    if (S.tone === 'dark' && S.lightFrames >= TONE_FRAMES) setTone('light');
+    else if (S.tone === 'light' && l.p50 < TONE_DARK) setTone('dark');
   }
 
   // ----------------------------------------------------------- refraction
@@ -533,6 +611,7 @@
     }
     for (const el of S.layers) el.__gl.y = -1;
     placeAll();
+    updateTone();
   }
 
   // ------------------------------------------------------------ hit-tests
@@ -768,6 +847,6 @@
     // Settings' slider: applied here at once, shared with every other page.
     setIntensity: (k) => applyK(k, { persist: true }),
     intensity: () => S.k,
-    state: () => ({ k: S.k, tier: root.dataset.glass, why: root.dataset.glassWhy, layers: S.layers.size, snap: !!S.url, display: S.display }),
+    state: () => ({ k: S.k, tone: S.tone, tier: root.dataset.glass, why: root.dataset.glassWhy, layers: S.layers.size, snap: !!S.url, display: S.display }),
   };
 })();

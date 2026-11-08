@@ -1,7 +1,7 @@
 // The bar lane's ui-shots scenes, mocks, checks and CSS lint list. The shape
 // is documented at the top of tools/ui-shots/shots.mjs; shared fixtures are
 // in tools/ui-shots/kit.mjs.
-import { BAR, OUT1, barContext, barRect, barState, openBar } from '../kit.mjs';
+import { ANSWER, BAR, OUT1, barContext, barRect, barState, openBar, streamAnswer } from '../kit.mjs';
 
 export const mocks = {};
 export const checks = [];
@@ -13,6 +13,87 @@ const overlay = { name: 'overlay', src: '/renderer/index.html', x: BAR.x, y: BAR
 const BAR_CLIP = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: 140 };
 const TALL_CLIP = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: 300 };
 const TARGET = { label: 'output-2', title: 'Why does the build fail on the release branch?' };
+const output = { name: 'out1', src: '/renderer/output.html', x: OUT1.x, y: OUT1.y, w: OUT1.w, h: OUT1.h, z: 3 };
+const settings = { name: 'settings', src: '/settings/settings.html', x: 120, y: 130, w: 960, h: 700, z: 2 };
+const history = { name: 'history', src: '/history/history.html', x: 400, y: 140, w: 720, h: 640, z: 2 };
+const DISPLAY = { x: 0, y: 0, width: 1600, height: 1000 };
+
+// models:list as K-19 has it: every ready provider's models.
+const MODELS = {
+  live: true,
+  current: 'claude-sonnet-5-5',
+  groups: [],
+  providers: [
+    { id: 'anthropic', name: 'Anthropic', groups: [{ tier: 'paid', label: 'Paid', models: [{ id: 'claude-sonnet-5-5', name: 'Sonnet 5.5' }, { id: 'claude-haiku-5', name: 'Haiku 5' }] }] },
+    { id: 'openai', name: 'OpenAI', groups: [{ tier: 'paid', label: 'Paid', models: [{ id: 'gpt-5-mini', name: 'GPT-5 mini' }] }] },
+  ],
+};
+
+const modelMenu = (f) =>
+  f.evaluate(() => {
+    const m = document.getElementById('model-menu');
+    const active = m.querySelector('[aria-selected="true"]');
+    const none = m.querySelector('.g-menu-empty');
+    return {
+      open: !m.hidden,
+      groups: [...m.querySelectorAll('[role="group"]')].map((g) => g.getAttribute('aria-label')),
+      rows: [...m.querySelectorAll('[role="option"]')].map((o) => o.textContent),
+      active: active ? active.textContent : '',
+      none: none ? none.textContent : '',
+    };
+  });
+
+const modelChip = (f) =>
+  f.evaluate(() => {
+    const c = document.getElementById('model-chip');
+    return { shown: !c.hidden, text: c.textContent.trim(), label: c.getAttribute('aria-label'), title: c.title };
+  });
+
+// One frame of a single brightness, then the window's tone.
+const toneAfterGrey = async (t, name, y) => {
+  await t.frame(name).evaluate(
+    ({ g, display }) => {
+      const c = document.createElement('canvas');
+      c.width = 32;
+      c.height = 20;
+      const x = c.getContext('2d');
+      const n = Math.round(g * 255);
+      x.fillStyle = `rgb(${n},${n},${n})`;
+      x.fillRect(0, 0, 32, 20);
+      window.__emit('glass:frame', { img: c.toDataURL('image/png'), display, tier: 'live', reasons: [] });
+    },
+    { g: y, display: DISPLAY }
+  );
+  await t.settle(200);
+  return t.frame(name).evaluate(() => document.documentElement.dataset.tone || 'dark');
+};
+
+// Rust repeats the desktop's frame; two running are what turn the glass light.
+const showBackdrop = async (t, name) => {
+  for (let i = 0; i < 2; i += 1) {
+    await t.frame(name).evaluate(
+      ({ img, display }) => window.__emit('glass:frame', { img, display, tier: 'live', reasons: [] }),
+      { img: t.backdrop.small, display: DISPLAY }
+    );
+    await t.settle(200);
+  }
+  await t.settle(450);
+};
+
+// The chord that opens the window menu, and a key to whatever has focus. The
+// first is on the body because no control holds focus yet.
+const altSpace = (f) =>
+  f.evaluate(() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', altKey: true, bubbles: true, cancelable: true })));
+
+const keyToFocus = (f, init) =>
+  f.evaluate((k) => (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...k })), init);
+
+const windowMenu = (f) =>
+  f.evaluate(() => {
+    const m = document.getElementById('window-menu');
+    if (!m) return null;
+    return { role: m.getAttribute('role'), rows: [...m.querySelectorAll('[role="menuitem"]')].map((li) => li.textContent), focus: document.activeElement.textContent };
+  });
 
 // The suggestions row is the first run's: every other shot is without it.
 const seenBefore = (f) => f.evaluate(() => localStorage.setItem('aeval.hasSentFirstRequest', '1'));
@@ -466,7 +547,7 @@ export const scenes = [
     async run(t) {
       const f = t.frame('overlay');
       await seenBefore(f);
-      await openBar(f, { hasKey: false, recipients: [{ provider: 'anthropic', name: 'Anthropic', ready: false }] });
+      await openBar(f, { hasKey: false, recipients: [{ id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-5-5', modelName: 'Sonnet 5.5', free: false }] });
       await t.settle();
       await t.shot('bar-notice-nokey', TALL_CLIP);
       const copy = await f.evaluate(() => {
@@ -543,6 +624,222 @@ export const scenes = [
       });
       t.check('forcedColorsAnswerOutlined', rim.orbit && rim.style === 'solid' && rim.width === '2px', JSON.stringify(rim));
       await t.shot('forced-colors-answer-streaming');
+    },
+  },
+
+  // B-152: @ picks a model for one question.
+  {
+    name: 'bar-model',
+    backdrop: 'wallpaper',
+    windows: [{ ...overlay, responses: { 'models:list': MODELS } }],
+    async run(t) {
+      const f = t.frame('overlay');
+      await seenBefore(f);
+      await openBar(f);
+      await f.focus('#query-input');
+      await setField(f, '@');
+      await t.settle(250);
+      const all = await modelMenu(f);
+      t.check('modelMenuGrouped', all.open && all.groups.join() === 'Anthropic,OpenAI' && all.rows.length === 3 && all.active === 'Sonnet 5.5', JSON.stringify(all));
+      await t.shot('bar-model-menu', TALL_CLIP);
+
+      await setField(f, '@hai');
+      const some = await modelMenu(f);
+      await setField(f, '@zzz');
+      const none = await modelMenu(f);
+      await press(f, { key: 'Escape' });
+      const kept = await fieldValue(f);
+      const closed = await modelMenu(f);
+      t.check('modelMenuFilters', some.rows.join() === 'Haiku 5' && none.none === 'No model called "zzz". Esc to keep typing.' && kept === '@zzz' && !closed.open, JSON.stringify({ some, none, kept, closed }));
+
+      await setField(f, '');
+      await setField(f, '@son');
+      await press(f, { key: 'Enter' });
+      await t.settle(100);
+      const picked = await modelChip(f);
+      const left = await fieldValue(f);
+      await t.settle();
+      await t.shot('bar-model-chip', BAR_CLIP);
+
+      await setField(f, 'why is the build red');
+      await press(f, { key: 'Enter' });
+      await t.settle(50);
+      const submits = await t.calls('overlay', 'query:submit');
+      const last = submits.length ? submits[submits.length - 1].payload : {};
+      const gone = await modelChip(f);
+      const label = 'Model for this question: Sonnet 5.5 via Anthropic. Press to remove.';
+      const sent = picked.shown && picked.text === 'Sonnet 5.5' && picked.label === label && left === '' && last.provider === 'anthropic' && last.model === 'claude-sonnet-5-5' && !gone.shown;
+      t.check('modelPinSentWithSubmit', sent, JSON.stringify({ picked, left, last, gone }));
+
+      // Find uses its own model, and Backspace gives back the chip first.
+      await setField(f, '@hai');
+      await press(f, { key: 'Enter' });
+      await press(f, { key: '2', ctrlKey: true });
+      const find = await modelChip(f);
+      await press(f, { key: 'Backspace' });
+      const back = await modelChip(f);
+      const lock = await tokenState(f);
+      t.check('modelChipUnderFind', find.title === 'Find uses the Find model' && !back.shown && lock.locked === 'true', JSON.stringify({ find, back, lock }));
+    },
+  },
+
+  // B-158: a window menu from the keyboard or a right-click on the title bar.
+  {
+    name: 'window-menu',
+    backdrop: 'wallpaper',
+    windows: [{ ...output, fixed: true }],
+    async run(t) {
+      const f = t.frame('out1');
+      await streamAnswer(f, 'Why does the build fail?', ANSWER);
+      await t.settle();
+      await altSpace(f);
+      await t.settle();
+      const menu = await windowMenu(f);
+      const opened = !!menu && menu.role === 'menu' && menu.rows.join() === 'Move,Size,Close' && menu.focus === 'Move';
+      t.check('windowMenuOpens', opened, JSON.stringify(menu));
+      await t.shot('window-menu-open');
+
+      await keyToFocus(f, { key: 'Enter' });
+      await keyToFocus(f, { key: 'ArrowRight' });
+      await keyToFocus(f, { key: 'ArrowDown', shiftKey: true });
+      await keyToFocus(f, { key: 'Escape' });
+      await altSpace(f);
+      await keyToFocus(f, { key: 'ArrowDown' });
+      await keyToFocus(f, { key: 'Enter' });
+      await keyToFocus(f, { key: 'ArrowRight' });
+      await keyToFocus(f, { key: 'Enter' });
+      await keyToFocus(f, { key: 'ArrowRight' });
+      await t.settle(100);
+      const nudges = (await t.calls('out1', 'window:nudge')).map((c) => c.payload);
+      const want = [
+        { dx: 16, dy: 0, dw: 0, dh: 0 },
+        { dx: 0, dy: 64, dw: 0, dh: 0 },
+        { dx: -16, dy: -64, dw: 0, dh: 0 },
+        { dx: 0, dy: 0, dw: 16, dh: 0 },
+      ];
+      t.check('windowMenuNudges', JSON.stringify(nudges) === JSON.stringify(want), JSON.stringify(nudges));
+
+      await t.settle(200);
+      await f.evaluate(() => document.getElementById('sheet-bar').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 60, clientY: 40 })));
+      const right = await windowMenu(f);
+      t.check('windowMenuOnRightClick', !!right && right.focus === 'Move', JSON.stringify(right));
+    },
+  },
+  {
+    name: 'window-menu-history',
+    backdrop: 'wallpaper',
+    windows: [history],
+    async run(t) {
+      const f = t.frame('history');
+      await t.settle(500);
+      await altSpace(f);
+      await t.settle();
+      const menu = await windowMenu(f);
+      t.check('windowMenuMaximizes', !!menu && menu.rows.join() === 'Move,Size,Maximize,Close', JSON.stringify(menu));
+    },
+  },
+
+  // B-159: glass turns light over light content, with a gap between the two
+  // thresholds so a page in the middle never flickers.
+  {
+    name: 'light-tone-bar',
+    backdrop: 'white',
+    windows: [overlay],
+    async run(t) {
+      const f = t.frame('overlay');
+      await seenBefore(f);
+      await openBar(f);
+      await t.settle();
+      const seen = [];
+      for (const y of [0.1, 0.63, 0.95, 0.63, 0.95, 0.95, 0.63, 0.3]) seen.push(await toneAfterGrey(t, 'overlay', y));
+      const want = 'dark,dark,dark,dark,dark,light,light,dark';
+      t.check('toneFlipsWithHysteresis', seen.join() === want, seen.join());
+      await setField(f, 'What does this error mean?');
+      await showBackdrop(t, 'overlay');
+      const c = await f.evaluate(() => ({ tone: document.documentElement.dataset.tone, label: getComputedStyle(document.documentElement).getPropertyValue('--label').trim() }));
+      t.check('lightToneDarkLabels', c.tone === 'light' && c.label.toUpperCase() === '#1C1C1F', JSON.stringify(c));
+      await t.shot('light-tone-bar', BAR_CLIP);
+    },
+  },
+  {
+    name: 'light-tone-answer',
+    backdrop: 'white',
+    windows: [overlay, output],
+    async run(t) {
+      const out = t.frame('out1');
+      await seenBefore(t.frame('overlay'));
+      await openBar(t.frame('overlay'));
+      await streamAnswer(out, 'Why does the build fail?', ANSWER);
+      await t.settle();
+      await showBackdrop(t, 'overlay');
+      await showBackdrop(t, 'out1');
+      await t.shot('light-tone-answer');
+    },
+  },
+  {
+    name: 'light-tone-settings',
+    backdrop: 'white',
+    windows: [settings],
+    async run(t) {
+      await t.settle(500);
+      await showBackdrop(t, 'settings');
+      await t.shot('light-tone-settings');
+    },
+  },
+  {
+    name: 'light-tone-history',
+    backdrop: 'white',
+    windows: [history],
+    async run(t) {
+      await t.settle(500);
+      await showBackdrop(t, 'history');
+      await t.shot('light-tone-history');
+    },
+  },
+
+  // B-182: under reduced motion the bar folds and the token locks as fades.
+  {
+    name: 'reduced-motion-bar-morph',
+    backdrop: 'wallpaper',
+    media: { reducedMotion: 'reduce' },
+    windows: [overlay],
+    async run(t) {
+      const f = t.frame('overlay');
+      await seenBefore(f);
+      await openBar(f);
+      await setField(f, 'What does this error mean?');
+      await t.settle();
+      await f.evaluate(() => {
+        document.getElementById('panel').dataset.morph = 'out';
+      });
+      await t.settle(50);
+      const fold = await f.evaluate(() => {
+        const c = getComputedStyle(document.getElementById('query-input'));
+        return { filter: c.filter, transform: c.transform, duration: c.transitionDuration };
+      });
+      t.check('reducedFoldHasNoBlur', fold.filter === 'none' && fold.transform === 'none' && fold.duration === '0.15s', JSON.stringify(fold));
+      await t.shot('reduced-motion-bar-morph', BAR_CLIP);
+    },
+  },
+  {
+    name: 'reduced-motion-token-lock',
+    backdrop: 'wallpaper',
+    media: { reducedMotion: 'reduce' },
+    windows: [overlay],
+    async run(t) {
+      const f = t.frame('overlay');
+      await seenBefore(f);
+      await openBar(f);
+      await t.settle();
+      await setField(f, '>');
+      const token = await f.evaluate(() => {
+        const el = document.getElementById('intent');
+        const c = getComputedStyle(el);
+        return { locked: el.dataset.locked, name: c.animationName, duration: c.animationDuration, transform: c.transform };
+      });
+      t.check('reducedTokenLockFades', token.locked === 'true' && token.name === 'fade-only' && token.duration === '0.15s' && token.transform === 'none', JSON.stringify(token));
+      await t.settle();
+      await t.shot('reduced-motion-token-lock', BAR_CLIP);
     },
   },
 ];
