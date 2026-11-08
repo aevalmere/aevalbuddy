@@ -40,8 +40,8 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 23 | platform | checkpoint | `f045fc2` | `f32b46d` | `5541e36`: all green but Smoke (`buddyReload`) | green at `5541e36` | Lane finished; rust (Build installer and Smoke included) and ui-shots green at the lane sha. `2143d68` on top is Progress only. Brings the harness-approved `tools/ui-shots/bridge.test.mjs` `editMenuInFields` change and B-085's one-click `src-tauri/installer.nsi` (an interactive install launches the app at the end) |
 | 24 | llm | checkpoint | `4e95f64` | `89a4f60` | pending | n/a | The real Settings backend (keys, status, Connect OpenRouter, failover, model lists). Merged on the coordinator's call: all green but Smoke `buddyReload`, the same known failure as `5541e36`, not llm's. `535f6bb` on top is Progress only |
 | 25 | sheet | checkpoint | `49f1eeb` | `a0ed3c0` | pending | pending | Rust and ui-shots green at the lane sha; `barAnswersTask` matches bar's exact placeholder |
-| 26 | platform | checkpoint | `b816e2d` | see `git log` | `88bf490` (run 42517587926): all green but Smoke `buddyReload` and `uiaTree` | n/a | Fully green at the lane sha (`suggestionsOnce=ok`). Fixes a dropped settings save: MoveFileExW refuses to replace a file another handle has open (antivirus, search indexer), so `durable::replace` falls back to `fs::rename` with a longer backoff. Likely the cause of `suggestionsOnce`'s `disk=false` on windows `0069af0`. Platform's B-112 TODO is already covered by the `ea1a0d0` seam fix. Pushed before capture's fix, superseding `cb1db3c`'s run |
-| 27 | capture | checkpoint (rust/capture-fix) | `2734165` | see `git log` | pending | n/a | Fixes `buddyReload`: the smoke run's real cursor rested on the reload point's bubble, so the check failed depending on cursor position. Green at the lane sha (`buddyReload` ok in 456 ms); touches only `buddy.rs` and capture's probe |
+| 26 | platform | checkpoint | `b816e2d` | see `git log` | covered by `8f0524e`, fully green (run 42520232253) | n/a | Fully green at the lane sha (`suggestionsOnce=ok`). Fixes a dropped settings save: MoveFileExW refuses to replace a file another handle has open (antivirus, search indexer), so `durable::replace` falls back to `fs::rename` with a longer backoff. Likely the cause of `suggestionsOnce`'s `disk=false` on windows `0069af0`. Platform's B-112 TODO is already covered by the `ea1a0d0` seam fix. Pushed before capture's fix, superseding `cb1db3c`'s run |
+| 27 | capture | checkpoint (rust/capture-fix) | `2734165` | see `git log` | green at `8f0524e` (run 42520232253, Smoke and Upload installer included) | n/a | Fixes `buddyReload`: the smoke run's real cursor rested on the reload point's bubble, so the check failed depending on cursor position. Green at the lane sha (`buddyReload` ok in 456 ms); touches only `buddy.rs` and capture's probe |
 
 ## Reverts
 
@@ -58,18 +58,27 @@ None.
 - harness tip (`d14b471` and before, since `9b90864`): ui-shots fails `globOnClock` and `globOnClock-150` ("done at 336 ms=true, at 536 ms=true (open takes 440 ms)"), harness's own check of the sheet's glob timing. It was a bug in the check (each `t.shot` advances the virtual clock 120 ms) and harness has the fix. Merge the rest of rust/harness only at a tip with green ui-shots. Never merge a harness sha that prints `deliberateFailure=FAIL`: `fc019b1` is B-009's throwaway proof that the gate fails.
 - Coordinator rule (standing): a C1 or checkpoint commit whose only red step is a bundler download 504 in Build installer counts as green. If rust-rewrite's own Build installer flakes the same way, push an empty commit to re-run; do not revert.
 
-## Queue and pending CI (as of `5541e36`, 2026-11-08)
+## Phase 2: final merges (authorised 2026-11-08, after `8f0524e` went fully green in run 42520232253 and Andy installed it)
 
-- `5541e36` (#18-#23 plus both seam fixes), run 42515162283: Format, Clippy, Unit tests, Build installer, Capture check and Desktop selfcheck green; ui-shots green. Smoke red on `buddyReload` only ("shown=true crash=Ok(()) back=false in 5050ms"), so Upload installer was skipped and there is no `aevalbuddy-tauri-nsis` artifact yet. The `smoke: deliberate ... panic` lines in stderr are platform's guard probe, not failures.
-- `buddyReload` (capture's probe, `selftest/probes/capture.rs` `reload`): after `Page.crash` the buddy page is reloaded (crash.rs logs it) but within 5 s one of `lets_mouse_through`, `is_ready` or "a fresh page" stays false. Both lanes passed it alone, so it is an interaction, most likely with windows' merges (#14, #19: IPC caller checks in `ad2180e`, extended-style handling in `3c071b0`). Sent to capture via the coordinator; not a seam fix.
-- `suggestionsOnce` (bar's probe) failed once on windows `0069af0` (`disk=false`: the flag was in memory but not yet in `aevalbuddy.json`) and passed on `5541e36`. Probably timing against platform's new durable save; platform told, low priority.
-- When rust is green with Build installer and Smoke passing, tell main the sha; the installer is the `aevalbuddy-tauri-nsis` artifact (`src-tauri/target/release/bundle/nsis/*.exe`) on that sha's rust workflow run (the "Run:" line `ci-wait` prints).
-- Coordinator plan: a testable build for Andy. Merge each lane's green tip as it lands; a lane whose tip is not green stays at its last checkpoint; skip re-runs unless a real failure needs one.
-- `88bf490` also failed `uiaTree` once ("readTree did not finish in 12000ms" on the Notepad in harness's desktop probe), which passed on every earlier head; treated as a runner hiccup unless it repeats.
-- Queued: none beyond new green tips. llm `4e95f64` and sheet `49f1eeb` are in at #24 and #25; their head is expected red only on `buddyReload`.
-- Red at last check: agent `fe650d1`, `8fa0e89`: unit tests; agent stays at `771d149`.
-- Final at their merged sha: settings `493483b`, harness `76c8c95`, bar `688cb40`, sheet `f660cd0` (newer `49f1eeb` queued), platform `f045fc2`, windows `8886c02`.
-- Follow-up, not a blocker: sheet B-164 sends `output:resize` until windows' B-027 lands.
+Order: platform, windows, capture, llm, agent, bar, sheet, settings, harness. Every lane but agent already had its final code merged as a checkpoint, so its final merge is its docs-only tip plus folding `entries/<lane>.md` into DESIGN.md, PARITY.md and ARCHITECTURE.md, then deleting the entries file. B-148 (strict gates) and B-149 (review loops) are not done here, on the coordinator's instruction; they are scoped separately.
+
+How the folds are applied: an exact `Replace "..." with:` is replaced in place. An `Add` lands at the end of the named section (matched by its number or heading); one whose section does not exist lands under "Rust rewrite: decisions and notes from the lanes" at the end of that document. PARITY rows have no status column, so every PARITY `status:` line and row note goes to PARITY section 27, "Rust port: status, evidence and notes", one subsection per row id in row order. Placements the rule got wrong were moved by hand (capture's "after the table" paragraph, the Tour card reason, llm's routed-channels list).
+
+| Lane | Final code sha | Docs tip merged | Entries folded |
+|---|---|---|---|
+| platform | `b816e2d` (#26) | `b816e2d` (no newer tip) | yes |
+| windows | `8886c02` (#19) | `0069af0` | yes |
+| capture | `2734165` (#27, rust/capture-fix) | `bf07bec` | yes |
+| llm | `4e95f64` (#24) | `535f6bb` | yes |
+| agent | waiting for its final green sha (main forwards it) | | |
+| bar | `688cb40` (#20) | | |
+| sheet | `49f1eeb` (#25) | | |
+| settings | `493483b` (#17) | | |
+| harness | `76c8c95` (#18) | `b01e049` | |
+
+- Not merged, on purpose: harness's uncommitted B-010/B-052 work, left as `git stash@{0}` in the harness worktree and as `harness-wip-b010-b052.patch` in the coordinator's scratchpad. It needs its own lane run to finish.
+- Follow-ups, not blockers: sheet B-164 sends `output:resize` until windows' B-027 lands. `uiaTree` timed out once on `88bf490` and passed on `8f0524e`.
+- When rust is green with Build installer and Smoke passing, the installer is the `aevalbuddy-tauri-nsis` artifact on that sha's rust workflow run (the "Run:" line `ci-wait` prints). `8f0524e`'s is in run 42520232253.
 
 ## Base
 
