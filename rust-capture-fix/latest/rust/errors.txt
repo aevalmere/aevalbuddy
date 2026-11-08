@@ -1,5 +1,21 @@
-== smoke.log ==
-[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5001ms (clickThrough=false ready=true freshPage=false)
-[SMOKE] failed: buddyReload
-[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5001ms (clickThrough=false ready=true freshPage=false)
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: buddyReload; 1 listed label(s) never printed
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\capture.rs:585:
+     let cursor = screen::cursor_phys().unwrap_or((d.phys.x, d.phys.y));
+     let left = f64::from(cursor.0 - d.phys.x) / d.scale_factor < b.width / 2.0;
+     let top = f64::from(cursor.1 - d.phys.y) / d.scale_factor < b.height / 2.0;
+-    let x = if left { b.x + b.width - 360.0 } else { b.x + 120.0 };
+-    let y = if top { b.y + b.height - 260.0 } else { b.y + 140.0 };
++    let x = if left {
++        b.x + b.width - 360.0
++    } else {
++        b.x + 120.0
++    };
++    let y = if top {
++        b.y + b.height - 260.0
++    } else {
++        b.y + 140.0
++    };
+     buddy::show_points(vec![point_at(x, y, "reload point")], Some(&d));
+     let shown = pointer_shows(cx, "reload point", Duration::from_secs(5));
+     buddy::set_click_through(false);
+
