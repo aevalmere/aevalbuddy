@@ -22,7 +22,8 @@
     "shortDescription": "Screen-aware AI overlay for Windows",
     "windows": {
       "nsis": {
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerHooks": "./installer-hooks.nsh"
       }
     }
   }

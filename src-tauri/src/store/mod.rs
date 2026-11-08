@@ -190,14 +190,14 @@ fn clamp_i(n: i64, lo: i64, hi: i64) -> i64 {
 pub fn sanitize_pos(p: Option<&Value>) -> Value {
     let obj = p.and_then(Value::as_object);
     let get = |k: &str| obj.and_then(|o| o.get(k));
-    let h = match get("h").and_then(Value::as_str) {
-        Some(s @ ("left" | "center" | "right")) => s,
-        _ => "right",
-    };
-    let v = match get("v").and_then(Value::as_str) {
-        Some(s @ ("top" | "center" | "bottom")) => s,
-        _ => "top",
-    };
+    let h = get("h")
+        .and_then(Value::as_str)
+        .filter(|s| matches!(*s, "left" | "center" | "right"))
+        .unwrap_or("right");
+    let v = get("v")
+        .and_then(Value::as_str)
+        .filter(|s| matches!(*s, "top" | "center" | "bottom"))
+        .unwrap_or("top");
     let clamp = |k: &str| match get(k) {
         Some(Value::Number(n)) if n.as_f64().is_some_and(f64::is_finite) => {
             clamp_i(js_round(n.as_f64().unwrap_or(16.0)) as i64, 0, 8000)
@@ -298,11 +298,6 @@ impl Store {
 
     fn set(&self, key: &str, value: Value) {
         self.data.lock().insert(key.to_string(), value);
-        self.save();
-    }
-
-    fn delete(&self, key: &str) {
-        self.data.lock().shift_remove(key);
         self.save();
     }
 

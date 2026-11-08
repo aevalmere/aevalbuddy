@@ -255,18 +255,17 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .on_tray_icon_event(|tray, event| {
-            let open = match event {
+            let open = matches!(
+                event,
                 TrayIconEvent::Click {
                     button: MouseButton::Left,
                     button_state: MouseButtonState::Up,
                     ..
-                } => true,
-                TrayIconEvent::DoubleClick {
+                } | TrayIconEvent::DoubleClick {
                     button: MouseButton::Left,
                     ..
-                } => true,
-                _ => false,
-            };
+                }
+            );
             if open {
                 let app = tray.app_handle().clone();
                 tauri::async_runtime::spawn(async move {

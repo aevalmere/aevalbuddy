@@ -296,6 +296,9 @@ The pages stay. The complete list of edits allowed in renderer/, settings/, hist
    history.css:84 regions) and the no-drag children excluded.
 2. `glass.js` and `lens.js` accept a frame URL string (D4).
 3. The REQUESTS.md 7-11 UI changes (PARITY section 26), owned by agent d.
+   Agent d also added `renderer/frame.js` (drag regions and resize zones through Tauri's window API),
+   `renderer/glob.js` (the glob morph), the Liquid glass slider (REQUESTS.md 5) and one-time suggestions
+   (REQUESTS.md 3); the Rust half is section 10.
 4. Nothing else. `window.aeval` keeps its shape, so bar.js, output.js, trail.js, overlay.js, intent.js,
    markdown.js, region.js, buddy.js, settings.js, history.js are untouched. If a page relies on an
    Electron-only behaviour found later, the fix goes in the bridge or in Rust first.
@@ -397,3 +400,144 @@ each port.
    installer-check would lose them; the scaffold smoke checks this from day one.
 9. **Startup and memory.** Tauri should beat Electron on both; bootMs < 15 s is the gate, and a new
    SMOKE+ line should log working set for the record.
+
+## 10. Split (d): the renderer's contract with Rust
+
+Written by agent (d) with the renderer changes for REQUESTS.md 3-11. Agent (a) implements the Rust half
+against it; until then each call below fails or returns `null` and the page falls back as noted, so nothing
+breaks while the ports land.
+
+### 10.1 New channels (both allowlists, preload.js and `ipc.rs`, appended in this order)
+
+| Channel | Kind | Payload | Returns | Rust behaviour | Page fallback |
+|---|---|---|---|---|---|
+| `output:bar` | invoke | none | `{x, y, width, height}` or `null` | The bar's **glass** rect (not the window, no stage margin) in screen DIPs, or `null` while the bar is collapsed or hidden. Answered for any output window. | The glob grows from the sheet's top edge; closing fades. |
+| `output:close` | invoke | none | `null` | Closes the calling output window (label from `WebviewWindow::label()`), drops its conversation from `state.rs`, aborts its query or run as `overlay:collapse` would for that conversation, and makes the most recently focused remaining output the follow-up target. The page has already played the close glob before calling; destroy without any further animation. | `overlay:collapse` (the Electron behaviour). |
+| `settings:set-glass` | invoke | `{glassIntensity: number}` | `{glassIntensity, glass: {tier, reasons}}` | Clamp to 0..1 (two decimals), store as `glassIntensity` in aevalbuddy.json (new key, default 0.5; on first read, a profile with `surface: 'solid'` and no `glassIntensity` reads as 0), then broadcast `glass:tier {tier, reasons, intensity}` to every glass page. `surface` stays in the file for rollback. | Pages already share the value through localStorage, so it is live without Rust; it just does not reach the settings file. |
+
+No new listen channels.
+
+### 10.2 Extended payloads (fields added, none renamed)
+
+- `overlay:state.hasSentFirstRequest: bool` (REQUESTS.md 3). New store key `hasSentFirstRequest`, default
+  false, set true the first time any of `query:submit`, `find:step`, `agent:start` arrives with text. The bar
+  shows suggestions only while it is false. The renderer also keeps `localStorage['aeval.hasSentFirstRequest']`
+  so the chips go at once.
+- `glass:tier` and `glass:frame` gain `intensity: number` (the stored `glassIntensity`); `glass:hello` returns
+  `{intensity}` (today it returns `null`; glass.js accepts both).
+- `overlay:state.agent.state` must include `'asking'` while a run waits on `ask_user`, `'plan'` while it
+  waits on plan approval and `'paused'` while paused (it already does in Electron). The bar turns Enter
+  into `agent:continue {text}` (asking) or `agent:continue {}` (plan/paused, empty field) for the run in the
+  focused output window.
+- `settings:get` gains `glassIntensity`.
+
+### 10.3 Behaviour Rust must keep for the pages
+
+- **Event before listener.** `window.aeval.invoke` waits for every `on()` registration still in flight
+  (bridge). Rust must send a page's first state only after that page's first invoke (`glass:hello` for
+  glass pages), never on `PageLoadEvent::Finished` alone.
+- **Frames** (D4): `aeval-frame://` responses carry `Access-Control-Allow-Origin: *` and
+  `Cache-Control: no-store`. glass.js fetches the URL to sample its pixels for the scrim; without the
+  header the fetch fails and the glass stays solid. On Windows the page sees the URL as
+  `http://aeval-frame.localhost/...`; both forms are in every page's CSP.
+- **Windows transparency off no longer means solid** (REQUESTS.md 5). backdrop.rs keeps capturing and
+  sending frames when `EnableTransparency=0`; the reason may still be reported, and the renderer ignores
+  `transparency-off` and `reduced-transparency`. High contrast, `capture-visible` and `capture-failed`
+  still make the tier solid.
+- **Output windows** (`output-<n>`): created with the stage margin, `resizable(true)`, min size 320x160,
+  visible, then the page globs itself in on its first `chat:user` / `query:start` / `agent:begin` /
+  `view:set find`. Rust places a new one so its glass is 12 px from the bar's glass on the bar's free
+  side (that gap is inside both 20 px margins, so the glob can draw across it); later ones cascade
+  24 px. The window's height follows `output:resize` until the person resizes it (POS-05/20, per window).
+  `chat:new` from an output window resets that window's conversation; it does not open another window.
+  Every event for a conversation goes only to its window's label.
+- **Drag and resize** go through Tauri's window API from `renderer/frame.js`: `startDragging()` on
+  `[data-drag]` regions, `toggleMaximize()` on double-click of `[data-drag="max"]` (Settings, History),
+  `startResizeDragging(dir)` on the edge and corner zones. Capabilities grant
+  `core:window:allow-start-dragging`, `allow-start-resize-dragging`, `allow-toggle-maximize`,
+  `allow-internal-toggle-maximize`. A Rust `WM_NCHITTEST` hit-test (split a) may be added on top; the two
+  do not conflict because the zones are page elements that start the move themselves. The bar's zones
+  are left and right only (its height is pinned by equal min/max).
+- **HUD editor** places the bar only: output windows ignore `hud:*`; `hud:set-dock` and `hud:docked`
+  have no caller left in the pages (they stay in the allowlists until the parity tests drop them).
+- **Browser behaviour** the bridge takes back (no Rust needed, listed so nobody re-adds it in Rust): the
+  WebView2 context menu outside text fields, F5/Ctrl+R reload, Ctrl+F find bar, Ctrl+P print, Ctrl+S/U/J/H/
+  O/N/T/W/L/D/E, F3/F7/F11/F12, Alt+Left/Right/Home, Ctrl+wheel zoom and drop-to-navigate.
+
+### 10.4 Verification
+
+`.github/workflows/ui-shots.yml` runs `tools/ui-shots/bridge.test.mjs` (the bridge under node with a fake
+`__TAURI__`) and `tools/ui-shots/shots.mjs`, which loads the real pages in the runner's Edge, one frame per
+window on a 1600x1000 fixture desktop, with `tools/ui-shots/mock-bridge.js` for `window.aeval`. It prints
+`[UI] <check>=ok|FAIL` and publishes the photographs to `shots/rust-d-ui/latest/`. Once the Rust side of
+section 10 is ported, the same checks move into the installed-exe self-test (agent e).
+
+## 11. Split (a): the core API the other splits call
+
+Written by agent (a). Everything below is `pub` in `src-tauri/src` and stable for the merge.
+
+### 11.1 Shared state and hooks (`state.rs`)
+
+- `state::shared(app)` gives `Shared`: `.lock()` for `AppState`, `.bus` for the smoke mirror. Rule: take
+  the lock, copy, drop it, then touch windows. Never hold it across a window call or an `.await`.
+- Flags other splits set: `busy`, `query_gen`, `capture_ok`, `find_open`, `agent {running, step, state}`,
+  `buddy_active`, `region_active`, `pill_error`, `bar_mode`. Call `windows::send_overlay_state(app)` after.
+- Hooks the core calls (`Shared::set_hooks(|h| ...)` at setup); unset, the core does what main.js did with
+  that module absent: `stop_agent`, `close_find`, `cancel_region`, `cancel_tour`, `start_region`,
+  `start_tour`, `abort_query`, `prefetch_bar_context`, `warm_catalogue`, `show_trail`, `tour_notify(event)`,
+  `set_bar_mode(mode)`, `key_saved(provider)` (unset: the tour hears `key-saved`; b/c put main.js's
+  test-then-advance logic here), `settings_extra() -> Value` (merged over `settings:get`; its `glass`
+  field is also what `settings:set-glass` returns and broadcasts as the tier).
+
+### 11.2 Windows (`windows/`)
+
+- Labels: `overlay`, `output-<n>` (any number), `settings`, `history`. `windows::emit(app, label, channel,
+  payload)` sends to one window and mirrors on the bus. `windows::window(app, label)`.
+- `windows::create_page(app, label, page, outer_rect_dip, flags::Meta)` builds any further window (lens,
+  region, buddy) with the shared treatment: frameless, transparent, topmost, tool window, hidden from
+  capture, bridge injected, Win32 subclass for resize and limits. `Meta { margin, resize: None |
+  Horizontal | All, min, max }` (glass DIPs; 0 = no max).
+- Bar: `open_bar(app, mode, prefill)`, `trigger_capture`, `trigger_or_trail`, `expand_panel`,
+  `collapse_panel(app, keep_output)`, `toggle_visibility`, `on_escape`, `set_bar_mode`, `bar_rect(app)`
+  (glass DIPs), `enter_hud` / `exit_hud` / `hud_nudge`.
+- Frames: `open_settings(app, section)`, `close_settings`, `open_history`, `close_history`,
+  `notify_history_changed`, `open_url` (http(s) only, lowers Settings/History first), `open_help`.
+- `windows::on_hello(app, label)`: the first state for a page (overlay state, an output's `view:set` +
+  `chat:sync` + state, the pending Settings section). **Whoever answers `glass:hello` calls it** (agent c's
+  `desktop::channels::route` answers that channel first on its branch).
+- Geometry helpers: `screen::{all, primary, work_area, matching, active, dip_to_px, px_to_dip}`,
+  `motion::{glass, set_glass, animate, stop, is_animating, reduced}`, `flags::{set_click_through,
+  set_focusable, show_inactive, show_focused, hide, pin_on_top, protect}`.
+
+### 11.3 Output windows (`windows/outputs.rs`)
+
+- `outputs::target(app) -> Option<label>`: the window a new question goes to. The focused output if it is
+  open, else the warm spare, which is placed (12 px off the bar's glass on its free side, cascading 24 px)
+  and shown before this returns, so the page's glob runs on the first `chat:user` / `query:start` /
+  `agent:begin` / `view:set`. Agent b calls this on `query:submit`, `agent:start` and Find, and sends
+  every event of that conversation to that label only.
+- `outputs::with(app, label, |o: &mut Output| ...)`: the window's conversation (`o.chat.messages`,
+  `o.chat.region`, `o.chat.last_question`, `o.chat.id`), `o.kind` (Chat / Trail), `o.view`.
+- `outputs::show(app, label)`, `outputs::resize(app, label, height)` (`output:resize`, grows away from
+  the bar, stops following once the person resizes), `outputs::focused(app)`, `outputs::reset(app, label)`
+  (`chat:new` from that window), `outputs::close(app, label)` (`output:close`), `outputs::detach_focus`
+  (the bar's `chat:new`: the next question opens a new window), `outputs::open_conversation(app, entry)`
+  (history), `outputs::chat_payload(&o)` (`chat:sync`).
+
+### 11.4 Store (`store/`)
+
+- `store::get()` after `store::init(user_data)`. electron-store compatible file, safeStorage (OSCrypt v10
+  AES-256-GCM, key from `Local State`) compatible keys.
+- Provider keys (REQUESTS.md 2): `get/set/clear/has_provider_key(provider)` for `anthropic`, `openai`,
+  `gemini`, `openrouter`; `provider_keys_present()`; the legacy OpenRouter key migrates into
+  `apiKeys.openrouter` (and `set_api_key` still mirrors into `apiKeyEncrypted` for a rollback).
+  `has_api_key()` is true when any provider has a key.
+- `get/set_glass_intensity` (0..1, two decimals, default 0.5; a `surface: 'solid'` profile with no value
+  reads 0), `get_has_sent_first_request` / `mark_first_request_sent` (set by `ipc.rs` on the first
+  `query:submit`, `agent:start` with text, or `find:step`).
+
+### 11.5 Channels in `ipc.rs` that split (a) routes outside its 4.4 rows
+
+`chat:new` (bar: `new_chat`; output: `outputs::reset`), `bar:mode` (through the `set_bar_mode` hook),
+`glass:hello` (`on_hello`, returns `{intensity}`), `glass:passthrough` (output windows' margin). When b
+and c replace these rows they keep those calls.

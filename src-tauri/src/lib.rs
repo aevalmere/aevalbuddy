@@ -159,11 +159,9 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("AevalBuddy failed to start");
 
+    // LIFE-09: the last window closing quits, as window-all-closed did.
+    // LIFE-10, LIFE-11: what before-quit and will-quit did, on the way out.
     app.run(|app, event| match event {
-        // LIFE-17: windows closing never quits; the tray's Quit does.
-        RunEvent::ExitRequested {
-            code: None, api, ..
-        } => api.prevent_exit(),
         RunEvent::Exit => {
             let st = state::shared(app);
             if st.lock().agent.running {

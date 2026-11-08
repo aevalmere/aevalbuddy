@@ -519,7 +519,7 @@ fn poll_once(app: &AppHandle) {
             if inside && px != c.last {
                 let x = (cx - r.x) / s;
                 let y = (cy - r.y) / s;
-                let _ = w.eval(&format!(
+                let _ = w.eval(format!(
                     "document.dispatchEvent(new MouseEvent('mousemove',\
                      {{clientX:{x},clientY:{y},bubbles:true}}))"
                 ));
