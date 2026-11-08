@@ -1,0 +1,52 @@
+{
+  "workflow": "ui-shots",
+  "workflow_name": "ui-shots",
+  "run_id": 42514920805,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42514920805",
+  "event": "push",
+  "sha": "0069af07be915587b358ad2d30128cb7d23f9626",
+  "ref": "rust/windows",
+  "ref_dir": "rust-windows",
+  "conclusion": "success",
+  "failed": [],
+  "finished": "2026-11-08T19:34:21Z",
+  "error_lines": 0,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Bridge unit checks",
+      "outcome": "success",
+      "log": "bridge.log"
+    },
+    {
+      "name": "Install Playwright",
+      "outcome": "success",
+      "log": "playwright.log"
+    },
+    {
+      "name": "Screenshots and renderer checks",
+      "outcome": "success",
+      "log": "shots.log"
+    },
+    {
+      "name": "Upload screenshots",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Publish to the shots branch",
+      "outcome": "success",
+      "log": ""
+    }
+  ]
+}
