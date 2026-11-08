@@ -5,6 +5,7 @@
 //! what Chromium does for side-by-side layouts.
 
 use std::ptr;
+use std::sync::Mutex;
 
 use windows_sys::Win32::Foundation::{BOOL, LPARAM, POINT, RECT};
 use windows_sys::Win32::Graphics::Gdi::{
@@ -81,8 +82,8 @@ fn rect(r: &RECT) -> Rect {
     )
 }
 
-/// LIFE-03: `AEVAL_SHOT_SCALE` forces the scale the window maths use.
-fn forced_scale() -> Option<f64> {
+/// LIFE-03, K-11: `AEVAL_SHOT_SCALE` forces the scale the window maths use.
+pub fn forced_scale() -> Option<f64> {
     let v: f64 = std::env::var("AEVAL_SHOT_SCALE").ok()?.parse().ok()?;
     (v > 0.0).then_some(v)
 }
@@ -190,6 +191,35 @@ pub fn active() -> Display {
         .unwrap_or_else(primary)
 }
 
+/// The display `latch_active` chose (its HMONITOR), so placement and capture
+/// keep to the screen the person was on when they called the bar up.
+static LATCHED: Mutex<Option<isize>> = Mutex::new(None);
+
+/// K-10: the active display, recorded until the next latch.
+pub fn latch_active() -> Display {
+    let d = active();
+    *LATCHED.lock().unwrap_or_else(|e| e.into_inner()) = Some(d.id);
+    d
+}
+
+/// K-10: the display `latch_active` recorded, as it is now; the live active
+/// display when nothing was latched or that display is gone.
+pub fn latched() -> Display {
+    let id = *LATCHED.lock().unwrap_or_else(|e| e.into_inner());
+    id.and_then(|id| all().into_iter().find(|d| d.id == id))
+        .unwrap_or_else(active)
+}
+
+/// K-10: a display's work area in DIPs, read live; the active display's when
+/// that display is gone.
+pub fn work_area_of(display: Display) -> Rect {
+    all()
+        .into_iter()
+        .find(|d| d.id == display.id)
+        .map(|d| d.work_area)
+        .unwrap_or_else(|| active().work_area)
+}
+
 /// Physical point to DIPs (screen.screenToDipPoint).
 pub fn px_to_dip_point(x: f64, y: f64) -> (f64, f64) {
     let d = matching_px(Rect::new(x, y, 1.0, 1.0));
@@ -228,6 +258,13 @@ mod tests {
         let d2 = Display::from_px(3, false, 2.0, b, b);
         assert_eq!(d2.bounds.x, 1280.0);
         assert_eq!(d2.dip_to_px(Rect::new(1290.0, 5.0, 10.0, 10.0)).x, 2580.0);
+    }
+
+    #[test]
+    fn latch_reads_the_display_it_recorded() {
+        let d = latch_active();
+        assert_eq!(latched().id, d.id);
+        assert_eq!(work_area_of(d), d.work_area);
     }
 
     #[test]
