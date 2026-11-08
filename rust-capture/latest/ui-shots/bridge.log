@@ -17,4 +17,6 @@
 [BRIDGE] keepsF6=ok
 [BRIDGE] noBrowserMenu=ok
 [BRIDGE] editMenuInFields=ok
+[BRIDGE] laneFiles=ok
+[BRIDGE] cssLintFilesExist=ok
 [BRIDGE] done failed=0

@@ -1,0 +1,115 @@
+[UI] laneFiles=ok
+[UI] scene bar/bar
+[UI] shot 01-bar-first-run.png
+[UI] suggestionsBeforeFirst=ok
+[UI] noLegend=ok
+[UI] hintOnLeftButton=ok
+[UI] suggestionsGoneAfterFirst=ok
+[UI] barSends=ok
+[UI] suggestionsNeverAgain=ok
+[UI] shot 02-bar-after-first.png
+[UI] scene sheet/output
+[UI] shot 03-output-answer.png
+[UI] noOutputInput=ok
+[UI] outputTitleBar=ok
+[UI] outputControls=ok
+[UI] noDockUi=ok
+[UI] resizeZones=ok
+[UI] globFrameCost=ok
+[UI] globShapeMs=0.023
+[UI] shot 04a-glob-08.png
+[UI] shot 04b-glob-30.png
+[UI] shot 04c-glob-52.png
+[UI] shot 04d-glob-70.png
+[UI] shot 04e-glob-90.png
+[UI] globOpen ms=466 frames=26 longestFrameMs=33.3
+[UI] globOpens=ok
+[UI] globSmooth=ok
+[UI] globReducedMotion=ok
+[UI] scene sheet/multi
+[UI] shot 05-outputs-multi.png
+[UI] barAnswersTask=ok
+[UI] askUserRoutedFromBar=ok
+[UI] noInputInAnyOutput=ok
+[UI] scene sheet/white
+[UI] shot 10-white-bar-output.png
+[UI] scene settings/settings
+[UI] shot 08-settings-account.png
+[UI] glassLive.0=ok
+[UI] glassTier.0=ok
+[UI] shot 06-settings-glass-000.png
+[UI] glassLive.0.5=ok
+[UI] glassTier.0.5=ok
+[UI] shot 06-settings-glass-050.png
+[UI] glassLive.1=ok
+[UI] glassTier.1=ok
+[UI] shot 06-settings-glass-100.png
+[UI] glassSaved=ok
+[UI] noDuplicateHintInSettings=ok
+[UI] settingsResizeZones=ok
+[UI] settingsDrag=ok
+[UI] scene settings/desktop
+[UI] shot 07-settings-fullscreen.png
+[UI] scene settings/history
+[UI] shot 09-history.png
+[UI] scene bar/bar-150
+[UI] shot 01-bar-first-run-150.png
+[UI] suggestionsBeforeFirst-150=ok
+[UI] noLegend-150=ok
+[UI] hintOnLeftButton-150=ok
+[UI] suggestionsGoneAfterFirst-150=ok
+[UI] barSends-150=ok
+[UI] suggestionsNeverAgain-150=ok
+[UI] shot 02-bar-after-first-150.png
+[UI] scene sheet/output-150
+[UI] shot 03-output-answer-150.png
+[UI] noOutputInput-150=ok
+[UI] outputTitleBar-150=ok
+[UI] outputControls-150=ok
+[UI] noDockUi-150=ok
+[UI] resizeZones-150=ok
+[UI] shot 04a-glob-08-150.png
+[UI] shot 04b-glob-30-150.png
+[UI] shot 04c-glob-52-150.png
+[UI] shot 04d-glob-70-150.png
+[UI] shot 04e-glob-90-150.png
+[UI] globOpen-150 ms=467 frames=27 longestFrameMs=33.3
+[UI] globOpens-150=ok
+[UI] globReducedMotion-150=ok
+[UI] scene sheet/multi-150
+[UI] shot 05-outputs-multi-150.png
+[UI] barAnswersTask-150=ok
+[UI] askUserRoutedFromBar-150=ok
+[UI] noInputInAnyOutput-150=ok
+[UI] scene sheet/white-150
+[UI] shot 10-white-bar-output-150.png
+[UI] scene settings/settings-150
+[UI] shot 08-settings-account-150.png
+[UI] glassLive.0-150=ok
+[UI] glassTier.0-150=ok
+[UI] shot 06-settings-glass-000-150.png
+[UI] glassLive.0.5-150=ok
+[UI] glassTier.0.5-150=ok
+[UI] shot 06-settings-glass-050-150.png
+[UI] glassLive.1-150=ok
+[UI] glassTier.1-150=ok
+[UI] shot 06-settings-glass-100-150.png
+[UI] glassSaved-150=ok
+[UI] noDuplicateHintInSettings-150=ok
+[UI] settingsResizeZones-150=ok
+[UI] settingsDrag-150=ok
+[UI] scene settings/desktop-150
+[UI] shot 07-settings-fullscreen-150.png
+[UI] scene settings/history-150
+[UI] shot 09-history-150.png
+[UI] lane harness sceneRuns=0
+[UI] lane platform sceneRuns=0
+[UI] lane windows sceneRuns=0
+[UI] lane capture sceneRuns=0
+[UI] lane llm sceneRuns=0
+[UI] lane agent sceneRuns=0
+[UI] lane bar sceneRuns=2
+[UI] lane sheet sceneRuns=6
+[UI] lane settings sceneRuns=6
+[UI] noPageErrors=ok
+[UI] done failed=0 shots=32
