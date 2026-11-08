@@ -59,11 +59,17 @@
 //   t.emit(name, channel, payload)   an event from Rust to that window
 //   t.respond(name, channel, value)  change that window's answer from now on
 //   t.calls(name, channel?)     what that window invoked, [{channel, payload}]
-//   t.settle(ms = 450)          wait (on the virtual clock too, when on)
-//   t.tick(ms)                  move the virtual clock (needs clock: true)
+//   t.settle(ms = 450)          wait ms of real time. On a clock scene it
+//                               also moves the virtual clock by ms, so never
+//                               call it between frames you are timing: use
+//                               t.tick there, and t.settle only to let
+//                               something run out first
+//   t.tick(ms)                  move the virtual clock by exactly ms (needs
+//                               clock: true); nothing else moves it
 //   t.shot(name?, clip?)        <outDir>/<name><suffix>.png; clip in CSS px,
-//                               default every window plus 20 px. On a clock
-//                               scene it leaves the clock where it is.
+//                               default every window plus 20 px. Never moves
+//                               the virtual clock (elsewhere it settles 120 ms
+//                               of real time first)
 //   t.check(name, ok, why)      `[UI] <name><suffix>=ok|FAIL:<why>`
 //   t.backdrop                  { kind, full, small } data URLs
 // kit.mjs has the shared fixtures and helpers (BAR, ANSWER, openBar, ...).
