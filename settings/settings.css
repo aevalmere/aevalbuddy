@@ -1,128 +1,184 @@
-/* Palette as everywhere else: black, space indigo, shadow grey, grape soda
-   accent, pale slate, twilight indigo. Same surface tokens as the overlay.
-
-   The v0.3 version put every group in a filled card with a paragraph of
-   explanation under the heading. That is a lot of furniture for a list of
-   six settings, and it pushed half the window below the fold. This one
-   separates sections with a hairline and nothing else, and trusts a label
-   next to a control to be self-explanatory. */
+/* Settings: one sheet of thick glass on the 20 px stage, a quiet rail, and a
+   column of pages. Each page is a title and grouped rows; a row is one line,
+   name and value, and the whole line is its button. Every size, radius and
+   colour comes from the tokens in renderer/glass.css or the block below.
+   One layer: nothing further down restates a rule above it. */
 
 :root {
-  --black: #000000;
-  --indigo: #10254F;
-  --grey: #2B2C33;
-  --accent: #823A80;
-  --slate: #C9CFDD;
-  --twilight: #303D6A;
-  --scroll-thumb: rgba(201, 207, 221, 0.26);
-  --scroll-thumb-hover: rgba(201, 207, 221, 0.46);
-
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --d-fast: 150ms;
-  --gutter: 16px;
-  --control: 32px;
-  --bevel: inset 0 1px 0 rgba(201, 207, 221, 0.09);
-  --chrome: 0.6;
+  /* This page's own values; everything shared is in glass.css. */
+  --rail-w: 160px;
+  --row-h: 44px;
+  --prov-h: 52px;
+  --measure: 720px;
+  --rail-w-wide: 220px;
+  --ring: rgb(255 255 255 / 0.92);
+  --group-fill: rgb(255 255 255 / 0.06);
+  --group-rim: rgb(255 255 255 / 0.08);
+  --field-bg: rgb(0 0 0 / 0.26);
+  --field-bg-focus: rgb(0 0 0 / 0.34);
+  --field-rim: rgb(255 255 255 / 0.14);
+  --on: rgb(197 111 195 / 0.85);
+  --thumb: #FFFFFF;
+  --thumb-shadow: 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 var(--px) rgb(0 0 0 / 0.1);
+  --tick: rgb(255 255 255 / 0.6);
+  --warn: #F2CB8C;
+  --danger-fill: rgb(242 160 168 / 0.22);
+  --danger-fill-hover: rgb(242 160 168 / 0.32);
+  --selection: rgb(130 58 128 / 0.6);
+  --scroll-thumb: rgb(201 207 221 / 0.26);
+  --scroll-thumb-hover: rgb(201 207 221 / 0.46);
+  --menu-rim: rgb(255 255 255 / 0.14);
+  --halo: rgb(0 0 0 / 0.38);
+  --drag-fill: #2E3039;
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-/* Selected text takes the accent at low alpha, not the Windows blue the
-   engine falls back to: a bright system blue on these surfaces is a colour
-   outside the palette, and it was the loudest thing in the bar. */
+[hidden] {
+  display: none !important;
+}
+
 ::selection {
-  background: rgba(130, 58, 128, 0.6);
-  color: #C9CFDD;
+  background: var(--selection);
+  color: var(--label);
 }
 
 html,
 body {
-  background: transparent;
+  height: 100%;
+  margin: 0;
   overflow: hidden;
+  background: transparent;
   font-family: var(--font-text);
-  font-size: 14px;
+  font-size: var(--fs-row);
+  font-weight: var(--w-body);
   color: var(--label);
   user-select: none;
 }
 
+/* The window is the sheet plus the stage margin its shadow is drawn in.
+   Maximized, the sheet fills the screen edge to edge. */
+body {
+  padding: var(--stage);
+}
+
+html[data-maximized] body {
+  padding: 0;
+}
+
 #app {
+  --r: var(--r-sheet);
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  width: 100vw;
-  background: linear-gradient(rgba(32, 33, 39, 0.98), rgba(18, 18, 22, 0.98));
-  border: 1px solid rgba(201, 207, 221, 0.17);
-  border-radius: 12px;
-  box-shadow: var(--bevel);
-  overflow: hidden;
+  border-radius: var(--r);
+}
+
+html[data-maximized] #app {
+  --r: 0px;
+  border-radius: 0;
+}
+
+#app > :not(.gl) {
+  position: relative;
+}
+
+button,
+input,
+output {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  font: inherit;
-  color: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
   background: none;
-  border: none;
-  cursor: pointer;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* --------------------------------------------------------------- titlebar */
-
-#titlebar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 10px 10px var(--gutter);
   cursor: default;
+  text-align: inherit;
 }
 
-#titlebar .title {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--label-2);
+h1,
+h2,
+p,
+ul,
+ol {
+  margin: 0;
+  padding: 0;
 }
 
-#titlebar button {
-  width: var(--control);
-  height: var(--control);
+/* -------------------------------------------------------------- layout */
+
+#layout {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  opacity: var(--chrome);
-  transition: background var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
-#titlebar button:hover {
-  background: rgba(201, 207, 221, 0.08);
-  opacity: 1;
+#rail {
+  flex: 0 0 var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2) var(--sp-4) var(--sp-3);
+  overflow-y: auto;
 }
 
-/* ------------------------------------------------------------------- main */
+#rail button {
+  min-height: var(--ctl);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-row);
+  font-size: var(--fs-row);
+  color: var(--label-2);
+  text-align: left;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#rail button:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+#rail button[aria-current="true"] {
+  background: var(--fill-2);
+  color: var(--label);
+  font-weight: var(--w-strong);
+}
 
 main {
   flex: 1;
-  min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 0 var(--gutter) var(--gutter);
+  padding: 0 var(--sp-3) var(--sp-6) var(--sp-2);
 }
 
-/* Same bar as the overlay, so the two surfaces scroll alike. */
+/* Below 560 px of glass the rail goes; the column keeps every page and each
+   title still says where you are. */
+@media (max-width: 599px) {
+  #rail {
+    display: none;
+  }
+  main {
+    padding-left: var(--sp-4);
+  }
+}
+
+@media (min-width: 900px) {
+  #rail {
+    flex-basis: var(--rail-w-wide);
+  }
+  .page {
+    max-width: var(--measure);
+    margin-inline: auto;
+  }
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -131,1318 +187,1178 @@ main {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scroll-thumb);
-  border: 3px solid transparent;
+  border: 4px solid transparent;
   background-clip: padding-box;
-  border-radius: 6px;
+  border-radius: var(--r-cap);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scroll-thumb-hover);
+  border: 4px solid transparent;
   background-clip: padding-box;
 }
 
-/* One column, one gap, a hairline between groups. No fills, no cards. */
-section {
-  display: grid;
-  gap: 10px;
-  justify-items: start;
-  padding: 13px 0;
-}
+/* --------------------------------------------------------------- pages */
 
-section + section {
-  border-top: 1px solid var(--hairline);
-}
-
-/* The permanent line: name, current value, Edit. Everything else in the
-   group lives in .body and only exists while it is being changed. */
-.row-head {
-  width: 100%;
+.page {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-height: 22px;
+  flex-direction: column;
+  gap: var(--sp-3);
 }
 
-.summary {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--label-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: right;
+.page + .page {
+  margin-top: var(--sp-6);
 }
 
-.edit {
-  flex: 0 0 auto;
-  font-size: 12px;
-  color: var(--label-2);
-  padding: 2px 0;
-  min-width: 30px;
-  text-align: right;
-  transition: color var(--d-fast) ease;
-}
-
-.edit:hover {
-  color: var(--label);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-section .body {
-  display: none;
-  width: 100%;
-  gap: 8px;
-  grid-column: 1 / -1;
-}
-
-section[data-open="1"] .body {
-  display: grid;
-  animation: body-in 180ms var(--ease-out);
-}
-
-section[data-open="1"] .summary {
-  color: var(--label-2);
-}
-
-section[data-open="1"] h2 {
+h1 {
+  padding: var(--sp-2) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-page);
+  font-weight: var(--w-strong);
+  line-height: var(--lh-page);
   color: var(--label);
 }
 
-@keyframes body-in {
-  from {
-    opacity: 0;
-    transform: translateY(-3px);
-  }
+/* A title takes focus when a page is opened from elsewhere, so a screen
+   reader starts there; it is not a control, so it draws no ring. */
+h1:focus,
+h1:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
-h2 {
-  flex: 0 0 auto;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.lede,
+.foot-note {
+  padding: 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
   color: var(--label-2);
-  transition: color var(--d-fast) ease;
 }
 
-.row-head .chip,
-.row-head .switch {
-  margin-left: auto;
+.foot-note[data-tone="warn"] {
+  color: var(--warn);
+}
+
+.group-title {
+  padding: var(--sp-3) var(--sp-4) 0;
+  font-size: var(--fs-small);
+  font-weight: var(--w-strong);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
 }
 
 .note {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
   color: var(--label-2);
-  /* No one-word last line: the Agent page's note ended on "saved." alone,
-     as the tour's last card did before cursor-buddy.css got the same rule. */
-  text-wrap: pretty;
-}
-
-.note:empty {
-  display: none;
-}
-
-.row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.row.subtle {
-  gap: 14px;
 }
 
 .status {
-  width: 100%;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--label-2);
-}
-
-.status[hidden] {
-  display: none;
-}
-
-/* ------------------------------------------------------------ chip, switch */
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--label-2);
-  white-space: nowrap;
-}
-
-.chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(201, 207, 221, 0.3);
-}
-
-.chip.on {
-  color: var(--label-2);
-}
-
-.chip.on .chip-dot {
-  background: var(--accent);
-  box-shadow: 0 0 0 1px rgba(201, 207, 221, 0.45);
-}
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--label-2);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.switch input {
-  appearance: none;
-  width: 28px;
-  height: 16px;
-  border-radius: 8px;
-  background: rgba(201, 207, 221, 0.16);
-  position: relative;
-  cursor: pointer;
-  transition: background var(--d-fast) ease;
-}
-
-.switch input::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--slate);
-  transition: transform var(--d-fast) var(--ease-out);
-}
-
-.switch input:checked {
-  background: var(--accent);
-}
-
-.switch input:checked::after {
-  transform: translateX(12px);
-}
-
-.switch:hover {
-  color: var(--label-2);
-}
-
-/* ----------------------------------------------------------------- inputs */
-
-input[type="password"],
-input[type="text"] {
-  flex: 1;
-  min-width: 0;
-  height: var(--control);
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--label);
-  background: rgba(201, 207, 221, 0.07);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0 10px;
-  user-select: text;
-}
-
-input::placeholder {
-  color: var(--label-2);
-}
-
-input[type="password"]:focus,
-input[type="text"]:focus {
-  outline: none;
-  border-color: rgba(201, 207, 221, 0.3);
-  background: rgba(201, 207, 221, 0.1);
-}
-
-/* Custom dropdown: native select popups misrender inside transparent
-   frameless windows on Windows, so the list is ordinary DOM. */
-.combo {
-  position: relative;
-  width: 100%;
-}
-
-.combo[hidden] {
-  display: none;
-}
-
-.combo > button {
-  width: 100%;
-  min-height: var(--control);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--label);
-  background: rgba(201, 207, 221, 0.07);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 6px 10px;
-  text-align: left;
-  transition: background var(--d-fast) ease;
-}
-
-.combo > button:hover {
-  background: rgba(201, 207, 221, 0.11);
-}
-
-.combo > button[aria-expanded="true"] {
-  border-color: rgba(201, 207, 221, 0.3);
-}
-
-.combo > button svg {
-  flex: 0 0 auto;
-  opacity: var(--chrome);
-}
-
-.combo-lines {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-
-.combo-lines > span:first-child {
-  font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.combo-detail {
-  font-size: 12px;
-  color: var(--label-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.combo-detail:empty {
-  display: none;
-}
-
-.combo ul {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 10;
-  list-style: none;
-  background: var(--black);
-  border: 1px solid rgba(201, 207, 221, 0.16);
-  border-radius: 8px;
-  padding: 4px;
-  max-height: 320px;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
-  animation: combo-open 140ms var(--ease-out);
-}
-
-@keyframes combo-open {
-  from {
-    opacity: 0;
-    transform: translateY(-3px);
-  }
-}
-
-.combo ul[hidden] {
-  display: none;
-}
-
-.combo-group {
-  padding: 8px 8px 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--label-2);
-  cursor: default;
-}
-
-.combo-option {
-  display: grid;
-  gap: 2px;
-  padding: 7px 9px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.combo-option .opt-name {
-  font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.combo-option .opt-detail {
-  font-size: 12px;
-  color: var(--label-2);
-  line-height: 1.4;
-}
-
-.combo-option:hover,
-.combo-option:focus,
-.combo-option:focus-visible {
-  outline: none;
-  background: rgba(201, 207, 221, 0.09);
-}
-
-.combo-option.selected {
-  background: rgba(130, 58, 128, 0.25);
-}
-
-/* ------------------------------------------------------------------ skill */
-
-#skill-list {
-  width: 100%;
-  display: grid;
-  gap: 2px;
-}
-
-.skill-option {
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  align-items: start;
-  gap: 2px 10px;
-  width: 100%;
-  text-align: left;
-  padding: 7px 9px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease;
-}
-
-.skill-option:hover {
-  background: rgba(201, 207, 221, 0.06);
-}
-
-.skill-option[aria-checked="true"] {
-  background: rgba(130, 58, 128, 0.2);
-}
-
-.skill-mark {
-  width: 12px;
-  height: 12px;
-  margin-top: 4px;
-  border: 1px solid rgba(201, 207, 221, 0.35);
-  border-radius: 50%;
-}
-
-.skill-option[aria-checked="true"] .skill-mark {
-  border-color: var(--accent);
-  background: radial-gradient(circle at center, var(--accent) 0 3px, transparent 3px);
-}
-
-.skill-name {
-  font-size: 14px;
-}
-
-.skill-summary {
-  grid-column: 2;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--label-2);
-}
-
-/* ---------------------------------------------------------------- buttons */
-
-#toggle-key,
-.sc-change {
-  flex: 0 0 auto;
-  height: var(--control);
-  padding: 0 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  background: rgba(201, 207, 221, 0.07);
-  transition: background var(--d-fast) ease;
-}
-
-#toggle-key:hover,
-.sc-change:hover {
-  background: rgba(201, 207, 221, 0.13);
-}
-
-/* Secondary actions read as text, not as more boxes. */
-.link {
-  font-size: 12px;
-  color: var(--label-2);
-  text-decoration: none;
-  padding: 2px 0;
-  border-radius: 4px;
-  transition: color var(--d-fast) ease;
-}
-
-.link:hover {
-  color: var(--label);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.link[hidden] {
-  display: none;
-}
-
-.primary {
-  flex: 0 0 auto;
-  height: var(--control);
-  padding: 0 14px;
-  background: var(--accent);
-  color: var(--label);
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 6px;
-  transition: opacity var(--d-fast) ease, transform var(--d-fast) var(--ease-out);
-}
-
-.primary:hover {
-  opacity: 0.88;
-}
-
-.primary:active {
-  transform: scale(0.97);
-}
-
-/* -------------------------------------------------------------- shortcuts */
-
-#shortcut-list {
-  width: 100%;
-  list-style: none;
-  display: grid;
-  gap: 2px;
-}
-
-/* A grid, not flex: a long warning gets its own full-width line instead of
-   squeezing the label and knocking the columns out of line with the row
-   above it. */
-.sc-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 0;
-}
-
-.sc-label {
-  min-width: 0;
-  font-size: 14px;
-}
-
-.sc-warn {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--label-2);
-  line-height: 1.4;
-}
-
-.sc-warn[hidden] {
-  display: none;
-}
-
-kbd {
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--label-2);
-  background: rgba(201, 207, 221, 0.09);
-  border-radius: 4px;
-  padding: 3px 8px;
-  white-space: nowrap;
-  justify-self: end;
-}
-
-.sc-row.capturing kbd {
-  background: rgba(130, 58, 128, 0.3);
-}
-
-.sc-fixed {
-  font-size: 12px;
-  color: var(--label-2);
-  min-width: 62px;
-  text-align: center;
-}
-
-/* ----------------------------------------------------------------- footer */
-
-footer {
-  flex: 0 0 auto;
-  padding: 10px var(--gutter);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-top: 1px solid var(--hairline);
-}
-
-#about {
-  font-size: 12px;
-  color: var(--label-2);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-#update-btn {
-  font-size: 12px;
-}
-
-/* ------------------------------------------------------------------ about */
-
-/* Download progress. Slate, not the accent: the accent is for the action,
-   and a bar filling is not one. The fill moves by transform, never width,
-   per the motion rules. */
-.progress {
-  width: 100%;
-  height: 4px;
-  border-radius: 4px;
-  background: rgba(201, 207, 221, 0.10);
-  overflow: hidden;
-}
-
-.progress[hidden] {
-  display: none;
-}
-
-.progress > span {
-  display: block;
-  height: 100%;
-  background: rgba(201, 207, 221, 0.62);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 240ms var(--ease-out);
-}
-
-#update-notes {
-  user-select: text;
-}
-
-#update-check:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-.primary[hidden] {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-/* Only ever shown on a Windows build too old for WDA_EXCLUDEFROMCAPTURE, and
-   sized to say so without becoming the loudest thing in the footer. */
-#capture-warning {
-  flex: 1;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--danger);
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ===================================================================== v2 */
-
-/* The rail and the column. The rail only exists at 560px and wider; below
-   that the column scrolls on its own and every page header still says where
-   you are. */
-#layout {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  gap: 12px;
-}
-
-#rail {
-  flex: 0 0 160px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px 0 var(--gutter) var(--gutter);
-}
-
-#rail button {
-  position: relative;
-  text-align: left;
-  font-size: 13px;
-  color: var(--label-2);
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: color var(--d-fast) ease, background var(--d-fast) ease;
-}
-
-#rail button:hover {
-  color: var(--label);
-  background: rgba(201, 207, 221, 0.06);
-}
-
-#rail button[aria-current="true"] {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
   color: var(--label);
 }
 
-#rail button[aria-current="true"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-}
-
-@media (max-width: 559px) {
-  #rail {
-    display: none;
-  }
-}
-
-main {
-  flex: 1;
-}
-
-.page + .page {
-  margin-top: 16px;
-}
-
-h1 {
-  font-size: 15px;
-  font-weight: 600;
-  padding: 8px 0 4px;
-}
-
-.page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.page-switch {
-  padding-top: 4px;
-}
-
-/* A two-way choice: radio rows, the chosen one tinted like a chosen skill. */
-.choice {
-  width: 100%;
-  display: grid;
-  gap: 2px;
-}
-
-.choice-option {
-  text-align: left;
-  font-size: 14px;
-  padding: 7px 9px;
-  border-radius: 6px;
-  transition: background var(--d-fast) ease;
-}
-
-.choice-option:hover {
-  background: rgba(201, 207, 221, 0.06);
-}
-
-.choice-option[aria-checked="true"] {
-  background: rgba(130, 58, 128, 0.2);
-}
-
-.slider-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 140px 28px;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-}
-
-.slider-row input {
-  accent-color: var(--accent);
-}
-
-.slider-row output {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--label-2);
-}
-
-.switch {
-  white-space: normal;
-}
-
-.link.danger:hover {
+.status.error {
   color: var(--danger);
 }
 
-:root {
-}
-
-/* The steps to a free key, shown until one is saved. */
-.free-pass {
-  margin: 0 0 12px 18px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--label-2);
-}
-
-.free-pass li + li {
-  margin-top: 4px;
-}
-
-.free-pass[hidden],
-#clip-key[hidden] {
-  display: none;
-}
-
-/* =====================================================================
-   v2.1 Phase B: Settings as grouped glass lists (DESIGN.md, Material).
-   The window is one sheet of thick glass inside a transparent margin, so
-   its shadow is drawn. Each page is a title and one grouped list: rows
-   44px high, 16px side padding, an inset hairline between rows, a chevron
-   where the word Edit was. The rail is a quiet column; the current page is
-   a pill. Rules above this block that it restates are superseded.
-   ===================================================================== */
-
-html,
-body {
-  font-family: var(--font-text);
-  color: var(--label);
-}
-
-body {
-  padding: 14px 18px 22px;
-  height: 100vh;
-}
-
-#app {
-  --r: var(--r-sheet);
-  height: 100%;
-  width: 100%;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: var(--r-sheet);
-  overflow: visible;
-}
-
-#app > :not(.gl) {
-  position: relative;
-}
-
-#layout {
-  overflow: hidden;
-  border-radius: 0 0 var(--r-sheet) var(--r-sheet);
-}
-
-#titlebar {
-  justify-content: center;
-  position: relative;
-  padding: 12px 12px 8px;
-  min-height: 52px;
-}
-
-#titlebar .title {
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--label);
-}
-
-#titlebar button {
+/* The provider list's spoken line: heard, not shown. The rows show state. */
+.live {
   position: absolute;
-  right: 12px;
-  top: 12px;
-  border-radius: var(--r-cap);
-  opacity: 1;
-  color: var(--label-2);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-#titlebar button:hover {
-  background: var(--fill-1);
-  color: var(--label);
+/* --------------------------------------------------------------- groups */
+
+/* A group is one plate; rows are separated by a hairline from the text's
+   left edge. The plate never clips, so an open menu can hang below it;
+   hover fills take the plate's corners from their position instead. */
+.group {
+  list-style: none;
+  border-radius: var(--r-plate);
+  background: var(--group-fill);
+  box-shadow: inset 0 0 0 var(--px) var(--group-rim);
 }
 
-#rail {
-  flex: 0 0 172px;
-  margin: 0 0 12px 12px;
-  padding: 8px;
-  gap: 2px;
-  border-radius: var(--r-card);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: var(--chip-rim);
-  align-self: flex-start;
-}
-
-#rail button {
-  font-size: 14px;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: var(--r-row);
-  color: var(--label-2);
-}
-
-#rail button:hover {
-  color: var(--label);
-  background: var(--fill-1);
-}
-
-#rail button[aria-current="true"] {
-  color: var(--label);
-  font-weight: 600;
-  background: var(--fill-2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-#rail button[aria-current="true"]::before {
-  display: none;
-}
-
-main {
-  padding: 0 16px 20px 4px;
-}
-
-h1 {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--label);
-  padding: 6px 4px 12px;
-}
-
-.page + .page {
-  margin-top: 24px;
-}
-
-.page-head {
-  align-items: center;
-}
-
-.page > section {
+.row {
   position: relative;
-  padding: 0 16px;
-  gap: 0;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.06), inset -1px 0 0 rgba(255, 255, 255, 0.06);
 }
 
-.page > h1 + section,
-.page > .page-head + section {
-  border-top-left-radius: var(--r-card);
-  border-top-right-radius: var(--r-card);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 1px 0 0 rgba(255, 255, 255, 0.06), inset -1px 0 0 rgba(255, 255, 255, 0.06);
-}
-
-.page > section:last-of-type {
-  border-bottom-left-radius: var(--r-card);
-  border-bottom-right-radius: var(--r-card);
-}
-
-/* The inset hairline between rows: from the text's left edge, never full
-   width inside a group. */
-.page > section + section {
-  border-top: none;
-}
-
-.page > section + section::before {
+.row + .row::before,
+.choice-row + .choice-row::before {
   content: "";
   position: absolute;
-  left: 16px;
+  left: var(--sp-4);
   right: 0;
   top: 0;
   height: var(--px);
   background: var(--hairline);
+  pointer-events: none;
+}
+
+.row-head,
+.prov-head,
+.choice-row {
+  border-radius: 0;
+  transition: background var(--d-fast) ease;
+}
+
+.group > :first-child > .row-head,
+.group > :first-child > .prov-head,
+.group > .choice-row:first-child {
+  border-top-left-radius: var(--r-plate);
+  border-top-right-radius: var(--r-plate);
+}
+
+.group > :last-child:not([data-open="1"]) > .row-head,
+.group > :last-child:not([data-open="1"]) > .prov-head,
+.group > .choice-row:last-child {
+  border-bottom-left-radius: var(--r-plate);
+  border-bottom-right-radius: var(--r-plate);
 }
 
 .row-head {
-  min-height: 44px;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--sp-4);
 }
 
-h2 {
-  font-size: 14px;
-  font-weight: 400;
-  letter-spacing: 0;
+.row-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-row);
+  font-weight: var(--w-body);
+  line-height: var(--lh-row);
   color: var(--label);
-}
-
-section[data-open="1"] h2 {
-  color: var(--label);
-  font-weight: 600;
 }
 
 .summary {
-  font-size: 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   color: var(--label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-section[data-open="1"] .summary {
-  color: var(--label-3);
-}
-
-/* A chevron instead of the word Edit; the word stays the button's name. */
+/* The disclosure: the chevron is the button, and its ::before stretches
+   over the whole line, so the line is what you press. Its name is the
+   heading and the value ("Liquid glass, Subtle, collapsed"). */
 .edit {
-  position: relative;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  margin-right: -6px;
-  border-radius: var(--r-cap);
-  font-size: 0;
-  color: var(--label-3);
-}
-
-.edit::after {
-  content: "";
-  position: absolute;
-  left: 9px;
-  top: 10px;
-  width: 7px;
-  height: 7px;
-  border-right: 1.6px solid currentColor;
-  border-bottom: 1.6px solid currentColor;
-  transform: rotate(-45deg);
-  transition: transform var(--d-fast) var(--ease-out);
-}
-
-.edit:hover {
-  color: var(--label);
-  background: var(--fill-1);
-  text-decoration: none;
-}
-
-section[data-open="1"] .edit::after {
-  transform: translate(1px, -2px) rotate(45deg);
-}
-
-section[data-open="1"] .body {
-  padding: 2px 0 16px;
-  gap: 10px;
-}
-
-.note {
-  font-size: 13px;
-  color: var(--label-2);
-}
-
-.status {
-  font-size: 13px;
-  color: var(--label);
-}
-
-input[type="password"],
-input[type="text"] {
-  height: 36px;
-  font-size: 14px;
-  color: var(--label);
-  background: rgba(0, 0, 0, 0.28);
-  border: none;
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
-  border-radius: var(--r-row);
-  padding: 0 12px;
-}
-
-input::placeholder {
-  color: var(--label-3);
-}
-
-input[type="password"]:focus,
-input[type="text"]:focus {
-  background: rgba(0, 0, 0, 0.34);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.72);
-}
-
-.primary {
-  min-height: 32px;
-  padding: 0 16px;
-  border-radius: var(--r-cap);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--label);
-  background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
-}
-
-.primary:hover {
-  background: rgb(197 111 195 / 0.55);
-  opacity: 1;
-}
-
-.link,
-#toggle-key,
-.sc-change {
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: var(--r-cap);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--label);
-  background: var(--fill-1);
-  box-shadow: var(--chip-rim);
-  text-decoration: none;
-}
-
-.link:hover,
-#toggle-key:hover,
-.sc-change:hover {
-  background: var(--fill-2);
-  text-decoration: none;
-}
-
-a.link {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  color: var(--label-3);
 }
 
-.free-pass a.link,
-.note a.link {
-  display: inline;
+.edit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* The sprite's chevron points down; closed, it points to the line's end. */
+.edit > .ico,
+.prov-head > .chev {
+  color: var(--label-3);
+  transform: rotate(-90deg);
+  transition: transform var(--d-med) var(--ease-morph);
+}
+
+.row[data-open="1"] > .row-head > .edit > .ico,
+.prov[data-open="1"] > .prov-head > .chev {
+  transform: none;
+}
+
+.row:not(.static):not(.action) > .row-head:hover,
+.prov-head:hover,
+.choice-row:hover {
+  background: var(--fill-1);
+}
+
+.edit:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.edit:focus-visible::before {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.row.static > .row-note {
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+
+.row.static > .row-head {
+  padding-bottom: var(--sp-1);
+}
+
+.row.static > .row-head:last-child {
+  padding-bottom: var(--sp-2);
+}
+
+/* One line with its own control: a switch, a check, a note. */
+.row.line {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: var(--sp-2) var(--sp-4);
+}
+
+.row.line.sub {
+  padding-left: var(--sp-6);
+}
+
+.row.line.sub::before {
+  left: var(--sp-6);
+}
+
+.row.line.off {
+  opacity: 0.55;
+}
+
+.row.line > .switch,
+.row.line > .check {
+  flex: 1;
+}
+
+/* The body opens from nothing to its height, and closes the same way. Once
+   it has landed it stops clipping, so a list can drop out of it. */
+.row > .body {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows var(--d-med) var(--ease-morph), visibility 0s linear var(--d-med);
+}
+
+.row[data-open="1"] > .body {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition: grid-template-rows var(--d-med) var(--ease-morph), visibility 0s;
+}
+
+.body-in {
   min-height: 0;
-  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4);
+}
+
+/* The bottom inset: a flex item, so it adds to the last gap and collapses
+   with the body. */
+.body-in::after {
+  content: "";
+  flex: 0 0 var(--sp-1);
+}
+
+.row[data-settled="1"] > .body > .body-in {
+  overflow: visible;
+}
+
+/* ------------------------------------------------------------ controls */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.actions .note {
+  flex: 1 1 200px;
+}
+
+/* "Free now:" leads the chords it names, on their line. */
+.free-label {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+.confirm > span:first-child {
+  flex: 1 1 auto;
+  font-size: var(--fs-small);
+  color: var(--label);
+}
+
+.g-btn.danger {
+  background: var(--danger-fill);
+}
+
+.g-btn.danger:hover {
+  background: var(--danger-fill-hover);
+}
+
+.g-btn.quiet-danger {
   background: none;
   box-shadow: none;
-  text-decoration: underline;
-  text-decoration-color: var(--accent-bright);
-  text-underline-offset: 3px;
+  color: var(--label-2);
 }
 
-.link.danger {
+.g-btn.quiet-danger:hover {
+  background: var(--fill-1);
   color: var(--danger);
 }
 
-/* iOS-shaped switches: the off state is a glass fill, on is the accent. */
-.switch {
-  font-size: 14px;
-  color: var(--label);
-  gap: 12px;
+.text-btn {
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  font-size: var(--fs-small);
+  font-weight: var(--w-strong);
+  color: var(--accent-text);
+  transition: background var(--d-fast) ease;
 }
 
-.switch:hover {
+.text-btn:hover {
+  background: var(--fill-1);
+}
+
+.text-btn[disabled] {
+  color: var(--label-3);
+  opacity: 0.6;
+}
+
+.text-link {
+  font-size: var(--fs-small);
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 3px;
+  cursor: default;
+}
+
+.text-link:hover {
+  color: var(--label);
+}
+
+/* Switches: the label on the left, the switch trailing. */
+.switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--ctl);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
   color: var(--label);
 }
 
 .switch input {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
   flex: 0 0 auto;
-  width: 38px;
-  height: 22px;
+  width: 40px;
+  height: 24px;
+  margin: 0;
   border-radius: var(--r-cap);
   background: var(--fill-3);
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
+  transition: background var(--d-fast) ease;
 }
 
 .switch input::after {
+  content: "";
+  position: absolute;
   top: 2px;
   left: 2px;
-  width: 18px;
-  height: 18px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  transition: transform 240ms var(--ease-settle);
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-cap);
+  background: var(--thumb);
+  box-shadow: var(--thumb-shadow);
+  transition: transform var(--d-med) var(--ease-settle);
 }
 
 .switch input:checked {
-  background: rgb(197 111 195 / 0.85);
+  background: var(--on);
 }
 
 .switch input:checked::after {
   transform: translateX(16px);
 }
 
-.combo > button {
-  min-height: 40px;
-  color: var(--label);
-  background: rgba(0, 0, 0, 0.24);
-  border: none;
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 6px 12px;
+.switch input[disabled] {
+  opacity: 0.55;
 }
 
-.combo > button:hover {
-  background: rgba(0, 0, 0, 0.32);
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
 }
 
-.combo > button[aria-expanded="true"] {
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
-}
-
-.combo-detail,
-.combo-option .opt-detail,
-.combo-group {
-  color: var(--label-2);
-}
-
-.combo ul {
-  background: #23252D;
-  border: none;
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14), 0 18px 44px rgba(0, 0, 0, 0.6);
-  border-radius: var(--r-card);
-  padding: 6px;
-}
-
-.combo-option {
-  border-radius: var(--r-row);
-  padding: 8px 10px;
-}
-
-.combo-option:hover,
-.combo-option:focus,
-.combo-option:focus-visible {
-  background: var(--fill-1);
-}
-
-/* Selection is a check as well as a fill, so it never rests on colour. */
-.combo-option.selected,
-.choice-option[aria-checked="true"],
-.skill-option[aria-checked="true"] {
+.check input {
+  -webkit-appearance: none;
+  appearance: none;
   position: relative;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: var(--r-key);
   background: var(--fill-2);
-  padding-right: 32px;
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
 }
 
-.combo-option.selected::after,
-.choice-option[aria-checked="true"]::after {
+.check input:checked {
+  background: var(--on);
+}
+
+.check input:checked::after {
   content: "";
   position: absolute;
-  right: 14px;
-  top: 50%;
+  left: 7px;
+  top: 3px;
   width: 5px;
   height: 10px;
-  margin-top: -7px;
-  border-right: 1.8px solid var(--label);
-  border-bottom: 1.8px solid var(--label);
+  border-right: 2px solid var(--thumb);
+  border-bottom: 2px solid var(--thumb);
   transform: rotate(45deg);
 }
 
-.choice-option,
-.skill-option {
-  border-radius: var(--r-row);
+.field {
+  flex: 1;
+  min-width: 0;
+  height: var(--ctl);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-cap);
+  font-size: var(--fs-row);
   color: var(--label);
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
+  user-select: text;
 }
 
-.choice-option:hover,
-.skill-option:hover {
+.field::placeholder {
+  color: var(--label-3);
+}
+
+.field:focus {
+  background: var(--field-bg-focus);
+}
+
+.field[disabled] {
+  opacity: 0.6;
+}
+
+/* Choice lists: the checked option has a fill and a check, so it never
+   rests on colour alone. */
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.choice-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-height: var(--ctl);
+  padding: var(--sp-2) var(--sp-6) var(--sp-2) var(--sp-3);
+  border-radius: var(--r-row);
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+  color: var(--label);
+  transition: background var(--d-fast) ease;
+}
+
+.choice-option:hover {
   background: var(--fill-1);
 }
 
-.free-pass {
+.choice-option[aria-checked="true"] {
+  background: var(--fill-2);
+}
+
+.choice-option[aria-checked="true"]::after,
+.choice-row[aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  right: var(--sp-4);
+  top: calc(50% - 7px);
+  width: 5px;
+  height: 10px;
+  border-right: 2px solid var(--label);
+  border-bottom: 2px solid var(--label);
+  transform: rotate(45deg);
+}
+
+.skill-summary,
+.choice-note {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+.choice-row {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-height: var(--row-h);
+  padding: var(--sp-3) calc(var(--sp-6) + var(--sp-2)) var(--sp-3) var(--sp-4);
+  text-align: left;
+}
+
+.choice-name {
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+}
+
+/* Segmented control: one segment per provider with a key. */
+.seg-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.seg-label {
+  font-size: var(--fs-small);
+  color: var(--label-2);
+}
+
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 2px; /* optical */
+  border-radius: var(--r-cap);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+}
+
+.seg-option {
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-cap);
+  font-size: var(--fs-small);
+  color: var(--label-2);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.seg-option:hover {
   color: var(--label);
 }
 
-@media (prefers-contrast: more) {
-  .page > section {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
-  }
+.seg-option[aria-checked="true"] {
+  background: var(--fill-3);
+  color: var(--label);
+  font-weight: var(--w-strong);
 }
 
-@media (forced-colors: active) {
-  .page > section {
-    border: 1px solid CanvasText;
-  }
-  #rail button[aria-current="true"] {
-    border: 1px solid Highlight;
-  }
-}
-
-/* =====================================================================
-   Tauri rewrite (REQUESTS.md 4, 5, 7). The Liquid glass slider, and a
-   layout that holds from the default window to a maximised one: past
-   900 px the rail widens and the column keeps a reading measure, centred,
-   instead of stretching every row across the screen.
-   ===================================================================== */
-
-.glass-slider {
-  width: 100%;
+/* Sliders: a thin track filled to the thumb's centre. */
+.slider-row {
   display: grid;
-  gap: var(--sp-2);
-  padding: var(--sp-1) 0 0;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-row);
 }
 
-#glass-range {
-  --fill: 50%;
+.slider-row output {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+}
+
+input[type="range"] {
+  --k: 0.5;
+  --at: calc(11px + (100% - 22px) * var(--k));
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
   height: var(--ctl-s);
+  margin: 0;
   background: transparent;
-  cursor: pointer;
 }
 
-#glass-range::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: var(--r-cap);
-  background: linear-gradient(to right, rgb(197 111 195 / 0.85) var(--fill), var(--fill-3) var(--fill));
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.12);
+  background: linear-gradient(to right, var(--on) var(--at), var(--fill-3) var(--at));
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
 }
 
-#glass-range::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 22px;
   height: 22px;
   margin-top: -8px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), inset 0 0 0 var(--px) rgba(0, 0, 0, 0.1);
-  transition: transform 240ms var(--ease-settle);
+  border-radius: var(--r-cap);
+  background: var(--thumb);
+  box-shadow: var(--thumb-shadow);
+  transition: transform var(--d-med) var(--ease-settle);
 }
 
-#glass-range:active::-webkit-slider-thumb {
-  transform: scale(1.12);
+input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.1);
 }
 
-#glass-range:focus-visible {
+input[type="range"]:focus-visible {
   outline: none;
   box-shadow: none;
 }
 
-#glass-range:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.92), 0 0 0 5px rgba(0, 0, 0, 0.38);
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--thumb-shadow), 0 0 0 2px var(--ring), 0 0 0 5px var(--halo);
+}
+
+/* Liquid glass: a tick at each of the five stops, the stop names on their
+   stops (the ends flush with the track's ends), the current one brighter. */
+.glass-slider {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+#glass-range::-webkit-slider-runnable-track {
+  background:
+    radial-gradient(circle at 11px 50%, var(--tick) 1.5px, transparent 2px),
+    radial-gradient(circle at calc(11px + (100% - 22px) * 0.25) 50%, var(--tick) 1.5px, transparent 2px),
+    radial-gradient(circle at calc(11px + (100% - 22px) * 0.5) 50%, var(--tick) 1.5px, transparent 2px),
+    radial-gradient(circle at calc(11px + (100% - 22px) * 0.75) 50%, var(--tick) 1.5px, transparent 2px),
+    radial-gradient(circle at calc(100% - 11px) 50%, var(--tick) 1.5px, transparent 2px),
+    linear-gradient(to right, var(--on) var(--at), var(--fill-3) var(--at));
 }
 
 .glass-stops {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  position: relative;
+  height: 18px;
+  font-family: var(--font-small);
   font-size: var(--fs-meta);
+  line-height: var(--lh-caption);
   color: var(--label-2);
 }
 
-.glass-stops span:nth-child(2),
-.glass-stops span:nth-child(3),
-.glass-stops span:nth-child(4) {
-  text-align: center;
+.glass-stops span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition: color var(--d-fast) ease;
 }
 
-.glass-stops span:last-child {
+.glass-stops span:nth-child(1) {
+  left: 0;
+  transform: none;
+}
+
+.glass-stops span:nth-child(2) {
+  left: calc(11px + (100% - 22px) * 0.25);
+}
+
+.glass-stops span:nth-child(3) {
+  left: calc(11px + (100% - 22px) * 0.5);
+}
+
+.glass-stops span:nth-child(4) {
+  left: calc(11px + (100% - 22px) * 0.75);
+}
+
+.glass-stops span:nth-child(5) {
+  right: 0;
+  transform: none;
+}
+
+.glass-stops span.on {
+  color: var(--label);
+}
+
+.progress {
+  height: 4px;
+  border-radius: var(--r-cap);
+  background: var(--fill-2);
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--on);
+  transform-origin: left;
+  transition: transform var(--d-med) ease;
+}
+
+/* ----------------------------------------------------------------- combo */
+
+.combo {
+  position: relative;
+}
+
+.combo > button {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding: var(--sp-1) calc(var(--sp-6) + var(--sp-2)) var(--sp-1) var(--sp-3);
+  border-radius: var(--r-plate);
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
+  text-align: left;
+  transition: background var(--d-fast) ease;
+}
+
+.combo > button:hover {
+  background: var(--field-bg-focus);
+}
+
+/* A chevron down: this opens a list. */
+.combo-chev {
+  position: absolute;
+  right: var(--sp-4);
+  top: calc(50% - var(--ico-i) / 2);
+  color: var(--label-2);
+}
+
+.combo-lines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.combo-lines > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.combo-detail {
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  color: var(--label-2);
+}
+
+/* The list is the shared menu in its solid tier: an opaque body, the same
+   rim and radius, never glass drawn on glass. */
+.combo > .g-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + var(--sp-1));
+  z-index: 10;
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
+  padding: var(--sp-1);
+  border-radius: var(--r-card);
+  background: var(--solid);
+  box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
+}
+
+/* A model row is two lines (name, then price and context) with the shared
+   check beside them; hover, focus and selection are the shared menu's. */
+.combo .g-menu .menu-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.opt-name {
+  grid-column: 1;
+  font-size: var(--fs-row);
+  line-height: var(--lh-row);
+}
+
+.opt-detail {
+  grid-column: 1;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  color: var(--label-2);
+}
+
+.menu-row > .g-check {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+/* ------------------------------------------------------------- providers */
+
+.glyph {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.prov-head {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--prov-h);
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-3);
+  text-align: left;
+}
+
+.prov-head:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+.prov-head .grip {
+  color: var(--label-3);
+  cursor: grab;
+}
+
+.prov:not(.orderable) .grip {
+  display: none;
+}
+
+.prov-head .pos {
+  min-width: 2ch;
+  font-size: var(--fs-small);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-@media (min-width: 900px) {
-  #rail {
-    flex-basis: 220px;
+.prov-head .who {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.prov-head .name {
+  font-size: var(--fs-row);
+  font-weight: var(--w-strong);
+  line-height: var(--lh-row);
+  color: var(--label);
+}
+
+.prov-head .sub {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prov-head .sub.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.state[data-tone="ok"] {
+  color: var(--label);
+}
+
+.state[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.state[data-tone="warn"] {
+  color: var(--warn);
+}
+
+.state[data-status="checking"] svg {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
-  main {
-    padding-right: var(--sp-5);
+}
+
+.default-cap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  background: var(--fill-2);
+  font-family: var(--font-small);
+  font-size: var(--fs-meta);
+  color: var(--label);
+}
+
+.prov-msg {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+.prov-msg[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.prov-clip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-radius: var(--r-plate);
+  background: var(--fill-1);
+}
+
+.clip-text {
+  flex: 1 1 auto;
+  font-size: var(--fs-small);
+  color: var(--label);
+}
+
+.prov-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.field-label {
+  font-size: var(--fs-small);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.key-input {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.key-input::placeholder {
+  font-family: var(--font-mono);
+}
+
+.prov-order {
+  gap: var(--sp-1);
+  margin-left: calc(-1 * var(--sp-2));
+}
+
+/* Dragging: the row lifts on a solid plate, the others slide aside, and
+   the dropped row settles into its slot. */
+#providers.reordering .prov:not(.dragging) {
+  transition: transform var(--d-med) var(--ease-morph);
+}
+
+#providers .prov.dragging {
+  z-index: 2;
+  border-radius: var(--r-plate);
+  background: var(--drag-fill);
+  box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
+}
+
+#providers .prov.dragging .grip {
+  cursor: grabbing;
+}
+
+#providers.reordering .prov::before {
+  opacity: 0;
+}
+
+#providers .prov.settling {
+  transition: transform var(--d-morph) var(--ease-morph);
+}
+
+/* ------------------------------------------------------------- shortcuts */
+
+#shortcut-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  column-gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-1) 0;
+}
+
+.sc-row + .sc-row {
+  border-top: var(--px) solid var(--hairline);
+}
+
+.sc-label {
+  font-size: var(--fs-row);
+}
+
+.sc-current.empty {
+  color: var(--label-3);
+}
+
+.sc-row.capturing .sc-current {
+  color: var(--label);
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright);
+}
+
+.sc-change {
+  min-height: var(--ctl-s);
+}
+
+.sc-fixed {
+  min-width: 72px;
+  font-size: var(--fs-small);
+  color: var(--label-3);
+  text-align: center;
+}
+
+.sc-warn {
+  grid-column: 1 / -1;
+  padding-bottom: var(--sp-1);
+  font-size: var(--fs-small);
+  color: var(--warn);
+}
+
+.keys .key-row {
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.keys-of {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+}
+
+/* ---------------------------------------------------------------- footer */
+
+footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 36px;
+  padding: var(--sp-1) var(--sp-4) var(--sp-2);
+  font-size: var(--fs-meta);
+  color: var(--label-3);
+}
+
+footer .text-link {
+  font-size: var(--fs-meta);
+}
+
+#quit-app {
+  color: var(--label-2);
+  text-decoration: none;
+}
+
+#quit-app:hover {
+  color: var(--label);
+}
+
+/* ----------------------------------------------------------- preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  .row > .body,
+  .row[data-open="1"] > .body,
+  .edit > .ico,
+  .prov-head .chev,
+  #providers .prov,
+  #providers.reordering .prov:not(.dragging),
+  #providers .prov.settling {
+    transition: none;
   }
-  .page {
-    max-width: 720px;
-    margin-inline: auto;
+  .state[data-status="checking"] svg,
+  .combo > .g-menu {
+    animation: none;
+  }
+}
+
+html[data-motion="reduced"] .row > .body,
+html[data-motion="reduced"] .edit > .ico,
+html[data-motion="reduced"] .prov-head .chev {
+  transition: none;
+}
+
+html[data-motion="reduced"] .state[data-status="checking"] svg {
+  animation: none;
+}
+
+@media (prefers-contrast: more) {
+  .group {
+    box-shadow: inset 0 0 0 var(--px) var(--hairline);
+  }
+  .note,
+  .summary,
+  .lede {
+    color: var(--label);
   }
 }
 
 @media (forced-colors: active) {
-  #glass-range::-webkit-slider-runnable-track {
+  .group,
+  .combo > button,
+  .combo > .g-menu,
+  .field,
+  .seg {
+    border: 1px solid CanvasText;
+  }
+  #rail button[aria-current="true"],
+  .choice-option[aria-checked="true"],
+  .seg-option[aria-checked="true"],
+  .combo .g-menu .menu-row[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .switch input,
+  .check input {
+    forced-color-adjust: none;
+    border: 1px solid ButtonText;
+    background: Canvas;
+  }
+  .switch input:checked,
+  .check input:checked {
+    background: Highlight;
+  }
+  .switch input::after {
     background: ButtonText;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    background: ButtonText;
+  }
+  .edit:focus-visible::before,
+  .prov-head:focus-visible {
+    outline-color: Highlight;
   }
 }

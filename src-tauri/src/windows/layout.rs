@@ -7,7 +7,8 @@ use serde_json::{json, Value};
 use crate::state::Rect;
 
 pub const PILL: (f64, f64) = (44.0, 44.0);
-pub const PANEL_WIDTH: f64 = 420.0;
+/// The bar's default width, the store's default (B-106; main.js 420).
+pub const PANEL_WIDTH: f64 = 600.0;
 pub const INPUT_MIN_HEIGHT: f64 = 62.0;
 pub const INPUT_MAX_HEIGHT: f64 = 280.0;
 pub const DEFAULT_INPUT_HEIGHT: f64 = 76.0;
@@ -119,9 +120,11 @@ pub fn docked_bounds(wa: Rect, bar: Rect, size: (f64, f64), bar_v: &str) -> Rect
     )
 }
 
-/// NEW-01: where a new output window opens. The slot against the bar on its
-/// free side first; while an open window already sits there, 24 px further
-/// toward the middle of the screen and away from the bar.
+/// NEW-01 with B-099: where a new output window opens. The slot against
+/// the bar on its free side first; while an open window already sits there,
+/// 24 px further along the bar's edge toward the middle of the screen,
+/// wrapping within the work area. Every window keeps the 12 px gap to the
+/// bar, so the page's glob can reach it.
 pub fn place_output(
     wa: Rect,
     bar: Rect,
@@ -134,23 +137,24 @@ pub fn place_output(
         open.iter()
             .any(|o| (o.x - r.x).abs() < CASCADE / 2.0 && (o.y - r.y).abs() < CASCADE / 2.0)
     };
-    let dx = if bar_anchor.h == "right" {
+    let step = if bar_anchor.h == "right" {
         -CASCADE
     } else {
         CASCADE
     };
-    let dy = if bar_anchor.v == "bottom" {
-        -CASCADE
-    } else {
-        CASCADE
-    };
+    let lo = wa.x;
+    let span = (wa.width - size.0).max(0.0);
     let mut r = first;
-    for _ in 0..open.len().min(16) {
+    for i in 1..=open.len().min(64) {
         if !taken(&r) {
             break;
         }
-        r.x = clamp(r.x + dx, wa.x, wa.x + wa.width - size.0);
-        r.y = clamp(r.y + dy, wa.y, wa.y + wa.height - size.1);
+        let x = first.x + step * i as f64;
+        r.x = if span > 0.0 {
+            lo + (x - lo).rem_euclid(span)
+        } else {
+            lo
+        };
     }
     r
 }
@@ -248,6 +252,19 @@ pub fn nudge_rect(
     )
 }
 
+/// B-025: `r` inside `wa`, the work area of its own display: no bigger than
+/// the area, and moved in only as far as it has to be.
+pub fn clamp_to(wa: Rect, r: Rect) -> Rect {
+    let w = r.width.min(wa.width);
+    let h = r.height.min(wa.height);
+    Rect::new(
+        clamp(r.x, wa.x, wa.x + wa.width - w),
+        clamp(r.y, wa.y, wa.y + wa.height - h),
+        w,
+        h,
+    )
+}
+
 /// JavaScript Math.sign (0 stays 0).
 fn sign(n: f64) -> f64 {
     if n > 0.0 {
@@ -323,10 +340,11 @@ mod tests {
         let first = place_output(wa(), bar, &top, (420.0, 200.0), &[]);
         // 12 px under the bar's glass.
         assert_eq!(first, Rect::new(1484.0, 104.0, 420.0, 200.0));
+        // B-099: along the bar's edge, the gap kept.
         let second = place_output(wa(), bar, &top, (420.0, 200.0), &[first]);
-        assert_eq!(second, Rect::new(1460.0, 128.0, 420.0, 200.0));
+        assert_eq!(second, Rect::new(1460.0, 104.0, 420.0, 200.0));
         let third = place_output(wa(), bar, &top, (420.0, 200.0), &[first, second]);
-        assert_eq!(third, Rect::new(1436.0, 152.0, 420.0, 200.0));
+        assert_eq!(third, Rect::new(1436.0, 104.0, 420.0, 200.0));
         // A window moved away frees the first slot again.
         let moved = Rect::new(200.0, 500.0, 420.0, 200.0);
         assert_eq!(
@@ -383,6 +401,70 @@ mod tests {
         // A maximum holds.
         let capped = nudge_rect(wa(), r, (0.0, 0.0, 900.0, 0.0), lim.0, (900.0, 0.0));
         assert_eq!(capped.width, 900.0);
+    }
+
+    #[test]
+    fn output_clamps_to_its_own_display() {
+        let left = Rect::new(0.0, 0.0, 1920.0, 1040.0);
+        let right = Rect::new(1920.0, 200.0, 1280.0, 680.0);
+        // Past the right display's bottom: up into that display, not the other.
+        let low = Rect::new(2600.0, 800.0, 420.0, 200.0);
+        let raised = Rect::new(2600.0, 680.0, 420.0, 200.0);
+        assert_eq!(clamp_to(right, low), raised);
+        // Bigger than the area: capped to it.
+        let big = Rect::new(2000.0, 300.0, 2000.0, 900.0);
+        assert_eq!(clamp_to(right, big), right);
+        // Already inside: untouched.
+        let inside = Rect::new(100.0, 100.0, 420.0, 200.0);
+        assert_eq!(clamp_to(left, inside), inside);
+    }
+
+    #[test]
+    fn cascade_keeps_the_gap() {
+        let bar = Rect::new(1484.0, 16.0, 420.0, 76.0);
+        let top = a("right", "top", 16.0, 16.0);
+        let size = (420.0, 200.0);
+        let mut open: Vec<Rect> = Vec::new();
+        for _ in 0..8 {
+            let r = place_output(wa(), bar, &top, size, &open);
+            assert_eq!(r.y, bar.y + bar.height + OUTPUT_GAP);
+            assert!(!open.contains(&r));
+            open.push(r);
+        }
+        assert_eq!(open[7].x, 1484.0 - 7.0 * CASCADE);
+        // At the edge the cascade wraps to the far side, still inside.
+        let edge = Rect::new(0.0, 16.0, 420.0, 76.0);
+        let first = place_output(wa(), edge, &top, size, &[]);
+        assert_eq!(first.x, 0.0);
+        let wrapped = place_output(wa(), edge, &top, size, &[first]);
+        assert_eq!(wrapped.x, 1476.0);
+        assert!(wrapped.x + size.0 <= 1920.0);
+        assert_eq!(wrapped.y, first.y);
+    }
+
+    /// B-097: every layout constant against main.js on `main`, with the
+    /// documented departures: the 160 px output minimum (D-02: the 44 px
+    /// title bar, one row and the stage margins do not fit in 90), the
+    /// 12 px gap (glass to glass inside both stage margins, ARCHITECTURE
+    /// 10.3; main.js DOCK_GAP 8 was window to window) and the 600 px panel
+    /// width (B-106, the store default).
+    #[test]
+    fn constants_match_main_js() {
+        assert_eq!(PILL, (44.0, 44.0));
+        assert_eq!((INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT), (62.0, 280.0));
+        assert_eq!(DEFAULT_INPUT_HEIGHT, 76.0);
+        assert_eq!((OUTPUT_MAX_FRACTION, OUTPUT_MAX_FLOOR), (0.66, 380.0));
+        assert_eq!(DEFAULT_OUTPUT_HEIGHT, 120.0);
+        assert_eq!(HUD_INPUT_HEIGHT, 140.0);
+        assert_eq!((SNAP_MARGIN, SNAP_DISTANCE), (16.0, 110.0));
+        assert_eq!(DOCK_DISTANCE, 150.0);
+        assert_eq!((DROP_SETTLE_MS, CHAT_HISTORY_LIMIT), (160, 12));
+        assert_eq!((T_EXPAND, T_COLLAPSE), (260, 170));
+        assert_eq!((T_OUT_IN, T_OUT_OUT, T_OUT_GROW), (300, 150, 200));
+        // The departures.
+        assert_eq!(OUTPUT_MIN_HEIGHT, 160.0);
+        assert_eq!(OUTPUT_GAP, 12.0);
+        assert_eq!(PANEL_WIDTH, 600.0);
     }
 
     #[test]

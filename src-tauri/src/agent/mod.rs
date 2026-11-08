@@ -5,4 +5,5 @@ pub mod describe;
 pub mod gate;
 pub mod run;
 pub mod seams;
+pub mod smoke;
 pub mod tools;

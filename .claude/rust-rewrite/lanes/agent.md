@@ -265,6 +265,15 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- C1 green at 89fd79a (K-20 `agent:confirm-request.{value, truncated}` and `agent:step.planIndex`; K-21 consent `provider`/`providerName`/`model`/`modelName`/`free`/`recipients` from today's settings until K-16 and K-18 land).
+- B-006: green at 89fd79a; UNIT `agent::run::tests::confirm_payload_carries_full_value`, UNIT `agent::describe::tests::the_card_value_is_the_whole_text` (SMOKE+ `confirmFullText` waits for harness C1).
+- B-144: green at 89fd79a; UNIT `run::tests::step_payload_has_plan_index`.
+- B-051: in progress; K-21 fields green at 89fd79a (UNIT `host::agent::tests::consent_payload_names_provider`); `recipients` switches to `llm::recipients` when K-18 lands.
+- B-008: unit tests green at 3918098 (`gate::tests::space_on_focused_send_button_asks`, `typed_space_on_button_asks`, `space_in_text_field_is_free`); adds the helper op `focused` (host.cs `FocusedCmd`, `Desktop::focused`, adapter `focused`). SMOKE+ `gateKeyActivation` is printed by `agent/smoke.rs`.
+- B-049: unit tests green at 3918098 (`gate::tests::unknown_named_button_asks`, `explorer_double_click_asks`, `web_dialog_text_is_read`, `localized_send_asks`); host.cs reports a Pane/Group/Custom whose localized type is "dialog" as role `dialog`. SMOKE `gateBypasses`, `gateFailsClosed` are printed by `agent/smoke.rs`.
+- B-048: unit test green at 3918098 (`run::tests::pause_during_dodge_drops_the_action`); SMOKE+ `takeoverStopsStep` is printed by `agent/smoke.rs`; SMOKE `agentTakeover` is in the Notepad batch.
+- B-050: unit tests green at 3918098 (`client::tests::key_timeout_scales_with_repeat`, `run::tests::stop_while_typing_cancels_the_helper`, `run::tests::a_timed_out_step_is_an_unknown_outcome`); SMOKE+ `cancelStopsTyping`, `helperTimeoutNoLateInput` and SMOKE `agentStopMs` are in the Notepad batch.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
