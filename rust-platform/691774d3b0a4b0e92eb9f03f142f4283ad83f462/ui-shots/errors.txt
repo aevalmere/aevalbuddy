@@ -1,0 +1,2 @@
+== shots.log ==
+[UI] globSmooth=FAIL:longest frame 49.9 ms
