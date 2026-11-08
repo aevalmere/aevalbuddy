@@ -228,7 +228,8 @@ body[data-anchor-v="bottom"] #panel {
 }
 
 .panel-top {
-  --r: var(--r-sheet);
+  /* A capsule at every text size: 28 at 100%. */
+  --r: calc(var(--bar-h) / 2);
   height: var(--bar-h);
   flex: 0 0 auto;
   display: flex;
@@ -274,15 +275,15 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   min-width: 0;
   height: 100%;
   font-family: var(--font-display);
-  font-size: var(--fs-bar);
-  line-height: 24px;
-  font-weight: 450;
+  font-size: var(--t-bar);
+  line-height: var(--lh-bar);
+  font-weight: var(--w-body);
   color: var(--label);
   background: none;
   border: none;
   padding: 0;
   user-select: text;
-  caret-color: var(--accent-bright);
+  caret-color: var(--accent-text);
   text-shadow: none;
 }
 
@@ -290,12 +291,18 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   color: var(--label-3);
 }
 
-/* The field's focus is the caret and the capsule's rim brightening; a ring
-   around the text would draw a box inside the box. */
+/* The field's focus is the capsule's: its rim brightens and a two-tone
+   ring sits outside it, dark inside light, so it holds 3:1 over a white
+   desktop and a dark one. A ring around the text would draw a box inside
+   the box. */
 #query-input:focus,
 #query-input:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+#bar:focus-within > .gl {
+  box-shadow: var(--shadow-control), 0 0 0 2px rgb(16 18 28 / 0.9), 0 0 0 4px rgb(235 192 233 / 0.95);
 }
 
 #bar:focus-within > .gl::after {
@@ -323,7 +330,7 @@ body[data-waiting="asking"] #bar > .gl::after {
 }
 
 body[data-region="1"] #region-btn {
-  color: var(--accent-bright);
+  color: var(--accent-text);
 }
 
 /* ------------------------------------------------------------ intent token
@@ -333,6 +340,7 @@ body[data-region="1"] #region-btn {
    with the settle. Its width follows its word (FLIP, bar.js). */
 
 .intent-token {
+  --own-shadow: var(--chip-rim);
   flex: 0 0 auto;
   height: var(--ctl);
   display: inline-flex;
@@ -340,11 +348,11 @@ body[data-region="1"] #region-btn {
   gap: 6px;
   padding: 0 var(--sp-3) 0 10px;
   border-radius: var(--r-cap);
-  font-size: var(--fs-small);
-  font-weight: 600;
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
   color: var(--label);
   background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+  box-shadow: var(--own-shadow);
   white-space: nowrap;
   overflow: hidden;
   transition: background 160ms ease, box-shadow 160ms ease;
@@ -355,8 +363,8 @@ body[data-region="1"] #region-btn {
 }
 
 .intent-token[data-locked="true"] {
+  --own-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24), inset 0 0 0 var(--px) rgb(255 255 255 / 0.2);
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.2);
 }
 
 .intent-token.lock {
@@ -372,6 +380,9 @@ body[data-region="1"] #region-btn {
 .tok-glyph {
   display: none;
   flex: 0 0 auto;
+  width: var(--ico-s);
+  height: var(--ico-s);
+  overflow: visible;
   color: var(--label-2);
 }
 
@@ -410,45 +421,11 @@ body[data-region="1"] #region-btn {
 
 /* ------------------------------------------------------------- the menu */
 
+/* The token's menu is the shared .g-menu (glass.css): rows r12 inside r16,
+   the shared check on the current choice. Only its place is set here. */
 #intent-menu {
-  --r: var(--r-card);
-  list-style: none;
-  padding: var(--sp-1);
-  font-size: var(--fs-row);
-  animation: drop-in 220ms var(--ease-morph);
-}
-
-#intent-menu li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  min-height: 36px;
-  padding: 0 var(--sp-2) 0 var(--sp-3);
-  border-radius: var(--r-row);
-  cursor: pointer;
-  color: var(--label);
-}
-
-#intent-menu .keys {
-  display: inline-flex;
-  gap: var(--sp-1);
-}
-
-#intent-menu li:hover,
-#intent-menu li:focus {
-  background: var(--fill-2);
-  outline: none;
-}
-
-#intent-menu li:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.92);
-  outline-offset: -2px;
-}
-
-#intent-menu li[aria-selected="true"] span::after {
-  content: "  ✓";
-  color: var(--label-2);
+  align-self: flex-start;
+  min-width: calc(280px * var(--text-scale));
 }
 
 @keyframes drop-in {
@@ -539,9 +516,10 @@ body[data-region="1"] #region-btn {
   transform: rotate(45deg);
 }
 
-#region-chip svg {
-  flex: 0 0 auto;
-  color: var(--accent-bright);
+#region-chip .ico {
+  width: var(--ico-s);
+  height: var(--ico-s);
+  color: var(--accent-text);
 }
 
 #region-size {
@@ -550,8 +528,9 @@ body[data-region="1"] #region-btn {
   color: var(--label);
 }
 
-#notice svg {
-  flex: 0 0 auto;
+#notice .ico {
+  width: var(--ico-s);
+  height: var(--ico-s);
   color: var(--label-2);
 }
 

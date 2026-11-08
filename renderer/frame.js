@@ -12,6 +12,9 @@
 //                       "all" for eight, "x" for left and right only (the
 //                       bar, whose height follows its content). The sheet is
 //                       html[data-resize-target], a selector.
+//   html[data-maximized] set here while the window is maximized (Tauri's
+//                       isMaximized, read again on every resize); the
+//                       zones are hidden then.
 //
 // The zones sit across the glass edge, half in the transparent shadow margin
 // and half on the rim, and carry data-hit so the margin's click-through
@@ -100,12 +103,39 @@
     return [];
   }
 
+  // ------------------------------------------------------------- maximized
+
+  // html[data-maximized] while the window fills the work area: pages drop
+  // their stage margin and corners, and there is no edge to resize.
+  let maxed = false;
+  function setMaximized(on) {
+    if (on === maxed) return;
+    maxed = on;
+    if (on) root.dataset.maximized = '';
+    else delete root.dataset.maximized;
+    requestLayout();
+  }
+
+  let maxQueued = false;
+  function syncMaximized() {
+    if (maxQueued) return;
+    maxQueued = true;
+    requestAnimationFrame(() => {
+      maxQueued = false;
+      const w = win();
+      if (!w || typeof w.isMaximized !== 'function') return;
+      w.isMaximized()
+        .then((m) => setMaximized(!!m))
+        .catch(() => {});
+    });
+  }
+
   let queued = false;
   function layout() {
     queued = false;
     const want = new Set(wanted());
     const el = target();
-    const r = el && !el.hidden && !el.closest('[hidden]') ? el.getBoundingClientRect() : null;
+    const r = !maxed && el && !el.hidden && !el.closest('[hidden]') ? el.getBoundingClientRect() : null;
     const show = r && r.width > 40 && r.height > 20;
     for (const d of Object.keys(DIRS)) {
       if (!want.has(d)) {
@@ -162,7 +192,15 @@
       requestLayout();
     };
     watch();
-    window.addEventListener('resize', requestLayout);
+    window.addEventListener('resize', () => {
+      requestLayout();
+      syncMaximized();
+    });
+    syncMaximized();
+    const w = win();
+    if (w && typeof w.onResized === 'function') {
+      w.onResized(syncMaximized).catch(() => {});
+    }
     // Showing or hiding the sheet, a mode change on <body> or a new target.
     new MutationObserver(watch).observe(document.body, {
       attributes: true,
@@ -175,5 +213,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  window.AevalFrame = { layout: requestLayout };
+  window.AevalFrame = { layout: requestLayout, maximized: () => maxed };
 })();
