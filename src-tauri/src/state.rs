@@ -150,6 +150,12 @@ pub struct Output {
     pub view: String,
     /// When it last had focus or opened, for "most recently focused".
     pub touched: u64,
+    /// The visible sheet inside the glass (`output:glass`): its top and
+    /// height in glass DIPs, or None until the page reports it.
+    pub sheet: Option<(f64, f64)>,
+    /// The conversation "Start over" replaced, and when its Undo expires
+    /// (ms since the epoch).
+    pub undo: Option<(Chat, u64)>,
 }
 
 /// What the agent module reports for `overlay:state.agent`.
@@ -168,9 +174,14 @@ pub struct AppState {
     pub input_height: f64,
     pub bar_mode: String,
     pub pill_error: bool,
-    /// An answer is streaming (main.js `queryBusy`).
+    /// An answer is streaming somewhere (main.js `queryBusy`): "any entry in
+    /// `queries`" once the Ask reports per window (K-03).
     pub busy: bool,
     pub query_gen: u64,
+    /// Output label to the generation of the Ask streaming into it (K-03).
+    pub queries: BTreeMap<String, u64>,
+    /// The bar holds text the person typed (`bar:dirty`).
+    pub bar_dirty: bool,
     pub capture_ok: bool,
     pub find_open: bool,
     pub agent: AgentStatus,
@@ -204,6 +215,8 @@ impl Default for AppState {
             pill_error: false,
             busy: false,
             query_gen: 0,
+            queries: BTreeMap::new(),
+            bar_dirty: false,
             capture_ok: true,
             find_open: false,
             agent: AgentStatus::default(),
@@ -219,6 +232,35 @@ impl Default for AppState {
             hud_pending: None,
             reduced_motion: false,
             boot_ms: 0,
+        }
+    }
+}
+
+impl AppState {
+    /// The Ask with generation `gen` started streaming into `label` (K-03).
+    pub fn query_started(&mut self, label: &str, gen: u64) {
+        self.queries.insert(label.to_string(), gen);
+        self.busy = true;
+    }
+
+    /// The Ask `gen` in `label` ended. A newer Ask in the same window keeps
+    /// its entry.
+    pub fn query_ended(&mut self, label: &str, gen: u64) {
+        if self.queries.get(label) == Some(&gen) {
+            self.queries.remove(label);
+        }
+        self.busy = !self.queries.is_empty();
+    }
+
+    /// Whether an Ask is streaming into `label`.
+    pub fn query_running(&self, label: &str) -> bool {
+        self.queries.contains_key(label)
+    }
+
+    /// The window went away: its entry goes, whatever the generation.
+    pub fn query_forget(&mut self, label: &str) {
+        if self.queries.remove(label).is_some() {
+            self.busy = !self.queries.is_empty();
         }
     }
 }
@@ -249,6 +291,9 @@ pub struct Hooks {
     pub start_tour: Option<Hook>,
     /// abortCurrentQuery().
     pub abort_query: Option<Hook>,
+    /// Stops the Ask streaming into one output window, and only that one
+    /// (K-03; llm registers it). Arg: the output label.
+    pub abort_query_for: Option<StrHook>,
     /// prefetchBarContext() after the bar opens.
     pub prefetch_bar_context: Option<Hook>,
     /// Warm the model catalogue at boot (liveModels()).
@@ -265,6 +310,10 @@ pub struct Hooks {
     /// Extra `settings:get` fields (models resolved from the catalogue,
     /// skills, glass tier), merged over the core's.
     pub settings_extra: Option<ValueHook>,
+    /// Extra `overlay:state` fields (K-07; llm registers `recipients`),
+    /// merged over the core's. Called before the state lock is taken, so
+    /// it may read the state itself.
+    pub overlay_extra: Option<ValueHook>,
     /// Copies the live buddy, region, Find and agent state into `AppState`
     /// (`find_open`, `buddy_active`, `region_active`, `agent`). The core
     /// calls it through `refresh` before it reads those flags.
@@ -382,6 +431,25 @@ mod tests {
         // (1700000000000).toString(36) in node
         assert_eq!(base36(1_700_000_000_000), "loyw3v28");
         assert_eq!(base36(35), "z");
+    }
+
+    #[test]
+    fn queries_are_per_window_and_busy_is_any() {
+        let mut s = AppState::default();
+        s.query_started("output-1", 1);
+        s.query_started("output-2", 2);
+        assert!(s.busy);
+        assert!(s.query_running("output-1") && s.query_running("output-2"));
+        // A stale end for an older generation leaves the newer Ask alone.
+        s.query_started("output-1", 3);
+        s.query_ended("output-1", 1);
+        assert!(s.query_running("output-1"));
+        s.query_ended("output-1", 3);
+        assert!(!s.query_running("output-1"));
+        assert!(s.busy);
+        s.query_forget("output-2");
+        assert!(!s.busy);
+        assert!(s.queries.is_empty());
     }
 
     #[test]

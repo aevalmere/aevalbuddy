@@ -13,10 +13,11 @@ pub mod motion;
 pub mod outputs;
 pub mod screen;
 pub mod stage;
+pub mod text_scale;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::OnceLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -208,6 +209,7 @@ fn send_section(app: &AppHandle) {
 /// state goes (ARCHITECTURE.md 10.3). Whoever answers `glass:hello` calls
 /// this.
 pub fn on_hello(app: &AppHandle, label: &str) {
+    text_scale::send_to(app, label);
     if label == OVERLAY {
         emit(app, OVERLAY, "overlay:state", overlay_state(app, None));
     } else if outputs::is_output(label) {
@@ -245,12 +247,34 @@ pub fn bar_rect(app: &AppHandle) -> Rect {
 }
 
 /// The `overlay:state` payload (POS-13), plus the Tauri additions:
-/// `glassIntensity`, `hasSentFirstRequest`, `keys`, and for an output
-/// window its own `label` and `outputFixedHeight`.
+/// `glassIntensity`, `hasSentFirstRequest`, `keys`, `outputs`, `target`
+/// (K-05: `{label, title, kind}` of the window the next question continues,
+/// or null), `visibleOutputs` (K-05), the `overlay_extra` hook's fields
+/// (K-07), and for an output window its own `label` and
+/// `outputFixedHeight`.
+///
+/// Everything slow or locking (the hooks, the store, the area, the network
+/// check) is read before the shared lock, which is held only to copy.
 pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     crate::state::refresh(app);
+    let extra = shared(app).call_value(app, |h| h.overlay_extra.as_ref());
     let store = store::get();
     let wa = screen::work_area();
+    // main.js sent `activeRegion`: the area picked for the next question,
+    // or the one the focused conversation is about.
+    let picked = crate::region::active_region().map(|r| (r.width, r.height));
+    let offline = !crate::updater::online();
+    let reduced = motion::reduced();
+    let main_chord = store.shortcut("captureQuery");
+    let has_key = store.has_api_key();
+    let input_anchor = store.get_overlay_pos();
+    let output_pos = store.get_output_pos();
+    let input_width = store.get_input_width();
+    let output_width = store.get_output_width();
+    let shortcuts = store.get_shortcuts();
+    let glass = store.get_glass_intensity();
+    let first_sent = store.get_has_sent_first_request();
+    let keys = store.provider_keys_present();
     let height = shared(app).lock().input_height;
     let pb = pill_rect();
     let ib = input_rect(height);
@@ -258,9 +282,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     let s = st.lock();
     let focused = s.focused_output.clone();
     let any_chat = s.outputs.values().any(|o| !o.chat.messages.is_empty());
-    // main.js sent `activeRegion`: the area picked for the next question,
-    // or the one the focused conversation is about.
-    let picked = crate::region::active_region().map(|r| (r.width, r.height));
+    let (target, visible) = outputs::target_fields(&s);
     let region = picked
         .or_else(|| {
             focused
@@ -291,14 +313,14 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     let mut v = json!({
         "mode": s.mode.as_str(),
         "orbAt": { "x": pb.x - ib.x, "y": pb.y - ib.y, "width": pb.width, "height": pb.height },
-        "reducedMotion": motion::reduced() || s.reduced_motion,
-        "hasKey": store.has_api_key(),
+        "reducedMotion": reduced || s.reduced_motion,
+        "hasKey": has_key,
         "captureOk": s.capture_ok,
-        "inputAnchor": store.get_overlay_pos(),
-        "outputPos": store.get_output_pos(),
+        "inputAnchor": input_anchor,
+        "outputPos": output_pos,
         "pillState": pill_state,
-        "inputWidth": store.get_input_width(),
-        "outputWidth": store.get_output_width(),
+        "inputWidth": input_width,
+        "outputWidth": output_width,
         "outputFixedHeight": fixed,
         "chatMax": layout::output_max_height(wa) - 56.0,
         "region": region,
@@ -306,15 +328,23 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
         "barMode": s.bar_mode,
         "agent": agent,
         "pillError": s.pill_error,
-        "offline": !crate::updater::online(),
+        "offline": offline,
         "findOpen": s.find_open,
-        "shortcuts": store.get_shortcuts(),
-        "hotkeyFailed": if hotkey_failed { store.shortcut("captureQuery") } else { String::new() },
-        "glassIntensity": store.get_glass_intensity(),
-        "hasSentFirstRequest": store.get_has_sent_first_request(),
-        "keys": store.provider_keys_present(),
+        "shortcuts": shortcuts,
+        "hotkeyFailed": if hotkey_failed { main_chord } else { String::new() },
+        "glassIntensity": glass,
+        "hasSentFirstRequest": first_sent,
+        "keys": keys,
         "outputs": s.outputs.values().filter(|o| o.active).count(),
     });
+    drop(s);
+    v["target"] = target;
+    v["visibleOutputs"] = json!(visible);
+    if let (Some(Value::Object(extra)), Value::Object(base)) = (extra, &mut v) {
+        for (k, val) in extra {
+            base.insert(k, val);
+        }
+    }
     if let Some(l) = for_label {
         v["label"] = json!(l);
         v["focused"] = json!(focused.as_deref() == Some(l));
@@ -322,13 +352,15 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     v
 }
 
-/// Sends `overlay:state` to the overlay and every output window.
+/// Sends `overlay:state` to the overlay and every output window, and
+/// `output:meta` to the outputs whose meta changed.
 pub fn send_overlay_state(app: &AppHandle) {
     emit(app, OVERLAY, "overlay:state", overlay_state(app, None));
     let labels: Vec<String> = shared(app).lock().outputs.keys().cloned().collect();
     for l in labels {
         emit(app, &l, "overlay:state", overlay_state(app, Some(&l)));
     }
+    outputs::send_meta(app);
 }
 
 // --------------------------------------------------------------- boot
@@ -351,6 +383,7 @@ pub fn boot(app: &AppHandle) -> tauri::Result<()> {
     flags::set_click_through(&w, true);
     outputs::create_spare(app)?;
     flags::start_poll(app);
+    text_scale::start_watch(app);
     Ok(())
 }
 
@@ -477,8 +510,11 @@ pub fn expand_panel(app: &AppHandle) {
     hotkeys::apply(app);
 }
 
-/// POS-09. Output windows hide with the bar unless `keep_output`.
-pub fn collapse_panel(app: &AppHandle, keep_output: bool) {
+/// POS-09 with D-01: the bar folds into the orb and the foreground goes
+/// back to the app that had it. Answers keep streaming and output windows
+/// stay where they are (they float on their own since REQUESTS #11), so
+/// `_keep_output`, which used to spare them, changes nothing.
+pub fn collapse_panel(app: &AppHandle, _keep_output: bool) {
     crate::state::refresh(app);
     let Some(w) = window(app, OVERLAY) else {
         return;
@@ -486,10 +522,6 @@ pub fn collapse_panel(app: &AppHandle, keep_output: bool) {
     let Some(h) = flags::hwnd_of(&w) else {
         return;
     };
-    if !keep_output {
-        shared(app).call(app, |k| k.abort_query.as_ref());
-        outputs::hide_all(app);
-    }
     let find_open = shared(app).lock().find_open;
     if find_open {
         shared(app).call(app, |k| k.close_find.as_ref());
@@ -502,6 +534,7 @@ pub fn collapse_panel(app: &AppHandle, keep_output: bool) {
         s.input_height = layout::DEFAULT_INPUT_HEIGHT;
         was
     };
+    flags::blur(h);
     flags::set_focusable(h, false);
     flags::pin_on_top(h);
     flags::set_click_through(&w, true);
@@ -540,6 +573,7 @@ pub fn collapse_panel(app: &AppHandle, keep_output: bool) {
 
 /// main.js triggerCapture: the bar opens, and conversations come back.
 pub fn trigger_capture(app: &AppHandle) {
+    flags::remember_foreground();
     {
         let st = shared(app);
         let mut s = st.lock();
@@ -636,14 +670,25 @@ pub fn toggle_visibility(app: &AppHandle) {
     hotkeys::apply(app);
 }
 
-/// Global Escape, in main.js's priority order (KEY-08).
+const ESC_CLEARED: &str = "Cleared. Press Esc again to stop the task.";
+
+/// B-102: while a task waits on the person, Esc in the bar first clears a
+/// half-typed answer; the next Esc stops the task.
+pub fn escape_clears_bar(agent_state: &str, dirty: bool, bar_focused: bool) -> bool {
+    dirty && bar_focused && matches!(agent_state, "asking" | "plan" | "paused")
+}
+
+/// Global Escape, in main.js's priority order (KEY-08). It never stops an
+/// answer or hides an output window (D-01).
 pub fn on_escape(app: &AppHandle) {
     crate::state::refresh(app);
-    let (agent, find, region, buddy, mode) = {
+    let (agent, agent_state, dirty, find, region, buddy, mode) = {
         let st = shared(app);
         let s = st.lock();
         (
             s.agent.running,
+            s.agent.state.clone(),
+            s.bar_dirty,
             s.find_open,
             s.region_active,
             s.buddy_active,
@@ -651,6 +696,13 @@ pub fn on_escape(app: &AppHandle) {
         )
     };
     let st = shared(app);
+    let bar_focused = flags::foreground_label().as_deref() == Some(OVERLAY);
+    if agent && escape_clears_bar(&agent_state, dirty, bar_focused) {
+        st.lock().bar_dirty = false;
+        emit(app, OVERLAY, "bar:clear", json!({}));
+        announce(app, ESC_CLEARED, "assertive");
+        return;
+    }
     if agent && st.call(app, |h| h.stop_agent.as_ref()) {
         return;
     }
@@ -684,14 +736,21 @@ pub fn on_escape(app: &AppHandle) {
 pub fn on_hotkey(app: &AppHandle, action: &str) {
     crate::state::refresh(app);
     match action {
-        "captureQuery" => open_bar(app, None, None),
-        "findOnScreen" => open_bar(app, Some("find"), None),
+        "captureQuery" => {
+            mark_bar_requested();
+            open_bar(app, None, None);
+        }
+        "findOnScreen" => {
+            mark_bar_requested();
+            open_bar(app, Some("find"), None);
+        }
         "agentTask" => {
             if shared(app).lock().agent.running {
                 if !shared(app).call(app, |h| h.show_trail.as_ref()) {
                     outputs::show_trail(app, false);
                 }
             } else {
+                mark_bar_requested();
                 open_bar(app, Some("agent"), None);
             }
         }
@@ -732,6 +791,106 @@ pub fn overlay_set_ignore(app: &AppHandle, ignore: bool) {
     if let Some(w) = window(app, OVERLAY) {
         flags::set_click_through(&w, ignore);
     }
+}
+
+// ------------------------------------------------- keyboard and a11y
+
+/// Where an announcement goes: the AevalBuddy window with focus, else the
+/// open bar, else nowhere.
+pub fn announce_target(focused: Option<&str>, bar_open: bool) -> Option<String> {
+    match focused {
+        Some(l) => Some(l.to_string()),
+        None if bar_open => Some(OVERLAY.to_string()),
+        None => None,
+    }
+}
+
+/// `a11y:announce {text, priority}` (design-ux U7): screen readers speak
+/// live regions of the focused window only, so a page without focus hands
+/// its announcement here and it goes out as `a11y:say {text, priority}`
+/// (`polite` or `assertive`, at most 300 characters). Returns the label it
+/// went to.
+pub fn announce(app: &AppHandle, text: &str, priority: &str) -> Option<String> {
+    let text: String = text.trim().chars().take(300).collect();
+    if text.is_empty() {
+        return None;
+    }
+    let priority = if priority == "assertive" {
+        "assertive"
+    } else {
+        "polite"
+    };
+    let bar_open = {
+        let st = shared(app);
+        let s = st.lock();
+        s.mode == Mode::Panel && !s.hidden
+    };
+    let to = announce_target(flags::foreground_label().as_deref(), bar_open)?;
+    emit(
+        app,
+        &to,
+        "a11y:say",
+        json!({ "text": text, "priority": priority }),
+    );
+    Some(to)
+}
+
+fn bar_requested() -> &'static Mutex<Option<Instant>> {
+    static T: OnceLock<Mutex<Option<Instant>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(None))
+}
+
+fn bar_open_ms() -> &'static Mutex<VecDeque<u64>> {
+    static T: OnceLock<Mutex<VecDeque<u64>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(VecDeque::new()))
+}
+
+/// The bar's hotkey fired: the clock for `barOpenMs` starts (B-104).
+pub fn mark_bar_requested() {
+    *bar_requested().lock() = Some(Instant::now());
+}
+
+/// `bar:ready`: the bar's field has focus. Keeps the last 20 latencies.
+pub fn bar_ready() {
+    let Some(t0) = bar_requested().lock().take() else {
+        return;
+    };
+    let ms = t0.elapsed().as_millis() as u64;
+    let mut list = bar_open_ms().lock();
+    list.push_back(ms);
+    while list.len() > 20 {
+        list.pop_front();
+    }
+}
+
+/// Hotkey-to-field latencies, oldest first (the windows probe reads them).
+pub fn bar_open_samples() -> Vec<u64> {
+    bar_open_ms().lock().iter().copied().collect()
+}
+
+/// `window:nudge {dx, dy, dw, dh}` (B-101): moves or resizes the calling
+/// window by DIPs, inside its display's work area and its size limits. An
+/// output keeps the result as if it had been dragged. The bar moves with
+/// the layout editor instead (`hud:nudge`).
+pub fn nudge_window(app: &AppHandle, label: &str, d: (f64, f64, f64, f64)) -> bool {
+    if label == OVERLAY {
+        return false;
+    }
+    let Some(h) = hwnd(app, label) else {
+        return false;
+    };
+    let m = flags::meta(h);
+    let from = motion::glass(h);
+    let wa = screen::matching(from).work_area;
+    let to = layout::nudge_rect(wa, from, d, m.min, m.max);
+    mark_app(label);
+    motion::stop(h);
+    motion::set_glass(h, to);
+    if outputs::is_output(label) {
+        let resized = d.2.abs() > 0.0 || d.3.abs() > 0.0;
+        outputs::keep_user_rect(app, label, to, resized);
+    }
+    true
 }
 
 // ---------------------------------------------------------------- HUD
@@ -1069,5 +1228,74 @@ fn on_destroyed(app: &AppHandle, label: &str) {
         });
     } else if outputs::is_output(label) {
         outputs::on_destroyed(app, label);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::{AppState, Output};
+
+    #[test]
+    fn text_scale_clamps_and_multiplies() {
+        use super::text_scale::{clamp_user, effective};
+        assert_eq!(clamp_user(1.5), 1.5);
+        assert_eq!(clamp_user(0.5), 1.0);
+        assert_eq!(clamp_user(3.0), 2.0);
+        assert_eq!(clamp_user(1.26), 1.3);
+        assert_eq!(clamp_user(f64::NAN), 1.0);
+        assert_eq!(effective(1.0, 1.5), 1.5);
+        assert_eq!(effective(1.25, 1.5), 1.875);
+        assert_eq!(effective(1.5, 2.0), 2.5);
+        assert_eq!(effective(2.25, 2.0), 2.5);
+        assert_eq!(effective(0.0, 1.2), 1.2);
+    }
+
+    #[test]
+    fn announce_goes_to_focused_window() {
+        assert_eq!(
+            announce_target(Some("output-2"), true),
+            Some("output-2".into())
+        );
+        assert_eq!(announce_target(None, true), Some(OVERLAY.into()));
+        assert_eq!(announce_target(None, false), None);
+    }
+
+    #[test]
+    fn escape_clears_dirty_bar_while_asking() {
+        for state in ["asking", "plan", "paused"] {
+            assert!(escape_clears_bar(state, true, true));
+            assert!(!escape_clears_bar(state, false, true));
+            assert!(!escape_clears_bar(state, true, false));
+        }
+        assert!(!escape_clears_bar("running", true, true));
+    }
+
+    #[test]
+    fn overlay_state_has_target_and_count() {
+        let mut s = AppState::default();
+        for (label, active) in [("output-1", true), ("output-2", true), ("output-3", false)] {
+            let mut o = Output {
+                label: label.into(),
+                active,
+                view: "chat".into(),
+                ..Output::default()
+            };
+            o.chat
+                .messages
+                .push(json!({ "role": "user", "text": "What is   on\nmy screen?" }));
+            s.outputs.insert(label.into(), o);
+        }
+        s.focused_output = Some("output-1".into());
+        let (target, visible) = outputs::target_fields(&s);
+        assert_eq!(target["label"], "output-1");
+        assert_eq!(target["title"], "What is on my screen?");
+        assert_eq!(target["kind"], "chat");
+        assert_eq!(visible, 2);
+        // A hidden window is no target.
+        s.focused_output = Some("output-3".into());
+        assert_eq!(outputs::target_fields(&s).0, Value::Null);
+        s.hidden = true;
+        assert_eq!(outputs::target_fields(&s).1, 0);
     }
 }
