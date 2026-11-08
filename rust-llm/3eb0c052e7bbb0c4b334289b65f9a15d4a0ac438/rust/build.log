@@ -1,0 +1,18 @@
+        Info Looking up installed tauri packages to check mismatched versions...
+        Warn The bundle identifier "com.aevalbuddy.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling windows-link v0.2.1
+   Compiling serde_core v1.0.229
+   Compiling siphasher v1.0.4
+   Compiling icu_normalizer_data v2.4.0
+   Compiling icu_properties_data v2.4.0
+   Compiling phf_shared v0.13.1
+   Compiling thiserror v2.0.21
+   Compiling cfg-if v1.0.5
+   Compiling fastrand v2.5.0
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling phf_generator v0.13.1
+   Compiling stable_deref_trait v1.2.1

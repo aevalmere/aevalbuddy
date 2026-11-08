@@ -1,19 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42466642509,
+  "run_id": 42490778674,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466642509",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42490778674",
   "event": "push",
-  "sha": "51b3d4e08248b5759a27afb1047ddf8c88ffe11a",
+  "sha": "3eb0c052e7bbb0c4b334289b65f9a15d4a0ac438",
   "ref": "rust/llm",
   "ref_dir": "rust-llm",
-  "conclusion": "failure",
-  "failed": [
-    "Build installer"
-  ],
-  "finished": "2026-11-08T09:35:39Z",
-  "error_lines": 1,
+  "conclusion": "cancelled",
+  "failed": [],
+  "finished": "2026-11-08T14:44:57Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -67,7 +65,7 @@
     },
     {
       "name": "Build installer",
-      "outcome": "failure",
+      "outcome": "cancelled",
       "log": "build.log"
     },
     {
@@ -77,13 +75,13 @@
     },
     {
       "name": "Capture check",
-      "outcome": "success",
-      "log": "capture.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
-      "log": "desktop.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Upload installer",
