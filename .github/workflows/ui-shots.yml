@@ -1,8 +1,9 @@
 # Renderer checks and screenshots for the Tauri rewrite (split d). The pages
 # run in Microsoft Edge, the engine WebView2 embeds, with a stand-in for
-# window.aeval (tools/ui-shots). Screenshots go to the `shots` branch under
-# rust-d-ui/, readable without auth at
-# raw.githubusercontent.com/<repo>/shots/rust-d-ui/latest/<name>.png
+# window.aeval (tools/ui-shots). Each lane's scenes live in
+# tools/ui-shots/lanes/<lane>.mjs and run at 100% and 150%. Screenshots go to
+# the `shots` branch under rust-d-ui/<ref with / as ->/, readable without auth
+# at raw.githubusercontent.com/<repo>/shots/rust-d-ui/<ref>/latest/<name>.png
 # Results and logs land on the ci-logs branch under <ref>/<sha>/ui-shots/;
 # wait for them with `node tools/ci-wait.mjs <sha> ui-shots`.
 name: ui-shots
@@ -16,6 +17,7 @@ on:
       - "history/**"
       - "src-tauri/bridge/**"
       - "tools/ui-shots/**"
+      - "lib/backdrop-fixture.html"
       - ".github/workflows/ui-shots.yml"
   workflow_dispatch:
 
@@ -29,7 +31,7 @@ permissions:
 jobs:
   shots:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh
@@ -81,8 +83,10 @@ jobs:
           name: ui-shots
           path: out/ui-shots/*.png
 
-      # Into the shots branch beside main's folders, never touching them:
-      # rust-d-ui/latest and rust-d-ui/<sha> (the five newest kept).
+      # Into the shots branch beside main's folders, never touching them, one
+      # folder per branch so parallel lanes never overwrite each other:
+      # rust-d-ui/<ref with / as ->/latest and /<sha> (the five newest kept).
+      # A push that loses a race clones the new tip and tries again.
       - name: Publish to the shots branch
         id: publish
         if: ${{ always() && github.event_name == 'push' }}
@@ -93,11 +97,12 @@ jobs:
           if (-not (Get-ChildItem $src -Filter *.png -ErrorAction SilentlyContinue)) { "no screenshots"; exit 0 }
           $remote = "https://x-access-token:$env:GH_TOKEN@github.com/${{ github.repository }}.git"
           $sha = '${{ github.sha }}'
-          for ($try = 1; $try -le 5; $try++) {
+          $refDir = '${{ github.ref_name }}'.Replace('/', '-')
+          for ($try = 1; $try -le 12; $try++) {
             $dir = Join-Path $env:RUNNER_TEMP "shots-$try"
             git clone --quiet --depth 1 --branch shots $remote $dir
-            if ($LASTEXITCODE -ne 0) { throw 'cannot clone shots' }
-            $base = Join-Path $dir 'rust-d-ui'
+            if ($LASTEXITCODE -ne 0) { "clone failed, retrying"; Start-Sleep -Seconds (2 + (Get-Random -Maximum 4)); continue }
+            $base = Join-Path (Join-Path $dir 'rust-d-ui') $refDir
             New-Item -ItemType Directory -Force $base | Out-Null
             foreach ($d in @('latest', $sha)) {
               $t = Join-Path $base $d
@@ -110,12 +115,13 @@ jobs:
             $order | Select-Object -Skip 5 | ForEach-Object { $o = Join-Path $base $_; if (Test-Path $o) { Remove-Item -Recurse -Force $o } }
             $order | Select-Object -First 5 | Set-Content $orderFile
             git -C $dir add -A
-            git -C $dir -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit --quiet -m "rust-d-ui screenshots for $sha"
+            git -C $dir -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit --quiet -m "rust-d-ui/$refDir screenshots for $sha"
             git -C $dir push --quiet $remote HEAD:shots
-            if ($LASTEXITCODE -eq 0) { "published"; exit 0 }
-            Start-Sleep -Seconds (3 * $try)
+            if ($LASTEXITCODE -eq 0) { "published rust-d-ui/$refDir/$sha (try $try)"; exit 0 }
+            "push refused (try $try), retrying on the new tip"
+            Start-Sleep -Seconds (2 + (Get-Random -Maximum (3 * [Math]::Min($try, 6))))
           }
-          throw 'could not publish after 5 tries'
+          throw 'could not publish after 12 tries'
 
       # Last, pass, fail or cancel: summary.md, errors.txt and the logs to
       # ci-logs/<ref>/<sha>/ui-shots/ (tools/ci-publish.mjs). A failure to
@@ -127,7 +133,7 @@ jobs:
           CI_WORKFLOW: ui-shots
           CI_STATUS: ${{ job.status }}
           CI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_NOTE: "Screenshots: https://github.com/${{ github.repository }}/tree/shots/rust-d-ui/${{ github.sha }}"
+          CI_NOTE: "Screenshots: https://github.com/${{ github.repository }}/tree/shots/rust-d-ui/${{ github.ref_name }}/${{ github.sha }} (/ in the ref becomes -)"
           CI_STEPS: |
             Checkout|${{ steps.checkout.outcome }}
             Node|${{ steps.node.outcome }}
