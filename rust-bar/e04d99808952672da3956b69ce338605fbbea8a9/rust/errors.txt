@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] styleStable=FAIL:overlay pill-again WS_EX_NOACTIVATE=false (want true)
+[SMOKE] failed: styleStable
+[GATE] fail styleStable=FAIL:overlay pill-again WS_EX_NOACTIVATE=false (want true)
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: styleStable; 1 listed label(s) never printed
