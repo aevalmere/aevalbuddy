@@ -72,6 +72,28 @@ jobs:
       - name: Format
         run: '& "$env:RUNNER_TEMP\gate.ps1" fmt "cargo fmt --all -- --check"'
 
+      # With no local toolchain, a failed fmt gate hands back its fix: the
+      # rustfmt patch, gzipped and base64'd across warning annotations
+      # (`fmtpatch i of n`), to be applied with `git apply`.
+      - name: Format patch
+        if: failure()
+        run: |
+          cargo fmt --all
+          git -c core.autocrlf=false diff > "$env:RUNNER_TEMP\fmt.patch"
+          $bytes = [IO.File]::ReadAllBytes("$env:RUNNER_TEMP\fmt.patch")
+          $ms = New-Object IO.MemoryStream
+          $gz = New-Object IO.Compression.GZipStream($ms, [IO.Compression.CompressionMode]::Compress)
+          $gz.Write($bytes, 0, $bytes.Length)
+          $gz.Close()
+          $b64 = [Convert]::ToBase64String($ms.ToArray())
+          $size = 30000
+          $n = [Math]::Ceiling($b64.Length / $size)
+          for ($i = 0; $i -lt $n; $i++) {
+            $c = $b64.Substring($i * $size, [Math]::Min($size, $b64.Length - $i * $size))
+            Write-Output "::warning title=fmtpatch $i of $n::$c"
+          }
+          git checkout -- .
+
       - name: Clippy
         if: success() || failure()
         run: '& "$env:RUNNER_TEMP\gate.ps1" clippy "cargo clippy --all-targets --color never -- -D warnings"'

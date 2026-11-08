@@ -19,7 +19,9 @@ pub mod win;
 
 use std::sync::{Arc, OnceLock};
 
+#[allow(unused_imports)]
 pub use client::{Deps, Desktop, OwnWindow};
+#[allow(unused_imports)]
 pub use protocol::{DResult, DesktopError};
 
 /// The process-wide helper client (lazy: nothing spawns until a call).

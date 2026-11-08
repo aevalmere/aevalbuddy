@@ -37,6 +37,7 @@ pub struct OwnWindow {
 }
 
 type Hook<T> = Option<Arc<dyn Fn() -> T + Send + Sync>>;
+type InputHook = Arc<dyn Fn(&Value) + Send + Sync>;
 
 /// What main.js passed to `desktop.init`. Every field is optional; the
 /// defaults read the Tauri app's own windows.
@@ -44,7 +45,7 @@ type Hook<T> = Option<Arc<dyn Fn() -> T + Send + Sync>>;
 pub struct Deps {
     pub own_windows: Hook<Vec<OwnWindow>>,
     pub want_input: Hook<bool>,
-    pub on_user_input: Option<Arc<dyn Fn(&Value) + Send + Sync>>,
+    pub on_user_input: Option<InputHook>,
     /// Called before any `key()` that sends Escape, so main can drop its
     /// global Esc (RegisterHotKey fires on injected input too).
     pub before_synthetic_key: Hook<()>,

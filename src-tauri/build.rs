@@ -41,5 +41,12 @@ fn main() {
     println!("cargo:rerun-if-changed=../lib/backdrop-fixture.html");
     println!("cargo:rerun-if-changed=../preload.js");
     println!("cargo:rerun-if-changed=bridge/aeval-bridge.js");
+    // Unit tests link Tauri's UI code too; without the Common Controls v6
+    // manifest the test exe dies on load (0xc0000139). The app exe gets its
+    // manifest from tauri-build. (agent c)
+    println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
+    println!(
+        "cargo:rustc-link-arg-tests=/MANIFESTDEPENDENCY:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'"
+    );
     tauri_build::build();
 }

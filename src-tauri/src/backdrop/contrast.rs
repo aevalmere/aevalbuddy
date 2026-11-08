@@ -60,7 +60,7 @@ pub fn parse_color(s: &str) -> Option<Rgba> {
     let open = s[start..].find('(')? + start;
     let close = s[open..].find(')')? + open;
     let parts: Vec<f64> = s[open + 1..close]
-        .split(|c: char| c == ' ' || c == ',' || c == '/')
+        .split([' ', ',', '/'])
         .filter(|p| !p.is_empty())
         .map(|p| p.parse::<f64>().unwrap_or(f64::NAN))
         .collect();

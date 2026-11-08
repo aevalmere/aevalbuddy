@@ -353,7 +353,10 @@ fn display_for(win: &tauri::WebviewWindow, list: &[screen::Display]) -> screen::
 }
 
 /// One capture of every display at a sixth of its DIP size, JPEG q72.
-pub fn grab_all() -> Result<(HashMap<u32, Arc<Vec<u8>>>, f64, f64), String> {
+/// JPEG bytes per display id.
+pub type Frames = HashMap<u32, Arc<Vec<u8>>>;
+
+pub fn grab_all() -> Result<(Frames, f64, f64), String> {
     let list = screen::all_displays();
     let mut out = HashMap::new();
     let mut wall = 0.0;
