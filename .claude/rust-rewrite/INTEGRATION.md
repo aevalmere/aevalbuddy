@@ -17,7 +17,8 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 |---|---|---|---|---|---|---|---|
 | 1 | capture | C1 | `f343f64` | `6fcad0f` | green at `3bc8979` | green at `3bc8979` | Pushed together with #2 |
 | 2 | bar | C1 | `c114f4a` | `8e20ad6` | green at `3bc8979` | green at `3bc8979` | Pushed together with #1. Its icons draw nothing (malformed `icons.svg`); the bar fix follow-up is merged next |
-| 3 | agent | C1 | `89fd79a` | `3849c7a` | pending | n/a | `3ef7629` (red: fmt) plus its rustfmt fix |
+| 3 | agent | C1 | `89fd79a` | `3849c7a` | cancelled by #4's push | n/a | `3ef7629` (red: fmt) plus its rustfmt fix |
+| 4 | bar | C1 follow-up | `d84a9d3` | `f355865` | pending | pending | Icons as CSS masks of a well-formed `icons.svg`. Renderer only. Merged on the coordinator's call with ui-shots green and its rust run red only on an NSIS download 504 in Build installer |
 
 ## Reverts
 
