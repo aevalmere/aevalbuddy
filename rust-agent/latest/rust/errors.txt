@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5234ms (clickThrough=true ready=true freshPage=false cursor=(200, 200))
+[SMOKE] failed: buddyReload
+[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5234ms (clickThrough=true ready=true freshPage=false cursor=(200, 200))
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: buddyReload; 1 listed label(s) never printed
