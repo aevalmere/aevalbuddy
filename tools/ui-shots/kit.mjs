@@ -8,6 +8,9 @@
 export const W = 1600;
 export const H = 1000;
 
+// lib/backdrop-fixture.html kinds a scene can be laid on.
+export const BACKDROPS = ['wallpaper', 'white', 'black', 'dark-editor', 'photo-busy'];
+
 // The bar window: a 640 px panel in a window 40 wider and taller.
 export const BAR = { x: 480, y: 24, w: 680, h: 240 };
 // The same window at the shipped default width (D-16: 600 px panel).

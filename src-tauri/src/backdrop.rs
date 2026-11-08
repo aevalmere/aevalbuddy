@@ -12,8 +12,11 @@
 //! every 5 s while only the orb is, none when nothing is visible.
 //!
 //! Tiers: 'live' draws the frame, 'solid' the same shapes on an opaque fill.
-//! Solid when the user chose it, when our windows cannot be hidden from
-//! capture, in high contrast, and after three capture failures (retried).
+//! Solid when our windows cannot be hidden from capture, in high contrast,
+//! and after three capture failures (retried every 30 s, and the pages hear
+//! 'live' again when a capture succeeds). Choosing solid is `glassIntensity`
+//! 0, drawn by the page; the stored `surface` is kept for rollback only
+//! (B-035).
 //! REQUESTS.md 5: the Windows transparency-effects switch no longer forces
 //! solid. The glass is drawn by us from a captured frame, not by DWM, so it
 //! does not depend on that setting; the renderer's own reasons
@@ -21,9 +24,9 @@
 
 pub mod contrast;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock, Weak};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -33,7 +36,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SystemParametersInfoW, SPI_GETHIGHCONTRAST, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
 };
 
-use crate::capture::{self, encode, screen, Rect, Rgb};
+use crate::capture::{self, encode, screen, Frame, Rect, Rgb};
 
 pub const SCALE: f64 = 6.0;
 pub const FAST_MS: u64 = 500;
@@ -75,6 +78,7 @@ struct Stats {
     last_error: String,
 }
 
+#[derive(Default)]
 struct Inner {
     app: Option<AppHandle>,
     hooks: Option<Hooks>,
@@ -82,11 +86,16 @@ struct Inner {
     paused: u32,
     fails: u32,
     high_contrast: bool,
+    /// The tier the pages were last told.
     last_tier: Option<&'static str>,
     fixture: Option<Fixture>,
     stats: Stats,
     due: Option<Instant>,
     busy: bool,
+    /// While capture failures hold the glass solid: when to try again.
+    retry_at: Option<Instant>,
+    /// Per display, the last frame encoded and its JPEG.
+    last_jpeg: HashMap<u32, (Weak<Frame>, Arc<Vec<u8>>)>,
 }
 
 struct Backdrop {
@@ -100,19 +109,7 @@ struct Backdrop {
 fn me() -> &'static Backdrop {
     static B: OnceLock<Backdrop> = OnceLock::new();
     B.get_or_init(|| Backdrop {
-        inner: Mutex::new(Inner {
-            app: None,
-            hooks: None,
-            glass: BTreeSet::new(),
-            paused: 0,
-            fails: 0,
-            high_contrast: false,
-            last_tier: None,
-            fixture: None,
-            stats: Stats::default(),
-            due: None,
-            busy: false,
-        }),
+        inner: Mutex::new(Inner::default()),
         wake: Condvar::new(),
         frames: RwLock::new(HashMap::new()),
         seq: AtomicU64::new(0),
@@ -142,6 +139,9 @@ pub fn high_contrast_on() -> bool {
 /// The tier's inputs, so the rule can be unit-tested.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TierInputs {
+    /// The stored `surface` is 'solid'. Reported by `status`, never a
+    /// reason: `glassIntensity` 0 is the solid path, so a profile migrated
+    /// as solid follows the glass slider (B-035, NEW-12).
     pub surface_solid: bool,
     pub can_hide: bool,
     pub high_contrast: bool,
@@ -151,9 +151,6 @@ pub struct TierInputs {
 
 pub fn reasons_for(i: TierInputs) -> Vec<&'static str> {
     let mut r = Vec::new();
-    if i.surface_solid {
-        r.push("setting");
-    }
     if !i.can_hide {
         r.push("capture-visible");
     }
@@ -193,9 +190,75 @@ pub fn tier() -> &'static str {
     }
 }
 
-fn tier_of(g: &Inner) -> (&'static str, Vec<&'static str>) {
-    let r = reasons_for(inputs(g));
+fn tier_for(i: TierInputs) -> (&'static str, Vec<&'static str>) {
+    let r = reasons_for(i);
     (if r.is_empty() { "live" } else { "solid" }, r)
+}
+
+fn tier_of(g: &Inner) -> (&'static str, Vec<&'static str>) {
+    tier_for(inputs(g))
+}
+
+/// The `glass:tier` payload.
+fn tier_payload(i: TierInputs, intensity: f64) -> Value {
+    let (tier, reasons) = tier_for(i);
+    json!({ "tier": tier, "reasons": reasons, "intensity": intensity })
+}
+
+/// What a tick does about frames (B-111).
+#[derive(Debug, PartialEq, Eq)]
+enum Plan {
+    /// Nothing visible, or solid for a reason a capture cannot change.
+    Idle,
+    /// Capture failures alone hold the glass solid; the next try is due in
+    /// this long.
+    Wait(Duration),
+    /// Make and send frames.
+    Frames,
+}
+
+fn plan(i: TierInputs, shown: bool, retry_at: Option<Instant>, now: Instant) -> Plan {
+    let reasons = reasons_for(i);
+    if !shown {
+        return Plan::Idle;
+    }
+    if reasons.is_empty() {
+        return Plan::Frames;
+    }
+    if reasons != ["capture-failed"] {
+        return Plan::Idle;
+    }
+    match retry_at {
+        Some(t) if t > now => Plan::Wait(t - now),
+        _ => Plan::Frames,
+    }
+}
+
+/// After a capture went through: whether the pages must hear the tier
+/// again, because the last one they were told is not the one now (B-111).
+fn must_rebroadcast(last_told: Option<&str>, now: &str) -> bool {
+    last_told.is_some_and(|t| t != now)
+}
+
+/// Marks a tick running and clears the mark however the tick ends, a panic
+/// included, so one bad tick cannot freeze the glass (B-111).
+struct Busy;
+
+impl Busy {
+    fn take() -> Option<Busy> {
+        let mut g = lock();
+        if g.busy {
+            return None;
+        }
+        g.busy = true;
+        Some(Busy)
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        lock().busy = false;
+    }
 }
 
 /// The URL a page loads a frame from. WebView2 serves custom schemes as
@@ -212,14 +275,38 @@ fn store(key: &str, bytes: Arc<Vec<u8>>) -> String {
     frame_url(key)
 }
 
+/// The only origin our pages load from (Tauri's custom protocol on Windows).
+pub const APP_ORIGIN: &str = "http://tauri.localhost";
+
 /// The `aeval-frame` protocol handler (registered in lib.rs): the newest
 /// bytes for the key in the path, or 404. Frames are never cached.
 pub fn serve(path: &str) -> tauri::http::Response<Vec<u8>> {
-    let key = path.trim_start_matches('/').split('/').next().unwrap_or("");
-    let bytes = me().frames.read().ok().and_then(|f| f.get(key).cloned());
+    serve_from(path, None)
+}
+
+/// `serve` for a whole request, so its `Origin` is checked too.
+// lib.rs (platform) moves to this from `serve`; see the lane's Blockers.
+#[allow(dead_code)]
+pub fn serve_request(req: &tauri::http::Request<Vec<u8>>) -> tauri::http::Response<Vec<u8>> {
+    let origin = req.headers().get("Origin").and_then(|v| v.to_str().ok());
+    serve_from(req.uri().path(), origin)
+}
+
+/// The screen is readable only by our own pages (B-112): CORS names the app
+/// origin, never `*`, and a request from any other origin is refused.
+fn serve_from(path: &str, origin: Option<&str>) -> tauri::http::Response<Vec<u8>> {
     let builder = tauri::http::Response::builder()
         .header("Cache-Control", "no-store")
-        .header("Access-Control-Allow-Origin", "*");
+        .header("Access-Control-Allow-Origin", APP_ORIGIN)
+        .header("Vary", "Origin");
+    if origin.is_some_and(|o| o != APP_ORIGIN) {
+        return builder
+            .status(403)
+            .body(Vec::new())
+            .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()));
+    }
+    let key = path.trim_start_matches('/').split('/').next().unwrap_or("");
+    let bytes = me().frames.read().ok().and_then(|f| f.get(key).cloned());
     match bytes {
         Some(b) => builder
             .status(200)
@@ -325,7 +412,10 @@ fn run_loop() {
             }
             g.due = None;
         }
-        let _ = std::panic::catch_unwind(tick);
+        if std::panic::catch_unwind(tick).is_err() {
+            // A tick that panicked never armed the next one (B-111).
+            schedule(None);
+        }
     }
 }
 
@@ -368,12 +458,43 @@ fn display_for(win: &tauri::WebviewWindow, list: &[screen::Display]) -> screen::
 pub type Frames = HashMap<u32, Arc<Vec<u8>>>;
 
 pub fn grab_all() -> Result<(Frames, f64, f64), String> {
-    let list = screen::all_displays();
+    grab_displays(&screen::all_displays())
+}
+
+/// One display's backdrop image. A frame DXGI says has not changed is neither
+/// converted nor encoded again (B-030).
+pub fn encode_frame(d: &screen::Display, frame: &Arc<Frame>) -> Option<Arc<Vec<u8>>> {
+    let last = lock().last_jpeg.get(&d.id).cloned();
+    if let Some((seen, jpeg)) = last {
+        if seen.upgrade().is_some_and(|f| Arc::ptr_eq(&f, frame)) {
+            return Some(jpeg);
+        }
+    }
+    let small = frame.scaled(
+        (d.bounds.width / SCALE).round().max(1.0) as u32,
+        (d.bounds.height / SCALE).round().max(1.0) as u32,
+    );
+    let jpeg = Arc::new(encode::jpeg(&small, FRAME_QUALITY)?);
+    let seen = Arc::downgrade(frame);
+    lock().last_jpeg.insert(d.id, (seen, jpeg.clone()));
+    Some(jpeg)
+}
+
+/// The displays holding a visible glass window, each once (B-030).
+fn hosting<T>(on: &[(T, screen::Display)]) -> Vec<screen::Display> {
+    let mut seen = HashSet::new();
+    on.iter()
+        .filter(|(_, d)| seen.insert(d.id))
+        .map(|(_, d)| d.clone())
+        .collect()
+}
+
+fn grab_displays(list: &[screen::Display]) -> Result<(Frames, f64, f64), String> {
     let mut out = HashMap::new();
     let mut wall = 0.0;
     let mut enc = 0.0;
     let mut last_err = String::new();
-    for d in &list {
+    for d in list {
         let t0 = Instant::now();
         let frame = match capture::grab(d) {
             Ok(f) => f,
@@ -383,12 +504,8 @@ pub fn grab_all() -> Result<(Frames, f64, f64), String> {
             }
         };
         let t1 = Instant::now();
-        let small = frame.rgb().resize(
-            (d.bounds.width / SCALE).round().max(1.0) as u32,
-            (d.bounds.height / SCALE).round().max(1.0) as u32,
-        );
-        if let Some(j) = encode::jpeg(&small, FRAME_QUALITY) {
-            out.insert(d.id, Arc::new(j));
+        if let Some(j) = encode_frame(d, &frame) {
+            out.insert(d.id, j);
         }
         wall += (t1 - t0).as_secs_f64() * 1000.0;
         enc += t1.elapsed().as_secs_f64() * 1000.0;
@@ -450,31 +567,27 @@ fn tick() {
     if changed {
         broadcast_tier();
     }
-    {
-        let g = lock();
-        if g.busy || g.paused > 0 {
-            drop(g);
-            return schedule(None);
-        }
+    if lock().paused > 0 {
+        return schedule(None);
     }
+    let Some(busy) = Busy::take() else {
+        return schedule(None);
+    };
     let (app, shown) = visible_glass();
     let Some(app) = app else {
         return schedule(None);
     };
-    let solid = tier() == "solid";
-    if shown.is_empty() || solid {
-        // Solid needs no frames; capture failures are retried slowly in case
-        // whatever broke it has passed.
-        let retry = {
-            let mut g = lock();
-            if g.fails >= 3 && g.fixture.is_none() && !shown.is_empty() {
-                g.fails = 2;
-            }
-            g.fails >= 3
-        };
-        return schedule(if retry { Some(RETRY_MS) } else { None });
+    let (i, retry_at) = {
+        let g = lock();
+        (inputs(&g), g.retry_at)
+    };
+    // Solid needs no frames. Capture failures are retried every 30 s, not at
+    // the fast pace, in case whatever broke capture has passed.
+    match plan(i, !shown.is_empty(), retry_at, Instant::now()) {
+        Plan::Idle => return schedule(None),
+        Plan::Wait(d) => return schedule(Some(d.as_millis() as u64)),
+        Plan::Frames => {}
     }
-    lock().busy = true;
     let fixture = {
         let g = lock();
         g.fixture
@@ -488,7 +601,12 @@ fn tick() {
             send_frame(&app, label, &img, Some(&full_url), bounds);
         }
     } else {
-        match grab_all() {
+        let list = screen::all_displays();
+        let on: Vec<(&str, screen::Display)> = shown
+            .iter()
+            .map(|(label, w)| (label.as_str(), display_for(w, &list)))
+            .collect();
+        match grab_displays(&hosting(&on)) {
             Ok((frames, wall, enc)) => {
                 {
                     let mut g = lock();
@@ -496,29 +614,21 @@ fn tick() {
                     push(&mut g.stats.wall, wall);
                     push(&mut g.stats.encode, enc);
                 }
-                let list = screen::all_displays();
                 let mut urls: HashMap<u32, String> = HashMap::new();
-                for (label, w) in &shown {
-                    let d = display_for(w, &list);
-                    let id = if frames.contains_key(&d.id) {
-                        d.id
-                    } else {
-                        *frames.keys().next().expect("non-empty")
-                    };
+                for (label, d) in sendable(&frames, on) {
                     let url = urls
-                        .entry(id)
-                        .or_insert_with(|| store(&id.to_string(), frames[&id].clone()))
+                        .entry(d.id)
+                        .or_insert_with(|| store(&d.id.to_string(), frames[&d.id].clone()))
                         .clone();
                     send_frame(&app, label, &url, None, d.bounds);
                 }
-                let was_failed = {
+                let recovered = {
                     let mut g = lock();
-                    let was = tier_of(&g).0;
-                    let had = g.fails > 0;
                     g.fails = 0;
-                    had && was != tier_of(&g).0
+                    g.retry_at = None;
+                    must_rebroadcast(g.last_tier, tier_of(&g).0)
                 };
-                if was_failed {
+                if recovered {
                     broadcast_tier();
                 }
             }
@@ -527,6 +637,9 @@ fn tick() {
                     let mut g = lock();
                     g.stats.last_error = e;
                     g.fails += 1;
+                    if g.fails >= 3 {
+                        g.retry_at = Some(Instant::now() + Duration::from_millis(RETRY_MS));
+                    }
                     g.fails == 3
                 };
                 if third {
@@ -535,25 +648,38 @@ fn tick() {
             }
         }
     }
-    lock().busy = false;
+    drop(busy);
     schedule(None);
+}
+
+/// The windows that get a frame this tick: those whose display has one. A
+/// window whose display has none keeps its last frame rather than another
+/// display's at the wrong bounds (B-113).
+fn sendable<T>(frames: &Frames, on: Vec<(T, screen::Display)>) -> Vec<(T, screen::Display)> {
+    on.into_iter()
+        .filter(|(_, d)| frames.contains_key(&d.id))
+        .collect()
+}
+
+/// Whether the backdrop is at its 5 s pace (`backdropIdle`).
+pub fn slow_paced() -> bool {
+    // The hook runs with the lock released, as in `schedule`.
+    let hooks = lock().hooks.clone();
+    hooks.is_some_and(|h| (h.pace)() == Pace::Slow)
 }
 
 /// Tier and reasons to every glass window (on change, on load, on theme).
 pub fn broadcast_tier() {
-    let (app, labels, tier, reasons) = {
+    let (app, labels, payload) = {
         let mut g = lock();
-        let (t, r) = tier_of(&g);
-        g.last_tier = Some(t);
-        (g.app.clone(), g.glass.clone(), t, r)
+        let i = inputs(&g);
+        g.last_tier = Some(tier_for(i).0);
+        let payload = tier_payload(i, intensity());
+        (g.app.clone(), g.glass.clone(), payload)
     };
     if let Some(app) = app {
         for l in labels {
-            let _ = app.emit_to(
-                l.as_str(),
-                "glass:tier",
-                json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }),
-            );
+            let _ = app.emit_to(l.as_str(), "glass:tier", payload.clone());
         }
     }
     schedule(Some(0));
@@ -582,18 +708,15 @@ pub fn set_intensity(k: f64) {
 /// `glass:hello`: the page loaded glass.js and wants frames. It gets the
 /// tier now (the load-time broadcast) and a frame at once.
 pub fn hello(label: &str) {
-    let (app, tier, reasons) = {
+    let (app, payload) = {
         let mut g = lock();
         g.glass.insert(label.to_string());
-        let (t, r) = tier_of(&g);
-        (g.app.clone(), t, r)
+        let i = inputs(&g);
+        g.last_tier = Some(tier_for(i).0);
+        (g.app.clone(), tier_payload(i, intensity()))
     };
     if let Some(app) = app {
-        let _ = app.emit_to(
-            label,
-            "glass:tier",
-            json!({ "tier": tier, "reasons": reasons, "intensity": intensity() }),
-        );
+        let _ = app.emit_to(label, "glass:tier", payload);
     }
     schedule(Some(0));
 }
@@ -716,7 +839,8 @@ pub fn render_fixture(
 
 /// A crop of what is behind a DIP rect at full resolution, for the Find
 /// lens's magnifier. One capture per current-hit change, never on a timer.
-pub fn crop(rect: Rect) -> Option<Vec<u8>> {
+/// `display` is the `Display::id` the rect was placed on (B-005).
+pub fn crop(rect: Rect, display: Option<u32>) -> Option<Vec<u8>> {
     {
         let g = lock();
         if let Some(f) = &g.fixture {
@@ -732,13 +856,13 @@ pub fn crop(rect: Rect) -> Option<Vec<u8>> {
     if tier() == "solid" {
         return None;
     }
-    let cut = capture::crop_dip(rect)?;
+    let cut = capture::crop_dip(rect, display)?;
     encode::jpeg(&cut, LOUPE_QUALITY)
 }
 
 /// The loupe as a URL the lens page can load.
-pub fn crop_url(rect: Rect) -> Option<String> {
-    crop(rect).map(|b| store("loupe", Arc::new(b)))
+pub fn crop_url(rect: Rect, display: Option<u32>) -> Option<String> {
+    crop(rect, display).map(|b| store("loupe", Arc::new(b)))
 }
 
 /// The fixture's full picture, for photographing a window that draws no glass.
@@ -817,10 +941,13 @@ pub fn measure(n: usize) -> Value {
 
 pub fn status() -> Value {
     let g = lock();
-    let (t, r) = tier_of(&g);
+    let i = inputs(&g);
+    let (t, r) = tier_for(i);
+    let surface = if i.surface_solid { "solid" } else { "auto" };
     json!({
         "tier": t,
         "reasons": r,
+        "surface": surface,
         "windows": g.glass.len(),
         "frames": g.stats.frames,
         "wallP95": pct(&g.stats.wall, 95.0),
@@ -843,7 +970,8 @@ mod tests {
 
     #[test]
     fn transparency_setting_is_not_a_reason() {
-        // REQUESTS.md 5: only these four can force solid.
+        // REQUESTS.md 5: only these three can force solid (B-035 dropped
+        // the stored surface setting).
         let all = reasons_for(TierInputs {
             surface_solid: true,
             can_hide: false,
@@ -851,15 +979,8 @@ mod tests {
             fails: 3,
             fixture: false,
         });
-        assert_eq!(
-            all,
-            vec![
-                "setting",
-                "capture-visible",
-                "high-contrast",
-                "capture-failed"
-            ]
-        );
+        let want = ["capture-visible", "high-contrast", "capture-failed"];
+        assert_eq!(all, want);
         let none = reasons_for(TierInputs {
             can_hide: true,
             ..Default::default()
@@ -882,6 +1003,88 @@ mod tests {
             ..Default::default()
         });
         assert!(r.is_empty());
+    }
+
+    #[test]
+    fn solid_profile_at_07_is_live() {
+        // A profile migrated as `surface: 'solid'` keeps the key for
+        // rollback; the slider decides, and at 0.7 the glass is live.
+        let i = TierInputs {
+            surface_solid: true,
+            can_hide: true,
+            ..Default::default()
+        };
+        let p = tier_payload(i, 0.7);
+        assert_eq!(p["tier"], "live");
+        assert_eq!(p["reasons"], json!([]));
+        assert_eq!(p["intensity"], json!(0.7));
+    }
+
+    #[test]
+    fn busy_resets_after_panic() {
+        let r = std::panic::catch_unwind(|| {
+            let _busy = Busy::take().expect("no tick is running");
+            panic!("a tick failed");
+        });
+        assert!(r.is_err());
+        assert!(!lock().busy);
+        assert!(Busy::take().is_some());
+        assert!(!lock().busy);
+    }
+
+    #[test]
+    fn recovery_rebroadcasts_live() {
+        let now = Instant::now();
+        let failed = TierInputs {
+            can_hide: true,
+            fails: 3,
+            ..Default::default()
+        };
+        // Held solid by capture failures alone: tried again every 30 s, not
+        // at the fast pace.
+        let later = Some(now + Duration::from_millis(RETRY_MS));
+        let wait = Plan::Wait(Duration::from_millis(RETRY_MS));
+        assert_eq!(plan(failed, true, later, now), wait);
+        assert_eq!(plan(failed, true, Some(now), now), Plan::Frames);
+        // Solid for a reason a capture cannot change: no capture at all.
+        let hc = TierInputs {
+            high_contrast: true,
+            ..failed
+        };
+        assert_eq!(plan(hc, true, None, now), Plan::Idle);
+        assert_eq!(plan(failed, false, None, now), Plan::Idle);
+        // The capture that succeeds tells the pages, who were told solid.
+        let told = tier_for(failed).0;
+        let mut ok = failed;
+        ok.fails = 0;
+        assert!(must_rebroadcast(Some(told), tier_for(ok).0));
+        assert!(!must_rebroadcast(Some("live"), tier_for(ok).0));
+    }
+
+    #[test]
+    fn missing_display_frame_skips_window() {
+        let d = screen::tests::mixed();
+        let mut frames = Frames::new();
+        frames.insert(d[0].id, Arc::new(vec![1]));
+        let on = vec![("a", d[0].clone()), ("b", d[1].clone())];
+        let sent = sendable(&frames, on);
+        let got: Vec<&str> = sent.iter().map(|(l, _)| *l).collect();
+        assert_eq!(got, ["a"]);
+    }
+
+    #[test]
+    fn frame_protocol_cors_is_app_only() {
+        store("cors-key", Arc::new(vec![4, 5]));
+        let r = serve_from("/cors-key/1.jpg", Some(APP_ORIGIN));
+        assert_eq!(r.status(), 200);
+        assert_eq!(r.headers()["Access-Control-Allow-Origin"], APP_ORIGIN);
+        let r = serve_from("/cors-key/1.jpg", Some("https://example.com"));
+        assert_eq!(r.status(), 403);
+        assert!(r.body().is_empty());
+        // A plain image load sends no Origin and still gets the bytes.
+        let r = serve("/cors-key/1.jpg");
+        assert_eq!(r.status(), 200);
+        assert_ne!(r.headers()["Access-Control-Allow-Origin"], "*");
     }
 
     #[test]

@@ -103,6 +103,22 @@ pub fn output_height(wa: Rect, content: f64, user: f64) -> f64 {
     }
 }
 
+/// B-027: the glass of a window whose sheet follows its transcript. The
+/// sheet's anchored edge stays where `spot` has it (the bottom for a sheet
+/// growing up, the top otherwise) and the window takes `room` away from
+/// it, less whatever would leave the work area.
+pub fn output_glass(wa: Rect, spot: Rect, room: f64, up: bool) -> Rect {
+    let bottom = spot.y + spot.height;
+    let free = if up {
+        bottom - wa.y
+    } else {
+        wa.y + wa.height - spot.y
+    };
+    let h = room.min(free).max(OUTPUT_MIN_HEIGHT);
+    let y = if up { bottom - h } else { spot.y };
+    Rect::new(spot.x, y, spot.width, h)
+}
+
 /// The first slot: on the bar's free side (below a top-anchored bar, above
 /// a bottom one), 12 px away, left edges aligned.
 pub fn docked_bounds(wa: Rect, bar: Rect, size: (f64, f64), bar_v: &str) -> Rect {
@@ -133,9 +149,19 @@ pub fn place_output(
     open: &[Rect],
 ) -> Rect {
     let first = docked_bounds(wa, bar, size, &bar_anchor.v);
+    // Open windows are taller than a new sheet (B-027): compare the edge
+    // that faces the bar, which both of them share.
+    let edge = |r: &Rect| {
+        if bar_anchor.v == "bottom" {
+            r.y + r.height
+        } else {
+            r.y
+        }
+    };
+    let close = |a: f64, b: f64| (a - b).abs() < CASCADE / 2.0;
     let taken = |r: &Rect| {
         open.iter()
-            .any(|o| (o.x - r.x).abs() < CASCADE / 2.0 && (o.y - r.y).abs() < CASCADE / 2.0)
+            .any(|o| close(o.x, r.x) && close(edge(o), edge(r)))
     };
     let step = if bar_anchor.h == "right" {
         -CASCADE
@@ -401,6 +427,35 @@ mod tests {
         // A maximum holds.
         let capped = nudge_rect(wa(), r, (0.0, 0.0, 900.0, 0.0), lim.0, (900.0, 0.0));
         assert_eq!(capped.width, 900.0);
+    }
+
+    #[test]
+    fn output_glass_keeps_the_sheets_edge() {
+        let wa = Rect::new(0.0, 0.0, 1920.0, 1040.0);
+        let spot = Rect::new(100.0, 700.0, 420.0, 200.0);
+        // Growing up: the bottom edge stays, the room goes above it.
+        let up = output_glass(wa, spot, 686.0, true);
+        assert_eq!(up, Rect::new(100.0, 214.0, 420.0, 686.0));
+        // Growing down near the display's end: only what is left.
+        let down = output_glass(wa, spot, 686.0, false);
+        assert_eq!(down, Rect::new(100.0, 700.0, 420.0, 340.0));
+        // Never below the minimum, whatever is left.
+        let low = Rect::new(100.0, 1000.0, 420.0, 200.0);
+        let kept = output_glass(wa, low, 686.0, false);
+        assert_eq!(kept.height, OUTPUT_MIN_HEIGHT);
+    }
+
+    #[test]
+    fn cascade_sees_taller_windows_above_a_bottom_bar() {
+        let bar = Rect::new(16.0, 950.0, 420.0, 76.0);
+        let bottom = a("left", "bottom", 16.0, 16.0);
+        let size = (420.0, 200.0);
+        let first = place_output(wa(), bar, &bottom, size, &[]);
+        let tall = output_glass(wa(), first, 686.0, true);
+        assert_ne!(tall.y, first.y);
+        let next = place_output(wa(), bar, &bottom, size, &[tall]);
+        assert_eq!(next.x, first.x + CASCADE);
+        assert_eq!(next.y + next.height, first.y + first.height);
     }
 
     #[test]

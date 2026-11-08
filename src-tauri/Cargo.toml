@@ -101,6 +101,8 @@ windows-sys = { version = "0.59", features = [
   "Win32_UI_WindowsAndMessaging",
   # ---- end ----
   # ---- lane: capture ----
+  # The SDR white level of an HDR output (B-109).
+  "Win32_Devices_Display",
   "Win32_Graphics_Gdi",
   # ---- end ----
   # ---- lane: llm ----

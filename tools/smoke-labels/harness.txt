@@ -20,4 +20,6 @@ v2basics
 v21basics
 glassGates
 v2desktop
+v2NotepadOpen
+v2NotepadClosed
 done

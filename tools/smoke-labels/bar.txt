@@ -2,3 +2,18 @@
 # one per line. The rust workflow's Smoke step (tools/smoke-gate.mjs) fails
 # when a listed label never prints or prints =FAIL. List a label in the same
 # commit that makes it print; never remove one to get green.
+# Electron's (PARITY): lib/smoke-v2.js, lib/smoke-v21.js, lib/smoke-glass.js
+intentTable
+intentPrefixes
+intentWorstMs
+intentFast
+intentDoNeedsMargin
+keySwallow
+styleSamples
+styleStable
+barKeys
+suggestionsOnce
+# New with the bar items: B-150, B-154, B-056
+tokenReply
+earlyKeys
+barMultiline

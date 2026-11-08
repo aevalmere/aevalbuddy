@@ -101,7 +101,13 @@ function placeRing(h) {
   if (h.kind !== 'literal' && h.why) {
     why.textContent = h.why;
     why.classList.add('on');
-    const spot = whySpot(h, x, y, why.getBoundingClientRect());
+    const wr = why.getBoundingClientRect();
+    // A capsule while it fits on one line, a card once it wraps.
+    const cs = getComputedStyle(why);
+    const line = parseFloat(cs.lineHeight) || 18;
+    const inner = wr.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    why.classList.toggle('multi', inner > line * 1.5);
+    const spot = whySpot(h, x, y, wr);
     why.style.transform = `translate(${Math.round(spot.left)}px, ${Math.round(spot.top)}px)`;
   } else {
     why.classList.remove('on');
@@ -148,3 +154,6 @@ window.aeval.on('lens:draw', ({ hits, current, frame }) => {
   chip.textContent = frame && frame.chip ? frame.chip : '';
   document.body.dataset.hits = String(hits.length);
 });
+
+// Last, so every listener above is live before main sends the first draw.
+window.aeval.invoke('lens:ready');

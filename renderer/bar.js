@@ -29,6 +29,10 @@ const targetChip = document.getElementById('target-chip');
 const targetText = document.getElementById('target-text');
 const targetNew = document.getElementById('target-new');
 const targetDesc = document.getElementById('target-desc');
+const modelChip = document.getElementById('model-chip');
+const modelChipName = document.getElementById('model-chip-name');
+const modelMenu = document.getElementById('model-menu');
+const modelList = document.getElementById('model-list');
 
 const PREFIX = { find: '/', ask: '?', do: '>' };
 const ENTER_SAYS = { ask: 'Enter asks', find: 'Enter goes to the next match', do: 'Enter starts the task' };
@@ -54,6 +58,15 @@ const bar = {
   // The target's label as last shown, and whether Ctrl+Tab is moving it.
   targetLabel: '',
   cycling: false,
+  // After Enter met "needs a provider", Tab goes to the notice's button.
+  tabToNotice: false,
+  // The model chosen with @ for this one question, null for the usual one.
+  pin: null,
+  // Every ready provider's models, asked for once per opening of the bar.
+  models: null,
+  modelRows: [],
+  // Esc closed the list for this @, so the rest is plain text.
+  modelDismissed: false,
 };
 let findState = null;
 let barHint = '';
@@ -154,29 +167,55 @@ function flipToken(change) {
   }, 260);
 }
 
+// While a task waits on the person, Enter answers it unless they chose an
+// intent outright: asking takes the typed reply, a plan or a pause takes an
+// empty Enter. The token then says so (Reply, Start, Continue).
+const WAIT_NAME = { asking: 'Reply', plan: 'Start', paused: 'Continue' };
+function replyState() {
+  if (bar.lock) return '';
+  const w = agentWaiting();
+  if (w === 'asking') return w;
+  if ((w === 'plan' || w === 'paused') && !input.value.trim()) return w;
+  return '';
+}
+
 function renderToken() {
   fitField();
-  const now = barIntent();
+  const waiting = replyState();
+  const now = waiting ? 'do' : barIntent();
+  const name = waiting ? WAIT_NAME[waiting] : Intent.NAME[now];
+  const locked = !!bar.lock || !!waiting;
+  // At rest the token is only its glyph: nothing is chosen, and Ask, the
+  // default, needs no word. Find, Do, a choice or a reply shows the word.
+  const rest = locked || now !== 'ask' ? 'false' : 'true';
   const wasLocked = token.dataset.locked === 'true';
-  const name = Intent.NAME[now];
-  if (tokenName.textContent !== name || token.dataset.intent !== now) {
+  if (tokenName.textContent !== name || token.dataset.intent !== now || token.dataset.rest !== rest) {
     flipToken(() => {
       token.dataset.intent = now;
+      token.dataset.rest = rest;
       tokenName.textContent = name;
     });
     replayAnim(token, 'swap');
   }
-  token.dataset.locked = bar.lock ? 'true' : 'false';
-  token.dataset.confidence = bar.lock || bar.guess.margin >= 0.25 ? 'high' : 'low';
-  if (bar.lock && !wasLocked) replayAnim(token, 'lock');
-  const how = bar.lock ? 'chosen' : 'guessed';
-  token.setAttribute('aria-label', `${Intent.NAME[now]}, ${how}. Choose what Enter does.`);
-  intentDesc.textContent = `${ENTER_SAYS[now]}${bar.literal ? ', exact words only' : ''}. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.`;
+  token.dataset.locked = locked ? 'true' : 'false';
+  token.dataset.confidence = locked || bar.guess.margin >= 0.25 ? 'high' : 'low';
+  if (locked && !wasLocked) replayAnim(token, 'lock');
+  if (waiting) {
+    token.setAttribute('aria-label', `${name}. Enter sends this to the running task.`);
+    token.setAttribute('aria-disabled', 'true');
+    intentDesc.textContent = 'Enter sends this to the running task. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.';
+  } else {
+    const how = bar.lock ? 'chosen' : 'guessed';
+    token.setAttribute('aria-label', `${Intent.NAME[now]}, ${how}. Choose what Enter does.`);
+    token.removeAttribute('aria-disabled');
+    intentDesc.textContent = `${ENTER_SAYS[now]}${bar.literal ? ', exact words only' : ''}. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.`;
+  }
   // Said once the typing settles, and only when it changed; announcing every
   // keystroke's guess would talk over the person typing.
   clearTimeout(bar.announceTimer);
   bar.announceTimer = setTimeout(() => {
-    const say = `${Intent.NAME[barIntent()]}${bar.lock ? '' : ', guessed'}`;
+    const w = replyState();
+    const say = w ? WAIT_NAME[w] : `${Intent.NAME[barIntent()]}${bar.lock ? '' : ', guessed'}`;
     if (say !== bar.announced && input.value.trim()) {
       bar.announced = say;
       announce(say);
@@ -187,7 +226,52 @@ function renderToken() {
   renderStatus();
   renderNotice();
   renderTarget();
+  renderPin();
+  sendDirty();
 }
+
+// Rust's global Esc stops a waiting task; when the bar holds a half-typed
+// answer it clears that first (U17). It needs to know whether the field
+// has text: sent when that changes, 100 ms after the typing.
+let dirtySent = false;
+let dirtyTimer = null;
+function sendDirty() {
+  clearTimeout(dirtyTimer);
+  dirtyTimer = setTimeout(() => {
+    const dirty = !!input.value;
+    if (dirty === dirtySent) return;
+    dirtySent = dirty;
+    window.aeval.invoke('bar:dirty', { dirty }).catch(() => {});
+  }, 100);
+}
+
+// Listening to a channel Rust has not ported yet throws; the bar works
+// without it.
+function listenSoft(channel, fn) {
+  try {
+    window.aeval.on(channel, fn);
+  } catch (err) {
+    // Not in the bridge's list yet.
+  }
+}
+
+listenSoft('bar:clear', () => {
+  clearField();
+  input.focus();
+});
+
+// A short note from Rust in the status row (the window cap), for 4 s.
+let barNote = '';
+let noteTimer = null;
+listenSoft('bar:note', (p) => {
+  barNote = String((p && p.text) || '');
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => {
+    barNote = '';
+    renderStatus();
+  }, 4000);
+  renderStatus();
+});
 
 // ------------------------------------------------------------- the target
 
@@ -198,7 +282,7 @@ function renderToken() {
 function renderTarget() {
   const t = state.target;
   const title = t && t.title ? String(t.title) : '';
-  const show = !!title && Number(state.visibleOutputs || 0) >= 2 && barIntent() !== 'find';
+  const show = !!title && Number(state.visibleOutputs || 0) >= 2 && barIntent() !== 'find' && !replyState();
   const label = show ? String(t.label || title) : '';
   if (show) {
     const short = title.length > 28 ? `${title.slice(0, 27).trimEnd()}…` : title;
@@ -220,8 +304,7 @@ function renderTarget() {
 }
 
 targetNew.addEventListener('click', () => {
-  window.aeval.invoke('chat:new').catch(() => {});
-  announce('The next question starts a new conversation.');
+  newConversation();
   input.focus();
 });
 
@@ -234,6 +317,194 @@ function cycleTarget(dir) {
     bar.cycling = false;
   });
 }
+
+// ---------------------------------------------------- one question's model
+
+// @ as the first character chooses the model for this one question (U20).
+// Focus stays in the field, so typing goes on narrowing the list; the pick
+// becomes a chip after the token and goes with the question.
+function providerModels(r) {
+  const out = [];
+  for (const p of (r && r.providers) || []) {
+    const seen = new Set();
+    const models = [];
+    for (const g of p.groups || []) {
+      for (const m of g.models || []) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        models.push({ id: m.id, name: m.name || m.id });
+      }
+    }
+    if (models.length) out.push({ id: p.id, name: p.name, models });
+  }
+  return out;
+}
+
+let modelsAsked = false;
+function askForModels() {
+  if (modelsAsked) return;
+  modelsAsked = true;
+  invokeSoft('models:list', {}).then((r) => {
+    modelsAsked = false;
+    bar.models = providerModels(r);
+    syncModelMenu();
+  });
+}
+
+function closeModelMenu() {
+  if (modelMenu.hidden) return;
+  modelMenu.hidden = true;
+  input.removeAttribute('aria-activedescendant');
+  input.removeAttribute('aria-controls');
+  input.removeAttribute('aria-autocomplete');
+  requestResize();
+}
+
+function markModel(at) {
+  bar.modelRows.forEach((row, i) => row.el.setAttribute('aria-selected', i === at ? 'true' : 'false'));
+  if (at < 0) {
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+  input.setAttribute('aria-activedescendant', bar.modelRows[at].el.id);
+  bar.modelRows[at].el.scrollIntoView({ block: 'nearest' });
+}
+
+function markedModel() {
+  return bar.modelRows.findIndex((row) => row.el.getAttribute('aria-selected') === 'true');
+}
+
+function modelOption(row, n) {
+  const el = document.createElement('div');
+  el.id = `model-opt-${n}`;
+  el.setAttribute('role', 'option');
+  const label = document.createElement('span');
+  label.className = 'g-menu-label';
+  label.textContent = row.name;
+  el.appendChild(label);
+  el.addEventListener('click', () => pickModel(row));
+  row.el = el;
+  return el;
+}
+
+function renderModelMenu(filter) {
+  const needle = filter.toLowerCase();
+  const rows = [];
+  modelList.textContent = '';
+  for (const p of bar.models) {
+    const hits = p.models.filter((m) => `${m.name} ${m.id}`.toLowerCase().includes(needle));
+    if (!hits.length) continue;
+    const group = document.createElement('div');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', p.name);
+    const head = document.createElement('div');
+    head.className = 'g-menu-group-label';
+    head.setAttribute('aria-hidden', 'true');
+    head.textContent = p.name;
+    group.appendChild(head);
+    for (const m of hits) {
+      const row = { provider: p.id, providerName: p.name, model: m.id, name: m.name };
+      group.appendChild(modelOption(row, rows.length));
+      rows.push(row);
+    }
+    modelList.appendChild(group);
+  }
+  bar.modelRows = rows;
+  if (!rows.length) {
+    const none = document.createElement('div');
+    none.className = 'g-menu-empty';
+    none.textContent = `No model called "${filter}". Esc to keep typing.`;
+    modelList.appendChild(none);
+    announceSoon(none.textContent);
+  }
+  modelMenu.hidden = false;
+  input.setAttribute('aria-controls', 'model-menu');
+  input.setAttribute('aria-autocomplete', 'list');
+  markModel(rows.length ? 0 : -1);
+  requestResize();
+}
+
+// Called on every change to the field. A provider with no models, or none
+// ready, leaves the @ as ordinary text.
+function syncModelMenu() {
+  const v = input.value;
+  const typed = v.startsWith('@');
+  if (!typed) bar.modelDismissed = false;
+  if (!typed || bar.modelDismissed || bar.pin || replyState()) {
+    closeModelMenu();
+    return;
+  }
+  if (!bar.models) {
+    askForModels();
+    return;
+  }
+  if (bar.models.length) renderModelMenu(v.slice(1).trim());
+  else closeModelMenu();
+}
+
+function pickModel(row) {
+  bar.pin = { provider: row.provider, providerName: row.providerName, model: row.model, name: row.name };
+  input.value = '';
+  closeModelMenu();
+  classifyNow();
+  renderExamplesShown();
+  announce(`${row.name} for this question`);
+  input.focus();
+}
+
+function clearPin(say) {
+  if (!bar.pin) return;
+  bar.pin = null;
+  renderPin();
+  if (say) announce('Model choice removed');
+}
+
+function renderPin() {
+  const p = bar.pin;
+  if (p) {
+    const find = barIntent() === 'find';
+    modelChipName.textContent = p.name;
+    modelChip.setAttribute('aria-label', `Model for this question: ${p.name} via ${p.providerName}. Press to remove.`);
+    modelChip.dataset.ignored = find ? 'true' : 'false';
+    if (find) modelChip.title = 'Find uses the Find model';
+    else modelChip.removeAttribute('title');
+  }
+  if (modelChip.hidden === !p) return;
+  modelChip.hidden = !p;
+  requestResize();
+}
+
+// True when the list took the key.
+function modelKey(e) {
+  if (modelMenu.hidden || e.ctrlKey || e.altKey || e.metaKey) return false;
+  const rows = bar.modelRows;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (rows.length) markModel((markedModel() + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length);
+    return true;
+  }
+  if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+    e.preventDefault();
+    if (rows.length) pickModel(rows[Math.max(0, markedModel())]);
+    return true;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    bar.modelDismissed = true;
+    closeModelMenu();
+    return true;
+  }
+  return false;
+}
+
+// The field keeps focus through a click on the list.
+modelMenu.addEventListener('pointerdown', (e) => e.preventDefault());
+input.addEventListener('blur', closeModelMenu);
+modelChip.addEventListener('click', () => {
+  clearPin(true);
+  input.focus();
+});
 
 function setLock(next, opts) {
   const o = opts || {};
@@ -273,6 +544,8 @@ function takePrefix() {
 // ------------------------------------------------------------- the menu
 
 function openMenu() {
+  // Enter belongs to the running task; Ctrl+1/2/3 or a prefix still choose.
+  if (replyState()) return;
   intentMenu.hidden = false;
   token.setAttribute('aria-expanded', 'true');
   const opts = [...intentMenu.querySelectorAll('[role="option"]')];
@@ -290,7 +563,52 @@ function closeMenu(refocus) {
   requestResize();
 }
 
-token.addEventListener('click', () => (intentMenu.hidden ? openMenu() : closeMenu(true)));
+token.addEventListener('click', () => {
+  hideTip();
+  if (intentMenu.hidden) openMenu();
+  else closeMenu(true);
+});
+
+// The token's key hints as a glass row under it (U44): after 600 ms of
+// keyboard focus or 400 ms of hover. While it shows on hover, the system
+// tooltip, which says the same, steps aside.
+const tokenTip = document.getElementById('token-tip');
+let tipTimer = null;
+function showTip(delay) {
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => {
+    if (!intentMenu.hidden || !tokenTip.hidden) return;
+    tokenTip.hidden = false;
+    requestResize();
+  }, delay);
+}
+function hideTip() {
+  clearTimeout(tipTimer);
+  if (tokenTip.hidden) return;
+  tokenTip.hidden = true;
+  requestResize();
+}
+token.addEventListener('pointerenter', () => {
+  if (token.title) {
+    token.dataset.title = token.title;
+    token.removeAttribute('title');
+  }
+  showTip(400);
+});
+token.addEventListener('pointerleave', () => {
+  if (token.dataset.title) {
+    token.title = token.dataset.title;
+    delete token.dataset.title;
+  }
+  if (!token.matches(':focus-visible')) hideTip();
+});
+token.addEventListener('focus', () => {
+  if (token.matches(':focus-visible')) showTip(600);
+});
+token.addEventListener('blur', hideTip);
+token.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab') hideTip();
+});
 intentMenu.addEventListener('click', (e) => {
   const o = e.target.closest('[role="option"]');
   if (!o) return;
@@ -321,12 +639,12 @@ intentMenu.addEventListener('keydown', (e) => {
 // A task that was only guessed. Enter answers it as a question; doing it on
 // the computer is a click, or Alt+Enter while the card is showing.
 function renderGuess() {
-  const show = !bar.lock && bar.guess.intent === 'do' && !!input.value.trim();
+  const show = !bar.lock && !replyState() && bar.guess.intent === 'do' && !!input.value.trim();
   if (guess.hidden === !show) return;
   guess.hidden = !show;
   if (show) {
-    guessText.textContent = 'This reads like a task. Enter answers it; AevalBuddy can also do it on your computer.';
-    announce('This reads like a task. Enter answers it. Alt+Enter runs it.');
+    guessText.textContent = 'This sounds like a task. Enter just answers it; AevalBuddy can also do it on your computer.';
+    announce('This sounds like a task. Enter answers it. Alt+Enter does it for you.');
   }
   requestResize();
 }
@@ -345,7 +663,7 @@ guessFind.addEventListener('click', () => {
 // A guess that flickers between Find and Ask while typing waits a moment
 // before the lens is opened or closed, so it does not blink.
 function syncFind() {
-  const want = barIntent() === 'find' && !!input.value.trim();
+  const want = barIntent() === 'find' && !!input.value.trim() && !replyState();
   clearTimeout(bar.findSwitch);
   if (want === bar.findOn) {
     if (want) queryFind();
@@ -380,6 +698,7 @@ function renderStatus() {
   } else {
     findScopeBtn.hidden = true;
   }
+  if (barNote) text = barNote;
   if (barHint) text = barHint;
   if (barStatusText.textContent !== text && text) announceSoon(text);
   barStatusText.textContent = text;
@@ -487,6 +806,7 @@ function pushHistory(text) {
 function clearField() {
   input.value = '';
   bar.prefixed = '';
+  bar.pin = null;
   setLock(null);
   renderExamplesShown();
 }
@@ -496,6 +816,8 @@ function clearField() {
 function send(what) {
   const text = input.value;
   const body = text.trim();
+  // Read before clearField, which gives the choice back.
+  const pin = bar.pin ? { provider: bar.pin.provider, model: bar.pin.model } : {};
   barHint = '';
   if (body) markSent();
   const recallAs = bar.lock && PREFIX[bar.lock] ? `${bar.literal ? '//' : PREFIX[bar.lock]}${body}` : body;
@@ -511,7 +833,7 @@ function send(what) {
       return;
     }
     pushHistory(`>${body}`);
-    window.aeval.invoke('agent:start', { task: body }).then((r) => {
+    window.aeval.invoke('agent:start', { task: body, ...pin }).then((r) => {
       // Waiting on consent keeps the words: declining must not cost them.
       if (r && (r.status === 'started' || r.status === 'offline')) clearField();
       else if (r && r.status === 'busy') barHint = 'A task is already running. Esc stops it.';
@@ -519,6 +841,7 @@ function send(what) {
       else if (r && r.status === 'needs-key') barHint = '';
       renderStatus();
       renderNotice();
+      if (r && r.status === 'needs-key') needsKey('do');
     });
     return;
   }
@@ -527,9 +850,21 @@ function send(what) {
   // Cleared at once, like a messaging app; the transcript echoes it. With
   // no key the text stays so nothing typed is lost.
   if (state.hasKey) clearField();
-  window.aeval.invoke('query:submit', { question: body, inferred }).then((result) => {
+  window.aeval.invoke('query:submit', { question: body, inferred, ...pin }).then((result) => {
     if (result && result.status === 'walkthrough') clearField();
+    else if (result && result.status === 'needs-key') needsKey('ask');
   });
+}
+
+// Enter with no provider connected: the notice that says so nudges, the
+// reason is said at once, and Tab from the field goes straight to its
+// button (U23).
+function needsKey(what) {
+  renderNotice();
+  if (notice.hidden) return;
+  replayAnim(notice, 'nudge');
+  announce(`${what === 'do' ? 'Tasks' : 'Answers'} need an AI provider. Press Tab to connect one.`, 'assertive');
+  bar.tabToNotice = true;
 }
 
 // A run that is waiting on the person: a question (asking), its plan
@@ -559,19 +894,25 @@ function syncBarFromState() {
     announce('The task has a question. Type your answer here and press Enter.', 'assertive');
   }
   renderExamplesShown();
-  renderTarget();
+  // The token tells the truth about Enter as the task moves (Reply, Start,
+  // Continue); it also re-renders the target chip.
+  if (w !== was) renderToken();
+  else renderTarget();
 }
 
 function onEnter(e) {
-  const waiting = agentWaiting();
+  // A task waiting on the person gets Enter, unless they chose an intent
+  // outright (a prefix, Ctrl+1/2/3, the menu), which is honoured.
+  const waiting = replyState();
   const typed = input.value.trim();
-  if (waiting === 'asking' && typed) {
+  if (waiting === 'asking') {
+    if (!typed) return;
     pushHistory(typed);
     window.aeval.invoke('agent:continue', { text: typed });
     clearField();
     return;
   }
-  if ((waiting === 'plan' || waiting === 'paused') && !typed) {
+  if (waiting === 'plan' || waiting === 'paused') {
     window.aeval.invoke('agent:continue', {});
     return;
   }
@@ -605,10 +946,12 @@ function onEnter(e) {
 
 function onInput() {
   barHint = '';
+  bar.tabToNotice = false;
   if (bar.recall >= 0 && input.value !== bar.history[bar.recall]) bar.recall = -1;
   takePrefix();
   classifyNow();
   renderExamplesShown();
+  syncModelMenu();
 }
 
 input.placeholder = PLACEHOLDER;
@@ -617,6 +960,7 @@ input.addEventListener('input', onInput);
 input.addEventListener('keydown', (e) => {
   // An IME is still composing: Enter picks the candidate, not the action.
   if (e.isComposing || e.keyCode === 229) return;
+  if (modelKey(e)) return;
   if (e.ctrlKey && !e.altKey && !e.shiftKey && ['1', '2', '3'].includes(e.key)) {
     e.preventDefault();
     setLock(Intent.INTENTS[Number(e.key) - 1], { say: true });
@@ -632,7 +976,13 @@ input.addEventListener('keydown', (e) => {
     window.aeval.invoke('ui:focus-answer');
     return;
   }
-  // The first Backspace on an empty field gives the lock back.
+  // Backspace at the start gives back what sits before the text: the model
+  // first, then the lock.
+  if (e.key === 'Backspace' && bar.pin && input.selectionStart === 0 && input.selectionEnd === 0) {
+    e.preventDefault();
+    clearPin(true);
+    return;
+  }
   if (e.key === 'Backspace' && bar.lock && input.selectionStart === 0 && input.selectionEnd === 0) {
     e.preventDefault();
     bar.prefixed = '';
@@ -644,6 +994,12 @@ input.addEventListener('keydown', (e) => {
     cycleTarget(e.shiftKey ? -1 : 1);
     return;
   }
+  if (e.key === 'Tab' && !e.shiftKey && !e.altKey && bar.tabToNotice && !notice.hidden && !noticeSettings.hidden) {
+    e.preventDefault();
+    bar.tabToNotice = false;
+    noticeSettings.focus();
+    return;
+  }
   if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.altKey && !e.shiftKey && !e.ctrlKey) {
     const dir = e.key === 'ArrowUp' ? -1 : 1;
     if (caretAtEdge(dir) && recallKey(dir)) e.preventDefault();
@@ -653,7 +1009,7 @@ input.addEventListener('keydown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     // Text first, then the bar.
-    if (input.value || bar.lock) {
+    if (input.value || bar.lock || bar.pin) {
       clearField();
       announce('Cleared');
     } else {
@@ -696,6 +1052,73 @@ function recallKey(dir) {
   renderExamplesShown();
   return true;
 }
+
+// The bar's keyboard layer (U19). Pages see keys before the bridge blocks
+// WebView2's own (Ctrl+R reload, Ctrl+W close, Ctrl+H history, Ctrl+N new
+// window), so these chords are free to mean what they mean here. Chords on
+// the target window wait for Rust to name one (overlay:state.target).
+function invokeSoft(channel, payload) {
+  return window.aeval.invoke(channel, payload).catch(() => null);
+}
+
+function targetLabel() {
+  return state.target && state.target.label ? String(state.target.label) : '';
+}
+
+function newConversation() {
+  invokeSoft('chat:new');
+  announce('The next question starts a new conversation.');
+}
+
+function closeTarget(all) {
+  if (!targetLabel()) return;
+  if (all) invokeSoft('output:close-all');
+  else invokeSoft('output:close', { label: targetLabel() });
+}
+
+function copyLastAnswer() {
+  const label = targetLabel();
+  if (!label) return;
+  invokeSoft('output:last-answer', { label }).then((r) => {
+    const text = typeof r === 'string' ? r : r && typeof r.text === 'string' ? r.text : '';
+    if (!text) return;
+    const done = () => announce('Copied the last answer.');
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => {});
+  });
+}
+
+function stopRunning() {
+  if (state.agent && state.agent.running) invokeSoft('agent:stop');
+  else invokeSoft('query:cancel');
+}
+
+const BAR_CHORDS = {
+  'Ctrl+n': newConversation,
+  'Ctrl+w': () => closeTarget(false),
+  'Ctrl+Shift+w': () => closeTarget(true),
+  'Ctrl+Shift+c': copyLastAnswer,
+  'Ctrl+.': stopRunning,
+  'Ctrl+Shift+r': () => invokeSoft('query:retry', targetLabel() ? { label: targetLabel() } : {}),
+  'Ctrl+r': () => invokeSoft('region:pick'),
+  'Ctrl+,': () => invokeSoft('overlay:open-settings'),
+  'Ctrl+h': () => invokeSoft('overlay:open-history'),
+};
+
+function chordOf(e) {
+  let k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  // Shift turns . and , into > and < on most layouts; the code is steadier.
+  if (e.code === 'Period') k = '.';
+  else if (e.code === 'Comma') k = ',';
+  return `${e.ctrlKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.shiftKey ? 'Shift+' : ''}${k}`;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (state.mode !== 'panel' || e.defaultPrevented || e.isComposing || e.metaKey) return;
+  const run = BAR_CHORDS[chordOf(e)];
+  if (!run) return;
+  e.preventDefault();
+  run();
+});
 
 // Escape anywhere else in the window: the menu, then the bar.
 window.addEventListener('keydown', (e) => {
@@ -757,6 +1180,8 @@ function barOpened() {
   bar.recall = -1;
   // Closing the bar closed Find with it.
   bar.findOn = false;
+  // A key added since the last time shows up in the @ list.
+  bar.models = null;
   window.aeval.invoke('bar:history').then((h) => {
     if (Array.isArray(h)) bar.history = h;
   });

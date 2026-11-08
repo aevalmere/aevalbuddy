@@ -44,6 +44,12 @@ impl Report {
         self.failed.lock().push(label.to_string());
     }
 
+    /// Counts musts another reporter printed and failed (the desktop
+    /// selfcheck has its own), so they decide the exit code too.
+    pub fn absorb(&self, labels: impl IntoIterator<Item = String>) {
+        self.failed.lock().extend(labels);
+    }
+
     /// The labels whose must failed, in order.
     pub fn failures(&self) -> Vec<String> {
         self.failed.lock().clone()
@@ -91,6 +97,8 @@ mod tests {
         clone.must("b", false, "why");
         rep.must("c", false, "");
         assert_eq!(rep.failures(), ["b", "c"]);
+        rep.absorb(vec!["desktopReady".to_string()]);
+        assert_eq!(rep.failures(), ["b", "c", "desktopReady"]);
         assert_eq!(rep.finish(), 1);
         assert_eq!(Report::new("TEST").finish(), 0);
         assert_eq!(Report::new("TEST").error("boom"), 1);

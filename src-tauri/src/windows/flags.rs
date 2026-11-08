@@ -44,6 +44,7 @@ const WDA_EXCLUDEFROMCAPTURE: u32 = 0x11;
 const PBT_APMRESUMEAUTOMATIC: usize = 0x12;
 const WM_DISPLAYCHANGE: u32 = 0x007E;
 const WM_STYLECHANGING: u32 = 0x007C;
+const WM_NCLBUTTONDOWN: u32 = 0x00A1;
 const SUBCLASS_ID: usize = 0xAEBA;
 
 /// STYLESTRUCT: what WM_STYLECHANGING's lParam points at.
@@ -77,6 +78,9 @@ pub struct Meta {
     pub min: (f64, f64),
     /// 0 = no limit on that axis.
     pub max: (f64, f64),
+    /// The visible sheet inside the glass: its top and height, or None when
+    /// the whole glass is visible (B-027).
+    pub sheet: Option<(f64, f64)>,
 }
 
 fn metas() -> &'static Mutex<HashMap<isize, Meta>> {
@@ -513,10 +517,51 @@ pub fn hit_test(win: Rect, margin: f64, band: f64, resize: Resize, x: f64, y: f6
     }
 }
 
+/// B-027: the window as far as the resize bands are concerned: cut down to
+/// the visible sheet and its margin. `win` and `margin` are px; `sheet` is
+/// in DIPs at scale `s`.
+fn sheet_window(win: Rect, margin: f64, sheet: Option<(f64, f64)>, s: f64) -> Rect {
+    match sheet {
+        Some((top, height)) if height > 0.0 => {
+            Rect::new(win.x, win.y + top * s, win.width, height * s + 2.0 * margin)
+        }
+        _ => win,
+    }
+}
+
 fn band_hit(hwnd: isize, x: f64, y: f64) -> Option<u32> {
     let m = meta(hwnd);
     let s = scale_of(hwnd);
-    hit_test(rect_px(hwnd), m.margin * s, BAND * s, m.resize, x, y)
+    let win = sheet_window(rect_px(hwnd), m.margin * s, m.sheet, s);
+    hit_test(win, m.margin * s, BAND * s, m.resize, x, y)
+}
+
+fn label_of(hwnd: isize) -> Option<String> {
+    let map = labels().lock();
+    map.iter()
+        .find(|(_, h)| **h == hwnd)
+        .map(|(l, _)| l.clone())
+}
+
+/// B-027: a resize starts on the sheet, which can be shorter than the
+/// window. The window becomes the sheet first, so the edge the OS tracks
+/// is the one the person took hold of.
+fn fit_to_sheet(hwnd: isize) {
+    let m = meta(hwnd);
+    let Some((_, height)) = m.sheet else {
+        return;
+    };
+    let s = scale_of(hwnd);
+    let win = rect_px(hwnd);
+    let fitted = sheet_window(win, m.margin * s, m.sheet, s);
+    if is_maximized(hwnd) || (fitted.height - win.height).abs() < 1.0 {
+        return;
+    }
+    super::motion::stop(hwnd);
+    set_rect_px(hwnd, fitted);
+    if let (Some(app), Some(label)) = (APP.get(), label_of(hwnd)) {
+        super::outputs::on_resize_start(app, &label, height);
+    }
 }
 
 /// B-090: a panic in the handling never unwinds into Win32; the message
@@ -582,6 +627,9 @@ unsafe fn on_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Op
                 super::on_display_change(app);
             }
         }
+        // HTLEFT to HTBOTTOMRIGHT: the native band or the page's
+        // startResizeDragging, which posts this same message.
+        WM_NCLBUTTONDOWN if (10..=17).contains(&wparam) => fit_to_sheet(key),
         WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
             let keep = no_activate().lock().contains(&key);
             let change = &mut *(lparam as *mut StyleStruct);
@@ -771,6 +819,28 @@ mod tests {
         assert_eq!(t(300.0, 114.0), None);
         assert_eq!(t(116.0, 116.0), None);
         assert_eq!(hit_test(win(), 20.0, 8.0, Resize::None, 115.0, 200.0), None);
+    }
+
+    /// B-027: with a tall window around a short sheet, the bands are on the
+    /// sheet's edges, not the window's, whichever way the sheet grows.
+    #[test]
+    fn bands_follow_the_sheet() {
+        let win = Rect::new(100.0, 100.0, 460.0, 768.0);
+        let band = |sheet, x, y| {
+            let cut = sheet_window(win, 20.0, sheet, 1.0);
+            hit_test(cut, 20.0, BAND, Resize::All, x, y)
+        };
+        // Growing down: 200 tall from the glass's top (y 120 to 320).
+        let down = Some((0.0, 200.0));
+        assert_eq!(band(down, 300.0, 320.0), Some(15));
+        assert_eq!(band(down, 300.0, 848.0), None);
+        // Growing up: its top at y 648, its bottom on the glass's bottom.
+        let up = Some((528.0, 200.0));
+        assert_eq!(band(up, 300.0, 648.0), Some(12));
+        assert_eq!(band(up, 300.0, 848.0), Some(15));
+        assert_eq!(band(up, 300.0, 120.0), None);
+        // Nothing reported yet: the whole glass.
+        assert_eq!(band(None, 300.0, 848.0), Some(15));
     }
 
     /// The values the bar lane's `styleStable` probe sampled: tao's rewrite
