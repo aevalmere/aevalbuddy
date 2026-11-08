@@ -267,6 +267,9 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- C1 green at f343f64 (rust run 42453705672). K-10 `windows::screen::{latch_active, latched, work_area_of}` (`active` is still pointer-first until B-032), K-11 `windows::screen::forced_scale` (pub), K-12 `region::set_active_on(rect: Rect, device: &str)`, K-13 `buddy::agent_point_phys(pt_px: (f64, f64), label: &str)` (async).
+- In progress: B-005 canonical layout in `capture/screen.rs` and `windows/screen.rs` (uncommitted when this line was written).
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
