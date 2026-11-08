@@ -12,6 +12,13 @@
   /* The rim that keeps a ring legible against pale content, the job
      --danger-edge does for the warning. */
   --hit-rim: rgb(0 0 0 / 0.55);
+  /* The loupe's inner light and drop shadow, the chips' fill and top light,
+     and the plate's outer rim. */
+  --loupe-light: rgb(255 255 255 / 0.35);
+  --loupe-shadow: rgb(0 0 0 / 0.35);
+  --chip-fill: rgb(var(--tint) / 0.9);
+  --chip-light: rgb(255 255 255 / 0.16);
+  --plate-rim: rgb(0 0 0 / 0.5);
 }
 
 * {
@@ -97,8 +104,8 @@ body {
 #ring.loupe-on .loupe {
   opacity: 1;
   transform: scale(1.18);
-  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.35), 0 0 0 1.5px var(--accent-bright),
-    0 0 0 2.5px var(--hit-rim), 0 6px 16px rgb(0 0 0 / 0.35);
+  box-shadow: inset 0 0 0 var(--px) var(--loupe-light), 0 0 0 1.5px var(--accent-bright),
+    0 0 0 2.5px var(--hit-rim), 0 6px 16px var(--loupe-shadow);
   transition: transform var(--d-morph) var(--ease-settle), opacity var(--d-fast) ease;
 }
 
@@ -111,8 +118,8 @@ body {
   top: 0;
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-cap);
-  background: rgb(var(--tint) / 0.9);
-  box-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.16), inset 0 0 0 var(--px) var(--hairline),
+  background: var(--chip-fill);
+  box-shadow: inset 0 var(--px) 0 var(--chip-light), inset 0 0 0 var(--px) var(--hairline),
     var(--shadow-menu);
   color: var(--label);
   font-size: var(--fs-row);
@@ -151,7 +158,7 @@ body {
   inset: var(--px);
   border: 2px solid var(--accent);
   border-radius: var(--r-plate);
-  box-shadow: 0 0 0 var(--px) rgb(0 0 0 / 0.5);
+  box-shadow: 0 0 0 var(--px) var(--plate-rim);
   opacity: 0;
   transition: opacity var(--d-fast) ease;
 }
