@@ -42,7 +42,7 @@ const STRUCTURE: &str = r#"(() => {
     '# One', '## Two', '',
     '1. first', '2. second', '',
     '3. third', '   - nested', '4. fourth', '',
-    '| A | B |', '|:--|--:|', '| x | y |', '',
+    '| A | B |', '|:---|---:|', '| x | y |', '',
     'See [the book](https://doc.rust-lang.org/book/).', '',
     '<img src=x onerror="window.__pwned=1">',
   ].join('\n'));

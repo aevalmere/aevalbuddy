@@ -74,11 +74,19 @@ async function heard(t, name) {
 }
 
 // Playwright leaves time running after clock.install, so a clock scene stops
-// it first: from here on only t.tick and t.settle move it.
-async function stopClock(t) {
+// it first: from there only t.tick and t.settle move it. The clock belongs to
+// the browser context and every later page replays its calls, so the scene
+// starts it again on the way out; a stopped clock would freeze every scene
+// after this one.
+const onStoppedClock = (run) => async (t) => {
   const now = await t.page.evaluate(() => Date.now());
   await t.page.clock.pauseAt(now + 1000);
-}
+  try {
+    await run(t);
+  } finally {
+    await t.page.clock.resume();
+  }
+};
 
 const key = (f, k, mods) =>
   f.evaluate(
@@ -300,9 +308,79 @@ async function barAndAnswer(t, outName = 'out1', meta) {
   return { bar, out, rect, local: await localBar(out, rect) };
 }
 
+// B-145's three rules, held to the sheet's regions of overlay.css.
+function lintSheetCss(text) {
+  const lines = text.split(/\r?\n/);
+  const at = (name) => lines.findIndex((l) => l.startsWith('/* ------') && new RegExp(`-+ ${name}(\\W|$)`).test(l));
+  const regions = [
+    [at('answer sheet'), at('layout editor')],
+    [at('find'), at('reduced motion')],
+  ];
+  if (regions.flat().some((n) => n < 0)) return ['a region banner in overlay.css has moved'];
+  const bad = [];
+  let depth = 0;
+  let root = false;
+  let inComment = false;
+  lines.forEach((raw, i) => {
+    let code = '';
+    let rest = raw;
+    while (rest) {
+      if (inComment) {
+        const e = rest.indexOf('*/');
+        if (e < 0) break;
+        inComment = false;
+        rest = rest.slice(e + 2);
+      } else {
+        const b = rest.indexOf('/*');
+        if (b < 0) {
+          code += rest;
+          break;
+        }
+        code += rest.slice(0, b);
+        inComment = true;
+        rest = rest.slice(b + 2);
+      }
+    }
+    const opens = (code.match(/\{/g) || []).length;
+    const closes = (code.match(/\}/g) || []).length;
+    if (depth === 0 && opens && /^\s*:root\b/.test(code)) root = true;
+    if (!root && regions.some(([a, b]) => i > a && i < b)) {
+      const n = i + 1;
+      if (/border-radius\s*:[^;]*\b(4|5|8|10|12|14|18|20)px/.test(code)) bad.push(`${n} radius`);
+      const sp = code.match(/^\s*(padding[\w-]*|gap|row-gap|column-gap)\s*:\s*([^;]*)/);
+      if (sp) {
+        for (const m of sp[2].replace(/var\([^)]*\)/g, '').matchAll(/(\d+(?:\.\d+)?)px/g)) {
+          const v = Number(m[1]);
+          if (v % 4 === 0) continue;
+          if (v === 2 && /\/\*\s*(hairline|optical)\b/.test(raw)) continue;
+          bad.push(`${n} grid ${m[0]}`);
+        }
+      }
+      if (/rgba?\(|hsla?\(|#[0-9a-fA-F]{3,8}\b/.test(code)) bad.push(`${n} colour`);
+    }
+    depth += opens - closes;
+    if (depth <= 0) {
+      depth = 0;
+      root = false;
+    }
+  });
+  return bad;
+}
+
 // ------------------------------------------------------------ file checks
 
 export const checks = [
+  // B-183: overlay.css is shared with the bar, so it cannot join
+  // cssLintEnforce whole until B-148; the sheet's regions are held to B-145's
+  // three rules here.
+  {
+    name: 'sheetCssLint',
+    run: (ctx) => {
+      const bad = lintSheetCss(ctx.read('renderer/overlay.css'));
+      return bad.length ? `${bad.length} violations: ${bad.slice(0, 8).join(', ')}` : true;
+    },
+  },
+
   // B-063, and the hard rule: answer text never becomes markup, script or a
   // link that leaves http(s). markdown.js runs under node with no DOM.
   {
@@ -492,8 +570,7 @@ export const scenes = [
     backdrop: 'wallpaper',
     clock: true,
     windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const { out, local } = await barAndAnswer(t);
       const glass = await barGlassOf(t);
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
@@ -532,7 +609,7 @@ export const scenes = [
         clip: document.getElementById('opanel').style.clipPath,
       }));
       t.check('globOpenOnClock', !early && done.done && done.clean && !done.clip, `done at 470 ms=${early}; at 530 ms ${JSON.stringify(done)}`);
-    },
+    }),
   },
 
   // B-062 (§4 state 37): the close, frame by frame.
@@ -541,8 +618,7 @@ export const scenes = [
     backdrop: 'wallpaper',
     clock: true,
     windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const { out, local } = await barAndAnswer(t);
       const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h };
       for (const pct of [0, 25, 50, 75, 100]) {
@@ -556,7 +632,7 @@ export const scenes = [
         return r.width * r.height;
       });
       t.check('globCloseEndsInBar', polys.length > 0 && area / sheet < 0.03, `the last close frame is ${((area / sheet) * 100).toFixed(1)}% of the sheet`);
-    },
+    }),
   },
 
   // B-062 (§4 state 38): a sheet above the bar grows up out of its top edge.
@@ -918,8 +994,7 @@ export const scenes = [
     backdrop: 'wallpaper',
     clock: true,
     windows: [outWin('out1', OUT1)],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const f = t.frame('out1');
       await listenAloud(f);
       await emitAll(f, [
@@ -953,7 +1028,7 @@ export const scenes = [
       }));
       const said = (await heard(t, 'out1')).filter((x) => /busy/.test(x.text));
       t.check('busyCountsDown', /12 s/.test(before) && /\b(8|9) s\./.test(after.text) && after.note && after.clock && said.length === 1 && said[0].priority === 'polite', JSON.stringify({ before, after, said }));
-    },
+    }),
   },
 
   // B-166 (§3.4): a paid hop asks first.
@@ -1031,8 +1106,7 @@ export const scenes = [
     backdrop: 'wallpaper',
     clock: true,
     windows: [outWin('out1', OUT1, { max: 900 })],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const f = t.frame('out1');
       await ask(f);
       await t.settle(600);
@@ -1066,7 +1140,7 @@ export const scenes = [
         btn.label === 'Start over in this window' && btn.title === 'Start over' && !!row && row.text === 'Started over. The last conversation is in History.' && row.undo && row.shown && !!undo && undo.label === 'out1' && refused === "Couldn't bring it back here. It is in History." && empty === 'Your next question goes here.',
         JSON.stringify({ btn, row, undo, refused, empty })
       );
-    },
+    }),
   },
 
   // B-065 (§4 state 22): the title bar at rest and under the pointer.
@@ -1294,6 +1368,7 @@ export const scenes = [
         ['agent:done', { state: 'done', text: 'Renamed **14 screenshots** in Downloads by the date they were taken.', usage: { calls: 6, ms: 42000 } }],
       ]);
       await t.settle(300);
+      await t.shot('sheet-task-done-collapsed', await clipOf(t, 'out1'));
       await f.evaluate(() => document.querySelector('.trail-toggle').click());
       await t.settle(300);
       await t.shot('sheet-task-done-expanded', await clipOf(t, 'out1'));
@@ -1372,8 +1447,7 @@ export const scenes = [
     clock: true,
     scales: [1],
     windows: [outWin('out1', OUT1, { max: 900 })],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const f = t.frame('out1');
       await listenAloud(f);
       await emitAll(f, [
@@ -1397,7 +1471,7 @@ export const scenes = [
         first.length === 1 && first[0] === 'Step 1: Open File Explorer' && second.length === 2 && second[1] === 'Step 3: Sort by date' && fail.length === 1 && fail[0].priority === 'assertive',
         JSON.stringify({ first, second, fail })
       );
-    },
+    }),
   },
 
   // B-007 (and B-183's settle): the confirm card shows the whole text that
@@ -1407,8 +1481,7 @@ export const scenes = [
     backdrop: 'wallpaper',
     clock: true,
     windows: [outWin('out1', OUT1, { max: 900 })],
-    async run(t) {
-      await stopClock(t);
+    run: onStoppedClock(async (t) => {
       const f = t.frame('out1');
       await emitAll(f, [
         ['overlay:state', { mode: 'panel', chatMax: 640 }],
@@ -1462,7 +1535,7 @@ export const scenes = [
       await t.tick(700);
       const after = await f.evaluate(() => [...document.querySelectorAll('.confirm-actions button')].map((b) => `${b.getAttribute('aria-disabled')}:${b.classList.contains('settling')}`));
       t.check('confirmSweepThenEnable', sweep.join(',') === 'true:true,true:true' && tooSoon === 0 && after.join(',') === 'null:false,null:false', JSON.stringify({ sweep, tooSoon, after }));
-    },
+    }),
   },
 
   // B-171 (§4 state 27): the consent sheet names who receives the screen.
@@ -1606,6 +1679,350 @@ export const scenes = [
         status: await inset(t.frame('o3'), '.trail-status'),
       };
       t.check('textInsetIs16InEveryKind', Object.values(got).every((v) => v === 16), JSON.stringify(got));
+    },
+  },
+
+  // ------------------------------------------- the rest of design-visual §4
+
+  // State 14: thinking, then a free model's long wait.
+  {
+    name: 'sheet-thinking',
+    backdrop: 'wallpaper',
+    clock: true,
+    windows: [outWin('out1', OUT1)],
+    run: onStoppedClock(async (t) => {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640 }],
+        ['chat:user', { gen: 1, text: Q }],
+        ['query:start', { gen: 1, modelName: 'Gemma 3 27B' }],
+        ['query:stage', { gen: 1, label: 'Reading the screen' }],
+      ]);
+      await t.settle(500);
+      await t.shot('sheet-thinking', await clipOf(t, 'out1'));
+      const stage = await f.evaluate(() => document.querySelector('.stage-label').textContent);
+      await t.tick(12000);
+      await t.shot('sheet-long-wait', await clipOf(t, 'out1'));
+      const wait = await f.evaluate(() => {
+        const e = document.querySelector('.stage-label');
+        return { text: e.textContent, title: e.title };
+      });
+      t.check('longWaitNamesTheModel', stage === 'Reading the screen' && /^Waiting for Gemma 3 27B · \d+ s$/.test(wait.text) && /queue/.test(wait.title), JSON.stringify({ stage, wait }));
+    }),
+  },
+
+  // State 15: a stream stopped inside an open fence.
+  {
+    name: 'sheet-mid-stream-fence',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1, { max: 900 })],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640 }],
+        ['chat:user', { gen: 1, text: Q }],
+        ['query:start', { gen: 1 }],
+        ['query:delta', { gen: 1, text: 'Run this:\n\n```js\nconst a = 1;\nconst b' }],
+      ]);
+      await t.settle(300);
+      await t.shot('sheet-mid-stream-fence', await clipOf(t, 'out1'));
+      const s = await f.evaluate(() => {
+        const body = document.querySelector('.msg.assistant .md-body');
+        const code = body.querySelector('.md-code pre code');
+        return { code: code ? code.textContent : null, fence: body.textContent.includes('```') };
+      });
+      t.check('openFenceIsCode', !!s.code && s.code.includes('const b') && !s.fence, JSON.stringify(s));
+    },
+  },
+
+  // State 16: Copy pressed, Do it shown, and a guessed question that may
+  // have been a word to find.
+  {
+    name: 'sheet-done-actions',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1, { max: 900 })],
+    async run(t) {
+      const f = t.frame('out1');
+      await ask(f, { q: 'pair my headphones', a: 'Pair them in Settings:\n\n1. Open Settings.\n2. Click Bluetooth & devices.\n3. Press Add device.', done: { inferred: true } });
+      await t.settle(600);
+      await f.evaluate(() => document.querySelector('.msg.assistant .copy-msg').click());
+      await t.settle(200);
+      await t.shot('sheet-done-copied', await clipOf(t, 'out1'));
+      const s = await f.evaluate(() => {
+        const b = [...document.querySelectorAll('.msg.assistant .copy-msg')];
+        return { copy: b[0].textContent, doIt: !document.querySelector('.msg.assistant .do-it').hidden, find: b.some((x) => x.textContent === 'Find this on screen instead') };
+      });
+      await f.evaluate(() => [...document.querySelectorAll('.msg.assistant .copy-msg')].find((b) => b.textContent === 'Find this on screen instead').click());
+      await t.settle(60);
+      const open = payloadOf(await t.calls('out1', 'find:open'));
+      t.check('doneOffersNextActions', s.copy === 'Copied' && s.doIt && s.find && !!open && open.prefill === 'pair my headphones', JSON.stringify({ s, open }));
+    },
+  },
+
+  // State 17: two turns, scrolled: the hairline and the bottom fade.
+  {
+    name: 'sheet-two-turn-scrolled',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', { ...OUT1, h: 440 }, { fixed: true })],
+    async run(t) {
+      const f = t.frame('out1');
+      await ask(f);
+      await ask(f, { gen: 2, q: 'And on Linux?', a: ANSWER });
+      await emitAll(f, [['overlay:state', { mode: 'panel', chatMax: 320 }]]);
+      await t.settle(500);
+      await f.evaluate(() => {
+        const c = document.getElementById('chat');
+        c.scrollTop = Math.round((c.scrollHeight - c.clientHeight) / 2);
+      });
+      await t.settle(300);
+      await t.shot('sheet-two-turn-scrolled', await clipOf(t, 'out1'));
+      const s = await f.evaluate(() => ({ scrolled: document.body.dataset.scrolled, more: document.body.dataset.more }));
+      t.check('scrolledShowsBothEdges', s.scrolled === '1' && s.more === '1', JSON.stringify(s));
+    },
+  },
+
+  // State 19: stopped mid-answer keeps what arrived.
+  {
+    name: 'sheet-stopped',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1, { max: 900 })],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640 }],
+        ['chat:user', { gen: 1, text: Q }],
+        ['query:start', { gen: 1 }],
+        ['query:delta', { gen: 1, text: ANSWER.slice(0, 180) }],
+      ]);
+      await t.settle(200);
+      await emitAll(f, [['query:done', { gen: 1, question: Q }]]);
+      await t.settle(400);
+      await t.shot('sheet-stopped', await clipOf(t, 'out1'));
+      const s = await f.evaluate(() => ({
+        text: document.querySelector('.msg.assistant .md-body').textContent.length,
+        stop: document.querySelector('.msg.assistant .stop-btn').hidden,
+        busy: document.querySelector('.msg.assistant').classList.contains('busy'),
+        tail: !!document.querySelector('.md-tail'),
+      }));
+      t.check('stoppedKeepsWhatArrived', s.text > 100 && s.stop && !s.busy && !s.tail, JSON.stringify(s));
+    },
+  },
+
+  // State 21: dragged to a fixed height, the transcript scrolls inside it.
+  {
+    name: 'sheet-fixed-height',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', { ...OUT1, h: 420 }, { fixed: true })],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640, outputFixedHeight: true }],
+        ['chat:user', { gen: 1, text: Q }],
+        ['query:start', { gen: 1 }],
+        ['query:delta', { gen: 1, text: `${ANSWER}\n\n${ANSWER}` }],
+        ['query:done', { gen: 1, usage: USAGE, question: Q }],
+      ]);
+      await t.settle(700);
+      await t.shot('sheet-fixed-height', await clipOf(t, 'out1'));
+      const s = await f.evaluate(() => {
+        const c = document.getElementById('chat');
+        return { fixed: document.body.dataset.fixedHeight, scrolls: c.scrollHeight > c.clientHeight };
+      });
+      const resizes = (await t.calls('out1', 'output:resize')).length;
+      t.check('fixedHeightStopsFollowing', s.fixed === '1' && s.scrolls && resizes === 0, JSON.stringify({ s, resizes }));
+    },
+  },
+
+  // State 23: Find still reading offers nothing yet.
+  {
+    name: 'find-reading',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1)],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 520 }],
+        ['view:set', { view: 'find' }],
+        ['find:hits', { gen: 1, query: 'invoice', hits: [], current: -1 }],
+        ['find:state', { gen: 1, open: true, reading: true, scope: 'window', status: 'Looking…', lines: [], counts: { exact: 0, related: 0 } }],
+      ]);
+      await t.settle(500);
+      await t.shot('find-reading', await clipOf(t, 'out1'));
+      const next = await f.evaluate(() => document.querySelectorAll('.find-next button').length);
+      t.check('findReadingOffersNothingYet', next === 0, `${next} buttons`);
+    },
+  },
+
+  // State 24: offscreen rows, while related matching runs.
+  {
+    name: 'find-results-related',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1)],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 520 }],
+        ['view:set', { view: 'find' }],
+        ['find:state', { gen: 1, open: true, scope: 'window', stage: 'related', status: '2 exact · looking for related matches', lines: [], counts: { exact: 2, related: 0 } }],
+        [
+          'find:hits',
+          {
+            gen: 1,
+            query: 'invoice total',
+            current: 0,
+            hits: [
+              { i: 0, kind: 'literal', text: 'Invoice total: €1,240.00', match: 'Invoice total' },
+              { i: 1, kind: 'literal', text: 'See invoice total on page 2', match: 'invoice total', offscreen: true },
+            ],
+          },
+        ],
+      ]);
+      await t.settle(500);
+      await t.shot('find-results-related', await clipOf(t, 'out1'));
+      const off = await f.evaluate(() => document.querySelectorAll('.find-row.offscreen').length);
+      t.check('findMarksOffscreenRows', off === 1, `${off} offscreen rows`);
+    },
+  },
+
+  // State 26: offline, nothing to ask with.
+  {
+    name: 'find-offline',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1)],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 520 }],
+        ['view:set', { view: 'find' }],
+        ['find:hits', { gen: 1, query: 'invoice', hits: [], current: -1 }],
+        ['find:state', { gen: 1, open: true, scope: 'window', stage: 'offline', status: 'Nothing on screen matches "invoice".', lines: ['Related matches need a connection.'], counts: { exact: 0, related: 0 } }],
+      ]);
+      await t.settle(500);
+      await t.shot('find-offline', await clipOf(t, 'out1'));
+      const labels = await f.evaluate(() => [...document.querySelectorAll('.find-next button')].map((b) => b.textContent));
+      t.check('findOfflineOffersNoAsk', labels.join('|') === 'Look on the whole screen', labels.join('|'));
+    },
+  },
+
+  // States 28, 32, 35: planning, plan approval, paused, stopped.
+  {
+    name: 'sheet-task-states',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1, { max: 900 })],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640 }],
+        ['agent:begin', { task: 'Rename the screenshots in Downloads by date' }],
+        ['agent:step', { id: 1, kind: 'thinking', state: 'running', text: 'Working out the steps' }],
+      ]);
+      await t.settle(500);
+      await t.shot('sheet-task-planning', await clipOf(t, 'out1'));
+      const planning = await f.evaluate(() => document.querySelector('.trail-status').textContent);
+      await emitAll(f, [
+        ['agent:step', { id: 1, kind: 'remove' }],
+        ['agent:step', { id: 2, kind: 'plan', text: 'Plan', state: 'done', steps: PLAN }],
+        ['agent:state', { state: 'plan', message: 'Enter starts the task.', step: 0 }],
+      ]);
+      await t.settle(300);
+      await t.shot('sheet-task-plan-approval', await clipOf(t, 'out1'));
+      const start = await f.evaluate(() => {
+        const b = document.querySelector('.trail-banner button');
+        const text = b.textContent;
+        b.click();
+        return text;
+      });
+      await t.settle(60);
+      const started = (await t.calls('out1', 'agent:continue')).length;
+      await emitAll(f, [
+        ['agent:step', { id: 3, kind: 'action', state: 'running', text: 'Opening File Explorer', planIndex: 0 }],
+        ['agent:state', { state: 'paused', message: 'Paused because the mouse moved.', step: 1 }],
+      ]);
+      await t.settle(300);
+      await t.shot('sheet-task-paused', await clipOf(t, 'out1'));
+      const paused = await f.evaluate(() => ({ button: document.querySelector('.trail-banner button').textContent, text: document.querySelector('.trail-banner .banner-text').textContent }));
+      await emitAll(f, [['agent:done', { state: 'stopped', text: 'Stopped. Nothing else was changed.' }]]);
+      await t.settle(300);
+      await t.shot('sheet-task-stopped', await clipOf(t, 'out1'));
+      const stopped = await f.evaluate(() => ({ status: document.querySelector('.trail-status').textContent, stop: document.querySelector('.msg.trail .stop-btn').hidden, banner: !!document.querySelector('.trail-banner') }));
+      t.check(
+        'taskStatesSayWhatIsNext',
+        planning === 'Planning…' && start === 'Start' && started === 1 && paused.button === 'Continue' && paused.text === 'Paused because the mouse moved.' && stopped.status === 'Stopped' && stopped.stop && !stopped.banner,
+        JSON.stringify({ planning, start, started, paused, stopped })
+      );
+    },
+  },
+
+  // State 30: an open-link confirm shows where it goes.
+  {
+    name: 'sheet-confirm-url',
+    backdrop: 'wallpaper',
+    windows: [outWin('out1', OUT1, { max: 900 })],
+    async run(t) {
+      const f = t.frame('out1');
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 640 }],
+        ['agent:begin', { task: 'Pay the electricity bill' }],
+        ['agent:state', { state: 'confirm', step: 2 }],
+        ['agent:confirm-request', { id: 'u1', text: 'Open this link', reason: 'it leaves this page', url: { full: 'https://bank.example/login?next=/pay', host: 'bank.example', rest: '/login?next=/pay' } }],
+      ]);
+      await t.settle(1000);
+      await t.shot('sheet-confirm-url', await clipOf(t, 'out1'));
+      const u = await f.evaluate(() => {
+        const e = document.querySelector('.confirm-url');
+        return { host: e.querySelector('strong').textContent, text: e.textContent, title: e.title };
+      });
+      t.check('confirmShowsTheWholeUrl', u.host === 'bank.example' && u.text === 'bank.example/login?next=/pay' && u.title === 'https://bank.example/login?next=/pay', JSON.stringify(u));
+    },
+  },
+
+  // State 38: reduced motion fades and draws no shape.
+  {
+    name: 'glob-reduced',
+    backdrop: 'wallpaper',
+    clock: true,
+    media: { reducedMotion: 'reduce' },
+    windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
+    run: onStoppedClock(async (t) => {
+      const { out } = await barAndAnswer(t);
+      await out.evaluate(() => {
+        window.__globDone = false;
+        window.AevalGlob.open(document.getElementById('opanel')).then(() => {
+          window.__globDone = true;
+        });
+      });
+      await t.tick(60);
+      await t.shot('glob-reduced-fade', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: OUT1.y + OUT1.h });
+      const s = await out.evaluate(() => ({ done: window.__globDone, host: document.getElementById('glob').hidden, clip: document.getElementById('opanel').style.clipPath }));
+      t.check('reducedMotionDrawsNoShape', s.done && s.host && !s.clip, JSON.stringify(s));
+    }),
+  },
+
+  // B-065: output, settings and history share one title bar. Settings and
+  // history move onto .sheet-bar in the settings lane, so the check speaks
+  // once both pages carry it.
+  {
+    name: 'one-title-bar',
+    backdrop: 'wallpaper',
+    scales: [1],
+    windows: [
+      outWin('out1', { x: 20, y: 40, w: 520, h: 420 }),
+      win('settings', '/settings/settings.html', { x: 560, y: 40, w: 520, h: 420 }, 3),
+      win('history', '/history/history.html', { x: 1080, y: 40, w: 500, h: 420 }, 4),
+    ],
+    async run(t) {
+      await ask(t.frame('out1'));
+      await t.settle(600);
+      const bar = (name) =>
+        t.frame(name).evaluate(() => {
+          const b = document.querySelector('.sheet-bar');
+          if (!b) return null;
+          const title = getComputedStyle(b.querySelector('.sheet-bar-title'));
+          return { height: Math.round(b.getBoundingClientRect().height), font: `${title.fontWeight} ${title.fontSize} ${title.fontFamily}` };
+        });
+      const bars = [await bar('out1'), await bar('settings'), await bar('history')];
+      if (bars.some((b) => !b)) return;
+      t.check('oneTitleBarSystem', bars.every((b) => b.height === bars[0].height && b.font === bars[0].font), JSON.stringify(bars));
     },
   },
 ];

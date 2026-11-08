@@ -73,11 +73,14 @@ function renderEmpty() {
   wrap.appendChild(p);
   if (findCameUpEmpty()) {
     const next = el('div', 'find-next');
-    const ask = el('button', 'retry-btn', `Ask about "${findQuery}"`);
-    ask.type = 'button';
-    ask.title = `Ask about "${findQuery}"`;
-    ask.addEventListener('click', askAboutQuery);
-    next.appendChild(ask);
+    // Offline there is no one to ask.
+    if (s.stage !== 'offline') {
+      const ask = el('button', 'retry-btn', `Ask about "${findQuery}"`);
+      ask.type = 'button';
+      ask.title = `Ask about "${findQuery}"`;
+      ask.addEventListener('click', askAboutQuery);
+      next.appendChild(ask);
+    }
     if (s.scope !== 'screen') {
       const wide = el('button', 'retry-btn', 'Look on the whole screen');
       wide.type = 'button';
