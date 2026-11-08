@@ -241,9 +241,7 @@ pub fn code_of(provider: Provider, err: &ApiError, model: &str) -> &'static str 
         404 => codes::MODEL_GONE,
         _ if busy && free => codes::FREE_BUSY,
         _ if busy => codes::RATE_LIMITED,
-        400 if mentions(detail, &["image", "vision", "multimodal", "modality"]) => {
-            codes::NO_VISION
-        }
+        400 if mentions(detail, &["image", "vision", "multimodal", "modality"]) => codes::NO_VISION,
         408 | 500..=599 => codes::SERVER,
         _ => codes::UNKNOWN,
     }
@@ -323,7 +321,8 @@ pub fn hop_action(label: String, to: Provider, model: Option<&str>) -> Action {
 }
 
 fn ask_next(a: &About<'_>) -> Option<Action> {
-    a.next.map(|p| hop_action(format!("Ask {}", p.name()), p, None))
+    a.next
+        .map(|p| hop_action(format!("Ask {}", p.name()), p, None))
 }
 
 fn retry() -> Action {
@@ -389,9 +388,7 @@ pub fn explain(err: &ApiError, a: &About<'_>) -> Option<Explained> {
             let at = format!("prov-{}", a.provider.id());
             actions.push(section("fix-key", "Fix key", at));
             actions.extend(ask_next(a));
-            format!(
-                "{p} rejected your key. It may have been revoked or mistyped."
-            )
+            format!("{p} rejected your key. It may have been revoked or mistyped.")
         }
         codes::NO_CREDIT if or => {
             actions.push(link("add-credit", "Add credit", credit_url(a.provider)));
@@ -407,9 +404,7 @@ lasts thousands of questions at this rate."
         codes::NO_CREDIT => {
             actions.push(link("add-credit", "Add credit", credit_url(a.provider)));
             actions.extend(ask_next(a));
-            format!(
-                "The {p} account has no credit left, so {name} can't answer."
-            )
+            format!("The {p} account has no credit left, so {name} can't answer.")
         }
         codes::DAILY_CAP => {
             actions.push(link("add-credit", "Add credit", credit_url(a.provider)));
@@ -458,16 +453,12 @@ or add credit to keep asking now."
         codes::REFUSED => {
             actions.push(retry());
             actions.push(choose_model(a.kind));
-            format!(
-                "{name} declined to answer. Try asking another way, or choose another model."
-            )
+            format!("{name} declined to answer. Try asking another way, or choose another model.")
         }
         codes::OFFLINE if a.online => {
             actions.push(retry());
             actions.push(copy_details());
-            format!(
-                "The connection to {p} dropped before the answer finished. Retry in a moment."
-            )
+            format!("The connection to {p} dropped before the answer finished. Retry in a moment.")
         }
         codes::OFFLINE => OFFLINE_TEXT.to_string(),
         codes::SERVER => {
@@ -530,9 +521,7 @@ pub fn busy_note(code: &str, a: &About<'_>, wait_ms: u64) -> Explained {
         format!("Free models are busy right now. Trying again in {secs} s.")
     } else {
         let p = a.provider.name();
-        format!(
-            "{p} is limiting requests right now. Trying again in {secs} s."
-        )
+        format!("{p} is limiting requests right now. Trying again in {secs} s.")
     };
     let mut actions = vec![Action::new("try-now", "Try now")];
     if let Some(p) = a.next {

@@ -609,7 +609,9 @@ pub async fn submit_to(
         let pinned = store::get().get_skill_id(super::skill_exists);
         let chosen = if pinned == AUTO_SKILL {
             let task = extract_task(report.as_deref());
-            skills.route(&text, Some(task.as_str()).filter(|t| !t.is_empty())).0
+            skills
+                .route(&text, Some(task.as_str()).filter(|t| !t.is_empty()))
+                .0
         } else {
             pinned
         };
@@ -649,7 +651,9 @@ pub async fn submit_to(
                     exact_text: exact.as_ref(),
                 };
                 let mut mtr = Meter::default();
-                let r = llm.stream_query(&act, opts, &cancel, &mut on_delta, &mut mtr).await;
+                let r = llm
+                    .stream_query(&act, opts, &cancel, &mut on_delta, &mut mtr)
+                    .await;
                 let mut total = meter.lock();
                 if total.ttft_ms == 0 && mtr.ttft_ms > 0 {
                     total.ttft_ms = (mtr.t0 - total.t0).as_millis() as u64 + mtr.ttft_ms;
