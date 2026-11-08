@@ -79,7 +79,7 @@ jobs:
         if: failure()
         run: |
           cargo fmt --all
-          git -c core.autocrlf=false diff > "$env:RUNNER_TEMP\fmt.patch"
+          git diff --output="$env:RUNNER_TEMP\fmt.patch"
           $bytes = [IO.File]::ReadAllBytes("$env:RUNNER_TEMP\fmt.patch")
           $ms = New-Object IO.MemoryStream
           $gz = New-Object IO.Compression.GZipStream($ms, [IO.Compression.CompressionMode]::Compress)
@@ -90,7 +90,7 @@ jobs:
           $n = [Math]::Ceiling($b64.Length / $size)
           for ($i = 0; $i -lt $n; $i++) {
             $c = $b64.Substring($i * $size, [Math]::Min($size, $b64.Length - $i * $size))
-            Write-Output "::warning title=fmtpatch $i of $n::$c"
+            Write-Output "::warning title=fmtpatch $($i + 1) of $n::$c"
           }
           git checkout -- .
 
