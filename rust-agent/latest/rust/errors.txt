@@ -1,0 +1,9 @@
+== smoke.log ==
+[SMOKE] cancelStopsTyping=FAIL:typed=10645 first=10768 later=580
+[SMOKE] helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=1771 first=2351 later=844
+[SMOKE] agentTakeover=FAIL:state=running
+[SMOKE] failed: cancelStopsTyping, helperTimeoutNoLateInput, agentTakeover
+[GATE] fail cancelStopsTyping=FAIL:typed=10645 first=10768 later=580
+[GATE] fail helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=1771 first=2351 later=844
+[GATE] fail agentTakeover=FAIL:state=running
+[GATE] verdict=FAIL:3 FAIL line(s); no "done" line; failed: cancelStopsTyping, helperTimeoutNoLateInput, agentTakeover; 1 listed label(s) never printed

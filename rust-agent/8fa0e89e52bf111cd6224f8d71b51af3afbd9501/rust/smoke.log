@@ -1,0 +1,62 @@
+[GATE] self-test passes=ok
+[GATE] self-test a FAIL line=ok
+[GATE] self-test a bare FAIL=ok
+[GATE] self-test no done=ok
+[GATE] self-test failed line=ok
+[GATE] self-test error line=ok
+[GATE] self-test a missing label=ok
+[GATE] self-test a FAIL value is not a FAIL label=ok
+[SMOKE] version=1.1.1
+[SMOKE] userData=D:\a\_temp\aeval-smoke
+[SMOKE] webviewData=D:\a\_temp\aeval-smoke\WebView2
+[SMOKE] scaffold.pages=output-1,overlay
+[SMOKE] scaffold.bridge=ok
+[SMOKE] selftest.eval=ok
+[SMOKE] selftest.input=ok
+[SMOKE] probe.harness=ok
+[SMOKE] probe.platform=ok
+[SMOKE] probe.windows=ok
+[SMOKE] probe.capture=ok
+[SMOKE] probe.llm=ok
+[SMOKE] gateBypasses=37/37
+[SMOKE] gateBypasses=ok
+[SMOKE] gatePassesPlainInput=ok
+[SMOKE] gateFailsClosed=ok
+[SMOKE] gatePlanFirst=ok
+[SMOKE] gateChords=ok
+[SMOKE] gateKeyActivation=ok
+[SMOKE] confirmFullText=ok
+[SMOKE] takeoverStopsStep=ok
+[SMOKE] agentNativeModel=ok
+[SMOKE] dontSave=button:Don't Save
+[SMOKE] agentNotepadClosed=true
+[SMOKE] agentRun=ok
+[SMOKE] agentFocusKept=ok
+[SMOKE] agentJsonMode=ok
+[SMOKE] cancelStopsTyping=FAIL:typed=10645 first=10768 later=580
+[SMOKE] helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=1771 first=2351 later=844
+[SMOKE] agentStopMs=ok
+[SMOKE] agentTakeover=FAIL:state=running
+[SMOKE] agentMaxSteps=ok
+[SMOKE] agentConfirmGate=ok
+[SMOKE] passwordRedacted=ok
+[SMOKE] clickExact=ok
+[SMOKE] probe.agent=ok
+[SMOKE] probe.bar=ok
+[SMOKE] probe.sheet=ok
+[SMOKE] probe.settings=ok
+[SMOKE] v2basics=ok
+[SMOKE] v21basics=ok
+[SMOKE] glassGates=ok
+[SMOKE] v2desktop=ok
+[SMOKE] failed: cancelStopsTyping, helperTimeoutNoLateInput, agentTakeover
+--- stderr ---
+[1108/183139.642:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 1
+[GATE] SMOKE lines=44 listed=38
+[GATE] fail cancelStopsTyping=FAIL:typed=10645 first=10768 later=580
+[GATE] fail helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=1771 first=2351 later=844
+[GATE] fail agentTakeover=FAIL:state=running
+[GATE] missing harness:done
+[GATE] verdict=FAIL:3 FAIL line(s); no "done" line; failed: cancelStopsTyping, helperTimeoutNoLateInput, agentTakeover; 1 listed label(s) never printed
+smoke failed: exit code 1, gate exit code 1
