@@ -15,8 +15,9 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 
 | # | Lane | Kind | Lane sha | Merge commit | rust | ui-shots | Notes |
 |---|---|---|---|---|---|---|---|
-| 1 | capture | C1 | `f343f64` | `6fcad0f` | pending | n/a | Pushed together with #2 |
-| 2 | bar | C1 | `c114f4a` | `8e20ad6` | pending | pending | Pushed together with #1 |
+| 1 | capture | C1 | `f343f64` | `6fcad0f` | green at `3bc8979` | green at `3bc8979` | Pushed together with #2 |
+| 2 | bar | C1 | `c114f4a` | `8e20ad6` | green at `3bc8979` | green at `3bc8979` | Pushed together with #1. Its icons draw nothing (malformed `icons.svg`); the bar fix follow-up is merged next |
+| 3 | agent | C1 | `89fd79a` | `3849c7a` | pending | n/a | `3ef7629` (red: fmt) plus its rustfmt fix |
 
 ## Reverts
 
@@ -29,7 +30,6 @@ None.
 ## Open integration issues
 
 - platform C1 `040ad93`: red (fmt diff in `crash.rs`, compile errors from two `windows_result` versions). Not merged; waiting for a green platform C1.
-- agent C1 `3ef7629`: red (fmt, capture check, desktop selfcheck). Not merged; waiting for a green agent C1.
 
 ## Base
 
