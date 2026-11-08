@@ -32,7 +32,8 @@
 //
 //   {
 //     name: '14-thinking',              // unique; the default shot name
-//     backdrop: 'wallpaper',            // wallpaper | white
+//     backdrop: 'wallpaper',            // kit.mjs BACKDROPS: wallpaper, white,
+//                                       // black, dark-editor, photo-busy
 //     windows: [                        // one frame per window, CSS px
 //       { name: 'overlay', src: '/renderer/index.html', x: 480, y: 24, w: 680, h: 240, z: 1 },
 //       { name: 'out1', src: '/renderer/output.html', x: 560, y: 92, w: 520, h: 520, z: 2,
@@ -58,7 +59,8 @@
 //   t.settle(ms = 450)          wait (on the virtual clock too, when on)
 //   t.tick(ms)                  move the virtual clock (needs clock: true)
 //   t.shot(name?, clip?)        <outDir>/<name><suffix>.png; clip in CSS px,
-//                               default every window plus 20 px
+//                               default every window plus 20 px. On a clock
+//                               scene it leaves the clock where it is.
 //   t.check(name, ok, why)      `[UI] <name><suffix>=ok|FAIL:<why>`
 //   t.backdrop                  { kind, full, small } data URLs
 // kit.mjs has the shared fixtures and helpers (BAR, ANSWER, openBar, ...).
@@ -69,7 +71,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { W, H, COMMON, deepMerge } from './kit.mjs';
+import { W, H, BACKDROPS, COMMON, deepMerge } from './kit.mjs';
 import { LANES, shapeProblems } from './lanes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -80,7 +82,6 @@ const OUT = path.resolve(args.find((a) => !a.startsWith('--')) || path.join(ROOT
 const CHANNEL = flag('channel', 'msedge');
 const ONLY = flag('lane', '');
 const SCALES = [1, 1.5];
-const BACKDROPS = ['wallpaper', 'white'];
 const CLOCK_START = new Date('2026-03-02T09:30:00Z');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -239,7 +240,8 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
         await page.clock.runFor(ms);
       },
       shot: async (name, clip) => {
-        await settle(120);
+        if (spec.clock) await page.waitForTimeout(60);
+        else await settle(120);
         const file = `${name || spec.name}${suffix}.png`;
         if (written.has(file)) check(`uniqueShot.${file}`, false, `also shot by ${written.get(file)}`);
         written.set(file, `${lane}/${spec.name}`);

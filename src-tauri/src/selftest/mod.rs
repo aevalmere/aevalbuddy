@@ -38,6 +38,11 @@
 //! - `cx.block_on(fut)` runs async code (the llm, desktop and agent APIs);
 //!   `cx.on_main(|app| ..)` runs a closure on the main thread and returns
 //!   its value.
+//! - `cx.notepad()` is a real Notepad holding [`notepad::TEXT`], for probes
+//!   that need an app to read, find in, type into or focus. It opens on first
+//!   use (on CI, or with `AEVAL_DESKTOP_NOTEPAD=1`; None otherwise), always
+//!   before the `v2desktop` lanes, and closes once every lane has run. Leave
+//!   it open, and put back any text you change.
 //!
 //! A probe runs on the smoke thread, never the main thread, so it may block.
 //! A panic ends only that probe: it prints `probe.<lane>=FAIL:<message>` and
@@ -69,6 +74,7 @@
 
 mod eval;
 pub mod input;
+pub mod notepad;
 pub mod probes;
 mod report;
 
@@ -84,6 +90,7 @@ use serde_json::Value;
 use tauri::AppHandle;
 
 pub use input::Input;
+pub use notepad::Notepad;
 pub use report::Report;
 
 /// The script each page runs once loaded under smoke: one call through the
@@ -127,13 +134,20 @@ pub fn panic_text(e: &(dyn Any + Send)) -> String {
 pub struct Cx {
     pub app: AppHandle,
     pub rep: Report,
+    notepad: Option<Notepad>,
+    notepad_tried: bool,
 }
 
 // The lanes' probes are the callers; the harness's own probe uses part.
 #[allow(dead_code)]
 impl Cx {
     pub fn new(app: AppHandle, rep: Report) -> Cx {
-        Cx { app, rep }
+        Cx {
+            app,
+            rep,
+            notepad: None,
+            notepad_tried: false,
+        }
     }
 
     /// `[SMOKE] <label>=ok`, or `=FAIL:<why>`, which fails the run.
@@ -201,5 +215,27 @@ impl Cx {
 
     pub fn sleep(&self, ms: u64) {
         thread::sleep(Duration::from_millis(ms));
+    }
+
+    /// The smoke's own Notepad, opened on first use and printing
+    /// `v2NotepadOpen`; None off CI (unless `AEVAL_DESKTOP_NOTEPAD` asks for
+    /// it) or when it did not open, which is not tried twice.
+    pub fn notepad(&mut self) -> Option<&Notepad> {
+        if self.notepad.is_none() && !self.notepad_tried && probes::notepad_enabled() {
+            self.notepad_tried = true;
+            let opened = self.block_on(notepad::open());
+            let why = opened.as_ref().err().cloned().unwrap_or_default();
+            self.must("v2NotepadOpen", opened.is_ok(), why);
+            self.notepad = opened.ok();
+        }
+        self.notepad.as_ref()
+    }
+
+    /// Closes the Notepad, if one opened: `v2NotepadClosed=true|false`.
+    fn close_notepad(&mut self) {
+        if let Some(np) = self.notepad.take() {
+            let closed = self.block_on(np.close());
+            self.log("v2NotepadClosed", closed);
+        }
     }
 }

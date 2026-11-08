@@ -127,9 +127,50 @@ jobs:
         if: success() || failure()
         run: '& "$env:RUNNER_TEMP\gate.ps1" test "cargo test --color never"'
 
+      # The bundler fetches NSIS and its plugins from github.com into
+      # %LOCALAPPDATA%\tauri on first use. Cached per tauri-cli version (the
+      # build runs that exact version), so a 5xx on that download cannot turn
+      # green code red; when it still happens, the build retries.
+      - name: Tauri CLI version
+        id: tauricli
+        run: |
+          $v = ''
+          try { $v = @(npm view '@tauri-apps/cli@2' version --json | Out-String | ConvertFrom-Json)[-1] } catch { }
+          if ($v -notmatch '^2\.\d+\.\d+$') { Write-Output "::warning::npm view gave '$v'; building with @tauri-apps/cli@2"; $v = '2' }
+          "tauri-cli $v"
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Cache Tauri bundler tools
+        id: tauricache
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/tauri
+          key: tauri-tools-${{ runner.os }}-${{ steps.tauricli.outputs.version }}
+          restore-keys: tauri-tools-${{ runner.os }}-
+
+      # Retried only when the log ends on a bundler download failure (an
+      # HTTP status, a refused or timed-out request), never on a compile
+      # error; the retry reuses the compiled target, so it only bundles.
       - name: Build installer
         id: build
-        run: '& "$env:RUNNER_TEMP\gate.ps1" build "npx --yes @tauri-apps/cli@2 build --bundles nsis"'
+        env:
+          TAURI_CLI: ${{ steps.tauricli.outputs.version }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\build.log'
+          $download = 'failed to bundle project.*(http status|error sending request|timed out|timeout|connection|dns error|download)'
+          $notes = @()
+          for ($try = 1; $try -le 3; $try++) {
+            & "$env:RUNNER_TEMP\gate.ps1" build "npx --yes @tauri-apps/cli@$env:TAURI_CLI build --bundles nsis"
+            $code = $LASTEXITCODE
+            if ($code -eq 0) { break }
+            $hit = Select-String -Path $log -Pattern $download | Select-Object -Last 1
+            if (-not $hit -or $try -eq 3) { break }
+            $notes += "build try $try failed on a bundler download, retrying: $($hit.Line.Trim())"
+            Write-Output "::warning title=Build installer::$($notes[-1].Replace('%', '%25'))"
+            Start-Sleep -Seconds (20 * $try)
+          }
+          if ($notes) { @($notes) + @('') + @(Get-Content $log) | Set-Content $log }
+          exit $code
 
       # The smoke run (src-tauri/src/selftest): every lane's probe inside the
       # built exe. tools/smoke-gate.mjs fails it on any =FAIL line, on a
@@ -279,6 +320,8 @@ jobs:
             Format patch|${{ steps.fmtpatch.outcome }}|fmt.patch
             Clippy|${{ steps.clippy.outcome }}|clippy.log
             Unit tests|${{ steps.test.outcome }}|test.log
+            Tauri CLI version|${{ steps.tauricli.outcome }}
+            Cache Tauri bundler tools|${{ steps.tauricache.outcome }}
             Build installer|${{ steps.build.outcome }}|build.log
             Smoke|${{ steps.smoke.outcome }}|smoke.log
             Capture check|${{ steps.capture.outcome }}|capture.log
