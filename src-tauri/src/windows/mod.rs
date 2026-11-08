@@ -1131,8 +1131,8 @@ pub fn exit_hud(app: &AppHandle) {
         }
         s.hud_pending.take()
     };
-    let pos = pending
-        .unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
+    let pos =
+        pending.unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
     store::get().set_overlay_pos(&pos);
     apply_input_limits(app);
     collapse_panel(app, false);
