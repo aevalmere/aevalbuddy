@@ -88,7 +88,7 @@ fn build_tools() -> Vec<Value> {
         tool("find", "Find elements in a window by description, e.g. \"save button\".", merge(&[json!({ "query": string }), window.clone()]), &["query"]),
         tool("get_page_text", "All visible text of a window.", window.clone(), &[]),
         tool("screenshot", "An image of a window.", window.clone(), &[]),
-        tool("zoom", "An enlarged image of a region of the latest screenshot.", json!({
+        tool("zoom", "An enlarged image of a region of the latest screenshot. Coordinates stay in that screenshot's pixels; a zoom does not change them.", json!({
             "region": { "type": "array", "items": { "type": "number" }, "description": "[x0, y0, x1, y1] in screenshot pixels" },
         }), &["region"]),
         tool("list_windows", "Top-level windows: title, app, handle.", json!({}), &[]),
@@ -200,28 +200,36 @@ pub fn json_rules() -> String {
 /// The last balanced `{...}` in a reply, fences and prose around it
 /// ignored: small models wrap and decorate.
 pub fn last_object(text: &str) -> Option<Value> {
-    let t: Vec<char> = text.chars().collect();
+    let t = text.as_bytes();
+    // Each closing brace starts its own scan, so a stray quote in the prose
+    // around the object cannot unbalance it; the budget keeps a reply of
+    // nothing but braces linear (B-135).
+    let mut budget = t.len() + 65536;
     for i in (0..t.len()).rev() {
-        if t[i] != '}' {
+        if t[i] != b'}' {
             continue;
         }
         let mut depth = 0i32;
         let mut in_str = false;
         for j in (0..=i).rev() {
+            if budget == 0 {
+                return None;
+            }
+            budget -= 1;
             let c = t[j];
-            if c == '"' && (j == 0 || t[j - 1] != '\\') {
+            if c == b'"' && (j == 0 || t[j - 1] != b'\\') {
                 in_str = !in_str;
             }
             if in_str {
                 continue;
             }
-            if c == '}' {
+            if c == b'}' {
                 depth += 1;
-            } else if c == '{' {
+            } else if c == b'{' {
                 depth -= 1;
                 if depth == 0 {
-                    let slice: String = t[j..=i].iter().collect();
-                    let parsed = serde_json::from_str::<Value>(&slice).ok();
+                    // Braces are ASCII, so both ends are char boundaries.
+                    let parsed = serde_json::from_str::<Value>(&text[j..=i]).ok();
                     // A slice that does not parse moves on to the brace before.
                     if parsed.is_some() {
                         return parsed;
@@ -357,5 +365,28 @@ mod tests {
         assert_eq!(c.args, json!({ "duration": 2 }));
         assert_eq!(parse_json_turn("{\"tool\":\"rm_rf\"}"), None);
         assert_eq!(parse_json_turn("no json here"), None);
+    }
+
+    /// Attack: a reply of nothing but closing braces must not hang the run.
+    #[test]
+    fn last_object_is_linear() {
+        let text = "}".repeat(1 << 20);
+        let t0 = std::time::Instant::now();
+        assert_eq!(last_object(&text), None);
+        let ms = t0.elapsed().as_millis();
+        assert!(ms < 50, "took {ms} ms");
+    }
+
+    /// The budget must not cost the cases the scan exists for: stray quotes
+    /// in the prose either side, a long payload, text that is not ASCII.
+    #[test]
+    fn last_object_survives_prose_and_long_text() {
+        let long = "é".repeat(20_000);
+        let t = format!("It is 5\" wide. {{\"tool\":\"wait\",\"note\":\"{long}\"}} and 6\" tall");
+        let got = last_object(&t).unwrap();
+        assert_eq!(got["tool"], "wait");
+        assert_eq!(got["note"], json!(long));
+        let inner = last_object("{ broken {\"a\":1} }").unwrap();
+        assert_eq!(inner, json!({ "a": 1 }));
     }
 }

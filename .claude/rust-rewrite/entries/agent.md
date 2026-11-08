@@ -44,3 +44,80 @@ Note: a takeover that lands after the gate passed a step (while the pointer trav
 ## PARITY · AGENT-12 · B-050
 Add:
 A step that ends in TIMEOUT is reported to the model as an unknown outcome, with the window read again, and the rest of the turn does not run. The run checks that it has not ended right before every op that acts (after the window list is read, after a stale ref is re-read, between finding a window by title and focusing it), and when a run ends while a step is in the helper (Stop, Esc, the tray, the wall clock) it sends `cancel`.
+
+## PARITY · AGENT-15 · B-047
+status: DIFF; evidence: UNIT host::agent::tests::native_only_run_uses_native_model, UNIT host::agent::tests::pinned_model_never_fails_over, SMOKE+ agentNativeModel
+Note: a run picks its provider once, from the first candidate (K-16), and keeps it for its whole life: a native provider uses `model_for`, OpenRouter resolves against the live catalogue, and only an OpenRouter id is ever healed. `agent:start` and `agent:do-it` take optional `{provider, model}`; a provider that does not exist or has no usable key answers `needs-key` rather than running elsewhere. The trail opens in `outputs::fresh` (K-04), or in the window that just showed the first-run consent card.
+
+## PARITY · AGENT-09 · B-047
+Add:
+A pinned model never fails over.
+
+## PARITY · AGENT-09 · B-131
+Add:
+When a stand-in changes the tool dialect, `messages[0]` is rewritten for the new dialect, so a model with native tools is not told it has none.
+
+## PARITY · AGENT-15 · B-051
+status: DIFF; evidence: UNIT host::agent::tests::consent_payload_names_provider, UNIT host::agent::tests::consent_recipients_come_from_the_ready_list
+Note: `recipients` is the ready list (K-18) with the run's own provider first, on the model the run will use; a pinned provider is listed alone.
+
+## PARITY · AGENT-15 · B-130
+Add:
+A start holds a claim from the check until the run exists, taken under the run lock, so a second start during the catalogue fetch answers `busy`.
+
+## PARITY · AGENT-01 · B-132
+Replace "60 s model timeout (-> 408)" with:
+60 s model timeout on OpenRouter and 180 s on a native provider (-> 408)
+Replace "retry backoff 2 s/6 s after acting" with:
+after acting, a retry waits what Retry-After asked, up to 20 s, else 2 s/6 s, and a 529 is retried too
+
+## PARITY · AGENT-02 · B-133
+Replace "26 tools with exact names, descriptions, JSON schemas" with:
+26 tools with exact names, descriptions (zoom adds that coordinates stay in the screenshot's pixels), JSON schemas
+
+## PARITY · AGENT-17 · B-133
+Add:
+A coordinate is checked before anything asks or moves: it needs numeric components, a finite positive screenshot scale, and a point inside the latest screenshot and the area the person chose. Otherwise the step fails with the reason and the model reads the window again.
+
+## PARITY · AGENT-04 · B-135
+Add:
+The scan for the last object is bounded by the reply's length (bytes, plus 64 KB), so a reply of nothing but braces cannot stall the run.
+
+## PARITY · AGENT-07 · B-136
+Add:
+`get_page_text` goes through the same `redact` as the tree.
+
+## PARITY · DESK-04 · B-137
+status: DIFF; evidence: UNIT desktop::client::tests::start_timeout_counts_as_death, UNIT desktop::client::tests::non_utf8_line_does_not_stop_reader
+Note: a reply timeout marks the helper not ready and drops it at once, rejecting anything else in flight with HELPER_DOWN; a start timeout counts toward the three deaths; stdout is read by bytes with invalid UTF-8 replaced.
+
+## PARITY · DESK-05 · B-138
+Add:
+The helper runs in a job with KILL_ON_JOB_CLOSE, so it dies with the app however the app ends. taskkill and cmd run from %SystemRoot%\System32 by absolute path.
+
+## PARITY · DESK-01 · B-139
+Add:
+$AevalCache and $AevalPrebuilt cross stdin base64-encoded like the sources, so an install path with accents, CJK or smart quotes keeps the prebuilt helper.
+
+## PARITY · DESK-06 · B-140
+Add:
+Registered windows give their handle from the `windows::flags` cache; only an unregistered window hops to the main thread for it.
+
+## PARITY · DESK-09 · B-141
+Add:
+A click or drag sends its button events as plain MOUSEINPUT with only the button flag, after MoveTo has corrected the position, so absolute-coordinate rounding cannot move the press.
+
+## ARCHITECTURE · Desktop helper · B-142
+Add:
+A window's first tree read registers its structure-changed handler outside `genLock`, with a placeholder generation published first, so one slow app cannot stall every other window's read.
+
+## PARITY · AGENT-13 · D-30
+Replace "`The agent stopped without saying whether the task was done. Check the app before relying on it.`" with:
+`The task stopped without saying whether it was done. Check the app before relying on it.`
+Add:
+Also `No connection. The task stopped after step N; nothing else was done.`, the internal failure `The task stopped because of a problem inside AevalBuddy. Nothing else was done.` (C-60) and `A task is already running.` (C-62). After three failed steps whose last failure has a remedy, the final message is only the remedy (`Start Outlook normally, then Retry.`), because the failed row already says why.
+Reason: the surfaces call it a task, and the banner repeated the reason the row had just given.
+
+## DESIGN · Tauri rewrite: the requests that changed the surfaces · D-30
+Add:
+Task copy says "The task stopped", never "The agent stopped", and gives a remedy once: when a failed step's row already states the reason, the final message carries only what to do about it.

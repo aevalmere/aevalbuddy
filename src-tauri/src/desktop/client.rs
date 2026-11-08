@@ -11,11 +11,11 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use super::protocol::{self as p, DResult, DesktopError, Incoming};
@@ -90,6 +90,17 @@ impl State {
         }
     }
 
+    /// A helper that stopped answering: nothing more is sent to it, and the
+    /// kill that follows is not counted as a second death.
+    fn abandon(&mut self, gen: u64) {
+        if self.proc.as_ref().map(|p| p.gen) == Some(gen) {
+            self.proc = None;
+            self.ready = false;
+        }
+        self.record_death();
+        self.stopping.insert(gen);
+    }
+
     fn fail_all(&mut self, code: &str, message: &str) {
         for (_, tx) in self.pending.drain() {
             let _ = tx.send(Err(DesktopError::new(code, message)));
@@ -118,10 +129,19 @@ pub struct Desktop {
     events: broadcast::Sender<Value>,
 }
 
-fn powershell() -> PathBuf {
+fn system32() -> PathBuf {
     let root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".into());
-    PathBuf::from(root)
-        .join("System32")
+    PathBuf::from(root).join("System32")
+}
+
+/// A Windows tool by absolute path, so nothing earlier on PATH or in the
+/// working directory runs in its place.
+pub fn system_tool(name: &str) -> PathBuf {
+    system32().join(name)
+}
+
+fn powershell() -> PathBuf {
+    system32()
         .join("WindowsPowerShell")
         .join("v1.0")
         .join("powershell.exe")
@@ -199,11 +219,77 @@ fn kill_tree(pid: u32) {
     // install folder outlives the app and blocks an update.
     std::thread::spawn(move || {
         use std::os::windows::process::CommandExt;
-        let _ = std::process::Command::new("taskkill")
+        let _ = std::process::Command::new(system_tool("taskkill.exe"))
             .args(["/T", "/F", "/PID", &pid.to_string()])
             .creation_flags(CREATE_NO_WINDOW)
             .status();
     });
+}
+
+/// Puts the helper in a job that closes with this process, however it
+/// ends, so no helper outlives the app and blocks an update (B-138).
+fn kill_with_app(child: &tokio::process::Child) {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    // Held until the process ends, when the system closes it.
+    static JOB: OnceLock<isize> = OnceLock::new();
+    let job = *JOB.get_or_init(|| unsafe {
+        let Ok(job) = CreateJobObjectW(None, PCWSTR::null()) else {
+            return 0;
+        };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let size = std::mem::size_of_val(&info) as u32;
+        let ptr: *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION = &info;
+        let class = JobObjectExtendedLimitInformation;
+        if SetInformationJobObject(job, class, ptr.cast(), size).is_err() {
+            return 0;
+        }
+        job.0 as isize
+    });
+    let Some(raw) = child.raw_handle() else {
+        return;
+    };
+    if job != 0 {
+        let job = HANDLE(job as *mut std::ffi::c_void);
+        // `stop()` and the three-deaths rule still work if this fails.
+        let _ = unsafe { AssignProcessToJobObject(job, HANDLE(raw)) };
+    }
+}
+
+/// One stdout line as text, its line ending gone. Bytes that are not UTF-8
+/// are replaced, so odd output from the helper cannot stop the reader.
+fn line_text(raw: &[u8]) -> String {
+    let raw = raw.strip_suffix(b"\n").unwrap_or(raw);
+    let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
+    String::from_utf8_lossy(raw).into_owned()
+}
+
+/// Reads lines until the pipe closes, handing each to `on_line`.
+async fn read_lines<R: AsyncBufRead + Unpin>(mut reader: R, mut on_line: impl FnMut(&str)) {
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf).await {
+            Ok(n) if n > 0 => on_line(&line_text(&buf)),
+            _ => break,
+        }
+    }
+}
+
+/// One of our windows for the helper's registry. The handle comes from the
+/// cache when the window is registered, because `read` hops to the main
+/// thread (B-140).
+fn own_window(label: &str, cached: Option<isize>, read: impl FnOnce() -> u64) -> OwnWindow {
+    OwnWindow {
+        handle: cached.map_or_else(read, |h| h as u64),
+        block: !(label.starts_with("lens-") || label == "buddy"),
+    }
 }
 
 fn arg_window(v: Option<&Value>) -> Value {
@@ -378,6 +464,7 @@ impl Desktop {
         let mut child = cmd.spawn().map_err(|e| {
             DesktopError::new("HELPER_DOWN", format!("could not run powershell.exe: {e}"))
         })?;
+        kill_with_app(&child);
         let pid = child.id().unwrap_or(0);
         let mut stdin = child
             .stdin
@@ -420,10 +507,7 @@ impl Desktop {
         });
         let me = self.clone();
         tokio::spawn(async move {
-            let mut lines = BufReader::new(stdout).lines();
-            while let Ok(Some(l)) = lines.next_line().await {
-                me.on_line(&l);
-            }
+            read_lines(BufReader::new(stdout), |l| me.on_line(l)).await;
         });
         let me = self.clone();
         tokio::spawn(async move {
@@ -455,7 +539,7 @@ impl Desktop {
                 {
                     let mut s = self.st();
                     s.start_tx = None;
-                    s.stopping.insert(gen);
+                    s.abandon(gen);
                 }
                 kill_tree(pid);
                 Err(DesktopError::new(
@@ -544,9 +628,9 @@ impl Desktop {
         };
         app.webview_windows()
             .into_iter()
-            .map(|(label, w)| OwnWindow {
-                handle: crate::capture::hwnd_of(&w) as u64,
-                block: !(label.starts_with("lens-") || label == "buddy"),
+            .map(|(label, w)| {
+                let cached = crate::windows::flags::hwnd_for(&label);
+                own_window(&label, cached, || crate::capture::hwnd_of(&w) as u64)
             })
             .collect()
     }
@@ -590,8 +674,9 @@ impl Desktop {
                 {
                     let mut s = self.st();
                     s.pending.remove(&id);
-                    s.record_death();
-                    s.stopping.insert(gen);
+                    s.abandon(gen);
+                    // Nothing else waiting on this helper will hear from it.
+                    s.fail_all("HELPER_DOWN", "desktop helper stopped answering");
                 }
                 kill_tree(pid);
                 Err(DesktopError::new(
@@ -1180,6 +1265,83 @@ mod tests {
         assert!(!s.disabled);
         s.record_death();
         assert!(s.disabled);
+    }
+
+    fn proc_of(gen: u64) -> Proc {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        Proc { gen, pid: 1, tx }
+    }
+
+    /// A helper that never says ready is a death like any other, and no
+    /// call may go to it while it is being killed.
+    #[test]
+    fn start_timeout_counts_as_death() {
+        let mut s = State::default();
+        for gen in 1..=3 {
+            s.proc = Some(proc_of(gen));
+            s.ready = true;
+            assert!(!s.disabled);
+            s.abandon(gen);
+            assert!(s.proc.is_none() && !s.ready);
+            assert!(s.stopping.contains(&gen));
+        }
+        assert!(s.disabled);
+    }
+
+    /// A late timeout from an old helper must not take the new one away.
+    #[test]
+    fn abandoning_an_old_helper_leaves_the_new_one() {
+        let mut s = State {
+            proc: Some(proc_of(9)),
+            ready: true,
+            ..State::default()
+        };
+        s.abandon(8);
+        assert!(s.proc.is_some() && s.ready);
+    }
+
+    #[tokio::test]
+    async fn non_utf8_line_does_not_stop_reader() {
+        let input: &[u8] = b"{\"a\":1}\r\n\xff\xfe broken\n{\"b\":2}\nlast";
+        let mut lines = Vec::new();
+        read_lines(input, |l| lines.push(l.to_string())).await;
+        assert_eq!(lines.len(), 4, "{lines:?}");
+        assert_eq!(lines[0], "{\"a\":1}");
+        assert!(lines[1].contains('\u{fffd}'));
+        assert_eq!(lines[2], "{\"b\":2}");
+        assert_eq!(lines[3], "last");
+    }
+
+    #[test]
+    fn system_tools_use_absolute_paths() {
+        for name in ["taskkill.exe", "cmd.exe"] {
+            let p = system_tool(name);
+            assert!(p.is_absolute(), "{p:?}");
+            assert!(p.ends_with(format!("System32\\{name}")), "{p:?}");
+        }
+        assert!(powershell().is_absolute());
+    }
+
+    /// Reading a handle off a registered window must not need the main
+    /// thread.
+    #[test]
+    fn own_window_handles_come_from_the_cache() {
+        let bar = own_window("bar", Some(42), || panic!("hopped to the main thread"));
+        assert_eq!(
+            bar,
+            OwnWindow {
+                handle: 42,
+                block: true
+            }
+        );
+        let lens = own_window("lens-0", None, || 7);
+        assert_eq!(
+            lens,
+            OwnWindow {
+                handle: 7,
+                block: false
+            }
+        );
     }
 
     #[test]

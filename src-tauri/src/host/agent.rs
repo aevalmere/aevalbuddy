@@ -16,11 +16,13 @@ use tauri::{AppHandle, Manager};
 use crate::agent::run::{trail_text, AgentHost, AgentSettings, Point, RunReport, StartOpts};
 use crate::agent::seams::{DesktopOps, Emitter};
 use crate::capture::screen as cap;
+use crate::desktop::client::system_tool;
 use crate::llm::catalogue::Kind;
 use crate::llm::client::Llm;
 use crate::llm::failover::short_model;
 use crate::llm::provider::Provider;
-use crate::llm::settings::{model_for, Active, LlmSettings};
+use crate::llm::settings::{candidates_for, keyed, model_for, Active, LlmSettings};
+use crate::llm::{recipients_with, Recipient};
 use crate::state::{shared, OutputKind, Rect};
 use crate::windows::{self, flags, layout, motion, outputs, screen};
 use crate::{buddy, lens, store};
@@ -39,6 +41,22 @@ pub struct StartReq {
     pub plan_gate: bool,
     pub json_mode: bool,
     pub max_steps: Option<u32>,
+    pub pin: Pin,
+}
+
+/// The provider and model an `agent:start` or `agent:do-it` named.
+#[derive(Clone, Debug, Default)]
+pub struct Pin {
+    pub provider: Option<Provider>,
+    pub model: Option<String>,
+}
+
+/// What a run starts with, chosen once: it keeps this provider for its
+/// whole life, and a pinned model never hands over to another.
+pub(crate) struct RunChoice {
+    pub active: Active,
+    pub model: String,
+    pub pinned: bool,
 }
 
 /// main.js module state: the run's output window, `agentModelNow`,
@@ -48,6 +66,9 @@ struct Slots {
     label: Option<String>,
     model: Option<String>,
     pending: Option<StartReq>,
+    /// The window showing the first run's consent card, which becomes that
+    /// run's trail.
+    card: Option<String>,
 }
 
 fn slots() -> &'static Mutex<Slots> {
@@ -117,40 +138,75 @@ fn status(s: &str) -> Value {
     json!({ "status": s })
 }
 
-/// The provider and model a run starts with: the first provider with a
-/// key, with the person's pick for tasks or its default on a native
-/// provider, and OpenRouter's stored agent model checked against the
-/// cached catalogue.
-fn run_choice(s: &dyn LlmSettings, llm: &Llm) -> Option<(Provider, String)> {
-    let active = crate::llm::settings::active(s)?;
-    let model = match active.provider {
-        Provider::OpenRouter => llm.resolve_known(Kind::Agent, &s.model(Kind::Agent)),
-        p => model_for(s, p, Kind::Agent),
+/// The provider and model a run starts with (K-16): what the request
+/// pinned, else the first candidate, with the person's pick for tasks or
+/// its default on a native provider, and OpenRouter's stored agent model
+/// checked against the cached catalogue. `None` is no usable key for it.
+pub(crate) fn run_choice(s: &dyn LlmSettings, llm: &Llm, pin: &Pin) -> Option<RunChoice> {
+    let found = match pin.provider {
+        Some(p) => keyed(s).into_iter().find(|c| c.provider == p),
+        None => candidates_for(s, Kind::Agent)
+            .into_iter()
+            .next()
+            .or_else(|| keyed(s).into_iter().next()),
     };
-    Some((active.provider, model))
+    let active = found?.active();
+    let model = match (&pin.model, active.provider) {
+        (Some(m), _) => m.clone(),
+        (None, Provider::OpenRouter) => llm.resolve_known(Kind::Agent, &s.model(Kind::Agent)),
+        (None, p) => model_for(s, p, Kind::Agent),
+    };
+    Some(RunChoice {
+        active,
+        model,
+        pinned: pin.model.is_some(),
+    })
+}
+
+/// OpenRouter's stored model checked against the live catalogue, and healed
+/// if it has left it. A native id or a pin is used as it stands.
+async fn settle_model(choice: &mut RunChoice, s: &dyn LlmSettings, llm: &Llm) {
+    if choice.active.provider.is_native() || choice.pinned {
+        return;
+    }
+    let stored = s.model(Kind::Agent);
+    choice.model = llm.resolve_live(Kind::Agent, &stored).await;
+    s.heal_model(Kind::Agent, &choice.model);
 }
 
 /// `agent:consent-request` (K-21): the task, and who receives each step's
 /// screenshot and window text, so the card names the real recipient.
-fn consent_payload(task: &str, s: &dyn LlmSettings, llm: &Llm) -> Value {
-    let mut out = json!({ "task": task, "recipients": [] });
-    let Some((provider, model)) = run_choice(s, llm) else {
-        return out;
+fn consent_payload(task: &str, s: &dyn LlmSettings, llm: &Llm, pin: &Pin) -> Value {
+    let all = llm.known_catalogue();
+    let mut recipients = recipients_with(s, all.as_deref().map(Vec::as_slice));
+    let Some(choice) = run_choice(s, llm, pin) else {
+        return json!({ "task": task, "recipients": recipients });
     };
+    let (provider, model) = (choice.active.provider, choice.model);
     let name = short_model(&model);
     let free = model.ends_with(":free");
+    // The list is who a screen question can go to; the run goes to one of
+    // them, on its own model, and a pinned run to that one alone.
+    if pin.provider.is_some() {
+        recipients.clear();
+    }
+    recipients.retain(|r| r.id != provider.id());
+    recipients.insert(
+        0,
+        Recipient {
+            id: provider.id(),
+            name: provider.name(),
+            model: model.clone(),
+            model_name: name.clone(),
+            free,
+        },
+    );
+    let mut out = json!({ "task": task, "recipients": recipients });
     out["provider"] = json!(provider.id());
     out["providerName"] = json!(provider.name());
     out["model"] = json!(model);
     out["modelName"] = json!(name);
     out["free"] = json!(free);
-    out["recipients"] = json!([{
-        "id": provider.id(),
-        "name": provider.name(),
-        "model": model,
-        "modelName": name,
-        "free": free,
-    }]);
     out
 }
 
@@ -165,15 +221,26 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
         return status("needs-key");
     }
     let sv = super::services();
-    if sv.agent.is_running() {
+    // Held until the run exists, so a second start during the waits below
+    // is turned away (B-130).
+    let Some(claim) = sv.agent.claim() else {
         return status("busy");
-    }
+    };
+    let Some(mut choice) = run_choice(&StoreSettings, &sv.llm, &req.pin) else {
+        super::send_overlay_state(app);
+        return status("needs-key");
+    };
     if store::get().get_agent_settings()["consent"].as_bool() != Some(true) {
-        slots().lock().pending = Some(req);
-        if let Some(label) = outputs::target(app) {
+        let payload = consent_payload(&task, &StoreSettings, &sv.llm, &req.pin);
+        let card = outputs::target(app);
+        {
+            let mut s = slots().lock();
+            s.pending = Some(req);
+            s.card = card.clone();
+        }
+        if let Some(label) = card {
             set_view_chat(app, &label, true);
             outputs::show(app, &label);
-            let payload = consent_payload(&task, &StoreSettings, &sv.llm);
             windows::emit(app, &label, "agent:consent-request", payload);
             if let Some(w) = windows::window(app, &label) {
                 flags::show_focused(&w);
@@ -184,7 +251,10 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
     if sv.find.is_open() {
         shared(app).call(app, |k| k.close_find.as_ref());
     }
-    let label = outputs::target(app);
+    // Its own window (K-04), or the one the consent card just asked in.
+    let card = slots().lock().card.take();
+    let open = |l: &String| outputs::with(app, l, |o| o.active).unwrap_or(false);
+    let label = card.filter(open).or_else(|| outputs::fresh(app));
     slots().lock().label = label.clone();
     if let Some(l) = &label {
         outputs::with(app, l, |o| {
@@ -210,10 +280,8 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
         }
         return status("offline");
     }
-    let stored = store::get().get_agent_model();
-    let model = sv.llm.resolve_live(Kind::Agent, &stored).await;
-    store::get().heal_agent_model(&model);
-    slots().lock().model = Some(model);
+    settle_model(&mut choice, &StoreSettings, &sv.llm).await;
+    slots().lock().model = Some(choice.model.clone());
     // The bar is not needed while the agent works: back to the pill, with
     // the trail beside it, shown without focus.
     windows::collapse_panel(app, true);
@@ -221,13 +289,16 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
         outputs::show(app, l);
     }
     let context = req.context.filter(|c| !c.is_empty());
-    let r = sv.agent.start(StartOpts {
+    let r = claim.start(StartOpts {
         task,
         plan_gate: context.is_some() || req.plan_gate,
         context,
         region: super::active_region_px(),
         json_mode: req.json_mode,
         max_steps: req.max_steps,
+        active: Some(choice.active),
+        model: Some(choice.model),
+        pinned: choice.pinned,
     });
     super::send_overlay_state(app);
     super::apply_registrations(app);
@@ -243,6 +314,7 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
 fn consent(app: &AppHandle, allow: bool) -> Value {
     let pending = slots().lock().pending.take();
     if !allow {
+        slots().lock().card = None;
         return json!({ "ok": true, "started": false });
     }
     store::get().set_agent_settings(&json!({ "consent": true }));
@@ -260,6 +332,21 @@ fn str_of(p: &Value, k: &str) -> String {
     p[k].as_str().unwrap_or_default().to_string()
 }
 
+/// The optional `{provider, model}` on `agent:start` and `agent:do-it`.
+/// `None` for a provider that does not exist: the screen must not go to
+/// some other provider instead.
+fn pin_of(p: &Value) -> Option<Pin> {
+    let provider = match p["provider"].as_str() {
+        Some(id) => Some(Provider::from_id(id)?),
+        None => None,
+    };
+    let model = p["model"].as_str().map(str::trim).filter(|m| !m.is_empty());
+    Some(Pin {
+        provider,
+        model: model.map(str::to_string),
+    })
+}
+
 fn id_of(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
@@ -273,9 +360,13 @@ fn id_of(v: &Value) -> String {
 pub async fn route(app: &AppHandle, channel: &str, p: &Value) -> Option<Result<Value, String>> {
     let v = match channel {
         "agent:start" => {
+            let Some(pin) = pin_of(p) else {
+                return Some(Ok(status("needs-key")));
+            };
             let req = StartReq {
                 task: str_of(p, "task"),
                 context: p["context"].as_str().map(str::to_string),
+                pin,
                 ..StartReq::default()
             };
             start_run(app, req).await
@@ -288,6 +379,9 @@ pub async fn route(app: &AppHandle, channel: &str, p: &Value) -> Option<Result<V
         "agent:continue" => json!({ "ok": super::services().agent.resume(&str_of(p, "text")) }),
         "agent:consent" => consent(app, p["allow"].as_bool().unwrap_or(false)),
         "agent:do-it" => {
+            let Some(pin) = pin_of(p) else {
+                return Some(Ok(status("needs-key")));
+            };
             let question = str_of(p, "question");
             let task = if question.is_empty() {
                 "Do what the answer describes".to_string()
@@ -301,6 +395,7 @@ pub async fn route(app: &AppHandle, channel: &str, p: &Value) -> Option<Result<V
             let req = StartReq {
                 task,
                 context: Some(context),
+                pin,
                 ..StartReq::default()
             };
             start_run(app, req).await
@@ -441,7 +536,7 @@ impl AgentHost for Host {
             return Err("not an app name".into());
         }
         use std::os::windows::process::CommandExt;
-        let mut cmd = std::process::Command::new("cmd.exe");
+        let mut cmd = std::process::Command::new(system_tool("cmd.exe"));
         cmd.args(["/d", "/c", "start"])
             .raw_arg("\"\"")
             .raw_arg(format!("\"{t}\""))
@@ -570,7 +665,8 @@ mod tests {
     fn consent_payload_names_provider() {
         let llm = llm();
         let ant = MemorySettings::with_key("sk-ant-test");
-        let v = consent_payload("tidy the desktop", &ant, &llm);
+        let none = Pin::default();
+        let v = consent_payload("tidy the desktop", &ant, &llm, &none);
         assert_eq!(v["task"], "tidy the desktop");
         assert_eq!(v["provider"], "anthropic");
         assert_eq!(v["providerName"], "Anthropic");
@@ -582,17 +678,105 @@ mod tests {
         // A native pick for tasks is the model the card names.
         let key = (Provider::Anthropic, Kind::Agent);
         ant.native.lock().insert(key, "claude-test-pick".into());
-        let v = consent_payload("x", &ant, &llm);
+        let v = consent_payload("x", &ant, &llm, &none);
         assert_eq!(v["model"], "claude-test-pick");
         let or = MemorySettings::with_key("sk-or-test");
-        let v = consent_payload("x", &or, &llm);
+        let v = consent_payload("x", &or, &llm, &none);
         assert_eq!(v["provider"], "openrouter");
         let free = crate::llm::catalogue::default_for(Kind::Agent);
         assert_eq!(v["model"], free);
         assert_eq!(v["free"], free.ends_with(":free"));
-        let none = consent_payload("x", &MemorySettings::default(), &llm);
-        assert_eq!(none["recipients"], json!([]));
-        assert!(none.get("provider").is_none());
+        let keyless = consent_payload("x", &MemorySettings::default(), &llm, &none);
+        assert_eq!(keyless["recipients"], json!([]));
+        assert!(keyless.get("provider").is_none());
+    }
+
+    /// Two keys: the card lists who a question can reach, led by the run's
+    /// own provider on the run's own model. A pin names only that one.
+    #[test]
+    fn consent_recipients_come_from_the_ready_list() {
+        let llm = llm();
+        let s = MemorySettings::with_key("sk-ant-test");
+        s.keys.lock().insert(Provider::Gemini, "AIzaTest".into());
+        let v = consent_payload("x", &s, &llm, &Pin::default());
+        let first = &v["recipients"][0];
+        assert_eq!(first["model"], v["model"]);
+        assert_eq!(first["id"], v["provider"]);
+        assert_eq!(v["recipients"].as_array().unwrap().len(), 2);
+        let pin = Pin {
+            provider: Some(Provider::Gemini),
+            model: None,
+        };
+        let v = consent_payload("x", &s, &llm, &pin);
+        assert_eq!(v["provider"], "gemini");
+        assert_eq!(v["recipients"].as_array().unwrap().len(), 1);
+    }
+
+    /// Attack: a native-only account handed an OpenRouter id, or its id
+    /// healed into the OpenRouter slot.
+    #[tokio::test]
+    async fn native_only_run_uses_native_model() {
+        let llm = llm();
+        let s = MemorySettings::with_key("sk-ant-test");
+        let mut choice = run_choice(&s, &llm, &Pin::default()).unwrap();
+        settle_model(&mut choice, &s, &llm).await;
+        assert_eq!(choice.active.provider, Provider::Anthropic);
+        assert_eq!(choice.model, Provider::Anthropic.default_model(Kind::Agent));
+        assert!(!choice.pinned);
+        assert!(s.healed.lock().is_empty());
+        let key = (Provider::Anthropic, Kind::Agent);
+        s.native.lock().insert(key, "claude-test-pick".into());
+        let mut choice = run_choice(&s, &llm, &Pin::default()).unwrap();
+        settle_model(&mut choice, &s, &llm).await;
+        assert_eq!(choice.model, "claude-test-pick");
+        assert!(s.healed.lock().is_empty());
+    }
+
+    #[test]
+    fn a_pin_for_a_provider_with_no_key_does_not_run_elsewhere() {
+        let llm = llm();
+        let s = MemorySettings::with_key("sk-ant-test");
+        let pin = Pin {
+            provider: Some(Provider::Gemini),
+            model: None,
+        };
+        assert!(run_choice(&s, &llm, &pin).is_none());
+        assert!(pin_of(&json!({ "provider": "nobody" })).is_none());
+        let named = pin_of(&json!({ "provider": "gemini", "model": " m " })).unwrap();
+        assert_eq!(named.provider, Some(Provider::Gemini));
+        assert_eq!(named.model.as_deref(), Some("m"));
+        assert!(pin_of(&json!({})).unwrap().model.is_none());
+    }
+
+    /// Attack: the pinned free model is busy. An unpinned run hands over to
+    /// the next free one; this one must fail on the model it was given.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pinned_model_never_fails_over() {
+        use crate::agent::smoke;
+        let client = llm();
+        let s = MemorySettings::with_key("sk-or-test");
+        let pin = Pin {
+            provider: None,
+            model: Some("vendor/pinned:free".into()),
+        };
+        let choice = run_choice(&s, &client, &pin).unwrap();
+        assert!(choice.pinned);
+        let turns = json!([{ "status": 429 }, { "text": "Not reached." }]);
+        let busy = json!({ "purpose": "agent", "task": "pinned", "turns": turns });
+        let fake = Arc::new(crate::llm::fake::Fake::from_fixtures(vec![busy]));
+        let (agent, host) = smoke::agent_on(smoke::notepad(), fake.clone());
+        agent.start(StartOpts {
+            task: "pinned".into(),
+            active: Some(choice.active),
+            model: Some(choice.model),
+            pinned: choice.pinned,
+            ..StartOpts::default()
+        });
+        assert!(smoke::until(10000, || !agent.is_running()).await);
+        assert_eq!(host.last("agent:done").unwrap()["state"], "error");
+        let sent = fake.requests();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].model.as_deref(), Some("vendor/pinned:free"));
     }
 
     #[test]
