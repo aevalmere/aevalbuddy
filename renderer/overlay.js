@@ -97,13 +97,42 @@ function render(prevMode) {
   if (state.mode === 'panel') {
     renderNotice();
     if (prevMode !== 'panel') {
+      readyPending = true;
       input.focus();
       input.select();
       barOpened();
+      if (document.activeElement === input && document.hasFocus()) sendReady();
     }
     requestResize();
   }
 }
+
+// Rust times hotkey to typing: bar:ready goes once the field has focus
+// after an open (U25). If the window is not focused yet, the field's focus
+// event sends it when it is.
+let readyPending = false;
+function sendReady() {
+  if (!readyPending) return;
+  readyPending = false;
+  window.aeval.invoke('bar:ready').catch(() => {});
+}
+input.addEventListener('focus', sendReady);
+
+// Keys typed right after the hotkey belong to the field, even if they land
+// before it has focus: a printable key without Ctrl or Alt anywhere in the
+// open bar moves focus to the field first and then goes through (U25).
+// Space still presses a focused button, and the menus keep their keys.
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (state.mode !== 'panel' || e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
+    const a = document.activeElement;
+    if (a === input || (a && a.closest && a.closest('#intent-menu, #model-menu, input, textarea'))) return;
+    if (e.key === ' ' && a && a.closest && a.closest('button, [role="option"], [role="menuitem"]')) return;
+    input.focus();
+  },
+  true
+);
 
 // ----------------------------------------------------------------- morphs
 
@@ -222,14 +251,19 @@ function renderNotice() {
   const was = notice.hidden ? '' : noticeText.textContent;
   const now = barIntent();
   let urgent = false;
+  // Notices name what is needed, never one vendor (copy deck C-1..C-5).
   if (state.hotkeyFailed) {
     urgent = true;
-    noticeText.textContent = `${state.hotkeyFailed} is taken by another app, so it does nothing. Pick another shortcut in Settings.`;
+    noticeText.textContent = `Another app already uses ${state.hotkeyFailed}, so it can't open AevalBuddy. Choose another shortcut.`;
+    noticeSettings.textContent = 'Change shortcut';
+    noticeSettings.dataset.section = 'pg-shortcuts';
     noticeSettings.hidden = false;
     notice.hidden = false;
   } else if (!state.hasKey && now !== 'find') {
     noticeText.textContent =
-      now === 'do' ? 'Doing tasks needs an OpenRouter API key.' : 'No OpenRouter API key saved yet. Finding words on screen works without one.';
+      now === 'do' ? 'Tasks need an AI provider.' : 'Answers need an AI provider. Finding words on screen works without one.';
+    noticeSettings.textContent = 'Connect a provider';
+    noticeSettings.dataset.section = 'pg-providers';
     noticeSettings.hidden = false;
     notice.hidden = false;
   } else if (state.offline && now !== 'find') {
@@ -298,8 +332,11 @@ regionClear.addEventListener('click', () => {
 settingsBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:open-settings');
 });
+// The notice's button opens Settings where the fix is: Providers for a
+// missing provider, Shortcuts for a taken shortcut.
 noticeSettings.addEventListener('click', () => {
-  window.aeval.invoke('overlay:open-settings');
+  const section = noticeSettings.dataset.section || '';
+  window.aeval.invoke('overlay:open-settings', section ? { section } : undefined);
 });
 closeBtn.addEventListener('click', () => {
   window.aeval.invoke('overlay:collapse');

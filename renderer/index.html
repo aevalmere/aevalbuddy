@@ -31,8 +31,9 @@
            It is the one place the Ask / Find / Do keys are taught
            (REQUESTS.md 6): its tooltip, and the menu it opens. -->
       <button id="intent" class="intent-token" type="button" data-intent="ask" data-locked="false"
-              data-confidence="low" aria-haspopup="listbox" aria-expanded="false"
-              aria-controls="intent-menu" title="Ask ? or Ctrl+1 · Find / or Ctrl+2 · Do &gt; or Ctrl+3 · Alt+Down for this menu">
+              data-rest="true" data-confidence="low" aria-haspopup="listbox" aria-expanded="false"
+              aria-controls="intent-menu" aria-describedby="token-tip" aria-keyshortcuts="Alt+ArrowDown"
+              title="Ask ? or Ctrl+1 · Find / or Ctrl+2 · Do &gt; or Ctrl+3 · Alt+Down for this menu">
         <span class="ico tok-glyph g-ask i-bubble" aria-hidden="true"></span>
         <span class="ico tok-glyph g-find i-viewfinder" aria-hidden="true"></span>
         <span class="ico tok-glyph g-do i-pointer" aria-hidden="true"></span>
@@ -57,23 +58,30 @@
       <div id="target-chip" hidden>
         <span id="target-text"></span>
         <button id="target-new" class="g-icon" type="button" aria-label="Start a new conversation instead"
-                title="Start a new conversation instead">
+                aria-keyshortcuts="Control+N" title="Start a new conversation instead (Ctrl+N)">
           <span class="ico i-x" aria-hidden="true"></span>
         </button>
       </div>
       <button id="region-btn" class="g-icon" type="button" aria-label="Ask about an area of the screen"
-              title="Ask about an area">
+              aria-keyshortcuts="Control+R" title="Ask about an area (Ctrl+R)">
         <span class="ico i-area" aria-hidden="true"></span>
       </button>
-      <button id="settings-btn" class="g-icon" type="button" aria-label="Open settings" title="Settings">
+      <button id="settings-btn" class="g-icon" type="button" aria-label="Open settings"
+              aria-keyshortcuts="Control+Comma" title="Settings (Ctrl+,)">
         <span class="ico i-gear" aria-hidden="true"></span>
       </button>
       <!-- Esc on an empty field and a click outside close the bar; this stays
            for anyone who looks for a button, and for switch access. -->
-      <button id="close-btn" class="g-icon" type="button" aria-label="Close the bar" title="Close (Esc)">
+      <button id="close-btn" class="g-icon" type="button" aria-label="Close the bar"
+              aria-keyshortcuts="Escape" title="Close (Esc)">
         <span class="ico i-x" aria-hidden="true"></span>
       </button>
     </div>
+
+    <!-- The token's tooltip as a row anyone can see: on keyboard focus after
+         600 ms and on hover after 400 ms (bar.js). Only the token teaches the
+         keys (REQUESTS.md 6). -->
+    <div id="token-tip" class="glass thin" role="tooltip" hidden>Ask ? or Ctrl+1 · Find / or Ctrl+2 · Do &gt; or Ctrl+3 · Alt+Down for this menu</div>
 
     <ul id="intent-menu" class="glass thin g-menu" role="listbox" aria-label="What Enter does" hidden>
       <li role="option" tabindex="-1" data-intent="ask"><span class="g-menu-label">Ask about the screen</span><span class="g-menu-keys"><kbd>?</kbd><kbd>Ctrl+1</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
@@ -82,16 +90,16 @@
     </ul>
 
     <!-- A task that was only guessed never starts on Enter. -->
-    <div id="guess" class="guess-card glass thick" hidden>
+    <div id="guess" class="guess-card glass thick" role="group" aria-labelledby="guess-text" hidden>
       <span id="guess-text"></span>
       <div class="guess-actions">
-        <button id="guess-answer" type="button" class="g-btn prominent">Just answer <kbd>Enter</kbd></button>
-        <button id="guess-run" type="button" class="g-btn">Run as a task <kbd>Alt+Enter</kbd></button>
-        <button id="guess-find" type="button" class="g-btn quiet">Find it</button>
+        <button id="guess-answer" type="button" class="g-btn prominent" aria-keyshortcuts="Enter">Answer <kbd aria-hidden="true">Enter</kbd></button>
+        <button id="guess-run" type="button" class="g-btn" aria-keyshortcuts="Alt+Enter">Do it for me <kbd aria-hidden="true">Alt+Enter</kbd></button>
+        <button id="guess-find" type="button" class="g-btn quiet">Find on screen</button>
       </div>
     </div>
 
-    <div id="examples" hidden aria-label="Examples"></div>
+    <div id="examples" role="group" aria-label="Suggestions" hidden></div>
 
     <!-- An area constrains every message in the conversation, not just the
          one that chose it, so it stays on screen for as long as it is in
@@ -99,7 +107,7 @@
     <div id="region-chip" class="glass thin" hidden>
       <span class="ico i-area" aria-hidden="true"></span>
       <span id="region-size"></span>
-      <button id="region-clear" type="button" class="g-chip">Whole screen</button>
+      <button id="region-clear" type="button" class="g-chip" aria-label="Stop using the area and ask about the whole screen">Whole screen</button>
     </div>
 
     <!-- Find's count and the hints live under the bar, as one row. -->
