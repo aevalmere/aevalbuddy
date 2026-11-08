@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42465033538,
+  "run_id": 42466187678,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465033538",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466187678",
   "event": "push",
-  "sha": "3127827836719bfec2def557b15d4bd34e64fdb1",
+  "sha": "9e79ab976ae24c462f5f9571db23d696177701b5",
   "ref": "rust/windows",
   "ref_dir": "rust-windows",
   "conclusion": "failure",
   "failed": [
     "Build installer"
   ],
-  "finished": "2026-11-08T09:10:20Z",
+  "finished": "2026-11-08T09:23:51Z",
   "error_lines": 1,
   "steps": [
     {
@@ -71,7 +71,7 @@
       "log": "build.log"
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "skipped",
       "log": ""
     },

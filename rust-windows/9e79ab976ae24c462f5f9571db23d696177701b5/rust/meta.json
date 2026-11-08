@@ -1,0 +1,94 @@
+{
+  "workflow": "rust",
+  "workflow_name": "rust",
+  "run_id": 42466187678,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466187678",
+  "event": "push",
+  "sha": "9e79ab976ae24c462f5f9571db23d696177701b5",
+  "ref": "rust/windows",
+  "ref_dir": "rust-windows",
+  "conclusion": "failure",
+  "failed": [
+    "Build installer"
+  ],
+  "finished": "2026-11-08T09:23:51Z",
+  "error_lines": 1,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Rust toolchain",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Cache cargo",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Gate helper",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Prebuild desktop helper",
+      "outcome": "success",
+      "log": "prebuild.log"
+    },
+    {
+      "name": "Format",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Format patch",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Clippy",
+      "outcome": "success",
+      "log": "clippy.log"
+    },
+    {
+      "name": "Unit tests",
+      "outcome": "success",
+      "log": "test.log"
+    },
+    {
+      "name": "Build installer",
+      "outcome": "failure",
+      "log": "build.log"
+    },
+    {
+      "name": "Smoke",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Capture check",
+      "outcome": "success",
+      "log": "capture.log"
+    },
+    {
+      "name": "Desktop selfcheck",
+      "outcome": "success",
+      "log": "desktop.log"
+    },
+    {
+      "name": "Upload installer",
+      "outcome": "skipped",
+      "log": ""
+    }
+  ]
+}

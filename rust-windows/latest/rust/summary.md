@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42465033538](https://github.com/aevalmere/aevalbuddy/actions/runs/42465033538), attempt 1, on push
-- Commit: 3127827836719bfec2def557b15d4bd34e64fdb1
+- Run: [42466187678](https://github.com/aevalmere/aevalbuddy/actions/runs/42466187678), attempt 1, on push
+- Commit: 9e79ab976ae24c462f5f9571db23d696177701b5
 - Ref: rust/windows
 - Conclusion: **failure**
 - Failed: Build installer
-- Finished: 2026-11-08T09:10:20Z
+- Finished: 2026-11-08T09:23:51Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -21,7 +21,7 @@
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
 | Build installer | failure | [build.log](build.log) |
-| Scaffold smoke | skipped |  |
+| Smoke | skipped |  |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
