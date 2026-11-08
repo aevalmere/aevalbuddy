@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42494149341,
+  "run_id": 42509076371,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42494149341",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42509076371",
   "event": "push",
-  "sha": "0db39124cabec1ef79e51677e6ee318cfd87eb9c",
+  "sha": "fe650d139bafc54e44c7df6cab8f6b1da6237bf3",
   "ref": "rust/agent",
   "ref_dir": "rust-agent",
   "conclusion": "failure",
   "failed": [
-    "Unit tests"
+    "Format"
   ],
-  "finished": "2026-11-08T15:22:03Z",
-  "error_lines": 13,
+  "finished": "2026-11-08T18:19:29Z",
+  "error_lines": 12,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +47,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -62,7 +62,7 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "test.log"
     },
     {

@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42494149341](https://github.com/aevalmere/aevalbuddy/actions/runs/42494149341), attempt 1, on push
-- Commit: 0db39124cabec1ef79e51677e6ee318cfd87eb9c
+- Run: [42509076371](https://github.com/aevalmere/aevalbuddy/actions/runs/42509076371), attempt 1, on push
+- Commit: fe650d139bafc54e44c7df6cab8f6b1da6237bf3
 - Ref: rust/agent
 - Conclusion: **failure**
-- Failed: Unit tests
-- Finished: 2026-11-08T15:22:03Z
+- Failed: Format
+- Finished: 2026-11-08T18:19:29Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -16,10 +16,10 @@
 | Cache cargo | success |  |
 | Gate helper | success |  |
 | Prebuild desktop helper | success | [prebuild.log](prebuild.log) |
-| Format | success |  |
-| Format patch | skipped |  |
+| Format | failure | [fmt.log](fmt.log) |
+| Format patch | success | [fmt.patch](fmt.patch) |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | failure | [test.log](test.log) |
+| Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | skipped |  |
 | Seed NSIS toolset | skipped |  |
 | Save NSIS toolset | skipped |  |
@@ -29,4 +29,4 @@
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 13 error and warning lines from the logs.
+errors.txt: 12 error and warning lines from the logs.

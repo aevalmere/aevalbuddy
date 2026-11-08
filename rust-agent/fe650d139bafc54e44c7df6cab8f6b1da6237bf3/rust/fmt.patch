@@ -1,0 +1,16 @@
+diff --git a/src-tauri/src/agent/smoke_live.rs b/src-tauri/src/agent/smoke_live.rs
+index 99428cb..ea157ba 100644
+--- a/src-tauri/src/agent/smoke_live.rs
++++ b/src-tauri/src/agent/smoke_live.rs
+@@ -257,9 +257,8 @@ async fn open_notepad(r: &Rig) -> Result<Note, String> {
+         .arg(&file)
+         .spawn()
+         .map_err(|e| e.to_string())?;
+-    let new_one = |w: &Value| {
+-        !seen.contains(&w["handle"].to_string()) && str_of(&w["title"]).contains(&tag)
+-    };
++    let new_one =
++        |w: &Value| !seen.contains(&w["handle"].to_string()) && str_of(&w["title"]).contains(&tag);
+     let win = r.window(15000, new_one).await;
+     let win = win.ok_or_else(|| "no Notepad window titled with the temp file".to_string())?;
+     Ok(Note {
