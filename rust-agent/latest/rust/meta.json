@@ -1,21 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42522070027,
+  "run_id": 42522753998,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42522070027",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42522753998",
   "event": "push",
-  "sha": "1533d10a2d36d5471327b229411f7a56309f2c1f",
+  "sha": "5af02f5842689bbd67420e0cecc2b9684f9c6070",
   "ref": "rust/agent",
   "ref_dir": "rust-agent",
   "conclusion": "failure",
   "failed": [
-    "Format",
-    "Capture check",
-    "Desktop selfcheck"
+    "Smoke"
   ],
-  "finished": "2026-11-08T20:57:12Z",
-  "error_lines": 13,
+  "finished": "2026-11-08T21:14:10Z",
+  "error_lines": 6,
   "steps": [
     {
       "name": "Checkout",
@@ -49,13 +47,13 @@
     },
     {
       "name": "Format",
-      "outcome": "failure",
-      "log": "fmt.log"
+      "outcome": "success",
+      "log": ""
     },
     {
       "name": "Format patch",
-      "outcome": "success",
-      "log": "fmt.patch"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Clippy",
@@ -69,37 +67,37 @@
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "nsis.log"
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "failure",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "desktop.log"
     },
     {

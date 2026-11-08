@@ -1,15 +1,7 @@
-== fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\agent\smoke_live.rs:356:
- /// nothing more arrives afterwards.
- async fn cancel_stops_typing(r: &Rig, h: &Value) -> Line {
-     if !focus_box(r, h).await {
--        return line("cancelStopsTyping", false, "no Typed box in the form".into());
-+        return line(
-+            "cancelStopsTyping",
-+            false,
-+            "no Typed box in the form".into(),
-+        );
-     }
-     let before = typed_len(r, h).await;
-     let d = r.d.clone();
-
+== smoke.log ==
+[SMOKE] cancelStopsTyping=FAIL:typed=203 first=203 later=360
+[SMOKE] helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=159 first=519 later=648
+[SMOKE] failed: cancelStopsTyping, helperTimeoutNoLateInput
+[GATE] fail cancelStopsTyping=FAIL:typed=203 first=203 later=360
+[GATE] fail helperTimeoutNoLateInput=FAIL:code=TIMEOUT typed=159 first=519 later=648
+[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: cancelStopsTyping, helperTimeoutNoLateInput; 1 listed label(s) never printed
