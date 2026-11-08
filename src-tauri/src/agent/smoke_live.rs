@@ -330,6 +330,22 @@ async fn typed_len(r: &Rig, h: &Value) -> usize {
     tail.trim().parse().unwrap_or(0)
 }
 
+/// The length once the form has caught up with input it already holds:
+/// the form redraws its title per character, so it lags the helper. Input
+/// still arriving never settles below 2000.
+async fn settled(r: &Rig, h: &Value) -> usize {
+    let mut last = typed_len(r, h).await;
+    for _ in 0..30 {
+        sleep(200).await;
+        let now = typed_len(r, h).await;
+        if now == last {
+            break;
+        }
+        last = now;
+    }
+    last
+}
+
 /// Clicks the middle of a node of the form; true when the click went out.
 async fn click_node(r: &Rig, node: &Value) -> bool {
     let n = |k: &str| node["rect"][k].as_f64().unwrap_or(0.0);
@@ -369,8 +385,7 @@ async fn cancel_stops_typing(r: &Rig, h: &Value) -> Line {
     sleep(200).await;
     let cancelled = r.d.op("cancel", json!({})).await;
     let _ = typing.await;
-    sleep(100).await;
-    let first = typed_len(r, h).await;
+    let first = settled(r, h).await;
     sleep(500).await;
     let later = typed_len(r, h).await;
     let typed = first.saturating_sub(before);
@@ -389,9 +404,7 @@ async fn timeout_no_late_input(r: &Rig, h: &Value) -> Line {
     let args = json!({ "text": "y".repeat(2000), "windowHandle": window });
     let got = r.d.inner().call(Some("type"), args, 150).await;
     let code = got.err().map(|e| e.code).unwrap_or_default();
-    // A chunk already sent can still be landing.
-    sleep(100).await;
-    let first = typed_len(r, h).await;
+    let first = settled(r, h).await;
     sleep(800).await;
     let later = typed_len(r, h).await;
     let typed = first.saturating_sub(before);
