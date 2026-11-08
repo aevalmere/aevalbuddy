@@ -9,24 +9,23 @@
   <link rel="stylesheet" href="settings.css" />
 </head>
 <body>
-  <div id="app" class="glass thick">
-    <header id="titlebar" data-drag="max">
-      <span class="title">Settings</span>
-      <button id="close-settings" type="button" aria-label="Close settings">
-        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
+  <div id="app" class="glass thick refract">
+    <header id="titlebar" class="sheet-bar" data-drag="max">
+      <span class="sheet-bar-title">Settings</span>
+      <div class="sheet-bar-tools">
+        <button id="close-settings" class="g-icon small" type="button" aria-label="Close settings">
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" vector-effect="non-scaling-stroke" /></svg>
+        </button>
+      </div>
     </header>
 
     <div id="layout">
-      <!-- The rail: section names, the current one at full slate with a
-           grape-soda bar. Only at 560px and wider; below that the column
-           scrolls on its own. -->
+      <!-- The rail: one button per page; the page in view is the filled row.
+           Only when the sheet is 560 px or wider; below that the column
+           scrolls on its own and each page title still says where you are. -->
       <nav id="rail" aria-label="Settings sections">
-        <button type="button" data-page="pg-account">Account</button>
+        <button type="button" data-page="pg-providers">Providers</button>
         <button type="button" data-page="pg-models">Models</button>
         <button type="button" data-page="pg-answers">Answers</button>
         <button type="button" data-page="pg-find">Find</button>
@@ -37,409 +36,492 @@
       </nav>
 
       <main class="edge-fade">
-        <!-- Every group is one line: what it is, what it is set to, and Edit.
-             The controls only exist while something is being changed. A
-             group with nothing set yet starts open, so a new install still
-             has the key field in front of it. -->
+        <!-- Every row is one line: what it is and what it is set to. The
+             whole line is the button that opens it; the controls exist only
+             while it is open, and one row is open at a time. -->
 
-        <div class="page" id="pg-account">
-          <h1>Account</h1>
-          <section id="sec-key" aria-labelledby="key-heading">
-            <div class="row-head">
-              <h2 id="key-heading">API key</h2>
-              <span id="key-summary" class="summary">No key yet</span>
-              <button class="edit" type="button" data-edit="sec-key">Edit</button>
+        <div class="page" id="pg-providers">
+          <h1 tabindex="-1">Providers</h1>
+          <p class="lede">Answers come from the first ready provider in this list. Drag to change the order.</p>
+          <!-- sec-key: the first-run tour's scope until it points at Providers. -->
+          <div id="sec-key">
+            <ol id="providers" class="group" aria-label="Providers, in the order AevalBuddy tries them"></ol>
+          </div>
+          <p id="prov-live" class="live" role="status"></p>
+          <div class="group" id="failover-group" hidden>
+            <div class="row line">
+              <label class="switch">
+                <span>When one is busy or fails, try the next</span>
+                <input id="failover-across" type="checkbox" role="switch" />
+              </label>
             </div>
-            <div class="body">
-              <!-- No key yet: the three steps to a free one, in order. -->
-              <ol id="free-pass" class="free-pass" hidden>
-                <li>Make a free OpenRouter account and key. <a class="link" href="#" data-external="https://openrouter.ai/keys">Open openrouter.ai/keys</a></li>
-                <li>Copy the key. Coming back here, AevalBuddy offers to use what is on your clipboard.</li>
-                <li>Free models need <strong>Free model publication</strong> turned on: their providers may keep and train on what they receive, which includes your screen. <a class="link" href="#" data-external="https://openrouter.ai/settings/privacy">Open privacy settings</a></li>
-              </ol>
-              <div id="clip-key" class="row subtle" hidden>
-                <span id="clip-key-text"></span>
-                <button id="clip-key-use" type="button" class="primary">Use this key</button>
-              </div>
-              <div class="row">
-                <input
-                  id="api-key-input"
-                  type="password"
-                  placeholder="sk-or-v1-..."
-                  aria-label="OpenRouter API key"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-                <button id="toggle-key" type="button" aria-pressed="false">Show</button>
-                <button id="save-key" type="button" class="primary">Save</button>
-              </div>
-              <div class="row subtle">
-                <button id="test-key" type="button" class="link">Test</button>
-                <button id="remove-key" type="button" class="link" hidden>Remove</button>
-                <a class="link" href="#" data-external="https://openrouter.ai/keys">Get a free key</a>
-              </div>
-              <p id="key-status" class="status" role="status" hidden></p>
+            <div class="row line sub">
+              <label class="check">
+                <input id="failover-ask" type="checkbox" />
+                <span>Ask me before switching from free models to a paid provider</span>
+              </label>
             </div>
-          </section>
+          </div>
+          <p id="key-storage" class="foot-note" hidden></p>
         </div>
 
         <div class="page" id="pg-models">
-          <!-- The paid filter applies to every picker on this page, so it
-               sits on the page's title line rather than between the title
-               and the first row, where it read as a row of its own. -->
-          <div class="page-head">
-            <h1>Models</h1>
-            <label class="switch page-switch">
-              <input id="show-paid" type="checkbox" />
-              <span>Show paid models</span>
-            </label>
+          <h1 tabindex="-1">Models</h1>
+          <div class="group" id="models-mode" role="radiogroup" aria-label="Choose models">
+            <button type="button" class="choice-row" role="radio" data-models-mode="auto">
+              <span class="choice-name">Automatic (recommended)</span>
+              <span class="choice-note">AevalBuddy picks a model for each job: free ones on OpenRouter, the recommended one elsewhere.</span>
+            </button>
+            <button type="button" class="choice-row" role="radio" data-models-mode="custom">
+              <span class="choice-name">Choose for each job</span>
+            </button>
           </div>
 
-          <section id="sec-model" aria-labelledby="model-heading">
-            <div class="row-head">
-              <h2 id="model-heading">Screen model</h2>
-              <span id="model-summary" class="summary">Loading…</span>
-              <button class="edit" type="button" data-edit="sec-model">Edit</button>
+          <div id="models-custom" hidden>
+            <div id="models-for" class="seg-wrap" hidden>
+              <span class="seg-label" id="models-for-label">Models for</span>
+              <div class="seg" role="radiogroup" aria-labelledby="models-for-label"></div>
             </div>
-            <div class="body">
-              <p class="note">Looks at your screen and answers.</p>
-              <div class="combo" id="model-combo">
-                <button id="model-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Screen model">
-                  <span class="combo-lines">
-                    <span id="model-combo-label">Loading…</span>
-                    <span id="model-combo-detail" class="combo-detail"></span>
-                  </span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <ul id="model-combo-list" role="listbox" aria-label="Models" hidden></ul>
-              </div>
-              <p id="model-note" class="note"></p>
-            </div>
-          </section>
 
-          <section id="sec-brain" aria-labelledby="brain-heading">
-            <div class="row-head">
-              <h2 id="brain-heading">Answer model</h2>
-              <span id="brain-summary" class="summary">Off</span>
-              <button class="edit" type="button" data-edit="sec-brain">Edit</button>
-            </div>
-            <div class="body">
-              <label class="switch">
-                <input id="brain-enabled" type="checkbox" />
-                <span>Let the screen model read, and a bigger model answer</span>
-              </label>
-              <div class="combo" id="brain-combo" hidden>
-                <button id="brain-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Answer model">
-                  <span class="combo-lines">
-                    <span id="brain-combo-label">Loading…</span>
-                    <span id="brain-combo-detail" class="combo-detail"></span>
-                  </span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <ul id="brain-combo-list" role="listbox" aria-label="Answer models" hidden></ul>
-              </div>
-              <p id="brain-note" class="note"></p>
-            </div>
-          </section>
+            <div class="group">
+              <section class="row" id="sec-model">
+                <div class="row-head">
+                  <h2 id="model-heading">Screen model</h2>
+                  <span id="model-summary" class="summary">Loading…</span>
+                  <button class="edit" type="button" aria-expanded="false" aria-controls="sec-model-body" aria-labelledby="model-heading model-summary"></button>
+                </div>
+                <div class="body" id="sec-model-body">
+                  <div class="body-in">
+                    <p class="note">Looks at your screen and answers.</p>
+                    <div class="combo" id="model-combo">
+                      <button id="model-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="model-combo-list" aria-labelledby="model-heading model-combo-label">
+                        <span class="combo-lines">
+                          <span id="model-combo-label">Loading…</span>
+                          <span id="model-combo-detail" class="combo-detail"></span>
+                        </span>
+                      </button>
+                      <div id="model-combo-list" class="g-menu solid" role="listbox" aria-label="Screen models" hidden></div>
+                    </div>
+                    <p id="model-note" class="note"></p>
+                  </div>
+                </div>
+              </section>
 
-          <section id="sec-find-model" aria-labelledby="find-model-heading">
-            <div class="row-head">
-              <h2 id="find-model-heading">Find model</h2>
-              <span id="find-model-summary" class="summary">Loading…</span>
-              <button class="edit" type="button" data-edit="sec-find-model">Edit</button>
-            </div>
-            <div class="body">
-              <p class="note">Finds related words and matches by meaning. Text only, so a fast model is the right one.</p>
-              <div class="combo" id="find-combo">
-                <button id="find-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Find model">
-                  <span class="combo-lines">
-                    <span id="find-combo-label">Loading…</span>
-                    <span id="find-combo-detail" class="combo-detail"></span>
-                  </span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <ul id="find-combo-list" role="listbox" aria-label="Find models" hidden></ul>
-              </div>
-              <p id="find-model-note" class="note"></p>
-            </div>
-          </section>
+              <section class="row" id="sec-brain">
+                <div class="row-head">
+                  <h2 id="brain-heading">Answer model</h2>
+                  <span id="brain-summary" class="summary">Off</span>
+                  <button class="edit" type="button" aria-expanded="false" aria-controls="sec-brain-body" aria-labelledby="brain-heading brain-summary"></button>
+                </div>
+                <div class="body" id="sec-brain-body">
+                  <div class="body-in">
+                    <label class="switch">
+                      <span>Let the screen model read, and a bigger model answer</span>
+                      <input id="brain-enabled" type="checkbox" role="switch" />
+                    </label>
+                    <div class="combo" id="brain-combo" hidden>
+                      <button id="brain-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="brain-combo-list" aria-labelledby="brain-heading brain-combo-label">
+                        <span class="combo-lines">
+                          <span id="brain-combo-label">Loading…</span>
+                          <span id="brain-combo-detail" class="combo-detail"></span>
+                        </span>
+                      </button>
+                      <div id="brain-combo-list" class="g-menu solid" role="listbox" aria-label="Answer models" hidden></div>
+                    </div>
+                    <p id="brain-note" class="note"></p>
+                  </div>
+                </div>
+              </section>
 
-          <section id="sec-agent-model" aria-labelledby="agent-model-heading">
-            <div class="row-head">
-              <h2 id="agent-model-heading">Task model</h2>
-              <span id="agent-model-summary" class="summary">Loading…</span>
-              <button class="edit" type="button" data-edit="sec-agent-model">Edit</button>
+              <section class="row" id="sec-find-model">
+                <div class="row-head">
+                  <h2 id="find-model-heading">Find model</h2>
+                  <span id="find-model-summary" class="summary">Loading…</span>
+                  <button class="edit" type="button" aria-expanded="false" aria-controls="sec-find-model-body" aria-labelledby="find-model-heading find-model-summary"></button>
+                </div>
+                <div class="body" id="sec-find-model-body">
+                  <div class="body-in">
+                    <p class="note">Finds related words and matches by meaning. Text only, so a fast model is the right one.</p>
+                    <div class="combo" id="find-combo">
+                      <button id="find-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="find-combo-list" aria-labelledby="find-model-heading find-combo-label">
+                        <span class="combo-lines">
+                          <span id="find-combo-label">Loading…</span>
+                          <span id="find-combo-detail" class="combo-detail"></span>
+                        </span>
+                      </button>
+                      <div id="find-combo-list" class="g-menu solid" role="listbox" aria-label="Find models" hidden></div>
+                    </div>
+                    <p id="find-model-note" class="note"></p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="row" id="sec-agent-model">
+                <div class="row-head">
+                  <h2 id="agent-model-heading">Task model</h2>
+                  <span id="agent-model-summary" class="summary">Loading…</span>
+                  <button class="edit" type="button" aria-expanded="false" aria-controls="sec-agent-model-body" aria-labelledby="agent-model-heading agent-model-summary"></button>
+                </div>
+                <div class="body" id="sec-agent-model-body">
+                  <div class="body-in">
+                    <p class="note">Any model works. Tools means it calls actions natively; JSON mode means it writes them out, which works but slips more often.</p>
+                    <div class="combo" id="agent-combo">
+                      <button id="agent-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="agent-combo-list" aria-labelledby="agent-model-heading agent-combo-label">
+                        <span class="combo-lines">
+                          <span id="agent-combo-label">Loading…</span>
+                          <span id="agent-combo-detail" class="combo-detail"></span>
+                        </span>
+                      </button>
+                      <div id="agent-combo-list" class="g-menu solid" role="listbox" aria-label="Task models" hidden></div>
+                    </div>
+                    <p id="agent-model-note" class="note"></p>
+                  </div>
+                </div>
+              </section>
             </div>
-            <div class="body">
-              <p class="note">Any model works. Tools means it calls actions natively; JSON mode means it writes them out, which works but slips more often.</p>
-              <div class="combo" id="agent-combo">
-                <button id="agent-combo-btn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Task model">
-                  <span class="combo-lines">
-                    <span id="agent-combo-label">Loading…</span>
-                    <span id="agent-combo-detail" class="combo-detail"></span>
-                  </span>
-                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <ul id="agent-combo-list" role="listbox" aria-label="Task models" hidden></ul>
+
+            <div class="group" id="paid-group">
+              <div class="row line" id="paid-row">
+                <label class="switch">
+                  <span>Show paid models</span>
+                  <input id="show-paid" type="checkbox" role="switch" />
+                </label>
               </div>
-              <p id="agent-model-note" class="note"></p>
+              <p class="row line note" id="billed-note" hidden>Every model here is billed per question.</p>
             </div>
-          </section>
+          </div>
         </div>
 
         <div class="page" id="pg-answers">
-          <h1>Answers</h1>
-          <section id="sec-skill" aria-labelledby="skill-heading">
-            <div class="row-head">
-              <h2 id="skill-heading">Answer style</h2>
-              <span id="skill-summary" class="summary">Automatic</span>
-              <button class="edit" type="button" data-edit="sec-skill">Edit</button>
-            </div>
-            <div class="body">
-              <div id="skill-list" role="radiogroup" aria-labelledby="skill-heading"></div>
-            </div>
-          </section>
+          <h1 tabindex="-1">Answers</h1>
+          <div class="group">
+            <section class="row" id="sec-skill">
+              <div class="row-head">
+                <h2 id="skill-heading">Answer style</h2>
+                <span id="skill-summary" class="summary">Automatic</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-skill-body" aria-labelledby="skill-heading skill-summary"></button>
+              </div>
+              <div class="body" id="sec-skill-body">
+                <div class="body-in">
+                  <div id="skill-list" class="choice" role="radiogroup" aria-labelledby="skill-heading"></div>
+                  <div class="actions">
+                    <button id="open-skills" type="button" class="g-btn">Open styles folder</button>
+                    <span class="note">Add a .md file to make your own style.</span>
+                  </div>
+                  <p id="skills-status" class="status" role="status" hidden></p>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
 
         <div class="page" id="pg-find">
-          <h1>Find</h1>
-          <section id="sec-find" aria-labelledby="find-heading">
-            <div class="row-head">
-              <h2 id="find-heading">Find on screen</h2>
-              <span id="find-summary" class="summary">This window</span>
-              <button class="edit" type="button" data-edit="sec-find">Edit</button>
-            </div>
-            <div class="body">
-              <div class="choice" role="radiogroup" aria-label="Where Find looks">
-                <button type="button" class="choice-option" role="radio" data-find-scope="window">This window</button>
-                <button type="button" class="choice-option" role="radio" data-find-scope="screen">Whole screen</button>
+          <h1 tabindex="-1">Find</h1>
+          <div class="group">
+            <section class="row" id="sec-find">
+              <div class="row-head">
+                <h2 id="find-heading">Find on screen</h2>
+                <span id="find-summary" class="summary">This window</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-find-body" aria-labelledby="find-heading find-summary"></button>
               </div>
-              <p class="note" id="find-related-label">Related matches: words that mean the same thing, found by the Find model. They send this window's text to it.</p>
-              <div class="choice" role="radiogroup" aria-labelledby="find-related-label">
-                <button type="button" class="choice-option" role="radio" data-find-related="ask">Ask each time</button>
-                <button type="button" class="choice-option" role="radio" data-find-related="auto">Automatic</button>
-                <button type="button" class="choice-option" role="radio" data-find-related="off">Off</button>
+              <div class="body" id="sec-find-body">
+                <div class="body-in">
+                  <div class="choice" role="radiogroup" aria-label="Where Find looks">
+                    <button type="button" class="choice-option" role="radio" data-find-scope="window">This window</button>
+                    <button type="button" class="choice-option" role="radio" data-find-scope="screen">Whole screen</button>
+                  </div>
+                  <p class="note" id="find-related-label">Related matches: words that mean the same thing, found by the Find model. They send this window's text to it.</p>
+                  <div class="choice" role="radiogroup" aria-labelledby="find-related-label">
+                    <button type="button" class="choice-option" role="radio" data-find-related="ask">Ask each time</button>
+                    <button type="button" class="choice-option" role="radio" data-find-related="auto">Automatic</button>
+                    <button type="button" class="choice-option" role="radio" data-find-related="off">Off</button>
+                  </div>
+                  <label class="switch">
+                    <span>Read text from pixels when an app shares none</span>
+                    <input id="find-ocr" type="checkbox" role="switch" />
+                  </label>
+                  <p class="note">Exact matches never leave this computer and work offline.</p>
+                </div>
               </div>
-              <label class="switch">
-                <input id="find-ocr" type="checkbox" />
-                <span>Read text from pixels when an app shares none</span>
-              </label>
-              <p class="note">Exact matches never leave this computer and work offline.</p>
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
 
         <div class="page" id="pg-agent">
-          <h1>Tasks</h1>
-          <section id="sec-agent" aria-labelledby="agent-heading">
-            <div class="row-head">
-              <h2 id="agent-heading">Permissions</h2>
-              <span id="agent-summary" class="summary">Asks for risky steps</span>
-              <button class="edit" type="button" data-edit="sec-agent">Edit</button>
-            </div>
-            <div class="body">
-              <div class="choice" role="radiogroup" aria-label="When a task asks first">
-                <button type="button" class="choice-option" role="radio" data-permission="risky">Ask for risky steps</button>
-                <button type="button" class="choice-option" role="radio" data-permission="every">Ask before every action</button>
+          <h1 tabindex="-1">Tasks</h1>
+          <div class="group">
+            <section class="row" id="sec-agent">
+              <div class="row-head">
+                <h2 id="agent-heading">Permissions</h2>
+                <span id="agent-summary" class="summary">Asks for risky steps</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-agent-body" aria-labelledby="agent-heading agent-summary"></button>
               </div>
-              <label class="slider-row">
-                <span>Most steps for one task</span>
-                <input id="agent-steps" type="range" min="10" max="50" step="5" />
-                <output id="agent-steps-value">25</output>
-              </label>
-              <label class="switch">
-                <input id="agent-screenshots" type="checkbox" />
-                <span>Let it look at screenshots when the app shares too little</span>
-              </label>
-              <label class="switch">
-                <input id="agent-cursor" type="checkbox" />
-                <span>Put the mouse back after it clicks</span>
-              </label>
-              <p class="note">Esc, the Stop button, the tray, or moving the mouse stops it. Screenshots are never saved.</p>
-              <div class="row subtle">
-                <button id="agent-revoke" type="button" class="link">Revoke permission</button>
+              <div class="body" id="sec-agent-body">
+                <div class="body-in">
+                  <div class="choice" role="radiogroup" aria-label="When a task asks first">
+                    <button type="button" class="choice-option" role="radio" data-permission="risky">Ask for risky steps</button>
+                    <button type="button" class="choice-option" role="radio" data-permission="every">Ask before every action</button>
+                  </div>
+                  <label class="slider-row">
+                    <span>Most steps for one task</span>
+                    <input id="agent-steps" type="range" min="10" max="50" step="5" />
+                    <output id="agent-steps-value">25</output>
+                  </label>
+                  <label class="switch">
+                    <span>Let it look at screenshots when the app shares too little</span>
+                    <input id="agent-screenshots" type="checkbox" role="switch" />
+                  </label>
+                  <label class="switch">
+                    <span>Put the mouse back after it clicks</span>
+                    <input id="agent-cursor" type="checkbox" role="switch" />
+                  </label>
+                  <p class="note">Esc, the Stop button or the tray stops it; moving the mouse pauses it. Screenshots are never saved.</p>
+                  <div class="actions">
+                    <button id="agent-revoke" type="button" class="g-btn">Revoke permission</button>
+                  </div>
+                  <p id="agent-status" class="status" role="status" hidden></p>
+                </div>
               </div>
-              <p id="agent-status" class="status" role="status" hidden></p>
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
 
         <div class="page" id="pg-privacy">
-          <h1>Privacy</h1>
-          <section id="sec-recipients">
-            <div class="row-head">
-              <h2>Who sees your screen</h2>
-            </div>
-            <p class="note">Asking sends a screenshot, or the window's text, and your question to OpenRouter, which passes them to the model you picked. Tasks send one each step. Free models are offered on the condition that their providers may keep and train on what they receive. A paid model under OpenRouter's no-training setting does not. Exact Find never leaves this computer; related Find sends the window's text to the Find model.</p>
-          </section>
-          <section id="sec-history" aria-labelledby="history-heading">
-            <div class="row-head">
-              <h2 id="history-heading">History</h2>
-              <span id="history-summary" class="summary">On</span>
-              <button class="edit" type="button" data-edit="sec-history">Edit</button>
-            </div>
-            <div class="body">
-              <label class="switch">
-                <input id="save-history" type="checkbox" />
-                <span>Keep past conversations so you can find an answer again</span>
-              </label>
-              <p class="note">Text only, on this machine. Screenshots are never written to disk.</p>
-              <div class="row subtle">
-                <button id="open-history" type="button" class="link">Open history</button>
-                <button id="clear-history" type="button" class="link danger">Delete all</button>
+          <h1 tabindex="-1">Privacy</h1>
+          <div class="group">
+            <section class="row static" id="sec-recipients">
+              <div class="row-head">
+                <h2 id="recipients-heading">Who sees your screen</h2>
               </div>
-              <p id="history-status" class="status" role="status" hidden></p>
-            </div>
-          </section>
-          <section id="sec-share">
-            <div class="row-head">
-              <h2>Screen share</h2>
-              <span id="share-summary" class="summary">Hidden</span>
-            </div>
-            <p id="share-line" class="note"></p>
-          </section>
+              <p id="recipients-text" class="note row-note"></p>
+            </section>
+            <section class="row" id="sec-history">
+              <div class="row-head">
+                <h2 id="history-heading">History</h2>
+                <span id="history-summary" class="summary">On</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-history-body" aria-labelledby="history-heading history-summary"></button>
+              </div>
+              <div class="body" id="sec-history-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Keep past conversations so you can find an answer again</span>
+                    <input id="save-history" type="checkbox" role="switch" />
+                  </label>
+                  <p class="note">Text only, on this machine. Screenshots are never written to disk.</p>
+                  <div class="actions" id="history-actions">
+                    <button id="open-history" type="button" class="g-btn">Open history</button>
+                    <button id="clear-history" type="button" class="g-btn quiet-danger">Delete all</button>
+                  </div>
+                  <div class="actions confirm" id="history-confirm" hidden>
+                    <span id="history-confirm-text"></span>
+                    <button id="history-confirm-yes" type="button" class="g-btn danger">Delete</button>
+                    <button id="history-confirm-no" type="button" class="g-btn">Keep</button>
+                  </div>
+                  <p id="history-status" class="status" role="status" hidden></p>
+                </div>
+              </div>
+            </section>
+            <section class="row static" id="sec-share">
+              <div class="row-head">
+                <h2 id="share-heading">Screen share</h2>
+                <span id="share-summary" class="summary">Hidden</span>
+              </div>
+              <p id="share-line" class="note row-note"></p>
+            </section>
+          </div>
         </div>
 
         <div class="page" id="pg-shortcuts">
-          <h1>Shortcuts</h1>
-          <section id="sec-shortcuts" aria-labelledby="shortcut-heading">
-            <div class="row-head">
-              <h2 id="shortcut-heading">Keyboard</h2>
-              <span id="shortcut-summary" class="summary"></span>
-              <button class="edit" type="button" data-edit="sec-shortcuts">Edit</button>
-            </div>
-            <div class="body">
-              <ul id="shortcut-list">
-                <li class="sc-row" data-action="captureQuery">
-                  <span class="sc-label">Ask, find, or do</span>
-                  <kbd class="sc-current"></kbd>
-                  <button class="sc-change" type="button">Change</button>
-                  <span class="sc-warn" hidden>Taken by another app</span>
-                </li>
-                <li class="sc-row" data-action="captureRegion">
-                  <span class="sc-label">Ask about an area</span>
-                  <kbd class="sc-current"></kbd>
-                  <button class="sc-change" type="button">Change</button>
-                  <span class="sc-warn" hidden>Taken by another app</span>
-                </li>
-                <li class="sc-row" data-action="findOnScreen">
-                  <span class="sc-label">Find on screen</span>
-                  <kbd class="sc-current"></kbd>
-                  <button class="sc-change" type="button">Change</button>
-                  <span class="sc-warn" hidden>Taken by another app</span>
-                </li>
-                <li class="sc-row" data-action="agentTask">
-                  <span class="sc-label">Do a task</span>
-                  <kbd class="sc-current"></kbd>
-                  <button class="sc-change" type="button">Change</button>
-                  <span class="sc-warn" hidden>Taken by another app</span>
-                </li>
-                <li class="sc-row" data-action="toggleVisibility">
-                  <span class="sc-label">Hide or show the overlay</span>
-                  <kbd class="sc-current"></kbd>
-                  <button class="sc-change" type="button">Change</button>
-                  <span class="sc-warn" hidden>Taken by another app</span>
-                </li>
-                <li class="sc-row">
-                  <span class="sc-label">Clear the bar, close it, stop a task</span>
-                  <kbd>Esc</kbd>
-                  <span class="sc-fixed">Fixed</span>
-                </li>
-              </ul>
-              <p id="shortcut-error" class="status error" role="alert" hidden></p>
-              <div class="row subtle">
-                <button id="reset-shortcuts" type="button" class="link">Reset shortcuts</button>
+          <h1 tabindex="-1">Shortcuts</h1>
+          <div class="group">
+            <section class="row" id="sec-shortcuts">
+              <div class="row-head">
+                <h2 id="shortcut-heading">Keyboard</h2>
+                <span id="shortcut-summary" class="summary"></span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-shortcuts-body" aria-labelledby="shortcut-heading shortcut-summary"></button>
               </div>
-            </div>
-          </section>
+              <div class="body" id="sec-shortcuts-body">
+                <div class="body-in">
+                  <ul id="shortcut-list">
+                    <li class="sc-row" data-action="captureQuery">
+                      <span class="sc-label" id="sc-captureQuery">Ask, find, or do</span>
+                      <kbd class="sc-current"></kbd>
+                      <button class="sc-change g-btn" type="button" aria-describedby="sc-captureQuery">Change</button>
+                      <div class="sc-warn" hidden></div>
+                    </li>
+                    <li class="sc-row" data-action="captureRegion">
+                      <span class="sc-label" id="sc-captureRegion">Ask about an area</span>
+                      <kbd class="sc-current"></kbd>
+                      <button class="sc-change g-btn" type="button" aria-describedby="sc-captureRegion">Change</button>
+                      <div class="sc-warn" hidden></div>
+                    </li>
+                    <li class="sc-row" data-action="findOnScreen">
+                      <span class="sc-label" id="sc-findOnScreen">Find on screen</span>
+                      <kbd class="sc-current"></kbd>
+                      <button class="sc-change g-btn" type="button" aria-describedby="sc-findOnScreen">Change</button>
+                      <div class="sc-warn" hidden></div>
+                    </li>
+                    <li class="sc-row" data-action="agentTask">
+                      <span class="sc-label" id="sc-agentTask">Do a task</span>
+                      <kbd class="sc-current"></kbd>
+                      <button class="sc-change g-btn" type="button" aria-describedby="sc-agentTask">Change</button>
+                      <div class="sc-warn" hidden></div>
+                    </li>
+                    <li class="sc-row" data-action="toggleVisibility">
+                      <span class="sc-label" id="sc-toggleVisibility">Hide or show the overlay</span>
+                      <kbd class="sc-current"></kbd>
+                      <button class="sc-change g-btn" type="button" aria-describedby="sc-toggleVisibility">Change</button>
+                      <div class="sc-warn" hidden></div>
+                    </li>
+                    <li class="sc-row">
+                      <span class="sc-label">Clear the bar, close it, stop a task</span>
+                      <kbd>Esc</kbd>
+                      <span class="sc-fixed">Fixed</span>
+                    </li>
+                  </ul>
+                  <p id="shortcut-error" class="status error" role="alert" hidden></p>
+                  <div id="shortcut-free" class="actions" hidden></div>
+                  <div class="actions">
+                    <button id="reset-shortcuts" type="button" class="g-btn">Reset shortcuts</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <h2 class="group-title" id="local-keys-heading">In AevalBuddy windows</h2>
+          <ul class="group keys" id="local-keys" aria-labelledby="local-keys-heading">
+            <li class="row line key-row"><span>New conversation</span><span class="keys-of"><kbd>Ctrl+N</kbd></span></li>
+            <li class="row line key-row"><span>Next or previous answer window</span><span class="keys-of"><kbd>Ctrl+Tab</kbd><kbd>Ctrl+Shift+Tab</kbd></span></li>
+            <li class="row line key-row"><span>Move between the bar and the answer</span><span class="keys-of"><kbd>F6</kbd></span></li>
+            <li class="row line key-row"><span>Earlier questions, in the bar</span><span class="keys-of"><kbd>Up</kbd><kbd>Down</kbd></span></li>
+            <li class="row line key-row"><span>Undo the bar's choice, in an empty bar</span><span class="keys-of"><kbd>Backspace</kbd></span></li>
+            <li class="row line key-row"><span>Ask about an area</span><span class="keys-of"><kbd>Ctrl+R</kbd></span></li>
+            <li class="row line key-row"><span>Stop the answer or task</span><span class="keys-of"><kbd>Ctrl+.</kbd></span></li>
+            <li class="row line key-row"><span>Ask the last question again</span><span class="keys-of"><kbd>Ctrl+Shift+R</kbd></span></li>
+            <li class="row line key-row"><span>Copy the conversation</span><span class="keys-of"><kbd>Ctrl+Shift+C</kbd></span></li>
+            <li class="row line key-row"><span>Close the window</span><span class="keys-of"><kbd>Ctrl+W</kbd></span></li>
+            <li class="row line key-row"><span>Close every answer window</span><span class="keys-of"><kbd>Ctrl+Shift+W</kbd></span></li>
+            <li class="row line key-row"><span>Settings, History</span><span class="keys-of"><kbd>Ctrl+,</kbd><kbd>Ctrl+H</kbd></span></li>
+            <li class="row line key-row"><span>Bigger, smaller, usual text</span><span class="keys-of"><kbd>Ctrl+=</kbd><kbd>Ctrl+-</kbd><kbd>Ctrl+0</kbd></span></li>
+            <li class="row line key-row"><span>Move, size or maximize the window</span><span class="keys-of"><kbd>Alt+Space</kbd></span></li>
+            <li class="row line key-row"><span>This list, from any Settings page</span><span class="keys-of"><kbd>F1</kbd></span></li>
+          </ul>
         </div>
 
         <div class="page" id="pg-general">
-          <h1>General</h1>
-          <section id="sec-startup" aria-labelledby="startup-heading">
-            <div class="row-head">
-              <h2 id="startup-heading">Launch at login</h2>
-              <span id="startup-summary" class="summary">Off</span>
-              <button class="edit" type="button" data-edit="sec-startup">Edit</button>
-            </div>
-            <div class="body">
-              <label class="switch">
-                <input id="launch-at-login" type="checkbox" />
-                <span>Start AevalBuddy when I sign in to Windows</span>
-              </label>
-              <p id="startup-note" class="note"></p>
-            </div>
-          </section>
-
-          <!-- The material, from None (solid frosted panels) to Very very.
-               It does not follow Windows' transparency setting; this slider
-               is that control (REQUESTS.md 5). It changes every window live.
-               A contrast theme, or a Windows build that cannot hide the
-               windows from capture, still makes surfaces solid, and the
-               note says so. -->
-          <section id="sec-surface" aria-labelledby="surface-heading">
-            <div class="row-head">
-              <h2 id="surface-heading">Liquid glass</h2>
-              <span id="surface-summary" class="summary">Liquid</span>
-              <button class="edit" type="button" data-edit="sec-surface">Edit</button>
-            </div>
-            <div class="body">
-              <div class="glass-slider">
-                <input id="glass-range" type="range" min="0" max="1" step="0.05" value="0.5"
-                       aria-labelledby="surface-heading" aria-valuetext="Liquid" />
-                <div class="glass-stops" aria-hidden="true">
-                  <span>None</span><span>Subtle</span><span>Liquid</span><span>Very</span><span>Very very</span>
+          <h1 tabindex="-1">General</h1>
+          <div class="group">
+            <section class="row" id="sec-text-size">
+              <div class="row-head">
+                <h2 id="text-size-heading">Text size</h2>
+                <span id="text-size-summary" class="summary">100%</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-text-size-body" aria-labelledby="text-size-heading text-size-summary"></button>
+              </div>
+              <div class="body" id="sec-text-size-body">
+                <div class="body-in">
+                  <div class="slider-row">
+                    <span id="text-size-label">Size</span>
+                    <input id="text-scale" type="range" min="100" max="200" step="10" value="100" aria-labelledby="text-size-heading" aria-describedby="text-size-note" />
+                    <output id="text-scale-value" for="text-scale">100%</output>
+                  </div>
+                  <p id="text-size-note" class="note">Starts from your Windows text size.</p>
                 </div>
               </div>
-              <p id="surface-note" class="note"></p>
-            </div>
-          </section>
+            </section>
 
-          <!-- Updates live here and nowhere louder. The summary line carries
-               the state; the body has the detail, the one action that matters
-               right now, and a few words of what changed. -->
-          <section id="sec-about" aria-labelledby="about-heading">
-            <div class="row-head">
-              <h2 id="about-heading">Updates</h2>
-              <span id="about-summary" class="summary"></span>
-              <button class="edit" type="button" data-edit="sec-about" data-label="Details">Details</button>
-            </div>
-            <div class="body">
-              <p id="update-line" class="status" role="status"></p>
-              <div id="update-progress" class="progress" hidden><span></span></div>
-              <p id="update-notes" class="note" hidden></p>
-              <div class="row subtle">
-                <button id="update-restart" type="button" class="primary" hidden>Restart now</button>
-                <button id="update-check" type="button" class="link">Check for updates</button>
-                <a id="update-release" class="link" href="#" hidden>Release notes</a>
+            <section class="row" id="sec-startup">
+              <div class="row-head">
+                <h2 id="startup-heading">Launch at login</h2>
+                <span id="startup-summary" class="summary">Off</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-startup-body" aria-labelledby="startup-heading startup-summary"></button>
               </div>
-            </div>
-          </section>
+              <div class="body" id="sec-startup-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Start AevalBuddy when I sign in to Windows</span>
+                    <input id="launch-at-login" type="checkbox" role="switch" />
+                  </label>
+                  <p id="startup-note" class="note"></p>
+                </div>
+              </div>
+            </section>
 
-          <section id="sec-layout">
-            <div class="row-head">
-              <h2>Window layout</h2>
-              <span class="summary">Drag edges to resize</span>
-              <button id="edit-position" type="button" class="edit">Move</button>
-            </div>
-          </section>
+            <!-- The material, from None (solid frosted panels) to Very very.
+                 It does not follow Windows' transparency setting; this slider
+                 is that control (REQUESTS.md 5). It changes every window live.
+                 A contrast theme, or a Windows build that cannot hide the
+                 windows from capture, still makes surfaces solid, and the
+                 note says so. -->
+            <section class="row" id="sec-surface">
+              <div class="row-head">
+                <h2 id="surface-heading">Liquid glass</h2>
+                <span id="surface-summary" class="summary">Liquid</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-surface-body" aria-labelledby="surface-heading surface-summary"></button>
+              </div>
+              <div class="body" id="sec-surface-body">
+                <div class="body-in">
+                  <div class="glass-slider">
+                    <input id="glass-range" type="range" min="0" max="1" step="0.01" value="0.5"
+                           aria-labelledby="surface-heading" aria-valuetext="Liquid" />
+                    <div class="glass-stops" aria-hidden="true">
+                      <span data-k="0">None</span><span data-k="0.25">Subtle</span><span data-k="0.5">Liquid</span><span data-k="0.75">Very</span><span data-k="1">Very very</span>
+                    </div>
+                  </div>
+                  <p id="surface-note" class="note"></p>
+                </div>
+              </div>
+            </section>
 
-          <section id="sec-tour">
-            <div class="row-head">
-              <h2>Tour</h2>
-              <span class="summary">Four steps, about a minute</span>
-              <button id="replay-tour" type="button" class="edit">Replay</button>
-            </div>
-          </section>
+            <!-- Updates live here and nowhere louder. The summary line carries
+                 the state; the body has the detail, the one action that matters
+                 right now, and a few words of what changed. -->
+            <section class="row" id="sec-about">
+              <div class="row-head">
+                <h2 id="about-heading">Updates</h2>
+                <span id="about-summary" class="summary"></span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-about-body" aria-labelledby="about-heading about-summary"></button>
+              </div>
+              <div class="body" id="sec-about-body">
+                <div class="body-in">
+                  <p id="update-line" class="status" role="status"></p>
+                  <div id="update-progress" class="progress" hidden><span></span></div>
+                  <p id="update-notes" class="note" hidden></p>
+                  <div class="actions">
+                    <button id="update-restart" type="button" class="g-btn prominent" hidden>Restart now</button>
+                    <button id="update-check" type="button" class="g-btn">Check for updates</button>
+                    <a id="update-release" class="text-link" href="#" hidden>Release notes</a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Action rows: a value, and a button that says what it does. -->
+            <section class="row action" id="sec-layout">
+              <div class="row-head">
+                <h2 id="layout-heading">Bar position</h2>
+                <span id="layout-summary" class="summary">Top right</span>
+                <button id="edit-position" type="button" class="g-btn" aria-describedby="layout-heading layout-summary">Move…</button>
+              </div>
+            </section>
+
+            <section class="row action" id="sec-tour">
+              <div class="row-head">
+                <h2 id="tour-heading">Tour</h2>
+                <span id="tour-summary" class="summary">4 steps</span>
+                <button id="replay-tour" type="button" class="g-btn" aria-describedby="tour-heading tour-summary">Replay</button>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
 
     <footer>
       <span id="about">AevalBuddy <span id="app-version"></span>
-        <button id="update-btn" type="button" class="link" hidden>Restart to update</button>
+        <button id="update-btn" type="button" class="text-link" hidden>Restart to update</button>
       </span>
-      <button id="quit-app" type="button" class="link">Quit</button>
+      <button id="quit-app" type="button" class="text-link">Quit</button>
     </footer>
   </div>
   <script src="../renderer/glass.js"></script>

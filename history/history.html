@@ -9,46 +9,61 @@
   <link rel="stylesheet" href="history.css" />
 </head>
 <body>
-  <div id="app" class="glass thick">
-    <header id="titlebar" data-drag="max">
-      <span class="title">History</span>
-      <button id="close-history" type="button" aria-label="Close history">
-        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
+  <div id="app" class="glass thick refract">
+    <header id="titlebar" class="sheet-bar" data-drag="max">
+      <span class="sheet-bar-title">History</span>
+      <div class="sheet-bar-tools">
+        <button id="close-history" class="g-icon small" type="button" aria-label="Close history">
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" vector-effect="non-scaling-stroke" /></svg>
+        </button>
+      </div>
     </header>
 
     <div id="searchbar">
-      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none"
-           stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <circle cx="11" cy="11" r="7"></circle>
-        <line x1="21" y1="21" x2="16.2" y2="16.2"></line>
-      </svg>
-      <input id="search" type="search" placeholder="Search your conversations"
-             aria-label="Search your conversations" autocomplete="off" spellcheck="false" />
-      <button id="clear-search" type="button" aria-label="Clear the search" hidden>Clear</button>
+      <div class="search-field">
+        <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="9" r="5.5" vector-effect="non-scaling-stroke" /><path d="M13 13l3.5 3.5" vector-effect="non-scaling-stroke" /></svg>
+        <input id="search" type="search" placeholder="Search your conversations"
+               aria-label="Search your conversations" aria-controls="list" autocomplete="off" spellcheck="false" />
+        <button id="clear-search" class="g-icon small" type="button" aria-label="Clear the search" hidden>
+          <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round"><path d="M6.5 6.5l7 7M13.5 6.5l-7 7" vector-effect="non-scaling-stroke" /></svg>
+        </button>
+      </div>
     </div>
 
-    <!-- The list is the window. Rows carry the question, the opening of the
-         answer, and when it was; that is what someone scans for when they
-         remember an answer but not how they asked for it. -->
-    <main id="list" class="edge-fade" tabindex="-1"></main>
+    <!-- History is off, but older conversations are still here. -->
+    <p id="off-note" class="off-note" hidden>History is off, so nothing new is being saved.
+      <button id="off-turn-on" type="button" class="text-btn">Turn on</button></p>
 
-    <p id="empty" hidden></p>
+    <!-- The list is the window: one group per day, each row the question,
+         the opening of the answer and when. A row is two buttons side by
+         side, open and delete; never one inside the other. -->
+    <main id="list" class="edge-fade" aria-label="Conversations"></main>
+
+    <div id="empty" class="empty" hidden>
+      <p id="empty-text"></p>
+      <button id="empty-turn-on" type="button" class="text-btn" hidden>Turn on</button>
+    </div>
 
     <footer id="foot">
       <span id="count"></span>
-      <span class="spacer"></span>
-      <button id="clear-all" type="button" class="link danger">Delete all</button>
-      <span id="confirm" hidden>
-        <span>Delete everything?</span>
-        <button id="confirm-yes" type="button" class="link danger">Delete</button>
-        <button id="confirm-no" type="button" class="link">Keep</button>
+      <p id="note" class="note" role="status"></p>
+      <button id="undo" type="button" class="text-btn" hidden>Undo</button>
+      <button id="clear-all" type="button" class="quiet-danger">Delete all</button>
+      <span id="confirm" class="confirm" hidden>
+        <span id="confirm-text"></span>
+        <button id="confirm-yes" type="button" class="g-btn danger">Delete</button>
+        <button id="confirm-no" type="button" class="g-btn">Keep</button>
       </span>
     </footer>
+
+    <div id="row-menu" class="row-menu" role="menu" aria-label="Conversation" hidden>
+      <button type="button" role="menuitem" tabindex="-1" data-cmd="ask">Ask again</button>
+      <button type="button" role="menuitem" tabindex="-1" data-cmd="copy">Copy question</button>
+      <button type="button" role="menuitem" tabindex="-1" data-cmd="delete">Delete</button>
+    </div>
   </div>
 
   <script src="../renderer/glass.js"></script>
