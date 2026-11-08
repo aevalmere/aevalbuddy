@@ -1,0 +1,12 @@
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\ipc.rs:424:
+         Ok(r) => r,
+         Err(cause) => {
+             on_panic();
+-            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
++            Err(format!(
++                "{channel} failed: {}",
++                crate::crash::message(&*cause)
++            ))
+         }
+     }
+ }

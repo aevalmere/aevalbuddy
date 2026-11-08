@@ -1,19 +1,22 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42466187678,
+  "run_id": 42491645192,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466187678",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42491645192",
   "event": "push",
-  "sha": "9e79ab976ae24c462f5f9571db23d696177701b5",
+  "sha": "bbb2d19800ac23c88e0160b35ff08aeab462e983",
   "ref": "rust/windows",
   "ref_dir": "rust-windows",
   "conclusion": "failure",
   "failed": [
-    "Build installer"
+    "Format",
+    "Unit tests",
+    "Capture check",
+    "Desktop selfcheck"
   ],
-  "finished": "2026-11-08T09:23:51Z",
-  "error_lines": 1,
+  "finished": "2026-11-08T14:55:52Z",
+  "error_lines": 17,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +50,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -62,13 +65,28 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "test.log"
     },
     {
+      "name": "Restore NSIS toolset",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Seed NSIS toolset",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Save NSIS toolset",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
       "name": "Build installer",
-      "outcome": "failure",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Smoke",
@@ -77,12 +95,12 @@
     },
     {
       "name": "Capture check",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "desktop.log"
     },
     {

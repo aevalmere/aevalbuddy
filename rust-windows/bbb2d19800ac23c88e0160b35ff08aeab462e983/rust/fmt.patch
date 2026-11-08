@@ -1,0 +1,16 @@
+diff --git a/src-tauri/src/ipc.rs b/src-tauri/src/ipc.rs
+index dc54ebd..8022947 100644
+--- a/src-tauri/src/ipc.rs
++++ b/src-tauri/src/ipc.rs
+@@ -424,7 +424,10 @@ where
+         Ok(r) => r,
+         Err(cause) => {
+             on_panic();
+-            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
++            Err(format!(
++                "{channel} failed: {}",
++                crate::crash::message(&*cause)
++            ))
+         }
+     }
+ }
