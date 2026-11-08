@@ -1,7 +1,0 @@
-== smoke.log ==
-[SMOKE] uiaTree=FAIL:TIMEOUT:readTree did not finish in 12000ms (the target app may be hung)
-[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5048ms
-[SMOKE] failed: uiaTree, buddyReload
-[GATE] fail uiaTree=FAIL:TIMEOUT:readTree did not finish in 12000ms (the target app may be hung)
-[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5048ms
-[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: uiaTree, buddyReload; 1 listed label(s) never printed

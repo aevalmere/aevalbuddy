@@ -15,16 +15,35 @@
 [SMOKE] selftest.input=ok
 [SMOKE] pillCentre=Some((986, 38))
 [SMOKE] desktopReady=ok
-[SMOKE] desktopReadyMs=930
+[SMOKE] desktopReadyMs=804
 [SMOKE] desktopDpi=per-monitor-v2
 [SMOKE] desktopWindows=ok
 [SMOKE] desktopWindowCount=2
 [SMOKE] desktopOwnExcluded=ok
 [SMOKE] ownWindowBlocked=ok
 [SMOKE] desktopNotepadIncluded=ok
-[SMOKE] notepadWindow=w1023E:notepad:Notepad
+[SMOKE] notepadWindow=w10242:notepad:Notepad
 [SMOKE] focusMethod=already
-[SMOKE] uiaTree=FAIL:TIMEOUT:readTree did not finish in 12000ms (the target app may be hung)
+[SMOKE] uiaTree=ok
+[SMOKE] uiaTreeNodes=20
+[SMOKE] uiaTreeMs=2094
+[SMOKE] uiaTreeRoles=window,document,button,edit,menuitem
+[SMOKE] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
+[SMOKE] editor=ref_2:document:Text Editor
+[SMOKE] ocrMs=776
+[SMOKE] ocrWords=ok
+[SMOKE] ocrDetail=hits=invoice|total|due words=22 inWindow=true lang=en-US
+[SMOKE] typeFocus=element
+[SMOKE] typeReadText="System\nFile\nEdit\nFormat\nView\nHelp\nInvoice total due 42.00\n AevalBuddy smoke 4271\n  Ln 2, Col 23\n 100%\n Windows (CRLF)\n UTF-8\n"
+[SMOKE] uiaTypeRead=ok
+[SMOKE] uiaSetValueMs=94
+[SMOKE] uiaSetValueVia=sendinput
+[SMOKE] uiaSetValue=ok
+[SMOKE] getTextSpans=11
+[SMOKE] findEditor=ok
+[SMOKE] findTop=document:Text Editor:100
+[SMOKE] elementAt=document:ref_2
+[SMOKE] dontSave=button:Don't Save
 [SMOKE] notepadClosed=ok
 [SMOKE] probe.harness=ok
 [SMOKE] singleInstance=ok
@@ -73,18 +92,18 @@
 [SMOKE] probe.platform=ok
 [SMOKE] probe.windows=ok
 [SMOKE] helperNotAtBoot=ok
-[SMOKE] capture=ok:290993bytes:1024x768
+[SMOKE] capture=ok:291467bytes:1024x768
 [SMOKE] captureActiveDisplay=0,0 1024x768
 [SMOKE] regionCapture=320x200:tagged
 [SMOKE] regionSharper=1.00x->1.00x
 [SMOKE] regionPointTarget={"x":200,"y":140}
 [SMOKE] regionSelectorCancels=true
 [SMOKE] regionEscape=cancelled:panel-kept
-[SMOKE] captureFailNull=null in 3000ms, then a shot
+[SMOKE] captureFailNull=null in 3001ms, then a shot
 [SMOKE] dpiRoundTrip=ok:5 rects within 1px
 [SMOKE] glassTier=live reasons=none canHide=true
 [SMOKE] glassLoaded=ok
-[SMOKE] snapCost=n=50 wallP50=29ms wallP95=48.1ms encodeP95=2.7ms blockP95=0.2ms
+[SMOKE] snapCost=n=50 wallP50=28.8ms wallP95=45.9ms encodeP95=1.8ms blockP95=0.1ms
 [SMOKE] snapCost=ok
 [SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
 [SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
@@ -98,8 +117,8 @@
 [SMOKE] buddyPointsDone=true
 [SMOKE] walkthrough=true
 [SMOKE] onboardingSteps=0>1>2>3
-[SMOKE] buddyReuse=points in 26ms, agent waited 14ms
-[SMOKE] buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5048ms
+[SMOKE] buddyReuse=points in 20ms, agent waited 8ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 1765ms (clickThrough=true ready=true freshPage=true cursor=(200, 200))
 [SMOKE] probe.capture=ok
 [SMOKE] intentTable=42/42
 [SMOKE] intentTable=ok
@@ -146,7 +165,7 @@
 [SMOKE] v21basics=ok
 [SMOKE] glassGates=ok
 [SMOKE] v2desktop=ok
-[SMOKE] failed: uiaTree, buddyReload
+[SMOKE] done
 --- stderr ---
 [aevalbuddy] panic: smoke: deliberate task panic
     at src\selftest\probes\platform.rs:580
@@ -232,11 +251,7 @@
 
 [aevalbuddy] guard: smoke panicked and was stopped; the app keeps running: smoke: deliberate main-thread panic
 [aevalbuddy] renderer: buddy render-process-exited crashed
-[1108/200729.292:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
---- exit code: 1
-[GATE] SMOKE lines=141 listed=119
-[GATE] fail uiaTree=FAIL:TIMEOUT:readTree did not finish in 12000ms (the target app may be hung)
-[GATE] fail buddyReload=FAIL:shown=true crash=Ok(()) back=false in 5048ms
-[GATE] missing harness:done
-[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: uiaTree, buddyReload; 1 listed label(s) never printed
-smoke failed: exit code 1, gate exit code 1
+[1108/203532.962:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 0
+[GATE] SMOKE lines=160 listed=119
+[GATE] verdict=ok

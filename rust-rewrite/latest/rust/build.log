@@ -5,7 +5,7 @@
    Compiling global-hotkey v0.8.0
    Compiling winreg v0.55.0
    Compiling tauri-plugin-global-shortcut v2.4.1
-    Finished `release` profile [optimized] target(s) in 5m 14s
+    Finished `release` profile [optimized] target(s) in 3m 49s
        Built application at: D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe
         Info Patching D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe with bundle type information: nsis
         Info Target: x64
