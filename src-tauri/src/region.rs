@@ -182,18 +182,48 @@ pub fn take_pending_shot() -> Option<capture::Shot> {
         .take()
 }
 
-/// Sets the area outright (Find's "Ask about this" looks at the hit with
-/// room around it), as main.js assigned `activeRegion`.
-pub fn set_active(rect: Option<Rect>) {
+/// The display the area was chosen on (its device name). A DIP rect alone
+/// can sit where two displays' DIP ranges meet; the device says which one.
+static ACTIVE_DEVICE: Mutex<Option<String>> = Mutex::new(None);
+
+fn store_active(rect: Option<Rect>, device: Option<String>) {
     let changed_now = {
         let mut a = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
         let was = *a;
         *a = rect;
+        *ACTIVE_DEVICE.lock().unwrap_or_else(|e| e.into_inner()) = device;
         was != rect
     };
     if changed_now {
         changed();
     }
+}
+
+/// Sets the area outright (Find's "Ask about this" looks at the hit with
+/// room around it), as main.js assigned `activeRegion`. The display is the
+/// one the rect matches.
+pub fn set_active(rect: Option<Rect>) {
+    store_active(rect, None);
+}
+
+/// K-12: sets the area on a known display (`Display::device`), for callers
+/// that start from physical pixels, where the display is unambiguous.
+// host/find.rs (llm lane) moves to this from `set_active`.
+#[allow(dead_code)]
+pub fn set_active_on(rect: Rect, device: &str) {
+    store_active(Some(rect), Some(device.to_string()));
+}
+
+/// The display a capture of `rect` should read: the one the area was chosen
+/// on, when `rect` is the conversation's area and that is known.
+pub fn device_for(rect: &Rect) -> Option<String> {
+    if active_region().as_ref() != Some(rect) {
+        return None;
+    }
+    ACTIVE_DEVICE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
 }
 
 /// `region:clear` and New chat: back to the whole screen.
@@ -203,6 +233,7 @@ pub fn clear_active() {
         .unwrap_or_else(|e| e.into_inner())
         .take()
         .is_some();
+    *ACTIVE_DEVICE.lock().unwrap_or_else(|e| e.into_inner()) = None;
     if had {
         changed();
     }
@@ -216,6 +247,7 @@ pub async fn pick(app: &AppHandle) -> Option<bool> {
         return None;
     }
     let display = screen::active_display(&screen::all_displays());
+    let device = display.device.clone();
     changed();
     let rect = select(app, Some(display)).await;
     let Some(rect) = rect else {
@@ -223,6 +255,7 @@ pub async fn pick(app: &AppHandle) -> Option<bool> {
         return None;
     };
     *ACTIVE.lock().unwrap_or_else(|e| e.into_inner()) = Some(rect);
+    *ACTIVE_DEVICE.lock().unwrap_or_else(|e| e.into_inner()) = Some(device);
     let shot = capture::capture_screen_async(Some(rect)).await;
     let ok = shot.is_some();
     *PENDING_SHOT.lock().unwrap_or_else(|e| e.into_inner()) = shot;
@@ -246,6 +279,22 @@ mod tests {
             None
         );
         assert_eq!(finish_rect((0.0, 0.0), &json!({})), None);
+    }
+
+    #[test]
+    fn the_area_remembers_its_display() {
+        let r = Rect::new(1500.0, 200.0, 300.0, 150.0);
+        set_active_on(r, r"\\.\DISPLAY1");
+        assert_eq!(device_for(&r).as_deref(), Some(r"\\.\DISPLAY1"));
+        // Only the conversation's own area carries it.
+        assert_eq!(device_for(&Rect::new(0.0, 0.0, 10.0, 10.0)), None);
+        // An area set without a display leaves matching to the capture.
+        set_active(Some(r));
+        assert_eq!(device_for(&r), None);
+        set_active_on(r, r"\\.\DISPLAY2");
+        clear_active();
+        assert_eq!(device_for(&r), None);
+        assert_eq!(active_region(), None);
     }
 
     #[test]

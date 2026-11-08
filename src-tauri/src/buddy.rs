@@ -408,6 +408,24 @@ pub async fn agent_point(point: (f64, f64), label: &str, display: &screen::Displ
     tokio::time::sleep(Duration::from_millis(260)).await;
 }
 
+/// K-13: the agent's cursor at a physical point. The display comes from the
+/// physical side, where it is unambiguous, and the point is mapped to DIPs
+/// on that display.
+// host/agent.rs (agent lane) moves to this from `agent_point`.
+#[allow(dead_code)]
+pub async fn agent_point_phys(pt_px: (f64, f64), label: &str) {
+    let list = screen::all_displays();
+    let at = screen::PxRect {
+        x: pt_px.0.floor() as i32,
+        y: pt_px.1.floor() as i32,
+        width: 1,
+        height: 1,
+    };
+    let d = screen::matching_phys(&list, &at);
+    let p = d.point_to_dip(pt_px);
+    agent_point(p, label, &d).await;
+}
+
 /// Takes the agent's cursor down at the end of a run.
 pub fn agent_clear() {
     let was = with(|s| {
