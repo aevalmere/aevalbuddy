@@ -22,11 +22,4 @@
     Checking global-hotkey v0.8.0
     Checking winreg v0.55.0
     Checking tauri-plugin-global-shortcut v2.4.1
-error[E0063]: missing field `key` in initializer of `windows::screen::Display`
-   --> src\windows\motion.rs:227:9
-    |
-227 |         screen::Display {
-    |         ^^^^^^^^^^^^^^^ missing `key`
-
-For more information about this error, try `rustc --explain E0063`.
-error: could not compile `aevalbuddy` (lib test) due to 1 previous error
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.73s
