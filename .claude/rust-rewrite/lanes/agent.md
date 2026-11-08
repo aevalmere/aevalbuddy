@@ -265,6 +265,11 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- C1 green at 89fd79a (K-20 `agent:confirm-request.{value, truncated}` and `agent:step.planIndex`; K-21 consent `provider`/`providerName`/`model`/`modelName`/`free`/`recipients` from today's settings until K-16 and K-18 land).
+- B-006: green at 89fd79a; UNIT `agent::run::tests::confirm_payload_carries_full_value`, UNIT `agent::describe::tests::the_card_value_is_the_whole_text` (SMOKE+ `confirmFullText` waits for harness C1).
+- B-144: green at 89fd79a; UNIT `run::tests::step_payload_has_plan_index`.
+- B-051: in progress; K-21 fields green at 89fd79a (UNIT `host::agent::tests::consent_payload_names_provider`); `recipients` switches to `llm::recipients` when K-18 lands.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
