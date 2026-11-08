@@ -2679,7 +2679,10 @@ mod tests {
         assert_eq!(done["state"], "done");
         let req = host.events.last("agent:confirm-request").expect("asked");
         let why = req["why"].as_str().unwrap_or_default();
-        assert!(why.contains("the focused control is named \"Send\""), "{why}");
+        assert!(
+            why.contains("the focused control is named \"Send\""),
+            "{why}"
+        );
         assert!(!d.methods().contains(&"key".to_string()));
     }
 
