@@ -72,6 +72,12 @@ impl OsCrypt {
         OsCrypt { key: Some(key) }
     }
 
+    /// A ring with no key, as when DPAPI refuses, for tests.
+    #[cfg(test)]
+    pub fn without_key() -> Self {
+        OsCrypt { key: None }
+    }
+
     /// `safeStorage.isEncryptionAvailable()`.
     pub fn available(&self) -> bool {
         self.key.is_some()
