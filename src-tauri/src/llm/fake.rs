@@ -706,11 +706,16 @@ mod tests {
         // One runtime for the reply and the read: the stall's timer belongs
         // to the runtime that polls it.
         let (status, first) = block(async {
-            let reply = fake.respond(Provider::OpenRouter, &body, &cancel, &meta).await;
+            let reply = fake
+                .respond(Provider::OpenRouter, &body, &cancel, &meta)
+                .await;
             let reply = reply.unwrap();
             let mut stream = reply.body;
             let wait = Duration::from_millis(50);
-            (reply.status, tokio::time::timeout(wait, stream.next()).await)
+            (
+                reply.status,
+                tokio::time::timeout(wait, stream.next()).await,
+            )
         });
         assert_eq!(status, 200);
         assert!(first.is_err(), "the body arrived during the stall");
