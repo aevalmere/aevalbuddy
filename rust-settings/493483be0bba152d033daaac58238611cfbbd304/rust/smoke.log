@@ -1,0 +1,34 @@
+[GATE] self-test passes=ok
+[GATE] self-test a FAIL line=ok
+[GATE] self-test a bare FAIL=ok
+[GATE] self-test no done=ok
+[GATE] self-test failed line=ok
+[GATE] self-test error line=ok
+[GATE] self-test a missing label=ok
+[GATE] self-test a FAIL value is not a FAIL label=ok
+[SMOKE] version=1.1.1
+[SMOKE] userData=D:\a\_temp\aeval-smoke
+[SMOKE] webviewData=D:\a\_temp\aeval-smoke\WebView2
+[SMOKE] scaffold.pages=output-1,overlay
+[SMOKE] scaffold.bridge=ok
+[SMOKE] selftest.eval=ok
+[SMOKE] selftest.input=ok
+[SMOKE] probe.harness=ok
+[SMOKE] probe.platform=ok
+[SMOKE] probe.windows=ok
+[SMOKE] probe.capture=ok
+[SMOKE] probe.llm=ok
+[SMOKE] probe.agent=ok
+[SMOKE] probe.bar=ok
+[SMOKE] probe.sheet=ok
+[SMOKE] probe.settings=ok
+[SMOKE] v2basics=ok
+[SMOKE] v21basics=ok
+[SMOKE] glassGates=ok
+[SMOKE] v2desktop=ok
+[SMOKE] done
+--- stderr ---
+[1108/152104.867:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 0
+[GATE] SMOKE lines=21 listed=18
+[GATE] verdict=ok

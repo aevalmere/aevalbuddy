@@ -7,7 +7,7 @@
 [CAPTURE] dxgi.frame=1024x768 in 7ms
 [CAPTURE] dxgi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
 [CAPTURE] dxgiExcludesOwnWithoutBlanking=ok
-[CAPTURE] gdi.frame=1024x768 in 36ms
+[CAPTURE] gdi.frame=1024x768 in 43ms
 [CAPTURE] gdi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
 [CAPTURE] gdiExcludesOwnWithoutBlanking=ok
 [CAPTURE] captureExcludesOwn=ok
@@ -27,7 +27,7 @@
 [CAPTURE] fidelityLanczos=ok
 [CAPTURE] glassFrame=Some((171, 128)) wall=0.1ms encode=8.1ms
 [CAPTURE] glassFrameSize=ok
-[CAPTURE] snapCost={"n":10,"wallP50":8.2684,"wallP95":8.3628,"encodeP95":8.2671,"blockP95":0.2028}
+[CAPTURE] snapCost={"n":10,"wallP50":8.1501,"wallP95":8.2824,"encodeP95":8.217600000000001,"blockP95":0.15919999999999998}
 [CAPTURE] snapCost=ok
 [CAPTURE] glassTier=live
 [CAPTURE] glassFixture=ok
@@ -35,4 +35,4 @@
 [CAPTURE] done
 
 --- stderr ---
-[1108/150952.043:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1108/152110.431:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
