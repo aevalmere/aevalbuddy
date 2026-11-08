@@ -1,5 +1,16 @@
-== smoke.log ==
-[SMOKE] lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
-[SMOKE] failed: lensFirstDraw
-[GATE] fail lensFirstDraw=FAIL:hits:ring:frame=0:false:false want 3:true:true
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: lensFirstDraw; 1 listed label(s) never printed
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\capture.rs:426:
+     let hit = lens::Hit {
+         i: 0,
+         kind: "literal".into(),
+-        rect: Some(Rect::new(d.bounds.x + 140.0, d.bounds.y + 120.0, 64.0, 18.0)),
++        rect: Some(Rect::new(
++            d.bounds.x + 140.0,
++            d.bounds.y + 120.0,
++            64.0,
++            18.0,
++        )),
+         why: Value::Null,
+         offscreen: false,
+     };
+
