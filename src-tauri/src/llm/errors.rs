@@ -17,6 +17,27 @@ pub enum ErrorKind {
     Other,
 }
 
+/// The codes a `query:error` carries, so the page can offer the action that
+/// fixes each one (design-ux U14, contract K-17).
+// The code table lands with B-119; B-043 and B-046 add daily-cap and
+// paid-hop.
+#[allow(dead_code)]
+pub mod codes {
+    pub const BAD_KEY: &str = "bad-key";
+    pub const NO_CREDIT: &str = "no-credit";
+    pub const DAILY_CAP: &str = "daily-cap";
+    pub const FREE_BUSY: &str = "free-busy";
+    pub const RATE_LIMITED: &str = "rate-limited";
+    pub const MODEL_GONE: &str = "model-gone";
+    pub const NO_VISION: &str = "no-vision";
+    pub const DATA_POLICY: &str = "data-policy";
+    pub const REFUSED: &str = "refused";
+    pub const OFFLINE: &str = "offline";
+    pub const SERVER: &str = "server";
+    pub const UNKNOWN: &str = "unknown";
+    pub const PAID_HOP: &str = "paid-hop";
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct ApiError {
     pub kind: ErrorKind,
@@ -26,6 +47,14 @@ pub struct ApiError {
     /// `Some("reader")` when the reader stage failed, so the error names the
     /// reader model rather than the brain that never ran.
     pub stage: Option<&'static str>,
+    /// How long the provider asked for before the next request
+    /// (`Retry-After`), in ms.
+    pub retry_after_ms: Option<u64>,
+    /// How many models were tried before this error came back; 1 means no
+    /// stand-in was tried, so the copy must not claim one.
+    pub attempts: u32,
+    /// One of [`codes`], once the error has been classified.
+    pub code: Option<&'static str>,
 }
 
 impl ApiError {
@@ -41,6 +70,9 @@ impl ApiError {
             status,
             message: message.into(),
             stage: None,
+            retry_after_ms: None,
+            attempts: 1,
+            code: None,
         }
     }
 
@@ -62,11 +94,33 @@ impl ApiError {
             status: None,
             message: message.into(),
             stage: None,
+            retry_after_ms: None,
+            attempts: 1,
+            code: None,
         }
     }
 
     pub fn with_stage(mut self, stage: &'static str) -> Self {
         self.stage = Some(stage);
+        self
+    }
+
+    // Contract K-17: B-042 and B-120 call these.
+    #[allow(dead_code)]
+    pub fn with_retry_after(mut self, ms: Option<u64>) -> Self {
+        self.retry_after_ms = ms;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_attempts(mut self, attempts: u32) -> Self {
+        self.attempts = attempts.max(1);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_code(mut self, code: &'static str) -> Self {
+        self.code = Some(code);
         self
     }
 
