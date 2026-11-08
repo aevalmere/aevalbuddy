@@ -1,19 +1,22 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42464855762,
+  "run_id": 42465866439,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42464855762",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465866439",
   "event": "push",
-  "sha": "caadb51c76714fef03dd4356f8a6a93c076657fa",
+  "sha": "d7e5e5f9ad28dbe0f182e0b17bce8c0a6e2215e8",
   "ref": "rust/platform",
   "ref_dir": "rust-platform",
   "conclusion": "failure",
   "failed": [
-    "Build installer"
+    "Format",
+    "Clippy",
+    "Capture check",
+    "Desktop selfcheck"
   ],
-  "finished": "2026-11-08T09:05:47Z",
-  "error_lines": 1,
+  "finished": "2026-11-08T09:14:39Z",
+  "error_lines": 51,
   "steps": [
     {
       "name": "Checkout",
@@ -47,17 +50,17 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "clippy.log"
     },
     {
@@ -67,22 +70,22 @@
     },
     {
       "name": "Build installer",
-      "outcome": "failure",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "skipped",
       "log": ""
     },
     {
       "name": "Capture check",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "desktop.log"
     },
     {

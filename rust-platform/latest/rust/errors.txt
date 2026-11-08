@@ -1,2 +1,62 @@
-== build.log ==
-       Error failed to bundle project: `http status: 504`
+== fmt.log ==
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\hotkeys.rs:892:
+         // Ctrl+Alt+A is already one of ours, so it is not offered or probed.
+         assert_eq!(probed, ["Super+Shift+Space", "Ctrl+Shift+Space"]);
+         assert!(free_alternatives(&ours, |_| false).is_empty());
+-        assert_eq!(TAKEN, "Another app already uses that shortcut. Try another.");
++        assert_eq!(
++            TAKEN,
++            "Another app already uses that shortcut. Try another."
++        );
+     }
+ }
+ 
+
+
+== clippy.log ==
+error: use of deprecated method `std::sync::atomic::Atomic::<u32>::fetch_update`: renamed to `try_update` for consistency
+   --> src\hotkeys.rs:413:16
+    |
+413 |         self.0.fetch_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+    |                ^^^^^^^^^^^^
+    |
+    = note: `-D deprecated` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(deprecated)]`
+help: replace the use of the deprecated method
+    |
+413 -         self.0.fetch_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+413 +         self.0.try_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+    |
+
+error: could not compile `aevalbuddy` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: using `contains()` instead of `iter().any()` is more efficient
+   --> src\hotkeys.rs:768:23
+    |
+768 |             let ok = !self.taken.iter().any(|t| *t == acc);
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `self.taken.contains(&acc)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#manual_contains
+    = note: `-D clippy::manual-contains` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+
+error: could not compile `aevalbuddy` (lib test) due to 2 previous errors
+
+
+== test.log ==
+warning: use of deprecated method `std::sync::atomic::Atomic::<u32>::fetch_update`: renamed to `try_update` for consistency
+   --> src\hotkeys.rs:413:16
+    |
+413 |         self.0.fetch_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+    |                ^^^^^^^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+    |
+413 -         self.0.fetch_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+413 +         self.0.try_update(SeqCst, SeqCst, |d| d.checked_sub(1)) == Ok(1)
+    |
+
+warning: `aevalbuddy` (lib test) generated 1 warning (1 duplicate)
+warning: `aevalbuddy` (lib) generated 1 warning (run `cargo fix --lib -p aevalbuddy` to apply 1 suggestion)
+
