@@ -637,6 +637,16 @@ impl Desktop {
         self.call(Some(op), args, p::OP_TIMEOUT).await
     }
 
+    /// Stops every request the helper is running or has queued from sending
+    /// any more input (B-050). It skips the queue, since the request it stops
+    /// is the one holding it; host.cs reads it on its own stdin thread.
+    pub async fn cancel(&self) -> DResult<Value> {
+        if !self.is_ready() {
+            return Ok(json!({ "ok": true, "cancelled": 0 }));
+        }
+        self.send("cancel", &json!({}), 1000).await
+    }
+
     fn uia_timeout(&self) -> u64 {
         if self.st().uia_warm {
             p::OP_TIMEOUT
@@ -926,6 +936,15 @@ impl Desktop {
         self.op("windowStates", p::merge(&base, &args)).await
     }
 
+    /// The element with keyboard focus, when `window_handle`'s window (or
+    /// any window, with none) is in front: `{node, windowHandle}`, `node`
+    /// null otherwise. The agent's gate checks what a Space would press.
+    pub async fn focused(self: &Arc<Self>, window_handle: Option<&Value>) -> DResult<Value> {
+        let args = json!({ "windowHandle": arg_window(window_handle) });
+        let r = self.op("focused", args).await?;
+        Ok(json!({ "node": p::node_shape(&r["node"]), "windowHandle": r["windowHandle"] }))
+    }
+
     pub async fn resolve(self: &Arc<Self>, r#ref: &str) -> DResult<Value> {
         let r = self.op("resolve", json!({ "ref": r#ref })).await?;
         Ok(json!({ "node": p::node_shape(&r["node"]), "windowHandle": r["windowHandle"] }))
@@ -1001,8 +1020,10 @@ impl Desktop {
                 f();
             }
         }
+        let window = arg_window(window_handle);
+        let args = json!({ "keys": keys, "repeat": repeat, "windowHandle": window });
         let r = self
-            .op("key", json!({ "keys": keys, "repeat": repeat, "windowHandle": arg_window(window_handle) }))
+            .call(Some("key"), args, p::key_timeout(keys, repeat))
             .await;
         if guard {
             if let Some(f) = deps.after_synthetic_key.clone() {
@@ -1178,6 +1199,20 @@ mod tests {
         assert!(HOST_CS.contains("namespace AevalDesktop"));
         assert!(HOST_PS1.contains("[AevalDesktop.Host]::Run($AevalVersion)"));
         assert_eq!(l.matches('\n').count(), 1);
+    }
+
+    /// Attack on timing: `key tab` repeated 100 times outlasts the plain
+    /// op timeout, and a request the client gave up on must not still be
+    /// pressing keys afterwards. The wait grows with every press instead.
+    #[test]
+    fn key_timeout_scales_with_repeat() {
+        assert_eq!(p::key_timeout("ctrl+s", 1), p::OP_TIMEOUT);
+        assert_eq!(p::key_timeout("tab", 100), 6000);
+        assert_eq!(p::key_timeout("tab tab space", 100), 14000);
+        assert!(p::key_timeout("tab", 100) > p::key_timeout("tab", 75));
+        // host.cs caps the repeat at 100, so the wait does too.
+        assert_eq!(p::key_timeout("tab", 1000), p::key_timeout("tab", 100));
+        assert_eq!(p::key_timeout("", 0), p::OP_TIMEOUT);
     }
 
     #[test]

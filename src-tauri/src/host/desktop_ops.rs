@@ -138,6 +138,7 @@ impl DesktopAdapter {
             }
             "windowStates" => d.window_states(whole(&a)).await,
             "resolve" => d.resolve(str_of(&a, "ref").unwrap_or("")).await,
+            "focused" => d.focused(opt(&a, "windowHandle")).await,
             "click" => d.click(&whole(&spread(&a))).await,
             "hover" => d.hover(&whole(&spread(&a))).await,
             "scroll" => d.scroll(&whole(&spread(&a))).await,
@@ -167,6 +168,7 @@ impl DesktopAdapter {
                 d.invoke(str_of(&a, "ref").unwrap_or(""), action).await
             }
             "restoreCursor" => d.restore_cursor().await,
+            "cancel" => d.cancel().await,
             "start" => d.start().await.map(|_| json!({ "ok": true })),
             "ping" => d.ping().await,
             _ => Err(DesktopError::new(
