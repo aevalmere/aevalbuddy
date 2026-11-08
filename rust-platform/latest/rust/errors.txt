@@ -1,3 +1,0 @@
-== desktop.log ==
-[DESKTOP] desktopReady=FAIL:ready=true ms=5912
-[DESKTOP] failed: desktopReady

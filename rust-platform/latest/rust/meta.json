@@ -1,19 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42492499739,
+  "run_id": 42494853998,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42492499739",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42494853998",
   "event": "push",
-  "sha": "ca684b549e29f5bbd1b2e5fb8a7c60ca48a9b940",
+  "sha": "fef30447e5904a69e22867b49eef07448d73a614",
   "ref": "rust/platform",
   "ref_dir": "rust-platform",
-  "conclusion": "failure",
-  "failed": [
-    "Desktop selfcheck"
-  ],
-  "finished": "2026-11-08T15:09:10Z",
-  "error_lines": 2,
+  "conclusion": "success",
+  "failed": [],
+  "finished": "2026-11-08T15:38:52Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -77,7 +75,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
@@ -97,12 +95,12 @@
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "desktop.log"
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
