@@ -1,20 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42465748998,
+  "run_id": 42466517382,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465748998",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466517382",
   "event": "push",
-  "sha": "3fcfbd935bba4a959fbad1c056c6aaed8444687b",
+  "sha": "cc1b2ff46d550e07552696963b685c1334b22a81",
   "ref": "rust/agent",
   "ref_dir": "rust-agent",
   "conclusion": "failure",
   "failed": [
-    "Build installer",
-    "Desktop selfcheck"
+    "Unit tests"
   ],
-  "finished": "2026-11-08T09:15:08Z",
-  "error_lines": 3,
+  "finished": "2026-11-08T09:22:54Z",
+  "error_lines": 12,
   "steps": [
     {
       "name": "Checkout",
@@ -63,16 +62,16 @@
     },
     {
       "name": "Unit tests",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "test.log"
     },
     {
       "name": "Build installer",
-      "outcome": "failure",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "skipped",
       "log": ""
     },
@@ -83,7 +82,7 @@
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "desktop.log"
     },
     {
