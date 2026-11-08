@@ -93,6 +93,12 @@ const INVOKE_CHANNELS = new Set([
   'glass:hello',
   'glass:passthrough',
   'settings:set-surface',
+  // Tauri rewrite, split (d): floating output windows and the glass slider
+  // (.claude/rust-rewrite/ARCHITECTURE.md, section 10). Electron's main
+  // process never answers them.
+  'output:bar',
+  'output:close',
+  'settings:set-glass',
 ]);
 
 const LISTEN_CHANNELS = new Set([

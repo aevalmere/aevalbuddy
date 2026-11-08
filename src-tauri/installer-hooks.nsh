@@ -1,0 +1,55 @@
+; Tauri NSIS hooks (ARCHITECTURE.md D6, PARITY UPD-15).
+;
+; PREINSTALL: an Electron copy installed by electron-builder (per user, under
+; %LOCALAPPDATA%\Programs\aevalbuddy) is uninstalled silently first. Its
+; uninstaller keeps %APPDATA%\aevalbuddy (deleteAppDataOnUninstall: false), so
+; the settings, key, history and shortcuts carry over. The Run key is
+; rewritten by the new app at boot (autostart.rs).
+;
+; POSTINSTALL: electron-updater and our own updater (updater.rs) start the
+; installer with `/S --updated [--force-run]`; `--force-run` relaunches the
+; app once the files are in place.
+
+!include "FileFunc.nsh"
+
+!macro NSIS_HOOK_PREINSTALL
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  StrCpy $0 0
+  aeval_scan:
+    EnumRegKey $1 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall" $0
+    StrCmp $1 "" aeval_done
+    IntOp $0 $0 + 1
+    ReadRegStr $3 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "InstallLocation"
+    StrCmp $3 "" aeval_scan
+    ; electron-builder names its uninstaller "Uninstall <productName>.exe";
+    ; Tauri's own is uninstall.exe, so this never matches our install.
+    IfFileExists "$3\Uninstall AevalBuddy.exe" 0 aeval_scan
+    ReadRegStr $2 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
+    StrCmp $2 "AevalBuddy" 0 aeval_scan
+    DetailPrint "Removing the previous AevalBuddy (Electron) from $3"
+    ; _?= runs the uninstaller in place and waits for it.
+    ExecWait '"$3\Uninstall AevalBuddy.exe" /S /currentuser --updated _?=$3'
+    Delete "$3\Uninstall AevalBuddy.exe"
+    RMDir "$3"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1"
+    Goto aeval_done
+  aeval_done:
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  Push $0
+  ${GetParameters} $0
+  ClearErrors
+  ${GetOptions} $0 "--force-run" $0
+  IfErrors aeval_norun
+    Exec '"$INSTDIR\AevalBuddy.exe"'
+  aeval_norun:
+  Pop $0
+!macroend
