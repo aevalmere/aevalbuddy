@@ -116,6 +116,10 @@ const INVOKE_CHANNELS = new Set([
   // ---- lane: capture ----
   // ---- end: capture ----
   // ---- lane: llm ----
+  'settings:set-provider-order',
+  'settings:set-failover',
+  'auth:openrouter-connect',
+  'skills:open-folder',
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----
@@ -166,6 +170,7 @@ const LISTEN_CHANNELS = new Set([
   // ---- lane: capture ----
   // ---- end: capture ----
   // ---- lane: llm ----
+  'provider:status',
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----

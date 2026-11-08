@@ -129,6 +129,10 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     // ---- lane: capture ----
     // ---- end: capture ----
     // ---- lane: llm ----
+    "settings:set-provider-order",
+    "settings:set-failover",
+    "auth:openrouter-connect",
+    "skills:open-folder",
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
@@ -180,6 +184,7 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     // ---- lane: capture ----
     // ---- end: capture ----
     // ---- lane: llm ----
+    "provider:status",
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----

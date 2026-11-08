@@ -4,6 +4,7 @@
 //! floating output windows: a question goes to the output `outputs::target`
 //! gives, and every event of that turn goes to that window only.
 
+use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -25,7 +26,9 @@ use crate::llm::payloads::{QueryError, Usage};
 use crate::llm::points::{Point, PointExtractor};
 use crate::llm::prompt::{extract_task, ExactText};
 use crate::llm::provider::Provider;
-use crate::llm::settings::{active, candidates_for, model_for, Active, LlmSettings};
+use crate::llm::settings::{
+    self as llm_settings, active, candidates_for, model_for, Active, LlmSettings,
+};
 use crate::llm::sse::Meter;
 use crate::state::{shared, Mode};
 use crate::windows::{self, outputs};
@@ -49,9 +52,32 @@ struct Current {
     cancel: CancellationToken,
 }
 
-fn current() -> &'static Mutex<Option<Current>> {
-    static C: OnceLock<Mutex<Option<Current>>> = OnceLock::new();
-    C.get_or_init(|| Mutex::new(None))
+/// The Ask running in each output window, by label (B-040).
+fn current() -> &'static Mutex<HashMap<String, Current>> {
+    static C: OnceLock<Mutex<HashMap<String, Current>>> = OnceLock::new();
+    C.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Puts `label`'s new Ask in place, cancelling only the one it replaces in
+/// that window, in one step so two quick questions cannot both run there.
+fn install(map: &Mutex<HashMap<String, Current>>, label: &str, gen: u64) -> CancellationToken {
+    let cancel = CancellationToken::new();
+    let new = Current {
+        gen,
+        cancel: cancel.clone(),
+    };
+    if let Some(old) = map.lock().insert(label.to_string(), new) {
+        old.cancel.cancel();
+    }
+    cancel
+}
+
+/// Removes `label`'s entry when it is still the Ask `gen`.
+fn uninstall(map: &Mutex<HashMap<String, Current>>, label: &str, gen: u64) {
+    let mut m = map.lock();
+    if m.get(label).is_some_and(|c| c.gen == gen) {
+        m.remove(label);
+    }
 }
 
 /// The shot taken when an area was chosen, and when, for the next question.
@@ -131,9 +157,17 @@ fn last_exact() -> &'static Mutex<Option<ExactText>> {
     L.get_or_init(|| Mutex::new(None))
 }
 
-/// main.js abortCurrentQuery.
+/// main.js abortCurrentQuery: every window's Ask stops (Stop on the bar,
+/// New chat, hiding the overlay).
 pub fn abort(_app: &AppHandle) {
-    if let Some(c) = current().lock().take() {
+    for (_, c) in current().lock().drain() {
+        c.cancel.cancel();
+    }
+}
+
+/// Stops the Ask in `label` and no other (contract K-03).
+pub fn abort_for(_app: &AppHandle, label: &str) {
+    if let Some(c) = current().lock().remove(label) {
         c.cancel.cancel();
     }
 }
@@ -398,11 +432,19 @@ async fn models_now() -> (Option<Active>, String, String) {
     let settings = &*services().settings;
     let act = active(settings);
     match act.as_ref().map(|a| a.provider) {
-        Some(p) if p.is_native() => (
-            act.clone(),
-            model_for(settings, p, Kind::Vision),
-            model_for(settings, p, Kind::Text),
-        ),
+        Some(p) if p.is_native() => {
+            let llm = &services().llm;
+            // The provider's list loads in the background; until it is
+            // cached the stored pick goes out as it is.
+            if let Some(a) = act.clone() {
+                let l = llm.clone();
+                tauri::async_runtime::spawn(async move {
+                    l.native_catalogue(p, &a.key).await;
+                });
+            }
+            let pick = |kind| llm.known_native(p, kind, &model_for(settings, p, kind));
+            (act.clone(), pick(Kind::Vision), pick(Kind::Text))
+        }
         _ => {
             let (m, b) = super::live_models(true).await;
             (act, m, b)
@@ -431,7 +473,6 @@ pub async fn submit_to(
         super::send_overlay_state(app);
         return json!({ "status": "needs-key" });
     }
-    abort(app);
     let gen = {
         let st = shared(app);
         let mut s = st.lock();
@@ -446,6 +487,7 @@ pub async fn submit_to(
         },
     };
     shared(app).lock().focused_output = Some(label.clone());
+    let cancel = install(current(), &label, gen);
     let text = if q.is_empty() {
         DEFAULT_PROMPT.to_string()
     } else {
@@ -497,15 +539,10 @@ pub async fn submit_to(
         send("chat:user", json!({ "text": text }));
     }
     send("query:start", json!({}));
-    shared(app).lock().busy = true;
+    shared(app).lock().query_started(&label, gen);
     super::send_overlay_state(app);
     outputs::show(app, &label);
 
-    let cancel = CancellationToken::new();
-    *current().lock() = Some(Current {
-        gen,
-        cancel: cancel.clone(),
-    });
     let early = fresh_bar_text(region);
     let exact_f = async {
         match early.await {
@@ -752,6 +789,7 @@ pub async fn submit_to(
                 }),
             );
             super::remember_chat(app, &label, &answering);
+            super::settings::note_answer(app, provider, &act.key, Ok(()), &answering);
             shared(app).lock().pill_error = false;
             buddy::notify("first-answer");
             show_model_points(app, &points, shot.as_ref(), report.as_deref()).await;
@@ -771,6 +809,9 @@ pub async fn submit_to(
             } else {
                 (&answering, answer_kind)
             };
+            if !err.is_abort() {
+                super::settings::note_answer(app, provider, &act.key, Err(&err), named);
+            }
             match error_row(provider, &err, named, kind, &text) {
                 Some(row) => send("query:error", json!(row)),
                 None => send("query:done", json!({})),
@@ -778,16 +819,15 @@ pub async fn submit_to(
             "error"
         }
     };
-    {
-        let mut c = current().lock();
-        if c.as_ref().is_some_and(|c| c.gen == gen) {
-            *c = None;
-        }
-    }
-    let newest = shared(app).lock().query_gen == gen;
-    if newest {
-        shared(app).lock().busy = false;
-        super::send_overlay_state(app);
+    uninstall(current(), &label, gen);
+    let idle = {
+        let st = shared(app);
+        let mut s = st.lock();
+        s.query_ended(&label, gen);
+        !s.busy
+    };
+    super::send_overlay_state(app);
+    if idle {
         crate::updater::idle(app);
     }
     json!({ "status": status })
@@ -810,12 +850,16 @@ async fn models_list(p: &Value) -> Value {
         .and_then(Provider::from_id)
         .or_else(|| active(settings).map(|a| a.provider))
         .unwrap_or(Provider::OpenRouter);
+    if let Some(key) = llm_settings::usable_key(settings, provider) {
+        sv.llm.native_catalogue(provider, &key).await;
+    }
     let mut result = sv
         .llm
         .list_models(provider, kind, settings.show_paid())
         .await;
     let current = if provider.is_native() {
-        model_for(settings, provider, kind)
+        sv.llm
+            .known_native(provider, kind, &model_for(settings, provider, kind))
     } else {
         let s = store::get();
         match kind {
@@ -854,7 +898,13 @@ pub async fn route(
             submit(app, &q, o).await
         }
         "query:cancel" => {
-            abort(app);
+            // The caller's own window, else the focused output (B-040).
+            let named = p.get("label").and_then(Value::as_str).map(str::to_string);
+            let own = outputs::is_output(label).then(|| label.to_string());
+            match named.or(own).or_else(|| outputs::focused(app)) {
+                Some(l) => abort_for(app, &l),
+                None => abort(app),
+            }
             Value::Null
         }
         "query:retry" => {
@@ -891,6 +941,21 @@ mod tests {
     fn names_compare_without_punctuation_or_role_words() {
         assert_eq!(norm_name("  Save   As… "), "save as");
         assert_eq!(norm_name(&strip_role_words("Save button")), "save");
+    }
+
+    #[test]
+    fn second_window_does_not_abort_first() {
+        let map = Mutex::new(HashMap::new());
+        let first = install(&map, "output-1", 1);
+        let second = install(&map, "output-2", 2);
+        assert!(!first.is_cancelled(), "another window's Ask leaves it running");
+        let again = install(&map, "output-1", 3);
+        assert!(first.is_cancelled(), "a new question in the same window replaces it");
+        assert!(!again.is_cancelled() && !second.is_cancelled());
+        uninstall(&map, "output-1", 1);
+        assert!(map.lock().contains_key("output-1"), "a stale end keeps the newer Ask");
+        uninstall(&map, "output-1", 3);
+        assert!(!map.lock().contains_key("output-1"));
     }
 
     #[test]

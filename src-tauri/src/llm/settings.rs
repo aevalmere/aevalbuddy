@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use super::catalogue::Kind;
+use super::payloads::FailoverPrefs;
 use super::provider::Provider;
 use super::status::{self, Table};
 
@@ -37,6 +38,10 @@ pub trait LlmSettings: Send + Sync {
     fn native_model(&self, provider: Provider, kind: Kind) -> Option<String>;
     /// `showPaidModels`.
     fn show_paid(&self) -> bool;
+    /// `failover` in aevalbuddy.json.
+    fn failover(&self) -> FailoverPrefs {
+        FailoverPrefs::default()
+    }
 }
 
 /// The provider and key a request goes out with.
@@ -211,6 +216,7 @@ pub struct MemorySettings {
     pub native: Mutex<HashMap<(Provider, Kind), String>>,
     pub healed: Mutex<Vec<(Kind, String)>>,
     pub paid: Mutex<bool>,
+    pub prefs: Mutex<FailoverPrefs>,
 }
 
 impl MemorySettings {
@@ -254,6 +260,10 @@ impl LlmSettings for MemorySettings {
 
     fn show_paid(&self) -> bool {
         *self.paid.lock()
+    }
+
+    fn failover(&self) -> FailoverPrefs {
+        *self.prefs.lock()
     }
 }
 

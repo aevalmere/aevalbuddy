@@ -1,0 +1,36 @@
+{
+  "anthropic": {
+    "data": [
+      { "type": "model", "id": "claude-opus-5-5", "display_name": "Claude Opus 5.5", "created_at": "2026-09-01T00:00:00Z" },
+      { "type": "model", "id": "claude-sonnet-5-5", "display_name": "Claude Sonnet 5.5", "created_at": "2026-09-01T00:00:00Z" },
+      { "type": "model", "id": "claude-haiku-5-5", "display_name": "Claude Haiku 5.5", "created_at": "2026-09-01T00:00:00Z" }
+    ],
+    "has_more": false,
+    "first_id": "claude-opus-5-5",
+    "last_id": "claude-haiku-5-5"
+  },
+  "openai": {
+    "object": "list",
+    "data": [
+      { "id": "gpt-6.1-sol", "object": "model", "owned_by": "system" },
+      { "id": "gpt-6.1-terra", "object": "model", "owned_by": "system" },
+      { "id": "gpt-6-luna", "object": "model", "owned_by": "system" },
+      { "id": "o5-mini", "object": "model", "owned_by": "system" },
+      { "id": "gpt-3.5-turbo", "object": "model", "owned_by": "openai" },
+      { "id": "text-embedding-3-large", "object": "model", "owned_by": "system" },
+      { "id": "gpt-6-realtime", "object": "model", "owned_by": "system" },
+      { "id": "gpt-6-tts", "object": "model", "owned_by": "system" },
+      { "id": "whisper-1", "object": "model", "owned_by": "openai" },
+      { "id": "omni-moderation-latest", "object": "model", "owned_by": "system" }
+    ]
+  },
+  "gemini": {
+    "models": [
+      { "name": "models/gemini-3.8-flash", "displayName": "Gemini 3.8 Flash", "supportedGenerationMethods": ["generateContent", "countTokens"] },
+      { "name": "models/gemini-4-argon", "displayName": "Gemini 4 Argon", "supportedGenerationMethods": ["generateContent", "countTokens"] },
+      { "name": "models/gemini-3.5-flash-lite", "displayName": "Gemini 3.5 Flash-Lite", "supportedGenerationMethods": ["generateContent"] },
+      { "name": "models/gemini-embedding-002", "displayName": "Gemini Embedding", "supportedGenerationMethods": ["embedContent"] },
+      { "name": "models/imagen-5", "displayName": "Imagen 5", "supportedGenerationMethods": ["predict"] }
+    ]
+  }
+}

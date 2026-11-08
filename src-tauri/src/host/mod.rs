@@ -23,8 +23,9 @@ use tauri::AppHandle;
 use crate::agent::run::Agent;
 use crate::find::Find;
 use crate::llm::catalogue::Kind;
-use crate::llm::client::Llm;
+use crate::llm::client::{KeyCheck, Llm};
 use crate::llm::settings::LlmSettings;
+use crate::llm::status::Status;
 use crate::skills::Skills;
 use crate::state::{shared, Rect};
 use crate::windows::{self, outputs};
@@ -225,7 +226,7 @@ fn settings_extra(_app: &AppHandle) -> Value {
     let all = llm.known_catalogue();
     let all = all.as_deref().map(Vec::as_slice);
     let recipients = crate::llm::recipients_with(&*sv.settings, all);
-    json!({
+    let mut out = json!({
         "recipients": recipients,
         "model": model,
         "brain": brain,
@@ -234,54 +235,58 @@ fn settings_extra(_app: &AppHandle) -> Value {
         "skills": sv.skills.list(),
         "skill": s.get_skill_id(skill_exists),
         "glass": { "tier": crate::backdrop::tier(), "reasons": crate::backdrop::reasons() },
-    })
+    });
+    if let (Value::Object(all), Value::Object(more)) = (&mut out, settings::settings_fields()) {
+        all.extend(more);
+    }
+    out
 }
 
-/// main.js settings:save-key's tour logic: the tour's first step moves on
-/// once the key is saved and tested. A key the server rejects keeps the step
-/// open and says so; a key that could not be tested offline is saved anyway.
-fn key_saved(app: &AppHandle, provider: &str) {
+/// The hook core's key rows call: tests the stored key, then the tour.
+fn key_saved(_app: &AppHandle, provider: &str) {
     let touring = buddy::step_index() == 0;
-    if !touring {
-        buddy::notify("key-saved");
-        return;
-    }
-    let Some(p) = crate::llm::provider::Provider::from_id(provider) else {
+    let known = crate::llm::provider::Provider::from_id(provider);
+    let Some(p) = known.filter(|_| touring) else {
         buddy::notify("key-saved");
         return;
     };
     let key = store::get().get_provider_key(p.id());
-    let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let t = services().llm.test_key(p, &key).await;
-        if buddy::step_index() != 0 {
-            return;
+        if buddy::step_index() == 0 {
+            tour_key_tested(&t);
         }
-        if t.ok {
-            buddy::notify("key-saved");
-        } else if t.message.to_lowercase().contains("reach") {
-            buddy::notify("key-saved");
-            let s = store::get();
-            let (cq, fs, at) = (
-                s.shortcut("captureQuery"),
-                s.shortcut("findOnScreen"),
-                s.shortcut("agentTask"),
-            );
-            let chords = buddy::Chords {
-                capture_query: &cq,
-                find_on_screen: &fs,
-                agent_task: &at,
-            };
-            let next = buddy::walkthrough(&chords)
-                .get(1)
-                .map(|st| st.message.clone())
-                .unwrap_or_default();
-            buddy::set_message(&format!("Saved; it could not be tested offline. {next}"));
-        } else {
-            buddy::set_message(&t.message);
-        }
-        let _ = app;
     });
+}
+
+/// main.js settings:save-key's tour logic (Decision D-10): the tour's first
+/// step moves on once the key is tested. A key the server rejects keeps the
+/// step open and says so; a key that could not be tested offline is saved
+/// anyway.
+fn tour_key_tested(t: &KeyCheck) {
+    if buddy::step_index() != 0 || t.ok {
+        buddy::notify("key-saved");
+    } else if t.status == Status::Unchecked {
+        buddy::notify("key-saved");
+        let s = store::get();
+        let (cq, fs, at) = (
+            s.shortcut("captureQuery"),
+            s.shortcut("findOnScreen"),
+            s.shortcut("agentTask"),
+        );
+        let chords = buddy::Chords {
+            capture_query: &cq,
+            find_on_screen: &fs,
+            agent_task: &at,
+        };
+        let next = buddy::walkthrough(&chords)
+            .get(1)
+            .map(|st| st.message.clone())
+            .unwrap_or_default();
+        buddy::set_message(&format!("Saved; it could not be tested offline. {next}"));
+    } else {
+        buddy::set_message(&t.message);
+    }
 }
 
 /// What the bar reads while the person types (main.js prefetchBarContext):
@@ -305,7 +310,7 @@ pub fn setup(app: &AppHandle) {
     let llm = Arc::new(Llm::from_env());
     let skills_dir = std::env::current_exe()
         .ok()
-        .and_then(|e| e.parent().map(|p| p.join("skills")));
+        .and_then(|e| crate::skills::folder_of(&e));
     let skills = Skills::load(skills_dir.as_deref());
     let settings = Arc::new(StoreSettings);
     let desktop = Arc::new(DesktopAdapter::new(crate::desktop::client().clone()));
@@ -351,8 +356,9 @@ pub fn setup(app: &AppHandle) {
                 let a = app.clone();
                 Arc::new(move || {
                     let a2 = a.clone();
+                    let (lock, prefill) = try_card();
                     let _ = a.run_on_main_thread(move || {
-                        windows::open_bar(&a2, Some("agent"), Some(String::new()))
+                        windows::open_bar(&a2, Some(lock), Some(prefill))
                     });
                 })
             },
@@ -392,6 +398,7 @@ pub fn setup(app: &AppHandle) {
         }));
         h.start_tour = Some(Box::new(start_walkthrough));
         h.abort_query = Some(Box::new(ask::abort));
+        h.abort_query_for = Some(Box::new(ask::abort_for));
         h.prefetch_bar_context = Some(Box::new(ask::prefetch_bar_context));
         h.warm_catalogue = Some(Box::new(|_| {
             tauri::async_runtime::spawn(async {
@@ -405,6 +412,12 @@ pub fn setup(app: &AppHandle) {
         h.settings_extra = Some(Box::new(settings_extra));
         h.overlay_extra = Some(Box::new(overlay_extra));
     });
+}
+
+/// What the tour's "try it" card opens the bar with (B-129; main.js kept
+/// the same sentence).
+fn try_card() -> (&'static str, String) {
+    ("agent", "open Notepad and write a haiku".to_string())
 }
 
 /// 2 Hz while anything you read or type into is up; the orb alone refreshes
@@ -457,4 +470,16 @@ fn on_region_change(app: &AppHandle, last: &Mutex<Option<Rect>>) {
         send_overlay_state(&a);
         apply_registrations(&a);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn try_card_prefills_haiku() {
+        let (lock, prefill) = try_card();
+        assert_eq!(lock, "agent");
+        assert_eq!(prefill, "open Notepad and write a haiku");
+    }
 }

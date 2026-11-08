@@ -200,6 +200,11 @@ pub struct ProviderStatusEvent {
     pub status: String,
     pub status_text: String,
     pub busy_until: Option<u64>,
+    /// One bar notice when an answer finds a key newly rejected: `Anthropic
+    /// rejected your key, so answers come from OpenRouter for now.`, shown
+    /// with `Fix key` (settings section `prov-<id>`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notice: Option<String>,
 }
 
 /// One entry of `models:list.providers`: a ready provider's models.

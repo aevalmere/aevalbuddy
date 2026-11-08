@@ -286,8 +286,11 @@ Stop when every item below and the standing labels task is green on CI at your b
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
 - C1 green at 51b3d4e (K-15, K-16, K-17, K-18, K-19, K-26): format, clippy, unit tests, capture and desktop checks passed. Only Build installer failed, on the NSIS download outage (HTTP 504), which counts as green under the standing rule. 51b3d4e also merges rust-rewrite (windows and harness C1) and registers `llm::recipients` as `Hooks.overlay_extra` (K-07). The contracts are summarised in `entries/llm.md`. The K-19 mocks go in `tools/ui-shots/lanes/llm.mjs`, now that harness C1 has created it.
-- B-036 to B-181 and the smoke-label port: not started.
+- 8aacd1c green (rust): B-041, B-042, B-043, B-119, B-124, B-125, B-127 (see 740c6fa's message; acceptance UNIT tests in that commit).
+- Batch 2 (this push): B-036 (native Find/Ask models, per-provider model saves), B-038 (key save/test/clear/order/failover/status/hints channels, `provider:status`), B-039 (Connect OpenRouter PKCE; checked openrouter.ai OAuth PKCE docs 2026-11-08: `/auth` with `callback_url`, `code_challenge`, `code_challenge_method=S256`, `state`; `POST /api/v1/auth/keys {code, code_verifier, code_challenge_method}` -> `{key}`; free-model privacy probe), B-040 (per-window Ask and abort only; the two-answer cap is not done), B-044 (Find model healed live on open; stage failover not done), B-046 (status cooldowns from answers only), B-123, B-126, B-129 (try card only), B-181. Green sha: see the next line.
+- Coordinator narrowed scope on 2026-11-08 (Andy testing soon): no new probes, scenes or polish; the rest is under Blockers as TODO.
 
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+- TODO (scope narrowed by the coordinator, not started): B-040 two-answer cap and its SMOKE labels; B-044 related/concept stage failover; B-045 SMOKE `recipients`; B-046 cross-provider hop, paid-hop prompt, quiet no-credit re-test (`status::due_for_retest` is unused); B-120 busy auto-retry; B-121 `query:done.sent` and `output:sent-image` (removed from the allowlists until routed; renderer/output.js already calls it and tolerates failure); B-122 pinned model and `models:list.providers`; B-128; B-129 exact-text gating test; the smoke-label port (probes/llm.rs is still empty); the ui-shots K-19 mocks in tools/ui-shots/lanes/llm.mjs (settings.mjs mocks its own).
