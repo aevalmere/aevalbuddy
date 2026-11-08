@@ -276,7 +276,7 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
-Built in 2add4c5 (answers), 91b2881 (glob), d537e9e (trail, confirm, Find), 57cf07d (scenes and checks), 1bedb11 (probe labels). Every item below is verified by the push that adds this section; its sha is the one reported to main as "sheet green".
+Built in 2add4c5 (answers), 91b2881 (glob), d537e9e (trail, confirm, Find), 57cf07d (scenes and checks), 1bedb11 (probe labels). Every item below was green at f660cd0 (rust and ui-shots, 0 ui-shots failures). The next push pins barAnswersTask to the bar’s exact asking placeholder, ahead of bar 688cb40 (B-156) rewriting the bar copy.
 
 - Standing labels: noOutputInput, markdown, markdownStructure, readingMeasure, transcriptScroll, transcriptWheel, chatCeiling, scrollThumb, moreIndicator, globMorphMs printed by probes/sheet.rs and listed in tools/smoke-labels/sheet.txt.
 - B-007: confirmAllowWaitsForFullText; sheet-confirm-long-text.
