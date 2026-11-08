@@ -140,7 +140,7 @@ pub fn system_tool(name: &str) -> PathBuf {
     system32().join(name)
 }
 
-fn powershell() -> PathBuf {
+pub fn powershell() -> PathBuf {
     system32()
         .join("WindowsPowerShell")
         .join("v1.0")

@@ -36,7 +36,7 @@ pub struct Line {
     pub why: String,
 }
 
-fn line(label: &'static str, ok: bool, why: String) -> Line {
+pub(crate) fn line(label: &'static str, ok: bool, why: String) -> Line {
     Line { label, ok, why }
 }
 

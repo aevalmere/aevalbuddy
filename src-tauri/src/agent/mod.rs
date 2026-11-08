@@ -6,4 +6,5 @@ pub mod gate;
 pub mod run;
 pub mod seams;
 pub mod smoke;
+pub mod smoke_live;
 pub mod tools;

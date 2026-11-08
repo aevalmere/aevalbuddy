@@ -3111,9 +3111,10 @@ mod tests {
     /// stand-in takes native tools. It must not be told it has none.
     #[tokio::test(flavor = "multi_thread")]
     async fn dialect_switch_rewrites_system_prompt() {
-        let turns = json!([{ "status": 429 }, { "text": "Done." }]);
-        let busy = json!({ "purpose": "agent", "task": "switch dialect", "turns": turns });
-        let fake = Arc::new(Fake::from_fixtures(vec![busy]));
+        let busy = json!({ "purpose": "agent", "status": 429, "times": 1 });
+        let turns = json!([{ "text": "Done." }]);
+        let then = json!({ "purpose": "agent", "task": "switch dialect", "turns": turns });
+        let fake = Arc::new(Fake::from_fixtures(vec![busy, then]));
         let mut llm = Llm::new(Arc::new(CatalogueNet), Some(fake.clone()));
         llm.set_offline(false);
         assert!(llm.fetch_catalogue().await.is_some());
@@ -3151,14 +3152,28 @@ mod tests {
     /// After the first action a 529 is waited out on the same model.
     #[tokio::test(flavor = "multi_thread")]
     async fn overload_529_retries() {
+        let d = notepad_desktop();
+        d.slow("type", 400);
         let typed = json!({ "name": "type", "args": { "text": "hello" } });
-        let turns = json!([{ "call": typed }, { "status": 529 }, { "text": "Typed it." }]);
-        let fixture = json!({ "purpose": "agent", "task": "overload", "turns": turns });
-        let (agent, host) = agent_with(notepad_desktop(), vec![fixture]);
+        let fixture = script("overload", &[typed], "Typed it.");
+        let fake = Arc::new(Fake::from_fixtures(vec![fixture]));
+        let mut llm = Llm::new(Arc::new(NoNet), Some(fake.clone()));
+        llm.set_offline(false);
+        let host = Arc::new(Host::default());
+        let agent = Agent::new(d.clone(), Arc::new(llm), host.clone(), Handle::current());
         agent.start(opts("overload"));
+        for _ in 0..300 {
+            if d.methods().iter().any(|m| m == "type") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // The request after the action finds the provider overloaded, once.
+        fake.push_fixture(json!({ "purpose": "agent", "status": 529, "times": 1 }));
         let done = finished(&agent, &host, true).await;
         assert_eq!(done["state"], "done");
         assert_eq!(done["text"], "Typed it.");
+        assert_eq!(fake.requests().len(), 3);
     }
 
     #[test]
