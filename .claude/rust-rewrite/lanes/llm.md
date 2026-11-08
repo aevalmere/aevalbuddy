@@ -285,7 +285,7 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
-- C1 contracts K-15, K-16, K-17, K-18, K-19, K-26: pushed, waiting on CI. The contracts are summarised in `entries/llm.md`. Two parts wait on other lanes: registering `llm::recipients` as `Hooks.overlay_extra` needs windows C1 (K-07), and the K-19 mocks in `tools/ui-shots/lanes/llm.mjs` need harness C1 (K-31) to create that file.
+- C1 contracts K-15, K-16, K-17, K-18, K-19, K-26: at b08fb05 format, clippy, unit tests, capture and desktop checks passed; the installer build failed downloading NSIS (HTTP 504, the runner outage logged on rust-rewrite at 75d531f). Re-run on the next push, which also merges rust-rewrite (windows and harness C1) and registers `llm::recipients` as `Hooks.overlay_extra` (K-07). The contracts are summarised in `entries/llm.md`. The K-19 mocks go in `tools/ui-shots/lanes/llm.mjs`, which harness C1 has now created.
 - B-036 to B-181 and the smoke-label port: not started.
 
 ## Blockers

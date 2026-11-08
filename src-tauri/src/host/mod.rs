@@ -200,6 +200,17 @@ pub fn skill_exists(id: &str) -> bool {
     id == crate::ask::AUTO_SKILL || try_services().is_some_and(|s| s.skills.has(id))
 }
 
+/// `overlay:state` fields only this side knows (K-07): who receives the
+/// screen, first first, so the bar's disclosure names them (B-045).
+fn overlay_extra(_app: &AppHandle) -> Value {
+    let Some(sv) = try_services() else {
+        return json!({});
+    };
+    let all = sv.llm.known_catalogue();
+    let all = all.as_deref().map(Vec::as_slice);
+    json!({ "recipients": crate::llm::recipients_with(&*sv.settings, all) })
+}
+
 /// `settings:get` fields only this side knows: the healed model ids, the
 /// skills, who receives the screen (contract K-18), the glass tier (split
 /// c's backdrop).
@@ -392,6 +403,7 @@ pub fn setup(app: &AppHandle) {
         h.set_bar_mode = Some(Box::new(find::set_bar_mode));
         h.key_saved = Some(Box::new(key_saved));
         h.settings_extra = Some(Box::new(settings_extra));
+        h.overlay_extra = Some(Box::new(overlay_extra));
     });
 }
 
