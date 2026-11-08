@@ -330,6 +330,8 @@ scenes.push(
     const msg = await f.evaluate(() => document.getElementById('prov-gemini-msg').textContent);
     t.check('wrongProviderSaysWhose', msg === 'This is an OpenAI key.', msg);
     t.check('wrongProviderSavesNothing', (await t.calls('settings', 'settings:save-key')).length === 0, 'saved under the wrong provider');
+    const prominent = await f.evaluate(() => [...document.querySelectorAll('#prov-gemini .g-btn.prominent')].filter((b) => !b.closest('[hidden]')).map((b) => b.textContent));
+    t.check('oneProminentAction', prominent.join() === 'Save it under OpenAI', JSON.stringify(prominent));
     await t.shot('settings-providers-wrong-provider-found');
     // Saved under its own provider: the row it lands in shows the hint only.
     await t.respond('settings', 'settings:save-key', { ok: true, status: 'ready', keyHint: 'sk-proj…0000', checkedAt: NOW });
@@ -626,6 +628,12 @@ scenes.push(
       await t.page.keyboard.press('Control+Alt+J');
       await t.settle(200);
       const free = await f.evaluate(() => [...document.querySelectorAll('#shortcut-free [data-free]')].map((b) => b.dataset.free));
+      // "Free now:" and its chords read as one line.
+      const centres = await f.evaluate(() => [...document.getElementById('shortcut-free').children].map((c) => {
+        const b = c.getBoundingClientRect();
+        return Math.round(b.top + b.height / 2);
+      }));
+      t.check('freeChordsOnOneLine', centres.length === 3 && Math.max(...centres) - Math.min(...centres) <= 1, JSON.stringify(centres));
       await t.shot('settings-shortcuts-conflict');
       await t.respond('settings', 'shortcuts:set', { ok: true, shortcuts: { ...BASE.shortcuts, captureQuery: 'Ctrl+Alt+K' }, active: { ...BASE.active, captureQuery: true } });
       await f.click('#shortcut-free [data-free="Ctrl+Alt+K"]');
@@ -750,6 +758,7 @@ scenes.push(
         gone: !document.querySelector('.item[data-id="b"]'),
         note: document.getElementById('note').textContent,
         undo: !document.getElementById('undo').hidden,
+        deleteAllHidden: document.getElementById('clear-all').hidden,
       }));
       await t.shot();
       const early = (await t.calls('history', 'history:remove')).length;
@@ -763,7 +772,7 @@ scenes.push(
       const late = (await t.calls('history', 'history:remove')).map((c) => c.payload.id);
       t.check(
         'deleteIsUndoable',
-        st.gone && st.note === 'Deleted "Summarise the quarterly numbers on this slide".' && st.undo && early === 0 && back && late.join() === 'b',
+        st.gone && st.note === 'Deleted "Summarise the quarterly numbers on this slide".' && st.undo && st.deleteAllHidden && early === 0 && back && late.join() === 'b',
         JSON.stringify({ st, early, back, late })
       );
     },

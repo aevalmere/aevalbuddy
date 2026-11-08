@@ -640,6 +640,9 @@ function renderProviders() {
     const input = field.querySelector('input');
     input.disabled = v.busy;
     for (const b of field.querySelectorAll('button')) b.disabled = v.busy;
+    // One prominent button at a time: when the key belongs elsewhere, the
+    // way forward is "Save it under …", not this row's Save.
+    field.querySelector('[data-act="save"]').classList.toggle('prominent', !u.detected);
 
     const acts = li.querySelector('.prov-actions');
     acts.textContent = '';
@@ -1821,7 +1824,7 @@ function showFree(action, free) {
   const list = Array.isArray(free) ? free.filter(Boolean) : [];
   shortcutFree.hidden = !list.length;
   if (!list.length) return;
-  shortcutFree.appendChild(el('span', { class: 'note' }, 'Free:'));
+  shortcutFree.appendChild(el('span', { class: 'free-label' }, 'Free now:'));
   for (const chord of list) {
     shortcutFree.appendChild(el('button', { type: 'button', class: 'g-btn', 'data-free': chord, 'data-action': action, 'aria-label': `Use ${chord}` }, chord));
   }
