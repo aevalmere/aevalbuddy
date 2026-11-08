@@ -215,21 +215,47 @@
   filter: var(--gfr, var(--gf));
 }
 
-/* Blur falls and saturation rises as the glass gets more liquid; at 0.5
-   these are blur(14px) saturate(1.7) thin and blur(28px) saturate(1.5)
-   thick, the v2.1 values. The scrim before the first frame follows too;
-   once a frame arrives glass.js measures it. */
+/* Liquidity lives at the edge, where text never sits; the reading interior
+   stays frosted. Blur falls only a little as the glass gets more liquid
+   (thin 18 to 10 px, thick 32 to 24) and saturation rises; at 0.5 they are
+   14 / 28 px, the v2.1 blur. The scrim before the first frame follows k
+   too; once a frame arrives glass.js measures it. */
 .glass.thin {
-  --gf: blur(calc(20px - 12px * var(--glass-k))) saturate(calc(1 + 1.4 * var(--glass-k))) brightness(0.94);
+  --gf: blur(calc(18px - 8px * var(--glass-k))) saturate(calc(1.1 + 0.9 * var(--glass-k))) brightness(0.94);
   --scrim: calc(0.66 - 0.12 * var(--glass-k));
 }
 
 .glass.thick {
-  --gf: blur(calc(36px - 16px * var(--glass-k))) saturate(calc(1 + 1 * var(--glass-k))) brightness(0.9);
+  --gf: blur(calc(32px - 8px * var(--glass-k))) saturate(calc(1.1 + 0.8 * var(--glass-k))) brightness(0.9);
   --scrim: calc(0.86 - 0.12 * var(--glass-k));
 }
 
-/* The scrim, and the glass body catching the light at its top edge. */
+/* The scrim, in two parts. The whole layer gets the edge value, up to 0.26
+   lighter at Very very, so the refraction band shows the desktop; a feathered
+   interior, inset by half the band, adds the difference, so under the text
+   the scrim is exactly what glass.js measured (1 - (1 - e)(1 - i) = scrim).
+   At 0.5 and below --spec is 0 and this is one flat scrim, as before. */
+.glass > .gl > .gsc {
+  --scrim-edge: calc(var(--scrim) - 0.26 * var(--spec));
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(var(--tint) / var(--scrim-edge));
+  transition: --scrim 300ms linear;
+}
+
+.glass > .gl > .gsc::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--band, 0px) * 0.5);
+  border-radius: max(0px, calc(var(--gr, var(--r)) - var(--band, 0px) * 0.5));
+  background: rgb(var(--tint) / calc((var(--scrim) - var(--scrim-edge)) / (1 - var(--scrim-edge))));
+  filter: blur(calc(var(--band, 0px) * 0.5));
+}
+
+/* The glass body catching the light at its top edge, the pointer's light on
+   interactive glass, and at Very and Very very a sheen and a thickness: a
+   shade along the bottom and a faint inner edge. */
 .glass > .gl::before {
   content: "";
   position: absolute;
@@ -237,14 +263,14 @@
   border-radius: inherit;
   z-index: 1;
   background:
-    radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgba(255, 255, 255, 0.09), transparent 70%),
-    linear-gradient(162deg, rgb(255 255 255 / calc(0.16 * var(--spec))) 0%, rgb(255 255 255 / 0) 34%),
-    rgb(var(--tint) / var(--scrim));
+    radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / var(--lit, 0.09)), transparent 70%),
+    linear-gradient(162deg, rgb(255 255 255 / calc(0.16 * var(--spec))) 0%, rgb(255 255 255 / 0) 34%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / calc(0.1 + 0.2 * var(--glass-k))),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.2),
-    inset 0 0 calc(10px + 24px * var(--glass-k)) rgb(255 255 255 / calc(0.06 * var(--glass-k)));
-  transition: --scrim 300ms linear;
+    inset 0 -1px 1px rgb(0 0 0 / 0.2),
+    inset 0 0 calc(10px + 24px * var(--glass-k)) rgb(255 255 255 / calc(0.06 * var(--glass-k))),
+    inset 0 -12px 24px -16px rgb(0 0 0 / calc(0.35 * var(--spec))),
+    inset 0 0 0 var(--px) rgb(255 255 255 / calc(0.08 * var(--spec)));
 }
 
 /* The specular rim: lit from the top left, a weaker bounce at the bottom
@@ -263,13 +289,13 @@
     rgba(255, 255, 255, 0.3) 130deg,
     rgba(255, 255, 255, 0.08) 200deg,
     rgba(255, 255, 255, 0.05) 270deg,
-    rgba(255, 255, 255, 0.62) 318deg,
+    rgb(255 255 255 / calc(0.62 + 0.23 * var(--spec))) 318deg,
     rgba(255, 255, 255, 0.16) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   /* The specular rim: half strength at None's neighbour, full from 0.5 up,
-     and a second pixel of width at Very very. */
+     brighter (0.85 at the peak) and up to a second pixel wide at Very very. */
   opacity: clamp(0.5, calc(0.5 + var(--glass-k)), 1);
 }
 
@@ -307,7 +333,9 @@ html[data-morph] .glass > .gl > .gs {
    scrim over an unblurred desktop. The solid body is the one surface whose
    contrast never depends on what is behind it. */
 html:not([data-snap]) .glass > .gl > .gs,
-html[data-glass="solid"] .glass > .gl > .gs {
+html[data-glass="solid"] .glass > .gl > .gs,
+html:not([data-snap]) .glass > .gl > .gsc,
+html[data-glass="solid"] .glass > .gl > .gsc {
   display: none;
 }
 
@@ -346,6 +374,10 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
   .glass.thick > .gl {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 0 2px #000;
   }
+  /* More contrast keeps the full scrim right to the edge. */
+  .glass > .gl > .gsc {
+    --scrim-edge: var(--scrim);
+  }
 }
 
 @media (forced-colors: active) {
@@ -357,6 +389,7 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
     forced-color-adjust: none;
   }
   .glass > .gl > .gs,
+  .glass > .gl > .gsc,
   .glass > .gl::after,
   .glass > .gl::before {
     display: none;
@@ -773,6 +806,22 @@ body[data-scrolled="1"] .sheet-bar::after,
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
+  }
+  /* Working. The travelling light on the rim is hidden in a contrast theme,
+     so a working surface carries a Highlight outline instead; the orb's is
+     dashed so it never reads as focus, and its badge keeps a system colour
+     (Mark) rather than vanishing into Canvas. */
+  .glass.orbit {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  #pill.orbit {
+    outline-style: dashed;
+  }
+  .pill-dot,
+  :root body[data-pill-error="1"] .pill-dot {
+    forced-color-adjust: none;
+    background: Mark;
   }
 }
 
