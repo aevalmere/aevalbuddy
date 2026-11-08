@@ -60,9 +60,9 @@ None.
 
 ## Phase 2: final merges (authorised 2026-11-08, after `8f0524e` went fully green in run 42520232253 and Andy installed it)
 
-Order: platform, windows, capture, llm, agent, bar, sheet, settings, harness. Every lane but agent already had its final code merged as a checkpoint, so its final merge is its docs-only tip plus folding `entries/<lane>.md` into DESIGN.md, PARITY.md and ARCHITECTURE.md, then deleting the entries file. B-148 (strict gates) and B-149 (review loops) are not done here, on the coordinator's instruction; they are scoped separately.
+Order: platform, windows, capture, llm, agent, bar, sheet, settings, harness; on the coordinator's call bar, sheet, settings and harness were folded ahead of agent (docs only by then), and agent's fold comes last. Every lane but agent already had its final code merged as a checkpoint, so its final merge is its docs-only tip plus folding `entries/<lane>.md` into DESIGN.md, PARITY.md and ARCHITECTURE.md, then deleting the entries file. B-148 (strict gates) and B-149 (review loops) are not done here, on the coordinator's instruction; they are scoped separately.
 
-How the folds are applied: an exact `Replace "..." with:` is replaced in place. An `Add` lands at the end of the named section (matched by its number or heading); one whose section does not exist lands under "Rust rewrite: decisions and notes from the lanes" at the end of that document. PARITY rows have no status column, so every PARITY `status:` line and row note goes to PARITY section 27, "Rust port: status, evidence and notes", one subsection per row id in row order. Placements the rule got wrong were moved by hand (capture's "after the table" paragraph, the Tour card reason, llm's routed-channels list).
+How the folds are applied: an exact `Replace "..." with:` is replaced in place. An `Add` lands at the end of the named section (matched by its number or heading); one whose section does not exist lands under "Rust rewrite: decisions and notes from the lanes" at the end of that document. PARITY rows have no status column, so every PARITY `status:` line and row note goes to PARITY section 27, "Rust port: status, evidence and notes", one subsection per row id in row order. Placements the rule got wrong were moved by hand: capture's "after the table" paragraph and the Tour card reason; llm's routed-channels list; and bar's `--accent-text` row, its Motion rows, the Elevation and Tone bullets, and the Liquid glass level table it replaces.
 
 | Lane | Final code sha | Docs tip merged | Entries folded |
 |---|---|---|---|
@@ -71,10 +71,10 @@ How the folds are applied: an exact `Replace "..." with:` is replaced in place. 
 | capture | `2734165` (#27, rust/capture-fix) | `bf07bec` | yes |
 | llm | `4e95f64` (#24) | `535f6bb` | yes |
 | agent | waiting for its final green sha (main forwards it) | | |
-| bar | `688cb40` (#20) | | |
-| sheet | `49f1eeb` (#25) | | |
-| settings | `493483b` (#17) | | |
-| harness | `76c8c95` (#18) | `b01e049` | |
+| bar | `688cb40` (#20) | `688cb40` (no newer tip) | yes |
+| sheet | `49f1eeb` (#25) | `49f1eeb` (no newer tip) | yes |
+| settings | `493483b` (#17) | `493483b` (no newer tip) | yes |
+| harness | `76c8c95` (#18) | `b01e049` | yes |
 
 - Not merged, on purpose: harness's uncommitted B-010/B-052 work, left as `git stash@{0}` in the harness worktree and as `harness-wip-b010-b052.patch` in the coordinator's scratchpad. It needs its own lane run to finish.
 - Follow-ups, not blockers: sheet B-164 sends `output:resize` until windows' B-027 lands. `uiaTree` timed out once on `88bf490` and passed on `8f0524e`.
