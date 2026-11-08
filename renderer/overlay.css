@@ -613,14 +613,29 @@ body[data-region="1"] #region-btn {
 
 #opanel {
   --r: var(--r-sheet);
+  /* The reading measure (D-05): about 68 characters at 15/24. */
+  --measure: 640px;
   padding: 0 var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  /* The sheet grows in the page (B-164): its height follows the transcript
+     on the morph curve, and Rust is told the glass rect (output:glass). The
+     transcript shrinks and scrolls while the height catches up, so nothing
+     spills past the glass. */
+  interpolate-size: allow-keywords;
+  height: auto;
+  transition: height var(--d-med) var(--ease-morph);
 }
 
-/* The title bar: what the window is held by, what it is about, and its
-   four controls. The same height and inset on every output window. */
+/* A sheet above the bar grows upward, from its bottom edge. */
+body[data-grow="up"] #opanel {
+  top: auto;
+  bottom: var(--stage);
+}
+
+/* The title bar (the shared sheet bar, K-40): 44 px, the title 16 px from
+   the glass, 28 px tools 4 px apart, the last one 8 px from the glass. */
 #sheet-bar {
   position: relative;
   z-index: 2;
@@ -628,45 +643,65 @@ body[data-region="1"] #region-btn {
   align-items: center;
   gap: var(--sp-2);
   height: var(--sheet-bar-h);
-  margin: 0 calc(var(--sp-2) * -1) 0 0;
+  margin: 0 calc(var(--sp-2) * -1) 0 calc(var(--sp-4) * -1);
+  padding: 0 var(--sp-2) 0 var(--sp-4);
   cursor: default;
 }
 
-.sheet-kind {
-  flex: 0 0 auto;
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  color: var(--label-2);
-  padding: 2px var(--sp-2);
-  border-radius: var(--r-cap);
-  background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+/* The title bar catches the pointer's light, more faintly than a control
+   (F42: 0.06). output.js sets --mx and --my. */
+#sheet-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  background: radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / 0.06), transparent 70%);
+  pointer-events: none;
 }
 
-.sheet-kind:empty {
-  display: none;
+/* The kind is the bar token's glyph (Ask, Find, Do) at 16 px, its word in
+   aria-label. */
+.sheet-kind {
+  width: var(--ico-s);
+  height: var(--ico-s);
+  color: var(--label-2);
 }
 
 .sheet-title {
   flex: 1;
   min-width: 0;
-  font-family: var(--font-text);
-  font-size: var(--fs-small);
-  font-weight: 600;
+  font: var(--w-strong, 600) var(--t-caption, 13px) / var(--lh-caption, 18px) var(--font-text);
   color: var(--label);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color var(--d-fast) ease;
 }
 
 .sheet-tools {
   flex: 0 0 auto;
   display: flex;
-  gap: 2px;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* At rest only Close shows. Copy, History and Start over come in on hover,
+   on focus or once the transcript scrolls, in the slots they keep. */
+.sheet-tools > .tool-quiet {
+  opacity: 0;
+  transition: opacity var(--d-fast) ease, background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#sheet-bar:hover .tool-quiet,
+#sheet-bar:focus-within .tool-quiet,
+body[data-scrolled="1"] .tool-quiet {
+  opacity: 1;
 }
 
 #copy-all[data-done] {
-  color: var(--accent-bright);
+  color: var(--accent-text, #EBC0E9);
+  opacity: 1;
 }
 
 /* A hairline under the title bar only once the transcript scrolls under it. */
@@ -674,7 +709,7 @@ body[data-region="1"] #region-btn {
   content: "";
   position: absolute;
   left: 0;
-  right: var(--sp-2);
+  right: calc(var(--sp-2) * -1);
   bottom: 0;
   height: var(--px);
   background: var(--hairline);
@@ -686,16 +721,61 @@ body[data-scrolled="1"] #sheet-bar::after {
   opacity: 1;
 }
 
-/* While the glob runs the sheet's own glass and words wait: the glob is
-   the glass, and the words fade in as it lands (glob.js). */
-#opanel.globbing > .gl,
+/* Front and back (B-163): a window behind another one recedes; the window
+   the next question goes to wears an accent rim while the bar is open. */
+#opanel > .gl {
+  transition: background var(--d-med) ease, box-shadow var(--d-fast) ease;
+}
+
+#opanel > .gl::after {
+  transition: opacity var(--d-fast) ease;
+}
+
+body[data-front="0"] .sheet-title {
+  color: var(--label-2);
+}
+
+body[data-front="0"] #opanel > .gl {
+  box-shadow: 0 0 0 var(--px) rgb(0 0 0 / 0.3), 0 4px 12px -6px rgb(0 0 0 / 0.35);
+}
+
+body[data-front="0"] #opanel > .gl::after {
+  opacity: 0.7;
+}
+
+body[data-target="1"] #opanel > .gl::after {
+  background: linear-gradient(var(--accent-text, #EBC0E9), var(--accent-text, #EBC0E9));
+  padding: calc(var(--px) * 1.5);
+  opacity: 0.9;
+}
+
+/* The glob (glob.js, B-061): it sits under the sheet. While it runs, the
+   sheet's own glass waits and its words are clipped to the shape, arriving
+   inside the glass once the body has nearly landed. */
 #opanel.globbing > :not(.gl) {
+  position: relative;
+  z-index: 1;
   opacity: 0;
+  filter: blur(4px);
+  transform: translateY(4px) scale(0.99);
 }
 
 #opanel.globbing.reveal > :not(.gl) {
   opacity: 1;
-  transition: opacity 180ms ease;
+  filter: none;
+  transform: none;
+  transition: opacity 140ms var(--ease-out), filter 140ms var(--ease-out), transform 200ms var(--ease-morph);
+}
+
+#opanel.globbing > .gl {
+  opacity: 0;
+}
+
+/* Closing: the words leave first, in 80 ms, then the shape reverses. */
+#opanel.closing > :not(.gl) {
+  opacity: 0;
+  filter: blur(3px);
+  transition: opacity 80ms ease, filter 80ms ease;
 }
 
 #opanel.fading {
@@ -711,17 +791,30 @@ body[data-scrolled="1"] #sheet-bar::after {
   --r: 0px;
   position: fixed;
   inset: 0;
-  z-index: 3;
+  z-index: 0;
   pointer-events: none;
+  /* The clip is on the layers inside, so this shadow follows the shape. */
+  filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.28));
 }
 
-#glob > .gl {
+#glob > .gl,
+#glob-thin > .gl {
   box-shadow: none;
   border-radius: 0;
 }
 
-#glob > .gl > .gs {
+#glob > .gl > .gs,
+#glob-thin > .gl > .gs {
   will-change: transform;
+}
+
+/* The bar's own material at the join: thin glass under the bar's scrim,
+   fading into the thick body as it leaves (F2). */
+#glob-thin {
+  --r: 0px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 #glob-rim {
@@ -729,6 +822,11 @@ body[data-scrolled="1"] #sheet-bar::after {
   inset: 0;
   z-index: 1;
   pointer-events: none;
+}
+
+/* One device pixel at any scale. */
+#glob-stroke {
+  stroke-width: calc(2 * var(--px));
 }
 
 /* Hidden windows keep their last frame; a sheet about to reappear starts
@@ -751,22 +849,22 @@ body[data-scrolled="1"] #sheet-bar::after {
   color: var(--label);
 }
 
-/* A wide window keeps a reading measure: the transcript centres at 760 px,
-   so a maximised or full-screen output reads like a document, not a
-   banner (REQUESTS.md 4). */
+/* A wide window keeps a reading measure: past 640 px the column centres,
+   so a maximised output reads like a document, not a banner (D-05). The
+   scrollbar keeps at least 8 px at the right. */
 #chat {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  padding-inline: max(0px, calc((100% - 760px) / 2));
   max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  padding: 2px 2px 2px 0;
+  padding-block: 2px;
+  padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
+  padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
   margin-right: -10px;
-  padding-right: 8px;
   user-select: text;
 }
 
@@ -801,24 +899,22 @@ body[data-scrolled="1"] #sheet-bar::after {
   background: transparent;
 }
 
-/* More below the fold: the bottom edge dims into the glass. */
-#opanel::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 40px;
-  border-radius: 0 0 var(--r-sheet) var(--r-sheet);
-  background: linear-gradient(rgb(var(--tint) / 0), rgb(var(--tint) / 0.7));
-  opacity: 0;
-  transition: opacity var(--d-fast) ease;
-  pointer-events: none;
-  z-index: 1;
+/* The transcript's thumb is quieter at rest and brightens while it moves
+   (body[data-scrolling], 800 ms after a scroll). The edge-fade mask says
+   there is more; there is no tint band at the bottom. */
+#chat::-webkit-scrollbar-thumb,
+#find-view::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.18);
+  background-clip: padding-box;
+  transition: background var(--d-fast) ease;
 }
 
-body[data-more="1"] #opanel::after {
-  opacity: 1;
+body[data-scrolling] #chat::-webkit-scrollbar-thumb,
+body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
+#chat::-webkit-scrollbar-thumb:hover,
+#find-view::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.4);
+  background-clip: padding-box;
 }
 
 .msg {
@@ -839,6 +935,18 @@ body[data-more="1"] #opanel::after {
   align-items: flex-end;
 }
 
+/* The first question is the window's title; under it, it is only read
+   out, not shown twice (B-066). Copy still includes it. */
+.msg.user.is-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  animation: none;
+}
+
 /* One turn is 24px from the next; a question and its answer are 12px. */
 .msg.assistant + .msg.user,
 .msg.trail + .msg.user,
@@ -848,8 +956,8 @@ body[data-more="1"] #opanel::after {
 
 .bubble {
   max-width: 88%;
-  font-size: var(--fs-body);
-  line-height: 1.5;
+  font-size: var(--t-body, 15px);
+  line-height: var(--lh-body, 24px);
   word-break: break-word;
 }
 
@@ -860,21 +968,26 @@ body[data-more="1"] #opanel::after {
   box-shadow: var(--chip-rim);
   border-radius: var(--r-card);
   padding: var(--sp-2) var(--sp-3);
-  font-size: var(--fs-row);
-  line-height: 1.45;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
   color: var(--label);
   white-space: pre-wrap;
 }
 
 .msg.assistant .bubble {
   max-width: 100%;
+  width: 100%;
   padding: 0;
 }
 
+/* The answer's row: its actions, then the usage line, on one line. The
+   usage line gives way first: it ellipsizes, and below 360 px it goes. */
 .msg-meta {
+  align-self: stretch;
+  container-type: inline-size;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--sp-2);
   min-height: var(--ctl);
   margin-top: var(--sp-2);
@@ -884,7 +997,8 @@ body[data-more="1"] #opanel::after {
 
 .msg.assistant:hover .msg-meta,
 .msg-meta:focus-within,
-.msg.assistant:last-child .msg-meta {
+.msg.assistant:last-child .msg-meta,
+.msg.assistant.sent-open .msg-meta {
   opacity: 1;
 }
 
@@ -892,21 +1006,25 @@ body[data-more="1"] #opanel::after {
   opacity: 1;
 }
 
-.msg.assistant.busy .copy-msg {
+.msg.assistant.busy .copy-msg,
+.msg.assistant.busy .sent-btn,
+.msg.assistant.busy .retry-split {
   display: none;
 }
 
 /* The answer's actions are capsules like every other button on glass, not
    bare words: a control has a shape. */
 .copy-msg {
+  flex: 0 0 auto;
   min-height: var(--ctl);
   padding: 0 var(--sp-4);
-  font-size: var(--fs-small);
-  font-weight: 600;
+  font-size: var(--t-caption, 13px);
+  font-weight: var(--w-strong, 600);
   color: var(--label);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
   border-radius: var(--r-cap);
+  white-space: nowrap;
   transition: background var(--d-fast) ease, color var(--d-fast) ease;
 }
 
@@ -918,7 +1036,6 @@ body[data-more="1"] #opanel::after {
   background: var(--fill-3);
 }
 
-
 /* Buttons the scripts create keep their class names; they wear the glass
    button shapes from glass.css. */
 .stop-btn,
@@ -929,11 +1046,12 @@ body[data-more="1"] #opanel::after {
   min-height: var(--ctl);
   padding: 0 var(--sp-4);
   border-radius: var(--r-cap);
-  font-size: var(--fs-small);
-  font-weight: 600;
+  font-size: var(--t-caption, 13px);
+  font-weight: var(--w-strong, 600);
   color: var(--label);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
+  white-space: nowrap;
   transition: background var(--d-fast) ease, transform 120ms var(--ease-out);
 }
 
@@ -945,7 +1063,7 @@ body[data-more="1"] #opanel::after {
 
 .accent-btn {
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 0 0 var(--px) rgb(255 255 255 / 0.18);
 }
 
 .accent-btn:hover {
@@ -970,14 +1088,131 @@ body[data-more="1"] #opanel::after {
   background: transparent;
   box-shadow: none;
   color: var(--label-2);
-  font-weight: 500;
+  font-weight: var(--w-body, 450);
 }
 
 .g-btn.quiet {
   background: transparent;
   box-shadow: none;
   color: var(--label-2);
-  font-weight: 500;
+  font-weight: var(--w-body, 450);
+}
+
+/* Retry, and beside it a chevron that picks another model (B-172). The two
+   halves are one capsule. */
+.retry-split {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: var(--r-cap);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+}
+
+.retry-split > .retry-btn {
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--r-cap) 0 0 var(--r-cap);
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+}
+
+.retry-split > .retry-btn.icon-only {
+  padding: 0 var(--sp-1) 0 var(--sp-2);
+}
+
+.retry-split > .retry-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-s);
+  border-radius: 0 var(--r-cap) var(--r-cap) 0;
+  color: var(--label-2);
+  box-shadow: inset var(--px) 0 0 var(--hairline);
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.retry-split > .retry-btn:hover,
+.retry-split > .retry-more:hover {
+  background: var(--fill-2);
+  color: var(--label);
+}
+
+/* The model list for a retry: the shared menu's look, solid, because it
+   opens on glass (never glass on glass). */
+.retry-menu {
+  position: absolute;
+  z-index: 5;
+  min-width: 240px;
+  max-width: calc(100% - 2 * var(--sp-4));
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--inset-menu, 4px);
+  list-style: none;
+  border-radius: var(--r-card);
+  background: var(--solid, rgb(28 30 40));
+  box-shadow: var(--shadow-menu, 0 0 0 var(--px) rgb(0 0 0 / 0.3), 0 8px 18px -6px rgb(0 0 0 / 0.45)), inset 0 0 0 var(--px) rgb(255 255 255 / 0.12);
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
+  color: var(--label);
+  animation: retry-menu-in 220ms var(--ease-morph);
+}
+
+.retry-menu [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 36px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-plate, 12px);
+  cursor: default;
+  outline: none;
+}
+
+.retry-menu [role="option"]:hover,
+.retry-menu [role="option"]:focus-visible {
+  background: var(--fill-1);
+}
+
+.retry-menu [role="option"]:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 0.92);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+.retry-menu [aria-selected="true"] {
+  background: var(--fill-2);
+}
+
+.retry-menu .menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.retry-menu .menu-note {
+  font-size: var(--t-meta, 12px);
+  color: var(--label-2);
+}
+
+.retry-menu .menu-group {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  font: var(--w-strong, 600) var(--t-meta, 12px) / var(--lh-meta, 16px) var(--font-small, var(--font-text));
+  color: var(--label-2);
+}
+
+.retry-menu .menu-empty {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--t-caption, 13px);
+  color: var(--label-2);
+}
+
+@keyframes retry-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }
 
 /* Working. The light on the sheet's rim travels (glass.css, .orbit); in
@@ -987,38 +1222,170 @@ body[data-more="1"] #opanel::after {
 }
 
 .stage-label {
-  font-size: var(--fs-row);
+  font-size: var(--t-row, 14px);
   color: var(--label-2);
 }
 
 .msg.assistant.thinking .stage-label {
   display: inline-block;
-  min-height: 22px;
+  min-height: var(--lh-body, 24px);
 }
 
+/* An error is a plate like the others: the neutral fill and the rim, the
+   danger colour on the glyph only (F31). Its fixes sit beside the text, or
+   under it once the text runs past two lines. */
 .error-row {
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--sp-3);
+  column-gap: var(--sp-3);
+  row-gap: var(--sp-2);
   width: 100%;
   padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
-  border-radius: var(--r-card);
-  background: rgba(240, 120, 132, 0.12);
-  box-shadow: inset 0 0 0 var(--px) rgba(242, 160, 168, 0.3);
+  border-radius: var(--r-plate, 12px);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
 }
 
-.error-row svg {
-  flex: 0 0 auto;
+.error-row > .row-glyph {
   color: var(--danger);
   align-self: flex-start;
-  margin-top: 2px;
+  /* Centred on the first line of 20 px text. */
+  margin-top: 3px;
+}
+
+/* Busy is not a failure: a clock, in the label colour. */
+.error-row.note > .row-glyph {
+  color: var(--label-2);
 }
 
 .error-row .error-text {
-  flex: 1;
-  font-size: var(--fs-row);
-  line-height: 1.45;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
   color: var(--label);
+}
+
+.error-row .row-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.error-row.long .row-actions {
+  flex-basis: 100%;
+  padding-left: calc(var(--ico-i, 14px) + var(--sp-3));
+}
+
+.error-row .row-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl);
+  font-size: var(--t-caption, 13px);
+  color: var(--label-2);
+  cursor: pointer;
+}
+
+.error-row .row-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-bright);
+}
+
+/* Start over (B-168): one neutral row with Undo, and the empty sheet. */
+.note-row.reset-row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--ctl);
+}
+
+.note-row.reset-row .error-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
+}
+
+.empty-sheet {
+  padding: var(--sp-1) 0 var(--sp-2);
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
+  color: var(--label-2);
+}
+
+/* What was sent (B-162): a quiet disclosure, and the panel it opens. */
+.sent-btn {
+  flex: 0 0 auto;
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  font-size: var(--t-caption, 13px);
+  color: var(--label-2);
+  white-space: nowrap;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.sent-btn:hover,
+.sent-btn[aria-expanded="true"] {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+.sent-panel {
+  align-self: stretch;
+  display: grid;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-plate, 12px);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
+  color: var(--label-2);
+  user-select: text;
+}
+
+.sent-panel[hidden] {
+  display: none;
+}
+
+.sent-panel .sent-head {
+  color: var(--label);
+  font-weight: var(--w-strong, 600);
+}
+
+.sent-panel ul {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.sent-panel .sent-view {
+  margin-left: var(--sp-1);
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-key);
+  color: var(--label);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-bright);
+  text-underline-offset: 3px;
+}
+
+.sent-panel .sent-img {
+  display: block;
+  max-width: 100%;
+  margin-top: var(--sp-2);
+  border-radius: var(--r-row);
+  box-shadow: var(--chip-rim);
+}
+
+.sent-panel .sent-free {
+  margin-top: var(--sp-1);
 }
 
 body[data-fixed-height="1"] #opanel {
@@ -1033,48 +1400,78 @@ body[data-fixed-height="1"] #chat {
 /* ---------------------------------------------------------------- answers */
 
 .md-body {
-  font-size: var(--fs-body);
-  line-height: 1.5;
-  font-weight: 450;
+  font-size: var(--t-body, 15px);
+  line-height: var(--lh-body, 24px);
+  font-weight: var(--w-body, 450);
   color: var(--label);
   text-wrap: pretty;
 }
 
-.md-body .md-p {
-  margin: 0 0 8px;
-}
-
-.md-body .md-p:last-child {
-  margin-bottom: 0;
-}
-
-.md-body .md-gap {
-  height: 4px;
-}
-
-.md-body .md-h {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: var(--fs-body);
-  margin: var(--sp-4) 0 var(--sp-1);
-}
-
-.md-body .md-h:first-child {
+.md-body > :first-child {
   margin-top: 0;
 }
 
-.md-body .md-h1 {
-  font-size: var(--fs-title);
+.md-body > :last-child {
+  margin-bottom: 0;
+}
+
+.md-body .md-p {
+  margin: 0 0 var(--sp-3);
+}
+
+.md-body .md-gap {
+  display: none;
+}
+
+/* Headings in Text, not Display: Display is for 18 px and up (F16, F34).
+   6 px under a heading ties it to its text (an optical step off the grid). */
+.md-body .md-h {
+  margin: 20px 0 6px;
+}
+
+.md-body .md-h1,
+.md-body .md-h2 {
+  font: var(--w-strong, 600) var(--t-title, 17px) / var(--lh-title, 22px) var(--font-text);
+}
+
+.md-body .md-h3 {
+  font: var(--w-strong, 600) var(--t-body, 15px) / var(--lh-title, 22px) var(--font-text);
 }
 
 .md-body ul,
 .md-body ol {
-  margin: 2px 0 8px;
-  padding-left: 22px;
+  margin: var(--sp-1) 0 var(--sp-3);
+  padding-left: var(--sp-5);
+}
+
+.md-body ul {
+  list-style: disc;
+}
+
+.md-body li > ul {
+  list-style: circle;
+}
+
+.md-body li > ul li > ul {
+  list-style: square;
 }
 
 .md-body li {
-  margin: 3px 0;
+  margin: var(--sp-1) 0;
+}
+
+.md-body li > ul,
+.md-body li > ol {
+  margin: var(--sp-1) 0 0;
+  padding-left: 20px;
+}
+
+.md-body li > .md-lp {
+  margin: var(--sp-2) 0 0;
+}
+
+.md-body li > .md-code {
+  margin: var(--sp-2) 0;
 }
 
 .md-body li::marker {
@@ -1082,56 +1479,171 @@ body[data-fixed-height="1"] #chat {
   font-variant-numeric: tabular-nums;
 }
 
+/* Inline code at the text's own weight, a little smaller, tight to the
+   punctuation after it, and whole on every line it wraps across (F15). */
 .md-body code {
   font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  background: rgba(0, 0, 0, 0.3);
+  font-weight: 400;
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
   border-radius: var(--r-key);
-  padding: 1px 6px;
+  background: rgb(0 0 0 / 0.28);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   color: var(--label);
+}
+
+/* A code block is a plate: its language, a Copy button at the top right
+   (shown on hover and focus, always on the last block), and the code. */
+.md-body .md-code {
+  position: relative;
+  margin: var(--sp-2) 0 var(--sp-3);
+  border-radius: var(--r-plate, 12px);
+  background: rgb(0 0 0 / 0.28);
+  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.06);
+}
+
+.md-body .md-code-head {
+  padding: var(--sp-3) 44px 0 var(--sp-4);
+}
+
+.md-body .md-lang {
+  font: var(--w-body, 450) var(--t-meta, 12px) / var(--lh-meta, 16px) var(--font-small, var(--font-text));
+  color: var(--label-2);
 }
 
 .md-body pre {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.55;
-  background: rgba(0, 0, 0, 0.32);
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.06);
-  border-radius: var(--r-row);
+  margin: 0;
   padding: var(--sp-3) var(--sp-4);
-  margin: var(--sp-2) 0 var(--sp-3);
+  font: 400 var(--t-code, 13px) / var(--lh-code, 20px) var(--font-mono);
   overflow-x: auto;
   white-space: pre;
   color: var(--label);
+  border-radius: inherit;
+}
+
+.md-body .md-code:not(.has-lang) pre {
+  padding-right: 44px;
+}
+
+.md-body .md-code.has-lang pre {
+  padding-top: var(--sp-1);
 }
 
 .md-body pre code {
+  font-size: inherit;
   background: none;
   padding: 0;
+  border-radius: 0;
 }
 
-.md-body pre::-webkit-scrollbar {
+/* More to the right: the edge fades, only while it does. */
+.md-body .md-code.scrolls-x pre,
+.md-body .md-table.scrolls-x {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+
+.md-body pre::-webkit-scrollbar,
+.md-body .md-table::-webkit-scrollbar {
   height: 8px;
 }
 
-.md-body pre::-webkit-scrollbar-thumb {
+.md-body pre::-webkit-scrollbar-thumb,
+.md-body .md-table::-webkit-scrollbar-thumb {
   background: var(--scroll-thumb);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 4px;
 }
 
-.md-body blockquote {
-  border-left: 2px solid rgba(255, 255, 255, 0.24);
-  padding-left: 12px;
-  margin: 6px 0;
+/* 6 px from the plate's corner: concentric with its 12 px radius. */
+.md-body .md-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   color: var(--label-2);
+  opacity: 0;
+  transition: opacity var(--d-fast) ease, background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+.md-body .md-code:hover .md-copy,
+.md-body .md-code:focus-within .md-copy,
+.md-body > .md-code:last-child .md-copy,
+.md-body .md-copy[data-done] {
+  opacity: 1;
+}
+
+.md-body .md-copy .md-copy-done,
+.md-body .md-copy[data-done] .md-copy-idle {
+  display: none;
+}
+
+.md-body .md-copy[data-done] .md-copy-done {
+  display: inline-block;
+}
+
+.md-body .md-copy[data-done] {
+  color: var(--accent-text, #EBC0E9);
+}
+
+/* Tables (F3): a hairline plate, the header on the fill, figures in
+   tabular numerals. */
+.md-body .md-table {
+  overflow-x: auto;
+  margin: var(--sp-2) 0 var(--sp-3);
+  border: var(--px) solid var(--hairline);
+  border-radius: var(--r-plate, 12px);
+}
+
+.md-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
+  font-variant-numeric: tabular-nums;
+}
+
+.md-body th {
+  font-weight: var(--w-strong, 600);
+  text-align: left;
+  color: var(--label);
+  background: var(--fill-1);
+}
+
+.md-body th,
+.md-body td {
+  padding: var(--sp-2) var(--sp-3);
+  vertical-align: top;
+}
+
+.md-body tr + tr td {
+  box-shadow: inset 0 var(--px) 0 var(--hairline);
+}
+
+.md-body [data-align="right"] {
+  text-align: right;
+}
+
+.md-body [data-align="center"] {
+  text-align: center;
+}
+
+.md-body blockquote {
+  margin: var(--sp-2) 0 var(--sp-3);
+  padding-left: var(--sp-3);
+  box-shadow: inset 2px 0 0 rgb(255 255 255 / 0.24);
+  color: var(--label-2);
+}
+
+.md-body blockquote p + p {
+  margin-top: var(--sp-2);
 }
 
 .md-body hr {
   border: none;
   border-top: var(--px) solid var(--hairline);
-  margin: 12px 0;
+  margin: var(--sp-4) 0;
 }
 
 .md-body a {
@@ -1141,8 +1653,38 @@ body[data-fixed-height="1"] #chat {
   text-underline-offset: 3px;
 }
 
+/* Where a link goes, when its words do not say. */
+.md-body .md-host {
+  font-size: var(--t-caption, 13px);
+  color: var(--label-2);
+}
+
 .md-body strong {
-  font-weight: 650;
+  font-weight: var(--w-strong, 600);
+}
+
+/* Streaming (F14): a new block fades in; the block being written ends in a
+   still dot until the answer is done. The rim light is the activity. */
+.md-in {
+  animation: md-in 160ms var(--ease-out);
+}
+
+@keyframes md-in {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+.md-tail::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--sp-1);
+  border-radius: 50%;
+  background: var(--label-2);
+  vertical-align: middle;
 }
 
 /* ------------------------------------------------------------ layout editor */
@@ -1207,30 +1749,34 @@ body[data-fixed-height="1"] #chat {
 /* ------------------------------------------------------------------ find
 
    The list and the screen share one mark: a small rounded rectangle, filled
-   for the words themselves, outlined for something related. */
+   for the words themselves, outlined for something related. The marks hang
+   in the gutter, so a match's text starts 16 px from the glass, where an
+   answer's does (F41). */
 
 #find-view {
   display: flex;
   flex-direction: column;
+  /* Rows a hairline apart: their fills never touch. */
   gap: 2px;
   max-height: var(--chat-max, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin: 0 -10px 0 -4px;
-  padding-right: 6px;
+  margin: 0 -10px 0 -12px;
+  padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
+  padding-inline-end: max(6px, calc((100% - var(--measure)) / 2));
 }
 
-/* Concentric with the sheet: a row 12 px inside a 28 px sheet takes 16. */
+/* Concentric with the sheet: a row 4 px inside the glass edge's 16 px
+   inset takes 12. */
 .find-row {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
-  border-radius: var(--r-card);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-plate, 12px);
   transition: background var(--d-fast) ease;
 }
 
@@ -1242,27 +1788,33 @@ body[data-fixed-height="1"] #chat {
    The swatch already carries the hit's colour, so no stripe at the edge. */
 .find-row.current {
   background: var(--fill-2);
-  box-shadow: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.find-row:focus-visible {
+  outline-offset: -2px;
 }
 
 .find-row.offscreen .find-snippet {
   color: var(--label-2);
 }
 
+/* In the row's own padding, centred on the first line of text. */
 .kind-mark {
-  flex: 0 0 auto;
-  width: 14px;
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 8px;
   height: 8px;
-  margin-top: 7px;
-  border-radius: 3px;
+  border-radius: 2px;
   background: rgb(197 111 195 / 0.75);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 0 var(--px) rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), 0 0 0 var(--px) rgb(0 0 0 / 0.4);
 }
 
 .kind-mark.related,
 .kind-mark.concept {
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright), 0 0 0 var(--px) rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright), 0 0 0 var(--px) rgb(0 0 0 / 0.4);
 }
 
 .find-body {
@@ -1272,64 +1824,77 @@ body[data-fixed-height="1"] #chat {
 }
 
 .find-snippet {
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
   word-break: break-word;
   color: var(--label);
 }
 
 .find-snippet b {
-  font-weight: 650;
+  font-weight: var(--w-strong, 600);
 }
 
 .find-why {
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   color: var(--label-2);
 }
 
-/* Empty and offline: a headline and a line under it. */
+/* Empty and offline: a headline, a line under it, and what to do next
+   (U24): actions only, no keys and no how-to. */
+.find-empty-wrap {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0 var(--sp-2) var(--sp-3);
+}
+
 .find-empty {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   color: var(--label-2);
-  padding: 6px 6px 4px;
   white-space: pre-line;
 }
 
 .find-empty::first-line {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 500;
+  font-size: var(--t-body, 15px);
+  font-weight: var(--w-strong, 600);
   color: var(--label);
+}
+
+.find-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.find-next > button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------ agent trail
 
-   Outcome first, then the steps as a checklist. A step's state is its
-   glyph's shape (ring, arc, check, cross, dash); colour only backs it up. */
+   Outcome first, then the plan as the checklist (F22). A step's state is
+   its glyph's shape (ring, arc, check, cross, dash); colour only backs it
+   up. The glyphs hang in the gutter so step text starts 16 px from the
+   glass (F41). */
 
 .msg.trail {
   width: 100%;
   align-items: stretch;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .trail-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 24px;
-}
-
-.trail-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--label-2);
+  gap: var(--sp-2);
+  min-height: var(--lh-body, 24px);
 }
 
 .trail-status {
-  font-size: 13px;
+  font-size: var(--t-caption, 13px);
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }
@@ -1338,12 +1903,11 @@ body[data-fixed-height="1"] #chat {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   min-height: var(--ctl-s);
   padding: 0 var(--sp-3);
   border-radius: var(--r-cap);
-  font-size: 12px;
-  font-weight: 500;
+  font: var(--w-body, 450) var(--t-meta, 12px) / var(--lh-meta, 16px) var(--font-small, var(--font-text));
   color: var(--label-2);
 }
 
@@ -1367,15 +1931,16 @@ body[data-fixed-height="1"] #chat {
   transform: translateY(3px) rotate(225deg);
 }
 
-.msg.trail.ended:not(.open) .trail-rows {
+.msg.trail.ended:not(.open) .trail-rows > .trow:not(.failed),
+.msg.trail:not(.open) .trail-rows > .trow.behind:not(.failed) {
   display: none;
 }
 
 .trail-outcome {
-  font-family: var(--font-display);
-  font-size: 17px;
-  line-height: 1.4;
-  font-weight: 500;
+  font-family: var(--font-text);
+  font-size: var(--t-title, 17px);
+  line-height: var(--lh-title, 22px);
+  font-weight: var(--w-strong, 600);
   color: var(--label);
 }
 
@@ -1386,17 +1951,18 @@ body[data-fixed-height="1"] #chat {
 .trail-rows {
   list-style: none;
   display: grid;
-  gap: 2px;
+  gap: var(--sp-1);
+  margin-left: calc(var(--sp-4) * -1);
 }
 
 .trow {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: var(--sp-4) 1fr auto;
   align-items: start;
-  gap: 10px;
-  padding: 4px 0;
-  font-size: 14px;
-  line-height: 1.45;
+  column-gap: 0;
+  padding: 2px 0;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
   color: var(--label);
   animation: msg-in var(--d-med) var(--ease-out);
 }
@@ -1412,94 +1978,101 @@ body[data-fixed-height="1"] #chat {
 }
 
 .trow.note {
-  font-size: 13px;
+  font-size: var(--t-caption, 13px);
   color: var(--label-2);
 }
 
-.trow-mark {
+/* The glyphs: 10 px, centred in the 16 px gutter on the first line. */
+.trow-mark,
+.plan-item > .plan-mark {
   position: relative;
-  width: 18px;
-  height: 20px;
+  width: var(--sp-4);
+  height: var(--lh-row, 20px);
 }
 
-/* Pending: a small ring. */
-.trow-mark::before {
+.trow-mark::before,
+.plan-item > .plan-mark::before {
   content: "";
   position: absolute;
   left: 5px;
-  top: 6px;
-  width: 8px;
-  height: 8px;
+  top: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   box-shadow: inset 0 0 0 1.5px var(--label-3);
 }
 
 /* Running: an arc turning, the rim light's language at row size. */
-.trow.running .trow-mark::before {
-  left: 2px;
-  top: 3px;
-  width: 14px;
-  height: 14px;
+.trow.running .trow-mark::before,
+.plan-item.running > .plan-mark::before {
+  left: 3px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
   box-shadow: none;
-  border: 1.6px solid rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgb(255 255 255 / 0.18);
   border-top-color: var(--label);
   animation: spin 900ms linear infinite;
 }
 
 /* Done: a check in a circle. */
-.trow.done .trow-mark::before {
-  left: 2px;
-  top: 3px;
-  width: 14px;
-  height: 14px;
+.trow.done .trow-mark::before,
+.plan-item.done > .plan-mark::before {
+  left: 3px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
   box-shadow: none;
   background: var(--fill-2);
 }
 
-.trow.done .trow-mark::after {
+.trow.done .trow-mark::after,
+.plan-item.done > .plan-mark::after {
   content: "";
   position: absolute;
   left: 7px;
-  top: 6px;
-  width: 4px;
-  height: 7px;
-  border-right: 1.6px solid var(--label);
-  border-bottom: 1.6px solid var(--label);
+  top: 7px;
+  width: 3px;
+  height: 5px;
+  border-right: 1.5px solid var(--label);
+  border-bottom: 1.5px solid var(--label);
   transform: rotate(45deg);
 }
 
 /* Failed: a cross in a circle, in the danger colour. */
-.trow.failed .trow-mark::before {
-  left: 2px;
-  top: 3px;
-  width: 14px;
-  height: 14px;
+.trow.failed .trow-mark::before,
+.plan-item.failed > .plan-mark::before {
+  left: 3px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
   box-shadow: none;
   background: var(--danger);
 }
 
-.trow.failed .trow-mark::after {
+.trow.failed .trow-mark::after,
+.plan-item.failed > .plan-mark::after {
   content: "×";
   position: absolute;
-  left: 2px;
-  top: 2px;
-  width: 14px;
+  left: 3px;
+  top: 5px;
+  width: 10px;
   text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 14px;
+  font-size: 10px;
+  font-weight: var(--w-strong, 600);
+  line-height: 10px;
   color: #2a0c10;
 }
 
 /* Skipped: a dash. */
 .trow.skipped .trow-mark::before {
-  left: 5px;
+  left: 4px;
   top: 9px;
   width: 8px;
   height: 0;
   border-radius: 1px;
   box-shadow: none;
-  border-top: 1.6px solid var(--label-2);
+  border-top: 1.5px solid var(--label-2);
 }
 
 .trow.thinking .trow-mark::before {
@@ -1520,84 +2093,102 @@ body[data-fixed-height="1"] #chat {
 }
 
 .trow-note {
-  font-size: 13px;
+  font-size: var(--t-caption, 13px);
   color: var(--label-2);
 }
 
 .trow-side {
-  font-size: 12px;
+  padding-left: var(--sp-2);
+  font: var(--w-body, 450) var(--t-meta, 12px) / var(--lh-row, 20px) var(--font-small, var(--font-text));
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
-  padding-top: 2px;
 }
 
-/* The plan is the checklist the steps are measured against. */
-.trow.plan .trow-mark {
-  display: none;
-}
-
+/* The plan is the checklist the steps are measured against: pending items
+   in the secondary label, the running one in the label with the arc, done
+   ones secondary with a check (F22). */
 .trow.plan {
-  grid-template-columns: 1fr auto;
+  display: block;
+  padding: 0;
 }
 
-.trow.plan .trow-text {
+.trow.plan > .trow-mark,
+.trow.plan > .trow-side {
   display: none;
 }
 
 .plan-steps {
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: var(--sp-1);
   margin: 0;
-  font-size: 14px;
-  color: var(--label);
 }
 
-.plan-steps li {
-  position: relative;
-  padding-left: 28px;
-}
-
-.plan-steps li::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px var(--label-3);
-}
-
-.msg.trail[data-state="done"] .plan-steps li {
+.plan-item {
+  display: grid;
+  grid-template-columns: var(--sp-4) 1fr;
+  align-items: start;
+  font-size: var(--t-row, 14px);
+  line-height: var(--lh-row, 20px);
   color: var(--label-2);
 }
 
-.msg.trail[data-state="done"] .plan-steps li::before {
-  left: 2px;
-  top: 3px;
-  width: 14px;
-  height: 14px;
-  box-shadow: none;
-  background: var(--fill-2);
+.plan-item.running {
+  color: var(--label);
 }
 
-.msg.trail[data-state="done"] .plan-steps li::after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 6px;
-  width: 4px;
-  height: 7px;
-  border-right: 1.6px solid var(--label);
-  border-bottom: 1.6px solid var(--label);
-  transform: rotate(45deg);
+.plan-text {
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* The acts an item took: 13 px detail lines under it, folded once it is
+   done (open again with the steps toggle). */
+.plan-acts {
+  grid-column: 2;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.plan-acts:empty,
+.plan-item.done > .plan-acts,
+.plan-item.pending > .plan-acts {
+  display: none;
+}
+
+.msg.trail.open .plan-item > .plan-acts:not(:empty) {
+  display: grid;
+}
+
+.plan-act {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
+  color: var(--label-2);
+}
+
+.plan-act > .plan-act-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.plan-act.failed {
+  color: var(--danger);
+}
+
+.plan-act > .trow-side {
+  padding-left: 0;
+  line-height: var(--lh-caption, 18px);
 }
 
 /* A question from a task is answered in the bar; the row says so. */
 .trow-note.waiting {
-  color: var(--accent-bright);
-  font-weight: 600;
+  color: var(--accent-text, #EBC0E9);
+  font-weight: var(--w-strong, 600);
 }
 
 .trail-meta {
@@ -1608,19 +2199,19 @@ body[data-fixed-height="1"] #chat {
 .note-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 14px;
+  gap: var(--sp-3);
+  font-size: var(--t-row, 14px);
   color: var(--label);
 }
 
 .trail-banner {
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
-  border-radius: var(--r-card);
+  border-radius: var(--r-plate, 12px);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
 }
 
-.trail-banner span {
+.trail-banner .banner-text {
   flex: 1;
 }
 
@@ -1633,14 +2224,14 @@ body[data-fixed-height="1"] #chat {
   color: var(--label-2);
 }
 
-/* The confirm card rises from the bottom of the sheet: a raised plate on
-   the thick glass, not a second pane of glass inside it. */
+/* The confirm card rises from the bottom of the sheet: a plate on the thick
+   glass, flat, with the rim and the fill and no shadow inside the glass. */
 .confirm-card,
 .msg.consent {
   width: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
-  border-radius: var(--r-card);
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 0 0 var(--px) rgb(255 255 255 / 0.14);
+  border-radius: var(--r-plate, 12px);
   padding: var(--sp-4);
   display: grid;
   gap: var(--sp-2);
@@ -1656,24 +2247,61 @@ body[data-fixed-height="1"] #chat {
 
 .confirm-text,
 .consent-title {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--font-text);
+  font-size: var(--t-body, 15px);
+  line-height: var(--lh-title, 22px);
+  font-weight: var(--w-strong, 600);
   color: var(--label);
 }
 
 .confirm-reason {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   color: var(--label-2);
 }
 
+/* What will be typed, whole (B-007): at most eight lines, then it scrolls,
+   and Allow waits until the end has been seen. */
+.confirm-value {
+  max-height: calc(8 * var(--lh-code, 20px) + 2 * var(--sp-2));
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-row);
+  background: rgb(0 0 0 / 0.28);
+  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.06);
+  font: 400 var(--t-code, 13px) / var(--lh-code, 20px) var(--font-mono);
+  color: var(--label);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.confirm-value.all {
+  max-height: none;
+}
+
+.confirm-more {
+  justify-self: start;
+  min-height: var(--ctl-s);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-cap);
+  font-size: var(--t-caption, 13px);
+  color: var(--label);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-bright);
+  text-underline-offset: 3px;
+}
+
+.confirm-more:hover {
+  background: var(--fill-1);
+}
+
 .consent-list {
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.5;
+  padding-left: 20px;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   display: grid;
-  gap: 4px;
+  gap: var(--sp-1);
   color: var(--label);
 }
 
@@ -1685,45 +2313,78 @@ body[data-fixed-height="1"] #chat {
   margin-top: var(--sp-2);
 }
 
-.confirm-hint {
-  margin-right: auto;
-  font-size: 12px;
-  color: var(--label-3);
-  opacity: 0;
-  transition: opacity var(--d-fast) ease;
+/* The settle (U45): for 700 ms a fill sweeps across the buttons and they do
+   nothing; then they work. Under reduced motion the fill is still. */
+.confirm-actions > button {
+  position: relative;
+  overflow: hidden;
 }
 
-.confirm-card:focus-within .confirm-hint,
-.confirm-card:focus .confirm-hint {
-  opacity: 1;
+.confirm-actions > button[aria-disabled="true"] {
+  cursor: default;
+  color: var(--label-2);
+}
+
+.confirm-actions > button[aria-disabled="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0.12);
+  transform-origin: left center;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+
+.confirm-actions > button.settling::before {
+  animation: confirm-sweep 700ms linear forwards;
+}
+
+@keyframes confirm-sweep {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+html[data-motion="reduced"] .confirm-actions > button[aria-disabled="true"]::before {
+  animation: none !important;
+  transform: scaleX(0.5);
 }
 
 .trail-stored summary {
-  font-size: 13px;
+  font-size: var(--t-caption, 13px);
   color: var(--label-2);
   cursor: pointer;
 }
 
 .trail-text {
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   white-space: pre-wrap;
   color: var(--label-2);
-  margin-top: 4px;
+  margin-top: var(--sp-1);
 }
 
 .usage {
-  font-size: var(--fs-meta);
-  color: var(--label-2);
-  font-variant-numeric: tabular-nums;
+  min-width: 0;
   margin-left: auto;
-  align-self: center;
+  font: var(--w-body, 450) var(--t-meta, 12px) / var(--lh-meta, 16px) var(--font-small, var(--font-text));
+  color: var(--label-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+@container (max-width: 359px) {
+  .usage {
+    display: none;
+  }
 }
 
 .confirm-url {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--t-caption, 13px);
+  line-height: var(--lh-caption, 18px);
   word-break: break-all;
   margin-top: 2px;
   color: var(--label-2);
@@ -1731,12 +2392,12 @@ body[data-fixed-height="1"] #chat {
 
 .confirm-url strong {
   color: var(--label);
-  font-weight: 600;
+  font-weight: var(--w-strong, 600);
 }
 
 .confirm-card:focus,
 .consent:focus {
-  outline: 2px solid rgba(255, 255, 255, 0.92);
+  outline: 2px solid rgb(255 255 255 / 0.92);
   outline-offset: 2px;
 }
 
