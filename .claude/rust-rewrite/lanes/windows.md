@@ -347,4 +347,6 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
 
+- Standing item (TODO, not started; stopped at the coordinator's request so Andy can test): `selftest/probes/windows.rs` still prints nothing and `tools/smoke-labels/windows.txt` lists nothing. Every SMOKE and SMOKE+ label in this brief is still to port (the PARITY list under "Smoke labels you port" plus the 15 new ones). Unit acceptance for every item is in place.
+- escKeepsAnswer, perWindowAbort (when the probes are written): the smoke run starts with no `AEVAL_FAKE_LLM` and no key, so a real fake-LLM stream needs rust.yml (not windows-owned) to set `AEVAL_FAKE_LLM=1` and a fake key; without that the probe can only check the window side (query_started, Esc or close, query_running still true).
 - B-018 (cleanup, not blocking): `src-tauri/src/host/agent.rs:184` (agent lane) passes `true` to `windows::collapse_panel`, whose `keep_output` argument does nothing since D-01; agent drops the argument, then windows removes the parameter.
