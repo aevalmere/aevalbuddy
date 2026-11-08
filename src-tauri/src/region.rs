@@ -184,6 +184,20 @@ pub fn take_pending_shot() -> Option<capture::Shot> {
         .take()
 }
 
+/// Sets the area outright (Find's "Ask about this" looks at the hit with
+/// room around it), as main.js assigned `activeRegion`.
+pub fn set_active(rect: Option<Rect>) {
+    let changed_now = {
+        let mut a = ACTIVE.lock().unwrap_or_else(|e| e.into_inner());
+        let was = *a;
+        *a = rect;
+        was != rect
+    };
+    if changed_now {
+        changed();
+    }
+}
+
 /// `region:clear` and New chat: back to the whole screen.
 pub fn clear_active() {
     let had = ACTIVE
