@@ -713,6 +713,29 @@ html[data-motion="reduced"] #notice.nudge {
 }
 
 /* --------------------------------------------------------- answer sheet */
+/* The sheet's own tints, named by their alpha: raw colours live only here. */
+:root {
+  --tint-accent-55: rgb(197 111 195 / 0.55);
+  --tint-accent-75: rgb(197 111 195 / 0.75);
+  --tint-k-28: rgb(0 0 0 / 0.28);
+  --tint-k-30: rgb(0 0 0 / 0.3);
+  --tint-k-35: rgb(0 0 0 / 0.35);
+  --tint-k-40: rgb(0 0 0 / 0.4);
+  --tint-k-45: rgb(0 0 0 / 0.45);
+  --tint-w-06: rgb(255 255 255 / 0.06);
+  --tint-w-10: rgb(255 255 255 / 0.1);
+  --tint-w-12: rgb(255 255 255 / 0.12);
+  --tint-w-14: rgb(255 255 255 / 0.14);
+  --tint-w-18: rgb(255 255 255 / 0.18);
+  --tint-w-24: rgb(255 255 255 / 0.24);
+  --tint-w-30: rgb(255 255 255 / 0.3);
+  --tint-w-40: rgb(255 255 255 / 0.4);
+  --tint-w-92: rgb(255 255 255 / 0.92);
+  --mask-solid: #000;
+  --ink-on-danger: #2a0c10;
+  --r-tick: 4px;
+}
+
 
 #opanel {
   --r: var(--r-sheet);
@@ -759,7 +782,7 @@ body[data-grow="up"] #opanel {
   inset: 0;
   z-index: -1;
   border-radius: var(--r-sheet) var(--r-sheet) 0 0;
-  background: radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / 0.06), transparent 70%);
+  background: radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), var(--tint-w-06), transparent 70%);
   pointer-events: none;
 }
 
@@ -803,7 +826,7 @@ body[data-scrolled="1"] .tool-quiet {
 }
 
 #copy-all[data-done] {
-  color: var(--accent-text, #EBC0E9);
+  color: var(--accent-text);
   opacity: 1;
 }
 
@@ -839,7 +862,7 @@ body[data-front="0"] .sheet-title {
 }
 
 body[data-front="0"] #opanel > .gl {
-  box-shadow: 0 0 0 var(--px) rgb(0 0 0 / 0.3), 0 4px 12px -6px rgb(0 0 0 / 0.35);
+  box-shadow: 0 0 0 var(--px) var(--tint-k-30), 0 4px 12px -6px var(--tint-k-35);
 }
 
 body[data-front="0"] #opanel > .gl::after {
@@ -847,7 +870,7 @@ body[data-front="0"] #opanel > .gl::after {
 }
 
 body[data-target="1"] #opanel > .gl::after {
-  background: linear-gradient(var(--accent-text, #EBC0E9), var(--accent-text, #EBC0E9));
+  background: linear-gradient(var(--accent-text), var(--accent-text));
   padding: calc(var(--px) * 1.5);
   opacity: 0.9;
 }
@@ -897,7 +920,7 @@ body[data-target="1"] #opanel > .gl::after {
   z-index: 0;
   pointer-events: none;
   /* The clip is on the layers inside, so this shadow follows the shape. */
-  filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.28));
+  filter: drop-shadow(0 4px 12px var(--tint-k-28));
 }
 
 #glob > .gl,
@@ -964,11 +987,21 @@ body[data-target="1"] #opanel > .gl::after {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  padding-block: 2px;
-  padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
+  padding-block: 2px; /* hairline */
+  /* The scrollport reaches the sheet's edge, so a mark hung in the 16 px
+     gutter (the plan's checks) is not clipped; the text stays where it was. */
+  padding-inline-start: calc(var(--sp-4) + max(0px, calc((100% - var(--measure)) / 2)));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
+  margin-left: calc(var(--sp-4) * -1);
   margin-right: -10px;
   user-select: text;
+}
+
+/* A transcript that does not scroll has nothing past its edges: the edge
+   fade (glass.css) would only dim its first and last lines. */
+body:not([data-more="1"]):not([data-scrolled="1"]) #chat.edge-fade {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 #chat:focus,
@@ -1007,7 +1040,7 @@ body[data-target="1"] #opanel > .gl::after {
    there is more; there is no tint band at the bottom. */
 #chat::-webkit-scrollbar-thumb,
 #find-view::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.18);
+  background: var(--tint-w-18);
   background-clip: padding-box;
   transition: background var(--d-fast) ease;
 }
@@ -1016,7 +1049,7 @@ body[data-scrolling] #chat::-webkit-scrollbar-thumb,
 body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 #chat::-webkit-scrollbar-thumb:hover,
 #find-view::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 0.4);
+  background: var(--tint-w-40);
   background-clip: padding-box;
 }
 
@@ -1166,11 +1199,11 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 
 .accent-btn {
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 0 0 var(--px) rgb(255 255 255 / 0.18);
+  box-shadow: inset 0 1px 0 var(--tint-w-30), inset 0 0 0 var(--px) var(--tint-w-18);
 }
 
 .accent-btn:hover {
-  background: rgb(197 111 195 / 0.55);
+  background: var(--tint-accent-55);
 }
 
 .stop-btn:active,
@@ -1252,8 +1285,8 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   padding: var(--inset-menu, 4px);
   list-style: none;
   border-radius: var(--r-card);
-  background: var(--solid, rgb(28 30 40));
-  box-shadow: var(--shadow-menu, 0 0 0 var(--px) rgb(0 0 0 / 0.3), 0 8px 18px -6px rgb(0 0 0 / 0.45)), inset 0 0 0 var(--px) rgb(255 255 255 / 0.12);
+  background: var(--solid);
+  box-shadow: var(--shadow-menu, 0 0 0 var(--px) var(--tint-k-30), 0 8px 18px -6px var(--tint-k-45)), inset 0 0 0 var(--px) var(--tint-w-12);
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
   color: var(--label);
@@ -1266,7 +1299,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   gap: var(--sp-3);
   min-height: 36px;
   padding: 0 var(--sp-3);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
   cursor: default;
   outline: none;
 }
@@ -1277,7 +1310,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 }
 
 .retry-menu [role="option"]:focus-visible {
-  outline: 2px solid rgb(255 255 255 / 0.92);
+  outline: 2px solid var(--tint-w-92);
   outline-offset: -2px;
   box-shadow: none;
 }
@@ -1345,7 +1378,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   row-gap: var(--sp-2);
   width: 100%;
   padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
 }
@@ -1388,15 +1421,30 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   align-items: center;
   gap: var(--sp-2);
   min-height: var(--ctl);
+  padding: 0 var(--sp-2) 0 var(--sp-1);
+  border-radius: var(--r-cap);
   font-size: var(--t-caption, 13px);
   color: var(--label-2);
   cursor: pointer;
 }
 
-.error-row .row-check input {
+.error-row .row-check:hover {
+  color: var(--label);
+}
+
+/* The box: a 16 px rounded square, a check when on. */
+.error-row .row-check::before {
+  content: "";
+  flex: 0 0 auto;
   width: 16px;
   height: 16px;
-  accent-color: var(--accent-bright);
+  border-radius: var(--r-tick);
+  box-shadow: inset 0 0 0 1.5px var(--label-3);
+}
+
+.error-row .row-check[aria-checked="true"]::before {
+  box-shadow: none;
+  background: var(--accent-bright) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat;
 }
 
 /* Start over (B-168): one neutral row with Undo, and the empty sheet. */
@@ -1445,7 +1493,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   gap: var(--sp-1);
   margin-top: var(--sp-2);
   padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
   font-size: var(--t-caption, 13px);
@@ -1590,7 +1638,7 @@ body[data-fixed-height="1"] #chat {
   font-size: 0.875em;
   padding: 0.1em 0.35em;
   border-radius: var(--r-key);
-  background: rgb(0 0 0 / 0.28);
+  background: var(--tint-k-28);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   color: var(--label);
@@ -1601,9 +1649,9 @@ body[data-fixed-height="1"] #chat {
 .md-body .md-code {
   position: relative;
   margin: var(--sp-2) 0 var(--sp-3);
-  border-radius: var(--r-plate, 12px);
-  background: rgb(0 0 0 / 0.28);
-  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.06);
+  border-radius: var(--r-plate);
+  background: var(--tint-k-28);
+  box-shadow: inset 0 0 0 var(--px) var(--tint-w-06);
 }
 
 .md-body .md-code-head {
@@ -1643,8 +1691,8 @@ body[data-fixed-height="1"] #chat {
 /* More to the right: the edge fades, only while it does. */
 .md-body .md-code.scrolls-x pre,
 .md-body .md-table.scrolls-x {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--mask-solid) calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, var(--mask-solid) calc(100% - 24px), transparent);
 }
 
 .md-body pre::-webkit-scrollbar,
@@ -1657,7 +1705,7 @@ body[data-fixed-height="1"] #chat {
   background: var(--scroll-thumb);
   border: 2px solid transparent;
   background-clip: padding-box;
-  border-radius: 4px;
+  border-radius: var(--r-tick);
 }
 
 /* 6 px from the plate's corner: concentric with its 12 px radius. */
@@ -1687,7 +1735,7 @@ body[data-fixed-height="1"] #chat {
 }
 
 .md-body .md-copy[data-done] {
-  color: var(--accent-text, #EBC0E9);
+  color: var(--accent-text);
 }
 
 /* Tables (F3): a hairline plate, the header on the fill, figures in
@@ -1696,7 +1744,7 @@ body[data-fixed-height="1"] #chat {
   overflow-x: auto;
   margin: var(--sp-2) 0 var(--sp-3);
   border: var(--px) solid var(--hairline);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
 }
 
 .md-body table {
@@ -1735,7 +1783,7 @@ body[data-fixed-height="1"] #chat {
 .md-body blockquote {
   margin: var(--sp-2) 0 var(--sp-3);
   padding-left: var(--sp-3);
-  box-shadow: inset 2px 0 0 rgb(255 255 255 / 0.24);
+  box-shadow: inset 2px 0 0 var(--tint-w-24);
   color: var(--label-2);
 }
 
@@ -1860,14 +1908,14 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   flex-direction: column;
   /* Rows a hairline apart: their fills never touch. */
-  gap: 2px;
+  gap: 2px; /* optical */
   max-height: var(--chat-max, 520px);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   margin: 0 -10px 0 -12px;
   padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
-  padding-inline-end: max(6px, calc((100% - var(--measure)) / 2));
+  padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
 }
 
 /* Concentric with the sheet: a row 4 px inside the glass edge's 16 px
@@ -1879,7 +1927,7 @@ body[data-fixed-height="1"] #chat {
   width: 100%;
   text-align: left;
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
   transition: background var(--d-fast) ease;
 }
 
@@ -1891,7 +1939,7 @@ body[data-fixed-height="1"] #chat {
    The swatch already carries the hit's colour, so no stripe at the edge. */
 .find-row.current {
   background: var(--fill-2);
-  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.18), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  box-shadow: inset 0 0 0 var(--px) var(--tint-w-18), inset 0 1px 0 var(--tint-w-14);
 }
 
 .find-row:focus-visible {
@@ -1910,19 +1958,19 @@ body[data-fixed-height="1"] #chat {
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: rgb(197 111 195 / 0.75);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), 0 0 0 var(--px) rgb(0 0 0 / 0.4);
+  background: var(--tint-accent-75);
+  box-shadow: inset 0 1px 0 var(--tint-w-40), 0 0 0 var(--px) var(--tint-k-40);
 }
 
 .kind-mark.related,
 .kind-mark.concept {
   background: none;
-  box-shadow: inset 0 0 0 1.5px var(--accent-bright), 0 0 0 var(--px) rgb(0 0 0 / 0.4);
+  box-shadow: inset 0 0 0 1.5px var(--accent-bright), 0 0 0 var(--px) var(--tint-k-40);
 }
 
 .find-body {
   display: grid;
-  gap: 2px;
+  gap: 2px; /* optical */
   min-width: 0;
 }
 
@@ -2063,7 +2111,7 @@ body[data-fixed-height="1"] #chat {
   grid-template-columns: var(--sp-4) 1fr auto;
   align-items: start;
   column-gap: 0;
-  padding: 2px 0;
+  padding: 2px 0; /* optical */
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
   color: var(--label);
@@ -2113,7 +2161,7 @@ body[data-fixed-height="1"] #chat {
   width: 10px;
   height: 10px;
   box-shadow: none;
-  border: 1.5px solid rgb(255 255 255 / 0.18);
+  border: 1.5px solid var(--tint-w-18);
   border-top-color: var(--label);
   animation: spin 900ms linear infinite;
 }
@@ -2164,7 +2212,7 @@ body[data-fixed-height="1"] #chat {
   font-size: 10px;
   font-weight: var(--w-strong, 600);
   line-height: 10px;
-  color: #2a0c10;
+  color: var(--ink-on-danger);
 }
 
 /* Skipped: a dash. */
@@ -2190,7 +2238,7 @@ body[data-fixed-height="1"] #chat {
 
 .trow-body {
   display: grid;
-  gap: 2px;
+  gap: 2px; /* optical */
   min-width: 0;
   word-break: break-word;
 }
@@ -2251,7 +2299,7 @@ body[data-fixed-height="1"] #chat {
   grid-column: 2;
   list-style: none;
   display: grid;
-  gap: 2px;
+  gap: 2px; /* optical */
   margin-top: 2px;
 }
 
@@ -2290,7 +2338,7 @@ body[data-fixed-height="1"] #chat {
 
 /* A question from a task is answered in the bar; the row says so. */
 .trow-note.waiting {
-  color: var(--accent-text, #EBC0E9);
+  color: var(--accent-text);
   font-weight: var(--w-strong, 600);
 }
 
@@ -2309,7 +2357,7 @@ body[data-fixed-height="1"] #chat {
 
 .trail-banner {
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
-  border-radius: var(--r-plate, 12px);
+  border-radius: var(--r-plate);
   background: var(--fill-1);
   box-shadow: var(--chip-rim);
 }
@@ -2332,9 +2380,9 @@ body[data-fixed-height="1"] #chat {
 .confirm-card,
 .msg.consent {
   width: 100%;
-  background: rgb(255 255 255 / 0.1);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 0 0 var(--px) rgb(255 255 255 / 0.14);
-  border-radius: var(--r-plate, 12px);
+  background: var(--tint-w-10);
+  box-shadow: inset 0 1px 0 var(--tint-w-18), inset 0 0 0 var(--px) var(--tint-w-14);
+  border-radius: var(--r-plate);
   padding: var(--sp-4);
   display: grid;
   gap: var(--sp-2);
@@ -2370,8 +2418,8 @@ body[data-fixed-height="1"] #chat {
   overflow-y: auto;
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-row);
-  background: rgb(0 0 0 / 0.28);
-  box-shadow: inset 0 0 0 var(--px) rgb(255 255 255 / 0.06);
+  background: var(--tint-k-28);
+  box-shadow: inset 0 0 0 var(--px) var(--tint-w-06);
   font: 400 var(--t-code, 13px) / var(--lh-code, 20px) var(--font-mono);
   color: var(--label);
   white-space: pre-wrap;
@@ -2432,7 +2480,7 @@ body[data-fixed-height="1"] #chat {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgb(255 255 255 / 0.12);
+  background: var(--tint-w-12);
   transform-origin: left center;
   transform: scaleX(0);
   pointer-events: none;
@@ -2500,7 +2548,7 @@ html[data-motion="reduced"] .confirm-actions > button[aria-disabled="true"]::bef
 
 .confirm-card:focus,
 .consent:focus {
-  outline: 2px solid rgb(255 255 255 / 0.92);
+  outline: 2px solid var(--tint-w-92);
   outline-offset: 2px;
 }
 
