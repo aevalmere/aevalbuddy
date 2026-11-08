@@ -138,6 +138,7 @@ impl DesktopAdapter {
             }
             "windowStates" => d.window_states(whole(&a)).await,
             "resolve" => d.resolve(str_of(&a, "ref").unwrap_or("")).await,
+            "focused" => d.focused(opt(&a, "windowHandle")).await,
             "click" => d.click(&whole(&spread(&a))).await,
             "hover" => d.hover(&whole(&spread(&a))).await,
             "scroll" => d.scroll(&whole(&spread(&a))).await,

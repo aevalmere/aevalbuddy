@@ -207,6 +207,7 @@ namespace AevalDesktop
             TogglePattern.ToggleStateProperty,
             ExpandCollapsePattern.ExpandCollapseStateProperty,
             SelectionItemPattern.IsSelectedProperty,
+            AutomationElement.LocalizedControlTypeProperty,
         };
 
         static readonly HashSet<int> InteractiveTypes = new HashSet<int> {
@@ -379,6 +380,7 @@ namespace AevalDesktop
                 case "getText": return GetText(a);
                 case "elementAt": return At(a);
                 case "resolve": return Resolve(a);
+                case "focused": return FocusedCmd(a);
                 case "ocr": return OcrCmd(a);
                 case "capture": return CaptureCmd(a);
                 case "click": return Click(a);
@@ -1009,6 +1011,14 @@ namespace AevalDesktop
             var ct = Get(el, AutomationElement.ControlTypeProperty, cached) as ControlType;
             i.ControlTypeId = ct == null ? 0 : ct.Id;
             i.Role = RoleOf(ct);
+            // A web page's dialog (and a XAML one) is a Pane, Group or Custom
+            // whose localized type says dialog. The agent's gate reads the
+            // text inside one before a click in it, so it gets its own role.
+            if (ct == ControlType.Pane || ct == ControlType.Group || ct == ControlType.Custom)
+            {
+                string lct = S(el, AutomationElement.LocalizedControlTypeProperty, cached).ToLowerInvariant();
+                if (lct == "dialog" || lct == "alert dialog" || lct == "alertdialog") i.Role = "dialog";
+            }
             i.Name = S(el, AutomationElement.NameProperty, cached);
             i.Rect = ToRect(Get(el, AutomationElement.BoundingRectangleProperty, cached));
             i.Offscreen = B(el, AutomationElement.IsOffscreenProperty, cached);
@@ -1208,7 +1218,7 @@ namespace AevalDesktop
             if (isRoot) emit = true;
             else
             {
-                bool noise = NoiseTypes.Contains(i.ControlTypeId) && i.Name.Length == 0 && string.IsNullOrEmpty(i.Value) && !interactive;
+                bool noise = NoiseTypes.Contains(i.ControlTypeId) && i.Name.Length == 0 && string.IsNullOrEmpty(i.Value) && !interactive && i.Role != "dialog";
                 // A button's text child repeats the button's name.
                 bool echo = i.ControlTypeId == ControlType.Text.Id && i.Name.Length > 0 && i.Name == parentName && !interactive;
                 // Chromium marks unnamed wrapper groups invokable; listing them
@@ -1557,6 +1567,29 @@ namespace AevalDesktop
             var res = new Dictionary<string, object>();
             res["node"] = NodeDict(i, RefFor(el, i, top), 0, 0, 300);
             res["windowHandle"] = HandleStr(top);
+            return res;
+        }
+
+        // The element with keyboard focus, so the agent's gate can see what a
+        // Space or Enter would press. node is null when the window asked for
+        // is not in front: keys sent to it land on its own remembered focus,
+        // which UI Automation cannot see from outside.
+        static object FocusedCmd(Dictionary<string, object> a)
+        {
+            IntPtr want = new IntPtr(ParseHandle(Arg(a, "windowHandle")));
+            if (want != IntPtr.Zero) want = Native.GetAncestor(want, Native.GA_ROOT);
+            IntPtr fg = ForegroundRoot();
+            var res = new Dictionary<string, object>();
+            res["node"] = null;
+            res["windowHandle"] = HandleStr(fg);
+            if (fg == IntPtr.Zero || IsExcludedWindow(fg) || (want != IntPtr.Zero && want != fg)) return res;
+            AutomationElement el;
+            var cr = MakeCache(TreeScope.Element);
+            using (cr.Activate()) { el = AutomationElement.FocusedElement; }
+            if (el == null) return res;
+            Info i = Read(el, true);
+            if (IsExcludedPid(i.Pid)) return res;
+            res["node"] = NodeDict(i, RefFor(el, i, fg), 0, 0, 300);
             return res;
         }
 

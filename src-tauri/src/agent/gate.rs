@@ -1,13 +1,38 @@
 //! The executor's safety gate (PARITY AGENT-05..09). Port of `gate`,
-//! `chords`, `chordRisk`, `quote` and `chordLabel` in lib/agent.js.
+//! `chords`, `chordRisk`, `quote` and `chordLabel` in lib/agent.js, made
+//! stricter by B-008 and B-049 (decision D-27).
 //!
-//! The gate is allowlist-shaped and fails closed. A step runs without a
-//! card only when the executor can see what it touches and that thing is on
-//! the short list of harmless ones; anything it cannot read, or does not
-//! know, asks. Names are chosen by whoever built the page, so a name alone
-//! never clears a step: the app, the dialog's own text and the page address
-//! count too.
+//! Reads, `focus_window` and `scroll_to` run without a card. Every other
+//! step runs without one only when no check below finds a reason to ask:
+//!
+//! - a click (left, double, triple) must land on something the executor can
+//!   read and name, whose role is on the short harmless list (menus, tabs,
+//!   tree items, scroll bars, text fields, documents, cells, headers) or
+//!   whose name is (Zoom in, Bold, Settings and a few more); anything else
+//!   it lands on asks. A right click only opens a menu, so a readable, named
+//!   target is enough. A double click in File Explorer or on the desktop
+//!   always asks: it opens or runs the file.
+//! - a key chord must only move, select, copy or undo. Space and Enter press
+//!   the control with keyboard focus: Space is free only in a text field or
+//!   on a control that would pass as a click target, Enter always asks.
+//! - typed text asks when it presses Enter or Tab, lands in a password field
+//!   or the address bar, or holds a space while the focus is on a control
+//!   that would not pass as a click target.
+//! - names, ids and help text that send, delete, buy, pay, post or remove
+//!   (in English and the shipped UI languages), the step's own reason, the
+//!   model's consequential flag, a dialog whose title or text says so (a
+//!   Win32 dialog, or a `dialog` node or nested window in the tree), a risky
+//!   page, a mail or chat app, a terminal, the Run box, a drag, closing a
+//!   window, and the person's "approve every action" all ask.
+//!
+//! Anything the gate cannot read asks: an unreadable or unnamed target,
+//! unknown keyboard focus under a Space or a typed space, a check that
+//! failed. Names are chosen by whoever built the page, so a name alone never
+//! clears a step another check flags. `open` takes only links and app
+//! names, and a plan the person must approve refuses every action until it
+//! is approved.
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use regex::Regex;
@@ -16,9 +41,16 @@ use serde_json::{json, Value};
 use super::seams::DesktopOps;
 use super::tools::{is_pointer_tool, is_read_tool};
 
-/// JavaScript `/\b(...)\b/i` with ASCII word boundaries.
-fn words(alternatives: &str) -> Regex {
-    let pattern = format!(r"(?i)(?-u:\b)(?:{alternatives})(?-u:\b)");
+/// Any alternative as a whole word, case-blind, with Unicode word
+/// boundaries (so "Löschen" matches and "payé" does not match "pay"). The
+/// `cjk` alternatives match anywhere: those scripts put no spaces between
+/// words.
+fn words(alternatives: &str, cjk: &str) -> Regex {
+    let pattern = if cjk.is_empty() {
+        format!(r"(?i)\b(?:{alternatives})\b")
+    } else {
+        format!(r"(?i)\b(?:{alternatives})\b|(?:{cjk})")
+    };
     Regex::new(&pattern).expect("gate pattern")
 }
 
@@ -27,10 +59,19 @@ fn re(pattern: &str) -> Regex {
 }
 
 #[rustfmt::skip]
-const VERB_LIST: &str = "send|submit|post|publish|reply|delete|remove|erase|discard|empty|purchase|buy|order|checkout|pay|transfer|subscribe|sign|agree|accept|confirm|install|uninstall|format|reset|share|invite|merge|deploy|overwrite|replace all";
+const VERB_LIST: &str = "send|submit|post|publish|reply|delete|remove|erase|discard|empty|purchase|buy|order|checkout|pay|transfer|subscribe|sign|agree|accept|confirm|install|uninstall|format|reset|share|invite|merge|deploy|overwrite|replace all|shut ?down|restart|trash|clear all|clear history|unsubscribe|cancel subscription|deactivate|close account|end task";
 
 #[rustfmt::skip]
 const NAME_EXTRA: &str = "save|upload|execute|apply|finish|allow|approve|authori[sz]e|grant|unlock|run|move|place order|pay now";
+
+/// Send, delete, remove, buy, pay and post in the shipped UI languages that
+/// use spaces: German, French, Spanish, Italian, Portuguese.
+#[rustfmt::skip]
+const LOCAL_VERBS: &str = "senden|absenden|versenden|abschicken|löschen|entfernen|kaufen|bezahlen|zahlen|posten|veröffentlichen|envoyer|supprimer|retirer|effacer|acheter|payer|publier|enviar|eliminar|borrar|quitar|comprar|pagar|publicar|invia|inviare|elimina|eliminare|cancella|rimuovi|acquista|compra|paga|pubblica|excluir|apagar|remover|postar";
+
+/// The same in Japanese and Chinese (simplified and traditional).
+#[rustfmt::skip]
+const CJK_VERBS: &str = "送信|削除|購入|支払|投稿|消去|发送|發送|删除|刪除|购买|購買|支付|付款|发布|發佈|發布|发表|發表|移除";
 
 struct Patterns {
     verbs: Regex,
@@ -59,12 +100,13 @@ struct Patterns {
 fn pats() -> &'static Patterns {
     static P: OnceLock<Patterns> = OnceLock::new();
     P.get_or_init(|| {
-        let name_list = format!("{VERB_LIST}|{NAME_EXTRA}");
+        let name_list = format!("{VERB_LIST}|{NAME_EXTRA}|{LOCAL_VERBS}");
+        let verb_list = format!("{VERB_LIST}|{LOCAL_VERBS}");
         Patterns {
-            verbs: words(VERB_LIST),
-            name_verbs: words(&name_list),
-            dialog_sentence: re(&format!(r"(?i)[^.?!]*(?-u:\b)(?:{name_list})(?-u:\b)[^.?!]*")),
-            compose: words("message|compose|comment|reply|chat|post|email|mail|tweet|note to"),
+            verbs: words(&verb_list, CJK_VERBS),
+            name_verbs: words(&name_list, CJK_VERBS),
+            dialog_sentence: re(&format!(r"(?i)[^.?!。？！]*(?:\b(?:{name_list})\b|{CJK_VERBS})[^.?!。？！]*")),
+            compose: words("message|compose|comment|reply|chat|post|email|mail|tweet|note to", ""),
             url_ok: re(r"(?i)^(https?://|mailto:)"),
             app_name: re(r"^[\p{L}\p{N} ._-]{1,40}$"),
             terminals: re(r"^(cmd|powershell|pwsh|windowsterminal|wt|conhost|openconsole|mintty|bash|wsl|alacritty|wezterm-gui)$"),
@@ -234,8 +276,9 @@ fn hard_chord(text: &str) -> Option<&'static str> {
     })
 }
 
-/// Keys that only move, select, copy or undo.
-const FREE_KEYS: [&str; 15] = [
+/// Keys that only move, select, copy or undo. Space is not one: it presses
+/// the control with keyboard focus (B-008).
+const FREE_KEYS: [&str; 14] = [
     "left",
     "right",
     "up",
@@ -245,7 +288,6 @@ const FREE_KEYS: [&str; 15] = [
     "pageup",
     "pagedown",
     "tab",
-    "space",
     "backspace",
     "escape",
     "capslock",
@@ -287,6 +329,9 @@ pub fn chord_risk(ch: &Chord) -> Option<String> {
             return Some(String::new());
         }
         return Some(format!("{} is an app shortcut", label(&ch.text)?));
+    }
+    if key == "space" {
+        return Some(format!("{} presses the focused control", label(&ch.text)?));
     }
     if FREE_KEYS.contains(&key) || key.encode_utf16().count() == 1 {
         return Some(String::new());
@@ -342,6 +387,11 @@ pub struct DragEnd {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Touches {
     pub node: Option<Value>,
+    /// The control with keyboard focus, for typing or a Space or Enter
+    /// without a ref (B-008); `None` when it could not be told.
+    pub focused: Option<Value>,
+    /// The window's tree (filter `all`) when `inspect` already read it.
+    pub tree: Option<Value>,
     pub window_handle: Value,
     pub app: String,
     pub error: bool,
@@ -422,10 +472,202 @@ impl Lazy<'_> {
         }
         self.tree.as_ref().and_then(Option::as_ref)
     }
+
+    fn loaded(&self) -> bool {
+        matches!(self.tree, Some(Some(_)))
+    }
 }
 
 fn nodes(t: &Value) -> &[Value] {
     t["nodes"].as_array().map(Vec::as_slice).unwrap_or_default()
+}
+
+/// A `key` call's keys: `text`, or `keys` as older models send them.
+pub fn key_text(a: &Value) -> String {
+    match js_string(&a["text"]) {
+        k if k.is_empty() => js_string(&a["keys"]),
+        k => k,
+    }
+}
+
+fn has_press(list: &[Chord]) -> bool {
+    let press = |ch: &Chord| ch.key == "space" || ch.key == "enter";
+    list.iter().any(press)
+}
+
+/// Whether a call lands on whatever has keyboard focus (B-008): typing, or
+/// keys with a Space or an Enter in them.
+pub fn presses_focus(name: &str, a: &Value) -> bool {
+    match name {
+        "type" => true,
+        "key" => has_press(&chords(&key_text(a))),
+        _ => false,
+    }
+}
+
+/// The node with keyboard focus in a tree from `readTree`.
+pub fn focused_in(t: &Value) -> Option<Value> {
+    nodes(t).iter().find(|n| has_state(n, "focused")).cloned()
+}
+
+/// sendButton, btn_delete: an element's id and help text, split into words.
+fn id_words(n: &Value) -> String {
+    let p = pats();
+    let raw = format!("{} {}", js_string(&n["automationId"]), js_string(&n["helpText"]));
+    let spaced = p.camel.replace_all(&raw, "$1 $2");
+    p.joins.replace_all(&spaced, " ").into_owned()
+}
+
+/// Roles where a Space is only a space: text fields and documents.
+fn editable(n: &Value) -> bool {
+    let role = js_string(&n["role"]);
+    ["edit", "document", "combobox", "spinner"].contains(&role.as_str())
+}
+
+/// What a click on these does is select, focus, open a menu, scroll or sort
+/// (B-049). Menu items still ask when their name says they send or delete.
+#[rustfmt::skip]
+const HARMLESS_ROLES: [&str; 15] = [
+    "menubar", "menu", "menuitem", "tab", "tabitem", "treeitem", "scrollbar", "thumb", "edit",
+    "document", "combobox", "spinner", "dataitem", "headeritem", "titlebar",
+];
+
+/// Controls that only change the view, by their whole name.
+#[rustfmt::skip]
+const HARMLESS_NAMES: [&str; 22] = [
+    "back", "bold", "collapse", "expand", "find", "forward", "italic", "maximize", "menu",
+    "minimize", "more actions", "more options", "options", "restore", "restore down", "search",
+    "see more", "settings", "show more", "underline", "zoom in", "zoom out",
+];
+
+fn harmless(n: &Value) -> bool {
+    let role = js_string(&n["role"]);
+    if HARMLESS_ROLES.contains(&role.as_str()) {
+        return true;
+    }
+    let name = js_string(&n["name"]);
+    let name = pats().space.replace_all(name.trim(), " ").to_lowercase();
+    HARMLESS_NAMES.contains(&name.as_str())
+}
+
+/// `button "Continue"`, for a card.
+fn what(n: &Value) -> String {
+    let role = js_string(&n["role"]);
+    let kind = match role.as_str() {
+        "hyperlink" => "link",
+        "listitem" => "list item",
+        "radiobutton" => "radio button",
+        "splitbutton" => "button",
+        "" => "control",
+        other => other,
+    };
+    let name = js_string(&n["name"]);
+    let label = if name.trim().is_empty() {
+        js_string(&n["automationId"])
+    } else {
+        name
+    };
+    format!("{kind} {}", quote(&label, 40))
+}
+
+const FOCUS_UNKNOWN: &str = "it could not tell which control has keyboard focus";
+const FOCUS_MOVES: &str = "an earlier key can move the focus first";
+const TYPED_SPACE: &str = "a typed space presses the focused control";
+
+/// The checks a click gets, run on the control a Space or a typed space
+/// would press (B-008). Empty when it would pass as a click target.
+fn focus_reasons(f: &Value, proc: &str, app: &str) -> Vec<String> {
+    let p = pats();
+    let mut out = Vec::new();
+    let name = js_string(&f["name"]);
+    if !name.is_empty() && p.name_verbs.is_match(&name) {
+        out.push(format!("the focused control is named {}", quote(&name, 40)));
+    } else if p.name_verbs.is_match(&id_words(f)) {
+        out.push("the focused control is labelled as one that sends or deletes".to_string());
+    }
+    let unnamed = name.trim().is_empty() && js_string(&f["automationId"]).trim().is_empty();
+    if unnamed {
+        out.push("the focused control has no name to check".to_string());
+    }
+    let role = js_string(&f["role"]);
+    if p.mail_chat.is_match(proc) && p.role_button.is_match(&role) {
+        out.push(format!("a button in {app} can send"));
+    }
+    if out.is_empty() && !harmless(f) {
+        out.push(format!("it is not known what the focused {} does", what(f)));
+    }
+    out
+}
+
+/// Whether the keyboard focus stays where it was after `ch`. In a text
+/// field, characters and caret keys keep it; anywhere else a letter can
+/// jump a list's selection, so only Space and Shift keep it.
+fn keeps_focus(ch: &Chord, in_text: bool) -> bool {
+    if ch.mods.iter().any(|m| m != "shift") {
+        return false;
+    }
+    let k = ch.key.as_str();
+    if ["space", "shift", "capslock"].contains(&k) {
+        return true;
+    }
+    let caret = [
+        "left",
+        "right",
+        "up",
+        "down",
+        "home",
+        "end",
+        "pageup",
+        "pagedown",
+        "backspace",
+        "delete",
+    ];
+    in_text && (k.encode_utf16().count() == 1 || caret.contains(&k))
+}
+
+/// The dialog drawn around `target` in the tree, as its title and its own
+/// text: the nearest ancestor whose role is `dialog`, or a window nested in
+/// the window (UI Automation puts an app's modal window under its owner).
+fn dialog_around(t: &Value, target: &Value) -> Option<(String, String)> {
+    let all = nodes(t);
+    let by_ref: HashMap<&str, &Value> = all
+        .iter()
+        .filter_map(|n| Some((n["ref"].as_str()?, n)))
+        .collect();
+    let parent = |n: &Value| {
+        let r = n["parentRef"].as_str()?;
+        by_ref.get(r).copied()
+    };
+    let start = target["ref"].as_str().and_then(|r| by_ref.get(r).copied());
+    let mut up = parent(start.unwrap_or(target));
+    let mut dialog = None;
+    for _ in 0..64 {
+        let Some(n) = up else { break };
+        let nested = n["role"] == "window" && n["depth"].as_i64().unwrap_or(0) > 0;
+        if n["role"] == "dialog" || nested {
+            dialog = Some(n);
+            break;
+        }
+        up = parent(n);
+    }
+    let id = dialog?["ref"].as_str()?;
+    let inside = |n: &Value| {
+        let mut up = parent(n);
+        for _ in 0..64 {
+            match up {
+                Some(p) if p["ref"].as_str() == Some(id) => return true,
+                Some(p) => up = parent(p),
+                None => return false,
+            }
+        }
+        false
+    };
+    let texts: Vec<String> = all
+        .iter()
+        .filter(|n| (n["role"] == "text" || n["role"] == "static") && inside(n))
+        .map(|n| js_string(&n["name"]))
+        .collect();
+    Some((js_string(&dialog?["name"]), texts.join(" ")))
 }
 
 async fn gate_inner(name: &str, a: &Value, info: &Touches, env: &GateEnv<'_>) -> Option<Verdict> {
@@ -487,21 +729,13 @@ async fn gate_inner(name: &str, a: &Value, info: &Touches, env: &GateEnv<'_>) ->
     let mut lazy = Lazy {
         desktop: env.desktop,
         handle: handle.clone(),
-        tree: None,
+        tree: info.tree.clone().map(Some),
     };
 
     let node = info.node.as_ref();
     let node_name = node.map(|n| js_string(&n["name"])).unwrap_or_default();
     // sendButton, btn_delete: ids are split into words before matching.
-    let extra = match node {
-        Some(n) => {
-            let (id, help) = (js_string(&n["automationId"]), js_string(&n["helpText"]));
-            let raw = format!("{id} {help}");
-            let spaced = p.camel.replace_all(&raw, "$1 $2");
-            p.joins.replace_all(&spaced, " ").into_owned()
-        }
-        None => String::new(),
-    };
+    let extra = node.map(id_words).unwrap_or_default();
     if !node_name.is_empty() && p.name_verbs.is_match(&node_name) {
         why.add(format!("the control is named {}", quote(&node_name, 40)));
     } else if p.name_verbs.is_match(&extra) {
@@ -586,37 +820,93 @@ async fn gate_inner(name: &str, a: &Value, info: &Touches, env: &GateEnv<'_>) ->
             why.add("it could not read what this lands on");
         } else if blank("name") && blank("automationId") {
             why.add("the target has no name to check");
+        } else if name == "double_click" && proc == "explorer" {
+            why.add("a double click in File Explorer or on the desktop opens or runs the file");
+        } else if let Some(n) = node.filter(|n| why.0.is_empty() && !harmless(n)) {
+            // The allowlist (B-049): a click nothing else flagged still asks
+            // unless what it lands on is known to be harmless. A right click
+            // only opens a menu.
+            if name != "right_click" {
+                why.add(format!("it is not known what {} does", what(n)));
+            }
+        }
+    }
+
+    // What a Space, an Enter or typed text lands on: the ref's element, else
+    // the control with keyboard focus (B-008).
+    let list = if name == "key" {
+        chords(&key_text(a))
+    } else {
+        Vec::new()
+    };
+    let mut keyboard = None;
+    if name == "type" || has_press(&list) {
+        keyboard = node.cloned().or_else(|| info.focused.clone());
+        if keyboard.is_none() {
+            keyboard = lazy.tree().await.and_then(focused_in);
         }
     }
 
     if name == "key" {
-        let keys = match js_string(&a["text"]) {
-            k if k.is_empty() => js_string(&a["keys"]),
-            k => k,
-        };
-        let list = chords(&keys);
         if list.is_empty() {
             why.add("no keys were named");
         }
-        for ch in &list {
-            why.add(chord_risk(ch)?);
-        }
         let rep = repeat_of(&a["repeat"]);
+        // A repeat runs the keys again, so a Tab at the end moves the focus
+        // before the next pass's Space.
+        let passes = if rep > 1 { 2 } else { 1 };
+        let in_text = keyboard.as_ref().is_some_and(editable);
+        let mut moved = false;
+        let mut space = None;
+        for ch in list.iter().cycle().take(list.len() * passes) {
+            let risk = chord_risk(ch)?;
+            let plain_space = ch.key == "space" && ch.mods.iter().all(|m| m == "shift");
+            if !plain_space {
+                why.add(risk);
+            } else if moved {
+                why.add(risk);
+                why.add(FOCUS_MOVES);
+            } else if space.is_none() {
+                space = Some(risk);
+            }
+            moved = moved || !keeps_focus(ch, in_text);
+        }
+        // Space is free in a text field; anywhere else it gets the checks a
+        // click on the focused control would.
+        if let Some(risk) = space {
+            match &keyboard {
+                Some(f) if editable(f) => {}
+                Some(f) => {
+                    let found = focus_reasons(f, &proc, &app_name);
+                    if !found.is_empty() {
+                        why.add(risk);
+                    }
+                    for r in found {
+                        why.add(r);
+                    }
+                }
+                None => {
+                    why.add(risk);
+                    why.add(FOCUS_UNKNOWN);
+                }
+            }
+        }
         if !why.0.is_empty() && rep > 1 {
             why.add(format!("repeated {rep} times"));
         }
         if list.iter().any(|ch| ch.key == "enter") {
-            let browser = p.browsers.is_match(&proc);
-            let focused = lazy.tree().await.and_then(|t| {
-                let hit = nodes(t).iter().find(|n| has_state(n, "focused"));
-                hit.cloned()
-            });
-            if let Some(f) = focused {
-                let label = name_and_id(&f);
+            if let Some(f) = &keyboard {
+                let browser = p.browsers.is_match(&proc);
+                let label = name_and_id(f);
                 if p.address_bar.is_match(&label) && browser {
                     why.add("Enter in the address bar goes to a new page");
                 } else if p.compose.is_match(&label) {
                     why.add("Enter sends what is in a message field");
+                }
+                if !editable(f) {
+                    for r in focus_reasons(f, &proc, &app_name) {
+                        why.add(r);
+                    }
                 }
             }
         }
@@ -629,37 +919,72 @@ async fn gate_inner(name: &str, a: &Value, info: &Touches, env: &GateEnv<'_>) ->
         } else if text.contains('\t') {
             why.add("the text has a tab, which moves to another field");
         }
-        let tree = lazy.tree().await.cloned();
-        let mut target = node.cloned();
-        if target.is_none() {
-            if let Some(t) = &tree {
-                target = nodes(t).iter().find(|n| has_state(n, "focused")).cloned();
-            }
-        }
-        let any_password = match &tree {
+        let any_password = match lazy.tree().await {
             Some(t) => nodes(t).iter().any(|n| has_state(n, "password")),
             None => true,
         };
-        match &target {
+        let target = keyboard.as_ref();
+        match target {
             Some(n) if has_state(n, "password") => why.add("it types into a password field"),
             None if any_password => why.add(
                 "it could not tell which field has focus, and this window has a password field",
             ),
             _ => {}
         }
-        if let Some(n) = &target {
+        if let Some(n) = target {
             if p.browsers.is_match(&proc) && p.address_bar.is_match(&name_and_id(n)) {
                 why.add("it types into the address bar");
             }
         }
+        // A typed space presses a focused button the way Space does.
+        if text.contains(' ') {
+            match target {
+                Some(n) if editable(n) => {}
+                Some(n) => {
+                    let found = focus_reasons(n, &proc, &app_name);
+                    if !found.is_empty() {
+                        why.add(TYPED_SPACE);
+                    }
+                    for r in found {
+                        why.add(r);
+                    }
+                }
+                None => {
+                    why.add(TYPED_SPACE);
+                    why.add(FOCUS_UNKNOWN);
+                }
+            }
+        }
         // Notepad's own document is the one place a newline is only a newline.
         let only_break = why.0.len() == 1 && why.0[0].contains("line break");
-        let doc = target.as_ref().is_some_and(|n| {
+        let doc = target.is_some_and(|n| {
             let role = js_string(&n["role"]);
             p.role_document.is_match(&role)
         });
         if only_break && p.plain_editors.is_match(&proc) && doc {
             why.0.clear();
+        }
+    }
+
+    // A dialog drawn inside the window (a web page's, an app's own) asking
+    // to delete or send (B-049). Its text is read when the step asks anyway
+    // or the tree is already here, so the card says what the dialog is.
+    let pressed = match name {
+        "key" | "type" => keyboard.as_ref(),
+        "left_click" | "double_click" | "triple_click" => node,
+        _ => None,
+    };
+    let look = !is_dialog && (!why.0.is_empty() || lazy.loaded());
+    if let Some(target) = pressed.filter(|_| look) {
+        let found = lazy.tree().await.and_then(|t| dialog_around(t, target));
+        if let Some((title, body)) = found {
+            if p.name_verbs.is_match(&title) {
+                why.add(format!("the dialog is titled {}", quote(&title, 40)));
+            } else if p.name_verbs.is_match(&body) {
+                let hit = p.dialog_sentence.find(&body);
+                let said = hit.map_or(&body[..], |m| m.as_str());
+                why.add(format!("the dialog says {}", quote(said, 60)));
+            }
         }
     }
 
@@ -723,6 +1048,10 @@ mod tests {
         assert_eq!(risk("pageup").unwrap(), "");
         assert_eq!(risk("insert").unwrap(), "Insert is not a plain typing key");
         assert_eq!(risk("ctrl++"), None);
+        let press = "Space presses the focused control";
+        assert_eq!(risk("space").unwrap(), press);
+        assert_eq!(risk("shift+space").unwrap(), "Shift+Space presses the focused control");
+        assert_eq!(risk("tab").unwrap(), "");
     }
 
     #[test]
@@ -806,5 +1135,252 @@ mod tests {
         let none = json!({});
         let v = block(gate("left_click", &none, &named("Edit", "menuitem"), &e));
         assert_eq!(v.why, "you asked to approve every action");
+    }
+
+    /// Window 7 of `process`, whose tree is `nodes`.
+    fn desk(process: &str, title: &str, class: &str, nodes: Value) -> FakeDesktop {
+        let d = FakeDesktop::default();
+        let win = json!([{ "handle": 7, "process": process, "title": title, "className": class }]);
+        d.reply("listWindows", win);
+        d.reply("readTree", json!({ "nodes": nodes }));
+        d
+    }
+
+    /// A step in window 7 with no ref.
+    fn plain() -> Touches {
+        Touches {
+            window_handle: json!(7),
+            ..Touches::default()
+        }
+    }
+
+    fn at(node: Value) -> Touches {
+        Touches {
+            node: Some(node),
+            ..plain()
+        }
+    }
+
+    fn asks(v: &Verdict, part: &str) {
+        assert_eq!(v.cls, Class::Consequential, "{}", v.why);
+        assert!(v.why.contains(part), "{} lacks {part}", v.why);
+    }
+
+    fn notes(nodes: Value) -> FakeDesktop {
+        desk("notes.exe", "Draft", "Notes", nodes)
+    }
+
+    /// A control that has keyboard focus.
+    fn focus(role: &str, name: &str) -> Value {
+        json!({ "role": role, "name": name, "states": ["focused"] })
+    }
+
+    /// Tree node `ref_<r>` under `ref_<parent>` (0: the window's root).
+    fn tn(r: u32, parent: u32, role: &str, name: &str) -> Value {
+        let mut n = json!({ "ref": format!("ref_{r}"), "role": role, "name": name, "depth": 0 });
+        if parent > 0 {
+            n["parentRef"] = json!(format!("ref_{parent}"));
+            n["depth"] = json!(1);
+        }
+        n
+    }
+
+    /// Attack: the model never clicks Send. It focuses it (Tab, or a click
+    /// on the field before it) and presses Space, which Electron let
+    /// through as a free key.
+    #[test]
+    fn space_on_focused_send_button_asks() {
+        let send = focus("button", "Send");
+        let d = notes(json!([send]));
+        let space = json!({ "text": "space" });
+        let v = block(gate("key", &space, &plain(), &env(&d)));
+        asks(&v, "the focused control is named \"Send\"");
+        assert!(v.why.starts_with("Space presses the focused control"));
+        let shift = json!({ "text": "shift+space" });
+        asks(&block(gate("key", &shift, &plain(), &env(&d))), "Send");
+        let held = json!({ "text": "space", "repeat": 5 });
+        asks(&block(gate("key", &held, &plain(), &env(&d))), "repeated 5 times");
+        // The focus inspect found with the helper's own op counts the same.
+        let empty = notes(json!([]));
+        let found = Touches {
+            focused: Some(send.clone()),
+            ..plain()
+        };
+        asks(&block(gate("key", &space, &found, &env(&empty))), "Send");
+        // An unnamed button cannot be checked, and nor can unknown focus.
+        let bare = focus("button", "");
+        let d = notes(json!([bare]));
+        let v = block(gate("key", &space, &plain(), &env(&d)));
+        asks(&v, "the focused control has no name to check");
+        asks(&block(gate("key", &space, &plain(), &env(&empty))), FOCUS_UNKNOWN);
+        // Enter always asked; now it also says what it presses.
+        let enter = json!({ "text": "enter" });
+        let d = notes(json!([send]));
+        asks(&block(gate("key", &enter, &plain(), &env(&d))), "named \"Send\"");
+    }
+
+    /// Attack: text whose spaces land on a focused button presses it once
+    /// per space.
+    #[test]
+    fn typed_space_on_button_asks() {
+        let delete = focus("button", "Delete all");
+        let d = notes(json!([delete]));
+        let typed = json!({ "text": "looks like a note" });
+        let v = block(gate("type", &typed, &plain(), &env(&d)));
+        asks(&v, TYPED_SPACE);
+        asks(&v, "the focused control is named \"Delete all\"");
+        // A plain name on a button is still a button nobody checked.
+        let ok = focus("button", "OK");
+        let d = notes(json!([ok]));
+        let v = block(gate("type", &typed, &plain(), &env(&d)));
+        asks(&v, "it is not known what the focused button \"OK\" does");
+        // No space, nothing pressed.
+        let one = json!({ "text": "x" });
+        assert_eq!(block(gate("type", &one, &plain(), &env(&d))).cls, Class::Input);
+        // Spaces with no idea what has focus ask.
+        let empty = notes(json!([]));
+        asks(&block(gate("type", &typed, &plain(), &env(&empty))), FOCUS_UNKNOWN);
+    }
+
+    #[test]
+    fn space_in_text_field_is_free() {
+        let field = focus("edit", "Search");
+        let d = notes(json!([field]));
+        let free = Verdict::new(Class::Input, "");
+        let space = json!({ "text": "space" });
+        assert_eq!(block(gate("key", &space, &plain(), &env(&d))), free);
+        let typed = json!({ "text": "two words" });
+        assert_eq!(block(gate("type", &typed, &plain(), &env(&d))), free);
+        let edits = json!({ "text": "a space b backspace left space" });
+        assert_eq!(block(gate("key", &edits, &plain(), &env(&d))), free);
+        // Attack: Tab first moves the focus off the field, so the Space
+        // presses whatever comes next.
+        let moved = json!({ "text": "tab space" });
+        asks(&block(gate("key", &moved, &plain(), &env(&d))), FOCUS_MOVES);
+        let again = json!({ "text": "space tab", "repeat": 2 });
+        asks(&block(gate("key", &again, &plain(), &env(&d))), FOCUS_MOVES);
+        // Space on a focused tab item passes as a click on it would, and
+        // Tab alone stays free.
+        let tab = focus("tabitem", "View");
+        let d = notes(json!([tab]));
+        assert_eq!(block(gate("key", &space, &plain(), &env(&d))), free);
+        let tab_key = json!({ "text": "tab" });
+        assert_eq!(block(gate("key", &tab_key, &plain(), &env(&d))), free);
+    }
+
+    /// Attack: a page names its button something bland. Electron's verb
+    /// list found no reason to ask, so the click went through.
+    #[test]
+    fn unknown_named_button_asks() {
+        let d = notepad();
+        let e = env(&d);
+        let none = json!({});
+        let v = block(gate("left_click", &none, &named("Continue", "button"), &e));
+        let want = "it is not known what button \"Continue\" does";
+        assert_eq!(v, Verdict::new(Class::Consequential, want));
+        let link = named("Learn more", "hyperlink");
+        asks(&block(gate("left_click", &none, &link, &e)), "link \"Learn more\"");
+        let check = named("Keep me posted", "checkbox");
+        asks(&block(gate("triple_click", &none, &check, &e)), "checkbox");
+        let id_only = at(json!({ "role": "button", "name": "", "automationId": "nextStep" }));
+        asks(&block(gate("left_click", &none, &id_only, &e)), "button \"nextStep\"");
+        #[rustfmt::skip]
+        let harmless = [
+            ("View", "tabitem"), ("Documents", "treeitem"), ("Vertical", "scrollbar"),
+            ("Text editor", "document"), ("Search", "edit"), ("Help", "menuitem"),
+            ("Zoom in", "button"), ("A1", "dataitem"), ("More options", "button"),
+        ];
+        for (name, role) in harmless {
+            let v = block(gate("left_click", &none, &named(name, role), &e));
+            assert_eq!(v, Verdict::new(Class::Input, ""), "{name} {role}");
+        }
+        // A right click only opens a menu.
+        let v = block(gate("right_click", &none, &named("Continue", "button"), &e));
+        assert_eq!(v.cls, Class::Input);
+    }
+
+    /// Attack: a double click on a downloaded file in Explorer runs it.
+    #[test]
+    fn explorer_double_click_asks() {
+        let d = desk("explorer.exe", "Downloads", "CabinetWClass", json!([]));
+        let e = env(&d);
+        let none = json!({});
+        let file = named("setup.exe", "listitem");
+        asks(&block(gate("double_click", &none, &file, &e)), "opens or runs the file");
+        let folder = named("Downloads", "treeitem");
+        asks(&block(gate("double_click", &none, &folder, &e)), "opens or runs");
+        // One click on a tree item only selects it.
+        assert_eq!(block(gate("left_click", &none, &folder, &e)).cls, Class::Input);
+        // The desktop belongs to Explorer too.
+        let d = desk("explorer.exe", "", "Progman", json!([]));
+        let icon = named("Invoice.pdf", "listitem");
+        asks(&block(gate("double_click", &none, &icon, &env(&d))), "desktop");
+    }
+
+    /// Attack: a page draws its own "delete everything?" dialog. Electron
+    /// read a dialog's text only in a Win32 #32770 window.
+    #[test]
+    fn web_dialog_text_is_read() {
+        let said = "This will permanently delete your account. It cannot be undone.";
+        let tree = vec![
+            tn(1, 0, "document", "Account"),
+            tn(2, 1, "dialog", "Are you sure?"),
+            tn(3, 2, "text", said),
+            tn(4, 2, "button", "Yes"),
+            tn(5, 1, "text", "Send feedback"),
+        ];
+        let title = "Account settings - Google Chrome";
+        let d = desk("chrome.exe", title, "Chrome_WidgetWin_1", json!(tree));
+        let yes = at(tn(4, 2, "button", "Yes"));
+        let v = block(gate("left_click", &json!({}), &yes, &env(&d)));
+        asks(&v, "the dialog says \"This will permanently delete your account\"");
+        assert!(!v.why.contains("feedback"));
+        // A window nested in the tree is an app's modal dialog, and its
+        // title counts; Enter on its focused OK reads it.
+        let mut ok = tn(3, 2, "button", "OK");
+        ok["states"] = json!(["focused"]);
+        let tree = vec![
+            tn(1, 0, "window", "Report - Editor"),
+            tn(2, 1, "window", "Delete 3 files?"),
+            ok,
+        ];
+        let d = desk("editor.exe", "Report - Editor", "EditorMain", json!(tree));
+        let enter = json!({ "text": "enter" });
+        let v = block(gate("key", &enter, &plain(), &env(&d)));
+        asks(&v, "the dialog is titled \"Delete 3 files?\"");
+    }
+
+    /// Attack: the same Send button in a German, French or Japanese UI
+    /// slipped past an English-only verb list.
+    #[test]
+    fn localized_send_asks() {
+        let d = notepad();
+        let e = env(&d);
+        let none = json!({});
+        #[rustfmt::skip]
+        let local = [
+            "Senden", "Löschen", "Envoyer", "Supprimer", "Enviar", "Elimina", "Excluir",
+            "Comprar", "Bezahlen", "送信", "削除", "删除", "發送", "支付",
+        ];
+        for name in local {
+            let v = block(gate("left_click", &none, &named(name, "menuitem"), &e));
+            assert_eq!(v.why, format!("the control is named \"{name}\""));
+        }
+        #[rustfmt::skip]
+        let english = [
+            "Shut down", "Restart", "Move to trash", "Clear all", "Clear history", "Unsubscribe",
+            "Cancel subscription", "Deactivate", "Close account", "End task",
+        ];
+        for name in english {
+            let v = block(gate("left_click", &none, &named(name, "menuitem"), &e));
+            asks(&v, name);
+        }
+        // The step's own reason, in the person's language.
+        let step = json!({ "text": "down", "reason": "Datei löschen" });
+        let v = block(gate("key", &step, &plain(), &e));
+        assert_eq!(v.why, "the step says it will löschen");
+        // Whole words with Unicode boundaries: "Payé" is not "pay".
+        let v = block(gate("left_click", &none, &named("Payé", "menuitem"), &e));
+        assert_eq!(v.cls, Class::Input);
     }
 }

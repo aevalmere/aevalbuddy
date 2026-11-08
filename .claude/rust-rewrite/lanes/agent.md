@@ -269,6 +269,7 @@ Stop when every item below and the standing labels task is green on CI at your b
 - B-006: green at 89fd79a; UNIT `agent::run::tests::confirm_payload_carries_full_value`, UNIT `agent::describe::tests::the_card_value_is_the_whole_text` (SMOKE+ `confirmFullText` waits for harness C1).
 - B-144: green at 89fd79a; UNIT `run::tests::step_payload_has_plan_index`.
 - B-051: in progress; K-21 fields green at 89fd79a (UNIT `host::agent::tests::consent_payload_names_provider`); `recipients` switches to `llm::recipients` when K-18 lands.
+- B-008, B-049, B-048: in progress (pushed with their unit tests, CI pending). B-008 adds the helper op `focused` (host.cs `FocusedCmd`, `Desktop::focused`, adapter `focused`); B-049 makes host.cs report a Pane/Group/Custom whose localized type is "dialog" as role `dialog`. Their SMOKE+ labels (`gateKeyActivation`, `takeoverStopsStep`) and the ported smoke-v21 gate tables wait for harness C1.
 
 ## Blockers
 

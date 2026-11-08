@@ -926,6 +926,15 @@ impl Desktop {
         self.op("windowStates", p::merge(&base, &args)).await
     }
 
+    /// The element with keyboard focus, when `window_handle`'s window (or
+    /// any window, with none) is in front: `{node, windowHandle}`, `node`
+    /// null otherwise. The agent's gate checks what a Space would press.
+    pub async fn focused(self: &Arc<Self>, window_handle: Option<&Value>) -> DResult<Value> {
+        let args = json!({ "windowHandle": arg_window(window_handle) });
+        let r = self.op("focused", args).await?;
+        Ok(json!({ "node": p::node_shape(&r["node"]), "windowHandle": r["windowHandle"] }))
+    }
+
     pub async fn resolve(self: &Arc<Self>, r#ref: &str) -> DResult<Value> {
         let r = self.op("resolve", json!({ "ref": r#ref })).await?;
         Ok(json!({ "node": p::node_shape(&r["node"]), "windowHandle": r["windowHandle"] }))

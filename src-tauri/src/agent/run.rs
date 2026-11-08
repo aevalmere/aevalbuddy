@@ -36,7 +36,8 @@ use crate::llm::settings::Active;
 use crate::llm::wire::{self, Turn};
 
 use super::describe::{describe, friendly, full_value, redact, seconds, Seen};
-use super::gate::{chord_label, gate, js_string, quote, Class, DragEnd, GateEnv, Touches};
+use super::gate::{chord_label, focused_in, gate, js_string, presses_focus, quote};
+use super::gate::{Class, DragEnd, GateEnv, Touches};
 use super::seams::{DeskError, DesktopOps, Emitter};
 use super::tools::{is_pointer_tool, is_read_tool, json_rules, parse_json_turn, rules, tools};
 use super::tools::{Call, JsonTurn};
@@ -73,6 +74,7 @@ const PLAN_FIRST: &str = "Before any action, call update_plan with your plan. Th
 approves it first.";
 const MODEL_SLOW: &str = "the model took over 60 seconds to answer";
 const NOT_RUN: &str = "Not executed: an earlier action in this turn failed.";
+const TAKEN_OVER: &str = "Not executed: the user took over.";
 const RESTARTING: &str = "Desktop control stopped responding. Restarting it\u{2026}";
 
 /// `getAgentSettings()`, the parts the run reads.
@@ -206,6 +208,9 @@ struct St {
     plan_len: usize,
     /// Actions that finished, which is how far along the plan the run is.
     acts_done: usize,
+    /// A takeover stopped a step before it acted; the rest of the turn is
+    /// dropped (B-048).
+    taken_over: bool,
     nudged: bool,
     usage: UsageTotals,
     target: Value,
@@ -524,7 +529,7 @@ fn seen(info: &Info) -> Seen<'_> {
     let end = info.t.end.as_ref();
     Seen {
         node: info.t.node.as_ref(),
-        focused: None,
+        focused: info.t.focused.as_ref(),
         app: &info.t.app,
         end_node: end.and_then(|e| e.node.as_ref()),
         end_app: end.map(|e| e.app.as_str()).unwrap_or_default(),
@@ -714,6 +719,7 @@ impl Agent {
             plan_shown: false,
             plan_len: 0,
             acts_done: 0,
+            taken_over: false,
             nudged: false,
             usage: UsageTotals::default(),
             target: Value::Null,
@@ -1086,6 +1092,13 @@ impl Ctx {
         if call.name == "focus_window" || call.name == "close_window" {
             t.window_handle = or_target(&a["handle"]);
         }
+        // Typing, Space and Enter press whatever has keyboard focus, so the
+        // gate checks that control as it would a click target (B-008).
+        if arg_ref(a).is_none() && presses_focus(&call.name, a) {
+            let (focused, tree) = self.keyboard_focus(&t.window_handle).await;
+            t.focused = focused;
+            t.tree = tree;
+        }
         t.app = self.app_name(&t.window_handle).await;
         // A drag is judged by where it ends as much as where it starts.
         if call.name == "left_click_drag" {
@@ -1099,6 +1112,24 @@ impl Ctx {
             t.end = Some(end);
         }
         Info { t, point }
+    }
+
+    /// The control with keyboard focus in `handle`'s window: the helper's
+    /// `focused` op, else the tree's focused node (the tree is then kept for
+    /// the gate, so it is read once). `None` when it cannot be told: the
+    /// window is not in front, or nothing in it has focus.
+    async fn keyboard_focus(&self, handle: &Value) -> (Option<Value>, Option<Value>) {
+        let args = json!({ "windowHandle": handle });
+        if let Ok(f) = self.op("focused", args).await {
+            if f["node"].is_object() {
+                return (Some(f["node"].clone()), None);
+            }
+        }
+        let args = json!({ "windowHandle": handle, "filter": "all" });
+        match self.op("readTree", args).await {
+            Ok(tree) => (focused_in(&tree), Some(tree)),
+            Err(_) => (None, None),
+        }
     }
 
     fn describe(&self, call: &Call, info: &Info) -> String {
@@ -1865,6 +1896,19 @@ impl Ctx {
             "action" => self.window_set().await,
             _ => None,
         };
+        // The person took over after the gate, while the arrow travelled or
+        // the window list was read. What they did may have changed the
+        // screen the gate judged, so this step and the rest of the turn are
+        // dropped (B-048).
+        if kind == "action" && self.st(|s| s.paused) {
+            self.wait_while_paused().await;
+            if self.ended() {
+                return Outcome::text("Stopped.");
+            }
+            self.st(|s| s.taken_over = true);
+            self.update_row(rw, json!({ "state": "skipped", "why": "you took over" }));
+            return Outcome::text(TAKEN_OVER);
+        }
         self.st(|s| s.acting = true);
         let res = self.dispatch_rebinding(call, &info).await;
         self.st(|s| {
@@ -2321,9 +2365,23 @@ Settings > Agent."
             // without running, the browser toolset's batch rule.
             let mut failed = false;
             let mut results: Vec<(Call, Outcome)> = Vec::new();
+            self.st(|s| s.taken_over = false);
             for call in calls {
                 if self.ended() {
                     return;
+                }
+                // A takeover between calls drops the rest of the turn: the
+                // model chose them for a screen the person has since changed.
+                if self.st(|s| s.paused) {
+                    self.wait_while_paused().await;
+                    if self.ended() {
+                        return;
+                    }
+                    self.st(|s| s.taken_over = true);
+                }
+                if self.st(|s| s.taken_over) {
+                    results.push((call, Outcome::text(TAKEN_OVER)));
+                    continue;
                 }
                 if failed {
                     results.push((call, Outcome::text(NOT_RUN)));
@@ -2408,10 +2466,16 @@ mod tests {
         }
     }
 
+    /// Something a test does from inside a host callback.
+    type Hook = Arc<dyn Fn() + Send + Sync>;
+
     #[derive(Default)]
     struct Host {
         events: Recorder,
         opened: Mutex<Vec<String>>,
+        /// Runs as the answer window moves aside, just before a pointer
+        /// step acts.
+        on_dodge: Mutex<Option<Hook>>,
     }
 
     impl Emitter for Host {
@@ -2435,6 +2499,12 @@ mod tests {
             true
         }
         async fn point_at(&self, _: Point, _: &str) {}
+        async fn dodge(&self, _: Point) {
+            let hook = self.on_dodge.lock().clone();
+            if let Some(f) = hook {
+                f();
+            }
+        }
         fn frame(&self, _: bool) {}
         fn show_trail(&self, _: bool) {}
         async fn open_target(&self, target: &str) -> Result<(), String> {
@@ -2592,6 +2662,84 @@ mod tests {
             .iter()
             .filter(|(c, p)| c == "agent:step" && p["kind"] == "action");
         assert!(streamed.all(|(_, p)| p["planIndex"].is_number()));
+    }
+
+    /// Attack: Send already has focus and the model presses Space. The
+    /// helper's `focused` op names Send, so the card shows before any key.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn space_on_focused_send_asks_before_any_key() {
+        let d = notepad_desktop();
+        let send = json!({ "role": "button", "name": "Send", "states": ["focused"] });
+        d.reply("focused", json!({ "node": send, "windowHandle": "0x1" }));
+        let space = json!({ "name": "key", "args": { "text": "space", "reason": "go on" } });
+        let fixture = script("press space", &[space], "Left it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("press space"));
+        let done = finished(&agent, &host, false).await;
+        assert_eq!(done["state"], "done");
+        let req = host.events.last("agent:confirm-request").expect("asked");
+        let why = req["why"].as_str().unwrap_or_default();
+        assert!(why.contains("the focused control is named \"Send\""), "{why}");
+        assert!(!d.methods().contains(&"key".to_string()));
+    }
+
+    /// Attack: a password typed into the focused field, with no ref, must
+    /// not reach the card in clear.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn typed_password_in_focused_field_stays_dotted() {
+        let d = notepad_desktop();
+        let states = json!(["focused", "password"]);
+        let field = json!({ "role": "edit", "name": "Password", "states": states });
+        d.reply("focused", json!({ "node": field, "windowHandle": "0x1" }));
+        let typed = json!({ "name": "type", "args": { "text": "hunter2 again" } });
+        let fixture = script("sign in", &[typed], "Left it.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        agent.start(opts("sign in"));
+        finished(&agent, &host, false).await;
+        let req = host.events.last("agent:confirm-request").expect("asked");
+        let why = req["why"].as_str().unwrap_or_default();
+        assert!(why.contains("password field"), "{why}");
+        let value = req["value"].as_str().unwrap_or_default();
+        assert!(!value.is_empty() && !value.contains("hunter2"), "{value}");
+        let label = req["text"].as_str().unwrap_or_default();
+        assert!(!label.contains("hunter2"), "{label}");
+        assert!(!d.methods().contains(&"type".to_string()));
+    }
+
+    /// Attack on timing: the person grabs the mouse while the arrow travels
+    /// to a target the gate already passed. The click must not fire.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pause_during_dodge_drops_the_action() {
+        let d = notepad_desktop();
+        let rect = json!({ "x": 40, "y": 10, "width": 30, "height": 12 });
+        let tab = json!({ "role": "tabitem", "name": "View", "ref": "ref_3", "rect": rect });
+        d.reply("resolve", json!({ "node": tab, "windowHandle": "0x1" }));
+        let args = json!({ "ref": "ref_3", "reason": "open View" });
+        let click = json!({ "name": "left_click", "args": args });
+        let fixture = script("open view", &[click], "Stopped there.");
+        let (agent, host) = agent_with(d.clone(), vec![fixture]);
+        let grab = agent.clone();
+        let hook: Hook = Arc::new(move || grab.on_user_input(&json!({ "kind": "mouse-button" })));
+        *host.on_dodge.lock() = Some(hook);
+        agent.start(opts("open view"));
+        let paused = |p: &Value| p["state"] == "paused";
+        for _ in 0..300 {
+            let events = host.events.events.lock().clone();
+            if events.iter().any(|(c, p)| c == "agent:state" && paused(p)) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        // Hand the computer back once the step is waiting: it stays dropped.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(agent.resume(""));
+        let done = finished(&agent, &host, true).await;
+        assert_eq!(done["state"], "done");
+        assert!(!d.methods().contains(&"click".to_string()));
+        assert_eq!(agent.dispatched(), 0);
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let skipped = |r: &Value| r["kind"] == "action" && r["state"] == "skipped";
+        assert!(rows.iter().any(skipped));
     }
 
     #[tokio::test(flavor = "multi_thread")]
