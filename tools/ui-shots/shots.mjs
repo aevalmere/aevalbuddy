@@ -47,7 +47,9 @@
 //                                       // Date, requestAnimationFrame and
 //                                       // performance.now. run(t) starts with it
 //                                       // paused; only t.tick, t.settle and
-//                                       // t.shot move it
+//                                       // t.shot move it. The scene runs in a
+//                                       // browser context of its own, since
+//                                       // the clock belongs to the context
 //     media: { reducedMotion: 'reduce' }, // page.emulateMedia
 //     async run(t) { ... },             // drive it, shoot it, check it
 //   }
@@ -139,6 +141,12 @@ const bridge = fs.readFileSync(path.join(HERE, 'mock-bridge.js'), 'utf8');
 const errors = [];
 const written = new Map();
 
+async function newContext(scale) {
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
+  await ctx.addInitScript({ content: bridge });
+  return ctx;
+}
+
 // ------------------------------------------------------------ the desktop
 
 async function backdrop(ctx, kind, scale) {
@@ -187,7 +195,11 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
 </head><body>${spec.windows.map(frameTag).join('')}</body></html>`,
   });
   console.log(`[UI] scene ${lane}/${spec.name}${suffix}`);
-  const page = await ctx.newPage();
+  // page.clock is the context's clock, not the page's: a clock scene paused
+  // in the shared context would freeze every scene after it. It gets a
+  // context of its own.
+  const own = spec.clock ? await newContext(scale) : null;
+  const page = await (own || ctx).newPage();
   const tag = `${spec.name}${suffix}`;
   page.on('pageerror', (e) => errors.push(`${tag}: ${e.message}`));
   page.on('console', (m) => {
@@ -274,6 +286,7 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
     check(`scene.${spec.name}${suffix}`, false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' ') : e);
   } finally {
     await page.close();
+    if (own) await own.close();
   }
 }
 
@@ -281,8 +294,7 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
 
 const counts = {};
 for (const scale of SCALES) {
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
-  await ctx.addInitScript({ content: bridge });
+  const ctx = await newContext(scale);
   const backs = {};
   for (const kind of BACKDROPS) backs[kind] = await backdrop(ctx, kind, scale);
   for (const [lane, m] of Object.entries(LANES)) {
