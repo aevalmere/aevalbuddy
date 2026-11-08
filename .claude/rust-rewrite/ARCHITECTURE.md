@@ -576,3 +576,26 @@ Native models never fail over (failover is for `:free` ids only). `AEVAL_FAKE_LL
 provider in OpenRouter's dialect from `tools/fixtures/llm`, which are compiled into the binary;
 `AEVAL_FAKE_LLM_DIR` adds more at runtime. Settings stores per-provider keys and model picks; the
 store keys are (a)'s to name.
+
+## 13. The merge: `host/` glues the splits together
+
+Written at the merge of rust/a-core, rust/c-desktop, rust/b-llm and rust/d-ui into `rust-rewrite`.
+`src-tauri/src/host/` holds everything that sat between modules in main.js; none of the split-owned
+files import it except `ipc.rs` and `lib.rs`.
+
+| File | main.js it ports | Notes |
+|---|---|---|
+| `host/mod.rs` | the `init({...})` blocks, liveModels, startWalkthrough, rememberChat | `host::setup` builds `Services` (Llm, Skills, Find, Agent, the desktop adapter) and registers every `state::Hooks` entry, `buddy::init` deps, `backdrop::set_hooks` + `set_intensity`, and the `region::on_change` hook. `refresh_flags` copies buddy/region/Find/agent state into `AppState` before the core reads it. |
+| `host/settings.rs` | `store.get*` for the model layer | `LlmSettings` over the store; `api_key(p)` is `get_provider_key(p.id())`. `provider` and `nativeModels.<provider>.<kind>` are optional store keys (no UI writes them yet). |
+| `host/desktop_ops.rs` | `desktop.*` calls | `DesktopOps` onto (c)'s `Desktop`; `{t, opts}` is spread as index.js did; integral floats become integers. Also `desktop.init` deps (takeover input, Find nudge, synthetic-Escape suspension). |
+| `host/ask.rs` | handleQuerySubmit, abortCurrentQuery, prefetchBarContext, freshBarText, readExactText, showModelPoints, resolveUiaPoint, models:list, settings:test-key | A question goes to `outputs::target`; a retry goes back to the window it came from. Native providers skip the catalogue and failover. |
+| `host/find.rs` | setBarMode, openFind, closeFind, findEmit, findToLens, findToAsk, find:* | Find's results go to one output window plus the overlay. |
+| `host/agent.rs` | startAgentRun (consent card), agentEmit, onAgentState, showTrail, setControlFrame, agentPointAt, dodgeAnswer, openTarget, finishAgentRun, agent:* | A run's events go to the label `outputs::target` gave at start. |
+| `host/menu.rs` | contextMenu | Tauri popup menus, ids `ctx:<n>`. |
+
+Routing order in `aeval_invoke`: (c)'s `desktop::channels`, then `host::{ask, find, agent}::route` and
+`ui:context-menu`, then the core rows. `ipc::tests::every_invoke_channel_has_a_route` fails if an
+allowlisted channel has no row anywhere.
+
+OpenAI: the GPT-6 family takes tool calls only through the Responses API, so `Llm::supports_tools`
+answers false for OpenAI and the agent uses the one-JSON-object fallback there (checked 2026-11-07).
