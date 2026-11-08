@@ -299,7 +299,8 @@ Stop when every item below and the standing labels task is green on CI at your b
 - C1 green at caadb51 (the coordinator's standing rule: a run whose only red step is a bundler download 504 in Build installer counts as green); merged into rust-rewrite as 17e55bb.
 - d7e5e5f (P0 and P1 batch): Unit tests passed; Format failed on one assert in hotkeys.rs and Clippy on `fetch_update` (deprecated in Rust 1.99, renamed `try_update`) and a `manual_contains` in a test; Capture check and Desktop selfcheck only failed because no exe was built behind Clippy. Fixed in the next push.
 - 8cdeb18: Format and Unit tests passed (including the B-081..B-083 tests); Clippy failed on `try_update`, which is newer than the crate's MSRV 1.77 (`incompatible_msrv`). Replaced by a compare-exchange loop.
-- In progress (pushed, awaiting CI): B-001, B-002, B-003, B-004 (P0); B-011, B-012, B-013, B-015, B-016, B-017; B-076, B-077, B-079, B-086 (code; its probe waits on K-26, K-30); B-177; B-081, B-082, B-083.
+- ea9eefe: every step green, Build installer and Smoke included (run 42490753900). Green there on their UNIT acceptance: B-001, B-002 (all of B-001/2 acceptance), B-004, B-079, B-082, B-177 fully; B-003, B-011, B-012, B-013, B-017, B-076, B-077, B-083 on UNIT only, their SMOKE labels wait for the probe port below.
+- In progress: B-080, B-078 (pushed next); the smoke-label port; B-081 and B-086 (code done, SMOKE+ probes pending); B-014, B-015, B-016, B-085, B-088.
 
 ## Blockers
 

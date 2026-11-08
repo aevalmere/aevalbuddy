@@ -114,3 +114,35 @@ StartupApproved respected at boot; turning the setting on in Settings marks it e
 Add (note to the row):
 The Settings switch writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run` value `com.aevalbuddy.app` = REG_BINARY `02` and eleven zero bytes (Task Manager's "Enabled"), as Electron's `setLoginItemSettings` did. Boot (`autostart::sync`) writes only the Run value. D-11: an explicit toggle means the person wants it to run, while a Task Manager disable must survive every restart (Electron rewrote StartupApproved on every launch).
 status: SMOKE+ launchAtLogin pending the platform probe
+
+## PARITY · TRAY-01 · B-080
+Replace "Tray icon is the pointer arrow, 16 px and 32 px PNGs embedded (base64 in tray.js)." with:
+Tray icon is the pointer arrow: 16 px and 32 px PNGs from tray.js plus 20 px and 24 px resampled from the 32 px one; the smallest at least 16 px times the primary display's scale is used, so Windows only scales it down.
+status: UNIT tray::tests::icon_matches_scale, tray::tests::icons_decode
+
+## PARITY · TRAY-02 · B-080, D-07
+Replace "Left click and double click: trail if the agent runs, else the bar." with:
+Left click: trail if the agent runs, else the bar. A double click opens once (D-07).
+Add (note to the row):
+D-07: the DoubleClick arm is dropped, and the second click of a double click (within the system double-click time of the last open) is ignored. Reason: Windows reports one double click as two clicks and a double click; Electron opened on all three, which flickered open, closed, open.
+status: UNIT tray::tests::double_click_opens_once; SMOKE+ trayClick pending the platform probe
+
+## PARITY · TRAY-03 · B-080
+Add (note to the row):
+Wording follows tasks and conversations (C-83, C-84): `Stop the task` (Esc) replaces `Stop agent`, `New conversation` replaces `New chat`, and `Close all answer windows` (C-85, U38) follows it and calls `outputs::close_all` (K-04). The idle order is now `Ask, find, or do…`, `Ask about an area…`, `Find on screen…`, `Do a task…`, `-`, `Hide the overlay`, `New conversation`, `Close all answer windows`, `History…`, `-`, `Settings…`, `Help and feedback…`, check item, `-`, `Quit AevalBuddy`.
+status: UNIT tray::tests::idle_order, tray::tests::ready_running_hidden; SMOKE trayOrder pending the platform probe
+
+## PARITY · TRAY-05 · B-080
+Add (note to the row):
+Each check's 10 s "Up to date" is cleared only by its own timer, so a second check inside the 10 s keeps its full 10 s.
+status: UNIT tray::tests::second_check_keeps_its_ten_seconds; SMOKE+ trayCheckStates pending the platform probe
+
+## PARITY · TRAY-07 · B-080
+Add (note to the row):
+The menu is made once and edited in place on the main thread: only rows whose text or enabled state changed are touched, rows are replaced inside the same menu when the set changes (never `set_menu`, so an open menu is not swapped), download progress redraws at most once a second, and a refresh never blocks its caller.
+status: UNIT tray::tests::refresh_only_touches_changed_items, tray::tests::progress_is_throttled_but_other_edits_are_not
+
+## ARCHITECTURE · 10.3 Behaviour Rust must keep for the pages · B-078, D-37
+Add (after the "Drag and resize" bullet):
+- **Security surface (D-37).** `capabilities/default.json` grants the pages only event listen/unlisten and the window calls `frame.js` makes; `core:default` and every menu, tray, path, image and app permission are gone. `app.security.csp` repeats the pages' own meta CSP, so the header and the meta tag agree and frames still load over both forms of `aeval-frame`. An internal `aeval-navigation` plugin refuses any navigation away from `tauri.localhost` in every webview. Under a test run (`quiet_run`) one runtime capability adds `core:event:allow-emit`, because `Cx::eval` answers through an event; a shipped run never has it. Reason: a page that is ever made to run hostile content can only listen, move its own window and call the allowlisted channels.
+status: UNIT tests::navigation_stays_in_the_app; SMOKE+ navigationBlocked pending the platform probe

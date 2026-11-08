@@ -49,6 +49,27 @@ fn quiet_run() -> bool {
     .any(|k| std::env::var_os(k).is_some())
 }
 
+/// The self-test's `Cx::eval` answers through an event, which pages may not
+/// send outside a test run (B-078).
+const TEST_CAPABILITY: &str =
+    r#"{"identifier":"selftest","windows":["*"],"permissions":["core:event:allow-emit"]}"#;
+
+/// Whether a webview may go to `url`: only the app's own pages (B-078).
+fn stays_in_app(url: &url::Url) -> bool {
+    match url.scheme() {
+        "http" | "https" => url.host_str() == Some("tauri.localhost"),
+        "tauri" => url.host_str() == Some("localhost"),
+        _ => url.as_str() == "about:blank",
+    }
+}
+
+/// Refuses every navigation away from the app, in every webview (B-078).
+fn navigation_guard() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new("aeval-navigation")
+        .on_navigation(|_webview, url| stays_in_app(url))
+        .build()
+}
+
 /// main.js presenceToast (LIFE-12): once per fresh install, or whenever the
 /// main chord is taken by another app.
 fn presence_toast(app: &tauri::AppHandle) {
@@ -159,6 +180,7 @@ pub fn run() {
         .build();
 
     let app = tauri::Builder::default()
+        .plugin(navigation_guard())
         .plugin(shortcuts)
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -185,6 +207,9 @@ pub fn run() {
         })
         .setup(move |app| {
             let handle = app.handle().clone();
+            if quiet_run() {
+                handle.add_capability(TEST_CAPABILITY)?;
+            }
             windows::boot(&handle)?;
             // Desktop helper client, glass backdrop, CI checks (split c).
             desktop::setup(&handle);
@@ -244,4 +269,24 @@ pub fn run() {
             crash::guard("exit", || on_exit(app));
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::stays_in_app;
+
+    #[test]
+    fn navigation_stays_in_the_app() {
+        let allowed = |u: &str| stays_in_app(&u.parse().unwrap());
+        assert!(allowed("http://tauri.localhost/renderer/index.html"));
+        assert!(allowed("http://tauri.localhost/a/b.html?kind=white"));
+        assert!(allowed("tauri://localhost/settings/settings.html"));
+        assert!(allowed("about:blank"));
+        assert!(!allowed("https://example.com/"));
+        assert!(!allowed("http://tauri.localhost.example.com/"));
+        assert!(!allowed("http://aeval-frame.localhost/frame"));
+        assert!(!allowed("file:///C:/Windows/notepad.exe"));
+        assert!(!allowed("data:text/html,<script>alert(1)</script>"));
+        assert!(!allowed("javascript:alert(1)"));
+    }
 }

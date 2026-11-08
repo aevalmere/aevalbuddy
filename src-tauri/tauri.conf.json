@@ -11,7 +11,7 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": null
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:"
     }
   },
   "bundle": {
