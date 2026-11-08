@@ -1,12 +1,11 @@
-# rust: failure
+# rust: success
 
 - Workflow: rust
-- Run: [42465476955](https://github.com/aevalmere/aevalbuddy/actions/runs/42465476955), attempt 1, on push
-- Commit: b684715f24f31cac20872ae31b60398d575d4149
+- Run: [42466730725](https://github.com/aevalmere/aevalbuddy/actions/runs/42466730725), attempt 1, on push
+- Commit: d14b4719a60fa6529156249b05af5c606642cb58
 - Ref: rust/harness
-- Conclusion: **failure**
-- Failed: Format
-- Finished: 2026-11-08T09:09:03Z
+- Conclusion: **success**
+- Finished: 2026-11-08T09:31:48Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -16,16 +15,17 @@
 | Cache cargo | success |  |
 | Gate helper | success |  |
 | Prebuild desktop helper | success | [prebuild.log](prebuild.log) |
-| Format | failure | [fmt.log](fmt.log) |
-| Format patch | success | [fmt.patch](fmt.patch) |
+| Format | success |  |
+| Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
-| Tauri CLI version | skipped |  |
-| Cache Tauri bundler tools | skipped |  |
-| Build installer | skipped |  |
-| Smoke | skipped |  |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | success |  |
+| Build installer | success | [build.log](build.log) |
+| Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
-| Upload installer | skipped |  |
+| Upload installer | success |  |
 
-errors.txt: 10 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.

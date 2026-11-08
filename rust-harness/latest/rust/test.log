@@ -11,8 +11,8 @@
    Compiling same-file v1.0.6
    Compiling walkdir v2.5.0
    Compiling tauri-utils v2.10.2
-   Compiling softbuffer v0.4.8
    Compiling dirs-sys v0.5.0
+   Compiling softbuffer v0.4.8
    Compiling muda v0.20.0
    Compiling tray-icon v0.25.1
    Compiling dirs v7.0.0
@@ -21,8 +21,8 @@
    Compiling schannel v0.1.30
    Compiling rustls-native-certs v0.8.5
    Compiling hyper-util v0.1.21
-   Compiling tower v0.5.3
    Compiling tokio-rustls v0.26.6
+   Compiling tower v0.5.3
    Compiling tower-http v0.6.11
    Compiling hyper-rustls v0.27.10
    Compiling tokio-util v0.7.20
@@ -31,14 +31,14 @@
    Compiling webview2-com-sys v0.39.1
    Compiling tao v0.37.2
    Compiling webview2-com v0.39.1
-   Compiling tauri-runtime v2.12.2
    Compiling wry v0.57.1
+   Compiling tauri-runtime v2.12.2
    Compiling tauri-runtime-wry v2.12.3
    Compiling tauri v2.12.5
-   Compiling tauri-plugin-clipboard-manager v2.5.0
    Compiling tauri-plugin-global-shortcut v2.4.1
    Compiling tauri-plugin-opener v2.7.2
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 03s
+   Compiling tauri-plugin-clipboard-manager v2.5.0
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 50s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-ed2ac34b3192f376.exe)
 
 running 264 tests
@@ -50,19 +50,18 @@ test agent::describe::tests::steps_read_as_sentences ... ok
 test agent::gate::tests::quotes_are_cut ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
 test agent::gate::tests::open_and_plans_and_keys ... ok
-test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
-test agent::run::tests::confirm_payload_carries_full_value ... ok
+test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
+test agent::run::tests::confirm_payload_carries_full_value ... ok
 test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::step_payload_has_plan_index ... ok
-test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
 test agent::run::tests::trail_text_numbers_the_steps ... ok
 test agent::tools::tests::json_rules_list_every_tool ... ok
-test agent::tools::tests::json_turns_are_found_in_prose ... ok
 test agent::tools::tests::the_toolset_is_the_browser_one ... ok
-test ask::tests::chat_ids_look_like_electron_ones ... ok
+test agent::tools::tests::json_turns_are_found_in_prose ... ok
 test ask::tests::fractions_take_grid_or_pixels ... ok
+test ask::tests::chat_ids_look_like_electron_ones ... ok
 test autostart::tests::value_is_the_quoted_exe ... ok
 test backdrop::contrast::tests::alpha_text_is_blended_and_invisible_text_skipped ... ok
 test backdrop::contrast::tests::black_on_white_passes_grey_fails ... ok
@@ -80,13 +79,13 @@ test capture::encode::tests::bgra_rows_honour_stride_and_channel_order ... ok
 test capture::encode::tests::crop_copies_the_right_pixels ... ok
 test capture::encode::tests::crop_is_clamped_inside_and_at_least_one_pixel ... ok
 test capture::encode::tests::crop_scales_by_what_arrived ... ok
+test ask::tests::visual_regex_matches_the_renderer ... ok
 test capture::encode::tests::ladder_at_budget_exactly_is_fine ... ok
 test capture::encode::tests::ladder_starts_at_88_and_stops_at_62 ... ok
 test capture::encode::tests::ladder_stops_as_soon_as_it_fits ... ok
-test ask::tests::visual_regex_matches_the_renderer ... ok
 test capture::encode::tests::jpeg_round_trips_with_dimensions ... ok
-test capture::encode::tests::long_edge_fit ... ok
 test capture::encode::tests::lanczos_keeps_flat_colour_and_size ... ok
+test capture::encode::tests::long_edge_fit ... ok
 test capture::encode::tests::whole_screen_matches_electron_thumbnail_sizes ... ok
 test capture::screen::tests::dip_bounds_divide_by_scale ... ok
 test capture::screen::tests::dip_round_trip_on_a_scaled_display ... ok
@@ -94,6 +93,7 @@ test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
 test capture::screen::tests::physical_points_map_through_their_own_display ... ok
 test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
+test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
 test crash::tests::guard_catches_and_logs ... ok
 test crash::tests::log_lines_and_trimming ... ok
 test crash::tests::renderer_failures_reload_and_browser_exit_recreates ... ok
@@ -111,24 +111,24 @@ test desktop::protocol::tests::escape_detection ... ok
 test desktop::protocol::tests::handles ... ok
 test desktop::protocol::tests::read_page_lines ... ok
 test desktop::protocol::tests::rect_shapes ... ok
-test agent::run::tests::stop_ends_the_run_at_once ... ok
-test desktop::protocol::tests::replies_events_and_noise ... ok
 test desktop::protocol::tests::request_line_shape ... ok
+test desktop::protocol::tests::replies_events_and_noise ... ok
 test desktop::protocol::tests::sha_validation ... ok
 test desktop::protocol::tests::targets ... ok
 test desktop::protocol::tests::timeouts ... ok
-test desktop::protocol::tests::tree_truncates_with_the_hint ... ok
 test desktop::scoring::tests::dice_values ... ok
+test desktop::protocol::tests::tree_truncates_with_the_hint ... ok
 test desktop::scoring::tests::exact_prefix_word_contains ... ok
 test desktop::scoring::tests::norm_matches_the_js ... ok
 test desktop::scoring::tests::nodes ... ok
-test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::inside_with_slack ... ok
+test desktop::selfcheck::tests::editor_pick_prefers_big_text_documents ... ok
 test desktop::selfcheck::tests::report_collects_failures ... ok
 test desktop::win::tests::descendants_walks_the_tree_once ... ok
 test find::tests::an_unreadable_window_offers_ask ... ok
-test desktop::win::tests::our_own_pid_is_always_listed ... ok
 test crash::tests::guard_async_catches_and_logs ... ok
+test desktop::win::tests::our_own_pid_is_always_listed ... ok
+test agent::run::tests::stop_ends_the_run_at_once ... ok
 test find::tests::fold_strips_accents_and_widths ... ok
 test find::tests::line_reader_takes_objects_only ... ok
 test find::tests::literal_matching_stages ... ok
@@ -198,8 +198,8 @@ test llm::fake::tests::agent_turns_follow_the_assistant_count_and_fill_vars ... 
 test llm::fake::tests::correlate_answers_with_the_span_holding_the_match ... ok
 test llm::fake::tests::embedded_fixtures_load ... ok
 test llm::fake::tests::statuses_delays_and_streams ... ok
-test llm::fake::tests::the_log_is_capped ... ok
 test history::tests::caps_at_two_hundred_newest_first ... ok
+test llm::fake::tests::the_log_is_capped ... ok
 test llm::points::tests::coordinate_directives_are_taken_out_across_deltas ... ok
 test llm::points::tests::loose_shapes_and_names ... ok
 test llm::points::tests::malformed_directive_is_swallowed ... ok
@@ -212,17 +212,17 @@ test llm::provider::tests::anthropic_defaults_are_the_latest_models ... ok
 test llm::provider::tests::every_default_is_in_its_own_list ... ok
 test llm::provider::tests::keys_are_recognised_by_prefix ... ok
 test llm::settings::tests::a_native_key_alone_is_used ... ok
-test llm::prompt::tests::reports_are_checked_and_unfenced ... ok
 test llm::settings::tests::no_key_is_needs_key ... ok
 test llm::settings::tests::openrouter_stays_the_default_path ... ok
-test llm::sse::tests::meter_adds_usage_and_cost ... ok
+test llm::prompt::tests::reports_are_checked_and_unfenced ... ok
 test llm::sse::tests::lines_survive_any_split ... ok
+test llm::sse::tests::meter_adds_usage_and_cost ... ok
 test llm::sse::tests::only_data_lines_count ... ok
 test llm::wire::tests::anthropic_replays_its_own_blocks ... ok
 test llm::wire::tests::anthropic_body_maps_system_images_and_tools ... ok
 test llm::wire::tests::anthropic_stream ... ok
-test llm::wire::tests::gemini_stream ... ok
 test llm::wire::tests::gemini_body_maps_parts_and_function_responses ... ok
+test llm::wire::tests::gemini_stream ... ok
 test llm::wire::tests::http_errors_carry_the_body_message ... ok
 test llm::wire::tests::key_checks_spend_nothing ... ok
 test llm::wire::tests::openai_drops_temperature_and_raises_the_limit ... ok
@@ -284,10 +284,10 @@ test updater::tests::feed_override_rules ... ok
 test updater::tests::latest_yml ... ok
 test updater::tests::classify_matches_lib_updater ... ok
 test updater::tests::notes_prefer_list_items ... ok
-test updater::tests::versions_and_hashes ... ok
 test updater::tests::problem_texts_are_plain ... ok
 test windows::flags::tests::bar_resizes_sideways_only ... ok
 test windows::flags::tests::edges_and_corners_on_the_margin ... ok
+test updater::tests::versions_and_hashes ... ok
 test windows::flags::tests::frameless_window_band_is_inside ... ok
 test windows::layout::tests::bounds_hug_and_clamp ... ok
 test windows::layout::tests::docked_and_free_placement ... ok
@@ -298,16 +298,16 @@ test windows::layout::tests::pos_from_rect_and_snap ... ok
 test windows::motion::tests::glide_curve_matches_the_browser ... ok
 test windows::motion::tests::lerp_and_shrink ... ok
 test windows::outputs::tests::output_labels ... ok
-test windows::screen::tests::enumerates_at_least_one ... ok
 test windows::outputs::tests::chat_sync_sends_the_whole_transcript ... ok
-test windows::screen::tests::primary_at_150_percent ... ok
+test windows::screen::tests::enumerates_at_least_one ... ok
 test windows::screen::tests::latch_reads_the_display_it_recorded ... ok
+test windows::screen::tests::primary_at_150_percent ... ok
 test windows::screen::tests::secondary_display_origin ... ok
 test windows::stage::tests::margin_round_trip ... ok
 test find::tests::concepts_come_from_the_correlate_stage ... ok
 test find::tests::related_terms_arrive_after_the_pause ... ok
 
-test result: ok. 264 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.02s
+test result: ok. 264 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s
 
      Running unittests src\main.rs (target\debug\deps\aevalbuddy-cb0e68ed617d1dd2.exe)
 
@@ -320,5 +320,5 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test src\selftest\mod.rs - selftest (line 54) ... ignored
 
-test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
 

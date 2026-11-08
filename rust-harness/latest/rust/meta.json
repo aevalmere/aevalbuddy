@@ -1,19 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42465476955,
+  "run_id": 42466730725,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465476955",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42466730725",
   "event": "push",
-  "sha": "b684715f24f31cac20872ae31b60398d575d4149",
+  "sha": "d14b4719a60fa6529156249b05af5c606642cb58",
   "ref": "rust/harness",
   "ref_dir": "rust-harness",
-  "conclusion": "failure",
-  "failed": [
-    "Format"
-  ],
-  "finished": "2026-11-08T09:09:03Z",
-  "error_lines": 10,
+  "conclusion": "success",
+  "failed": [],
+  "finished": "2026-11-08T09:31:48Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +45,13 @@
     },
     {
       "name": "Format",
-      "outcome": "failure",
-      "log": "fmt.log"
+      "outcome": "success",
+      "log": ""
     },
     {
       "name": "Format patch",
-      "outcome": "success",
-      "log": "fmt.patch"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Clippy",
@@ -66,24 +64,29 @@
       "log": "test.log"
     },
     {
-      "name": "Tauri CLI version",
-      "outcome": "skipped",
+      "name": "Restore NSIS toolset",
+      "outcome": "success",
       "log": ""
     },
     {
-      "name": "Cache Tauri bundler tools",
-      "outcome": "skipped",
+      "name": "Seed NSIS toolset",
+      "outcome": "success",
+      "log": "nsis.log"
+    },
+    {
+      "name": "Save NSIS toolset",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",
@@ -97,7 +100,7 @@
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
