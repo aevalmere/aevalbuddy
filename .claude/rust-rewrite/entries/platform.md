@@ -146,3 +146,10 @@ status: UNIT tray::tests::refresh_only_touches_changed_items, tray::tests::progr
 Add (after the "Drag and resize" bullet):
 - **Security surface (D-37).** `capabilities/default.json` grants the pages only event listen/unlisten and the window calls `frame.js` makes; `core:default` and every menu, tray, path, image and app permission are gone. `app.security.csp` repeats the pages' own meta CSP, so the header and the meta tag agree and frames still load over both forms of `aeval-frame`. An internal `aeval-navigation` plugin refuses any navigation away from `tauri.localhost` in every webview. Under a test run (`quiet_run`) one runtime capability adds `core:event:allow-emit`, because `Cx::eval` answers through an event; a shipped run never has it. Reason: a page that is ever made to run hostile content can only listen, move its own window and call the allowlisted channels.
 status: UNIT tests::navigation_stays_in_the_app; SMOKE+ navigationBlocked pending the platform probe
+
+## DESIGN · Decisions · D-03
+Add:
+D-03: The NSIS installer is one click like Electron's oneClick build. `src-tauri/installer.nsi` is a copy of tauri-bundler 2.10.4's template (tauri-cli 2.12.4) with the welcome, license, folder and finish pages removed; a run without `/S` or `/P` takes Tauri's passive path (progress bar, per-user folder) and starts the app when it finishes. Reason: an existing Electron user re-running the download expects no wizard, and the passive path is code Tauri already ships and tests. Re-copy the template whenever TAURI_CLI moves.
+
+## PARITY · PKG-01 · B-085
+status: ported (one click via the copied template); evidence: installer job `[INSTALL] oneClick=ok` (harness B-052)
