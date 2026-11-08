@@ -18,6 +18,7 @@ pub mod crypto;
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 
 use base64::engine::general_purpose::STANDARD as B64;
@@ -40,6 +41,8 @@ pub const DEFAULT_GLASS_INTENSITY: f64 = 0.5;
 
 pub const MIN_W: i64 = 320;
 pub const MAX_W: i64 = 900;
+/// The bar's width on a new profile (D-16); a stored width is kept.
+pub const DEFAULT_INPUT_WIDTH: i64 = 600;
 const SHORTCUTS_VERSION: i64 = 2;
 const API_KEYS_VERSION: i64 = 1;
 const INPUT_HISTORY_MAX: usize = 50;
@@ -88,7 +91,7 @@ pub fn defaults() -> Map<String, Value> {
         "shortcuts": default_shortcuts(),
         "overlayPos": { "h": "right", "v": "top", "offX": 16, "offY": 16 },
         "outputPos": { "docked": true, "h": "right", "v": "top", "offX": 16, "offY": 240 },
-        "inputWidth": 420,
+        "inputWidth": DEFAULT_INPUT_WIDTH,
         "outputWidth": 420,
         "outputHeight": 0,
         "settingsSize": { "width": 660, "height": 560 },
@@ -231,6 +234,9 @@ pub struct Store {
 
 static GLOBAL: OnceLock<Store> = OnceLock::new();
 
+/// B-084: a key saved without encryption is logged once per session.
+static PLAIN_KEY_LOGGED: AtomicBool = AtomicBool::new(false);
+
 /// Opens the store in the user-data folder once; every module shares it.
 pub fn init(user_data: &Path) -> &'static Store {
     GLOBAL.get_or_init(|| Store::open(user_data))
@@ -294,6 +300,24 @@ impl Store {
 
     pub fn raw(&self, key: &str) -> Option<Value> {
         self.data.lock().get(key).cloned()
+    }
+
+    /// K-08: stores `value` under `key` as given, for settings that have no
+    /// typed setter here (textScale, providerOrder). Saved like every other
+    /// setting.
+    pub fn set_raw(&self, key: &str, value: Value) {
+        self.set(key, value);
+    }
+
+    /// K-09: how API keys are kept on this machine: "encrypted" with the
+    /// Windows data protection key, or "plain" when that key could not be
+    /// read or made (Settings says so, C-58).
+    pub fn key_storage(&self) -> &'static str {
+        if self.crypt.available() {
+            "encrypted"
+        } else {
+            "plain"
+        }
     }
 
     fn set(&self, key: &str, value: Value) {
@@ -415,6 +439,13 @@ impl Store {
             Some(blob) if !value.is_empty() => (B64.encode(blob), String::new()),
             _ => (String::new(), value.to_string()),
         };
+        if !plain.is_empty() && !PLAIN_KEY_LOGGED.swap(true, Ordering::SeqCst) {
+            let why = "Windows data protection is not available";
+            crate::crash::write(
+                "store",
+                &format!("the {provider} key was saved in plain text: {why}"),
+            );
+        }
         {
             let mut d = self.data.lock();
             let keys = d.entry("apiKeys").or_insert_with(|| json!({}));
@@ -644,11 +675,12 @@ impl Store {
     }
 
     pub fn get_input_width(&self) -> i64 {
-        clamp_w(self.raw("inputWidth").as_ref(), 420)
+        clamp_w(self.raw("inputWidth").as_ref(), DEFAULT_INPUT_WIDTH)
     }
 
     pub fn set_input_width(&self, w: f64) -> i64 {
-        self.set("inputWidth", json!(clamp_w(Some(&json!(w)), 420)));
+        let v = clamp_w(Some(&json!(w)), DEFAULT_INPUT_WIDTH);
+        self.set("inputWidth", json!(v));
         self.get_input_width()
     }
 
@@ -987,6 +1019,10 @@ mod tests {
         assert_eq!(s.shortcut("captureQuery"), "Ctrl+Alt+Space");
         assert_eq!(s.get_glass_intensity(), DEFAULT_GLASS_INTENSITY);
         assert!(!s.get_has_sent_first_request());
+        // D-16: a new profile's bar is 600 px wide.
+        assert_eq!(f["inputWidth"], 600);
+        assert_eq!(s.get_input_width(), 600);
+        assert_eq!(f["outputWidth"], 420);
         // electron-store writes tabs.
         let text = fs::read_to_string(dir.join("aevalbuddy.json")).unwrap();
         assert!(text.contains("\n\t\"apiKeyEncrypted\": \"\""));
@@ -997,11 +1033,11 @@ mod tests {
         let dir = temp("unknown");
         fs::write(
             dir.join("aevalbuddy.json"),
-            r#"{"future":{"a":1},"inputWidth":600,"shortcutsVersion":2}"#,
+            r#"{"future":{"a":1},"inputWidth":700,"shortcutsVersion":2}"#,
         )
         .unwrap();
         let s = open(&dir);
-        assert_eq!(s.get_input_width(), 600);
+        assert_eq!(s.get_input_width(), 700);
         s.set_save_history(false);
         let f = file(&dir);
         assert_eq!(f["future"]["a"], 1);
@@ -1198,8 +1234,41 @@ mod tests {
         let dir = temp("corrupt");
         fs::write(dir.join("aevalbuddy.json"), "{not json").unwrap();
         let s = open(&dir);
-        assert_eq!(s.get_input_width(), 420);
+        assert_eq!(s.get_input_width(), DEFAULT_INPUT_WIDTH);
         assert!(dir.join("aevalbuddy.json.corrupt").exists());
+    }
+
+    #[test]
+    fn stored_input_width_is_kept() {
+        let dir = temp("width");
+        fs::write(dir.join("aevalbuddy.json"), r#"{"inputWidth":420}"#).unwrap();
+        assert_eq!(open(&dir).get_input_width(), 420);
+    }
+
+    #[test]
+    fn set_raw_stores_and_saves() {
+        let dir = temp("raw");
+        let s = open(&dir);
+        s.set_raw("providerOrder", json!(["gemini", "openrouter"]));
+        s.set_raw("textScale", json!(1.3));
+        assert_eq!(s.raw("textScale"), Some(json!(1.3)));
+        let f = file(&dir);
+        assert_eq!(f["providerOrder"], json!(["gemini", "openrouter"]));
+        assert_eq!(open(&dir).raw("textScale"), Some(json!(1.3)));
+    }
+
+    #[test]
+    fn key_storage_reports_plain_without_os_key() {
+        let dir = temp("plainkey");
+        assert_eq!(open(&dir).key_storage(), "encrypted");
+        let dir = temp("plainkey-none");
+        let s = Store::open_with(&dir, OsCrypt::without_key());
+        assert_eq!(s.key_storage(), "plain");
+        s.set_provider_key("openai", " sk-plain ");
+        assert_eq!(s.get_provider_key("openai"), "sk-plain");
+        let f = file(&dir);
+        assert_eq!(f["apiKeys"]["openai"]["plain"], "sk-plain");
+        assert_eq!(f["apiKeys"]["openai"]["encrypted"], "");
     }
 
     #[test]
