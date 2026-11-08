@@ -326,13 +326,19 @@ fn anchor() -> Anchor {
     Anchor::from_value(&store::get().get_overlay_pos())
 }
 
+/// B-025: where the bar and new windows go: the work area of the display
+/// the person was on when they last called the bar up.
+pub fn bar_area() -> Rect {
+    screen::work_area_of(screen::latched())
+}
+
 fn pill_rect() -> Rect {
-    layout::pill_bounds(screen::work_area(), &anchor())
+    layout::pill_bounds(bar_area(), &anchor())
 }
 
 fn input_rect(height: f64) -> Rect {
     let w = store::get().get_input_width() as f64;
-    layout::input_bounds(screen::work_area(), &anchor(), w, height)
+    layout::input_bounds(bar_area(), &anchor(), w, height)
 }
 
 /// The bar's glass rect as it is now, or where it would be.
@@ -356,7 +362,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     crate::state::refresh(app);
     let extra = shared(app).call_value(app, |h| h.overlay_extra.as_ref());
     let store = store::get();
-    let wa = screen::work_area();
+    let wa = bar_area();
     // main.js sent `activeRegion`: the area picked for the next question,
     // or the one the focused conversation is about.
     let picked = crate::region::active_region().map(|r| (r.width, r.height));
@@ -464,6 +470,7 @@ pub fn send_overlay_state(app: &AppHandle) {
 
 /// Creates the overlay and the warm output window (LIFE-06).
 pub fn boot(app: &AppHandle) -> tauri::Result<()> {
+    screen::latch_active();
     create_overlay(app)?;
     outputs::create_spare(app)?;
     flags::start_poll(app);
@@ -559,8 +566,52 @@ fn set_input_bounds(app: &AppHandle, r: Rect) {
     };
     mark_app(OVERLAY);
     flags::set_limits(h, (1.0, 1.0), (0.0, 0.0));
-    motion::set_glass(h, r);
+    motion::set_glass_on(h, r, screen::latched());
     apply_input_limits(app);
+}
+
+/// The rect the bar's glass belongs on in its current mode.
+fn bar_home(app: &AppHandle) -> Rect {
+    let (mode, height) = {
+        let st = shared(app);
+        let s = st.lock();
+        (s.mode, s.input_height)
+    };
+    if mode == Mode::Panel {
+        input_rect(height)
+    } else {
+        pill_rect()
+    }
+}
+
+/// B-025: the person called the bar up here, so it and new windows belong
+/// on this display. The bar jumps over rather than gliding across screens.
+fn latch_display(app: &AppHandle) {
+    let d = screen::latch_active();
+    let Some(h) = hwnd(app, OVERLAY) else {
+        return;
+    };
+    if screen::matching_px(flags::rect_px(h)).id != d.id {
+        motion::stop(h);
+        set_input_bounds(app, bar_home(app));
+    }
+}
+
+/// B-025: a display came, went or changed scale. The bar goes back to its
+/// place and every output stays inside its own display.
+pub fn on_display_change(app: &AppHandle) {
+    let a = app.clone();
+    debounce("display-change", layout::DROP_SETTLE_MS, move || {
+        replace_windows(&a);
+    });
+}
+
+fn replace_windows(app: &AppHandle) {
+    if shared(app).lock().mode != Mode::Hud {
+        set_input_bounds(app, bar_home(app));
+    }
+    outputs::clamp_all(app);
+    send_overlay_state(app);
 }
 
 fn sync_input_bounds(app: &AppHandle) {
@@ -699,6 +750,7 @@ pub fn trigger_capture(app: &AppHandle) {
         }
         s.hidden = false;
     }
+    latch_display(app);
     expand_panel(app);
     outputs::show_with_chat(app);
 }
@@ -776,6 +828,7 @@ pub fn toggle_visibility(app: &AppHandle) {
         flags::hide(&w);
         outputs::hide_windows(app);
     } else {
+        latch_display(app);
         if mode == Mode::Panel {
             flags::show_focused(&w);
         } else if let Some(h) = flags::hwnd_of(&w) {
@@ -872,6 +925,7 @@ pub fn on_hotkey(app: &AppHandle, action: &str) {
             }
         }
         "captureRegion" => {
+            latch_display(app);
             shared(app).call(app, |h| h.start_region.as_ref());
         }
         "toggleVisibility" => toggle_visibility(app),
@@ -998,7 +1052,7 @@ pub fn nudge_window(app: &AppHandle, label: &str, d: (f64, f64, f64, f64)) -> bo
     };
     let m = flags::meta(h);
     let from = motion::glass(h);
-    let wa = screen::matching(from).work_area;
+    let wa = screen::matching_px(flags::rect_px(h)).work_area;
     let to = layout::nudge_rect(wa, from, d, m.min, m.max);
     mark_app(label);
     motion::stop(h);
@@ -1046,7 +1100,7 @@ pub fn enter_hud(app: &AppHandle) {
     flags::set_click_through(&w, false);
     flags::set_focusable(h, true);
     let size = hud_size();
-    let r = layout::bounds_for_size(screen::work_area(), size, &Anchor::from_value(&pending));
+    let r = layout::bounds_for_size(bar_area(), size, &Anchor::from_value(&pending));
     mark_app(OVERLAY);
     flags::set_limits(h, (1.0, 1.0), (0.0, 0.0));
     motion::set_glass(h, r);
@@ -1078,7 +1132,7 @@ pub fn exit_hud(app: &AppHandle) {
         s.hud_pending.take()
     };
     let pos = pending
-        .unwrap_or_else(|| layout::pos_from_rect(screen::work_area(), motion::glass(h)).to_value());
+        .unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
     store::get().set_overlay_pos(&pos);
     apply_input_limits(app);
     collapse_panel(app, false);
@@ -1094,7 +1148,7 @@ fn settle_hud_drag(app: &AppHandle) {
     if shared(app).lock().mode != Mode::Hud {
         return;
     }
-    let wa = screen::work_area();
+    let wa = bar_area();
     let rect = motion::glass(h);
     let pending = match layout::find_snap(wa, rect, hud_size()) {
         Some((pos, r)) => {
@@ -1116,7 +1170,7 @@ pub fn hud_nudge(app: &AppHandle, dx: f64, dy: f64) {
     if shared(app).lock().mode != Mode::Hud {
         return;
     }
-    let r = layout::nudge(screen::work_area(), motion::glass(h), dx, dy);
+    let r = layout::nudge(bar_area(), motion::glass(h), dx, dy);
     mark_app(OVERLAY);
     motion::set_glass(h, r);
     settle_hud_drag(app);
@@ -1157,7 +1211,7 @@ pub fn open_help(app: &AppHandle) -> Value {
 }
 
 fn frame_rect(width: i64, height: i64) -> Rect {
-    let wa = screen::work_area();
+    let wa = bar_area();
     let h = layout::clamp(height as f64, 360.0, wa.height - 40.0);
     let w = width as f64;
     Rect::new(
@@ -1258,8 +1312,19 @@ pub fn open_settings(app: &AppHandle, section: Option<&str>) {
     *pending_section().lock() = section.map(String::from);
     show_on_load().lock().insert(SETTINGS.into());
     let r = frame_rect(w, h);
-    if let Err(e) = create_page(app, SETTINGS, "settings/settings.html", r, frame_meta()) {
-        crate::crash::write("open-settings", &e.to_string());
+    open_frame(app, SETTINGS, "settings/settings.html", r);
+}
+
+/// Settings or History at `r`, written through the latched display: the
+/// builder's position cannot say which display's DIPs it means (B-025).
+fn open_frame(app: &AppHandle, label: &str, page: &str, r: Rect) {
+    match create_page(app, label, page, r, frame_meta()) {
+        Ok(w) => {
+            if let Some(h) = flags::hwnd_of(&w) {
+                motion::set_glass_on(h, r, screen::latched());
+            }
+        }
+        Err(e) => crate::crash::write(&format!("open-{label}"), &e.to_string()),
     }
 }
 
@@ -1279,9 +1344,7 @@ pub fn open_history(app: &AppHandle) {
     let (w, h) = store::get().get_history_size();
     show_on_load().lock().insert(HISTORY.into());
     let r = frame_rect(w, h);
-    if let Err(e) = create_page(app, HISTORY, "history/history.html", r, frame_meta()) {
-        crate::crash::write("open-history", &e.to_string());
-    }
+    open_frame(app, HISTORY, "history/history.html", r);
 }
 
 pub fn close_history(app: &AppHandle) {
@@ -1326,6 +1389,7 @@ pub fn on_window_event(w: &tauri::Window, event: &tauri::WindowEvent) {
         }
         E::Resized(_) => on_resized(&app, &label),
         E::Moved(_) => on_moved(&app, &label),
+        E::ScaleFactorChanged { .. } => on_display_change(&app),
         E::Destroyed => on_destroyed(&app, &label),
         _ => {}
     }

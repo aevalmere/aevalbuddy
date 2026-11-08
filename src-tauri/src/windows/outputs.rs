@@ -174,8 +174,12 @@ pub fn with<R>(app: &AppHandle, label: &str, f: impl FnOnce(&mut Output) -> R) -
     s.outputs.get_mut(label).map(f)
 }
 
-fn size_for(o: &Output) -> (f64, f64) {
-    let wa = screen::work_area();
+/// B-025: the work area of the display the window is on.
+fn own_area(h: isize) -> Rect {
+    screen::matching_px(flags::rect_px(h)).work_area
+}
+
+fn size_for(o: &Output, wa: Rect) -> (f64, f64) {
     let w = o
         .rect
         .map(|r| r.width)
@@ -220,11 +224,18 @@ pub fn show(app: &AppHandle, label: &str) {
         }
         return;
     }
-    let size = size_for(&o);
-    let wa = screen::work_area();
+    // B-025: a placed window stays on its own display; a new one opens on
+    // the display the person is on.
+    let display = if o.rect.is_some() {
+        screen::matching_px(flags::rect_px(h))
+    } else {
+        screen::latched()
+    };
+    let wa = display.work_area;
+    let size = size_for(&o, wa);
     let bar = bar_rect(app);
     let to = match o.rect {
-        Some(r) => Rect::new(r.x, r.y, size.0, size.1),
+        Some(r) => layout::clamp_to(wa, Rect::new(r.x, r.y, size.0, size.1)),
         None => {
             let anchor = Anchor::from_value(&store::get().get_overlay_pos());
             layout::place_output(wa, bar, &anchor, size, &open_rects(app, label))
@@ -239,12 +250,16 @@ pub fn show(app: &AppHandle, label: &str) {
     });
     flags::set_meta(h, |m| m.resize = Resize::All);
     mark_app(label);
+    // A maximized window stays maximized; `to` is where it goes back to.
+    let maxed = flags::is_maximized(h);
     if !flags::is_visible(h) {
         motion::stop(h);
-        motion::set_glass(h, to);
+        if !maxed {
+            motion::set_glass_on(h, to, display);
+        }
         flags::show_inactive(h);
         flags::pin_on_top(h);
-    } else {
+    } else if !maxed {
         motion::animate(h, None, to, layout::T_OUT_GROW, None);
     }
     emit(app, label, "overlay:state", overlay_state(app, Some(label)));
@@ -273,11 +288,11 @@ pub fn resize(app: &AppHandle, label: &str, height: f64) {
         return;
     }
     let have = motion::glass(h);
-    let (_, want_h) = size_for(&o);
+    let wa = own_area(h);
+    let (_, want_h) = size_for(&o, wa);
     if (have.height - want_h).abs() < 1.0 {
         return;
     }
-    let wa = screen::work_area();
     let bar = bar_rect(app);
     let grow_up = grow_of(have, bar) == "up";
     let mut to = Rect::new(have.x, have.y, have.width, want_h);
@@ -881,7 +896,9 @@ pub fn keep_user_rect(app: &AppHandle, label: &str, r: Rect, resized: bool) {
         store::get().set_output_height(r.height);
         emit(app, label, "overlay:state", overlay_state(app, Some(label)));
     } else {
-        let pos = layout::pos_from_rect(screen::work_area(), r);
+        // Relative to the display it was dropped on (B-025).
+        let wa = hwnd(app, label).map_or_else(super::bar_area, own_area);
+        let pos = layout::pos_from_rect(wa, r);
         store::get().set_output_pos(&pos.to_value());
     }
     send_meta(app);
@@ -911,6 +928,37 @@ pub fn on_user_move(app: &AppHandle, label: &str) {
     };
     if !flags::is_maximized(h) {
         keep_user_rect(app, label, motion::glass(h), false);
+    }
+}
+
+/// B-025: the displays changed. Every open output stays inside the work
+/// area of the display it is on now; one mid-drag is the person's to place.
+pub fn clamp_all(app: &AppHandle) {
+    if flags::mouse_down() {
+        return;
+    }
+    let labels: Vec<String> = shared(app)
+        .lock()
+        .outputs
+        .values()
+        .filter(|o| o.active)
+        .map(|o| o.label.clone())
+        .collect();
+    for l in labels {
+        let Some(h) = hwnd(app, &l) else {
+            continue;
+        };
+        if flags::is_maximized(h) {
+            continue;
+        }
+        let r = motion::glass(h);
+        let to = layout::clamp_to(own_area(h), r);
+        if to != r {
+            mark_app(&l);
+            motion::stop(h);
+            motion::set_glass(h, to);
+            with(app, &l, |o| o.rect = Some(to));
+        }
     }
 }
 

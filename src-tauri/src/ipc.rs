@@ -254,8 +254,16 @@ const PAGES: &[Caller] = &[
     Caller::History,
     Caller::Output,
 ];
+const GLASS_PAGES: &[Caller] = &[
+    Caller::Bar,
+    Caller::Settings,
+    Caller::History,
+    Caller::Output,
+    Caller::Buddy,
+];
 const ASK: &[Caller] = &[Caller::Bar, Caller::Output];
 const BUDDY: &[Caller] = &[Caller::Bar, Caller::Settings, Caller::Buddy];
+const LENS: &[Caller] = &[Caller::Lens];
 const REGION: &[Caller] = &[Caller::Bar, Caller::Region];
 
 /// Channels whose callers differ from their prefix's row. A table, not
@@ -269,9 +277,11 @@ const EXCEPTIONS: &[(&str, &[Caller])] = &[
     ("clipboard:write", PAGES),
     ("app:help", PAGES),
     ("window:nudge", PAGES),
-    ("settings:get", PAGES),
-    // Every page takes Ctrl+= and Ctrl+- (D-24).
-    ("settings:set-text-scale", PAGES),
+    // Every page that loads glass.js, the buddy card included, reads the
+    // stored text size and takes Ctrl+= and Ctrl+- (D-24). `settings:get`
+    // reports only whether keys are set, never a key.
+    ("settings:get", GLASS_PAGES),
+    ("settings:set-text-scale", GLASS_PAGES),
     ("overlay:collapse", PAGES),
     ("overlay:open-history", PAGES),
     ("overlay:open-settings", PAGES),
@@ -301,6 +311,7 @@ fn family(channel: &str) -> Option<&'static [Caller]> {
         "history" => APP_HISTORY,
         "query" | "chat" | "output" | "ui" | "find" | "agent" => ASK,
         "buddy" => BUDDY,
+        "lens" => LENS,
         "region" => REGION,
         "bar" | "overlay" => BAR,
         "glass" | "a11y" => ANY,
@@ -424,7 +435,8 @@ where
         Ok(r) => r,
         Err(cause) => {
             on_panic();
-            Err(format!("{channel} failed: {}", crate::crash::message(&*cause)))
+            let why = crate::crash::message(&*cause);
+            Err(format!("{channel} failed: {why}"))
         }
     }
 }

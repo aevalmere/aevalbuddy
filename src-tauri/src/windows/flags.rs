@@ -16,7 +16,7 @@
 //!
 //! Never SetLayeredWindowAttributes or opacity (WIN-15).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::OnceLock;
@@ -42,7 +42,19 @@ use crate::state::Rect;
 
 const WDA_EXCLUDEFROMCAPTURE: u32 = 0x11;
 const PBT_APMRESUMEAUTOMATIC: usize = 0x12;
+const WM_DISPLAYCHANGE: u32 = 0x007E;
+const WM_STYLECHANGING: u32 = 0x007C;
 const SUBCLASS_ID: usize = 0xAEBA;
+
+/// STYLESTRUCT: what WM_STYLECHANGING's lParam points at.
+#[repr(C)]
+struct StyleStruct {
+    _style_old: u32,
+    style_new: u32,
+}
+
+/// For the subclass, which Windows calls with no app in hand.
+static APP: OnceLock<AppHandle> = OnceLock::new();
 /// Resize band around the glass, DIPs.
 pub const BAND: f64 = 8.0;
 
@@ -104,6 +116,7 @@ pub fn adopt(app: &AppHandle, w: &WebviewWindow, meta: Meta) {
     let Some(hwnd) = hwnd_of(w) else {
         return;
     };
+    let _ = APP.set(app.clone());
     labels().lock().insert(w.label().to_string(), hwnd);
     metas().lock().insert(hwnd, meta);
     let _ = app.run_on_main_thread(move || {
@@ -135,6 +148,7 @@ fn drop_handle(map: &mut HashMap<String, isize>, hwnd: isize) -> Vec<String> {
 pub fn forget_hwnd(hwnd: isize) {
     let gone = drop_handle(&mut labels().lock(), hwnd);
     metas().lock().remove(&hwnd);
+    no_activate().lock().remove(&hwnd);
     {
         let mut c = clicks().lock();
         for label in gone {
@@ -196,8 +210,32 @@ pub fn is_tool_window(hwnd: isize) -> bool {
     ex_style(hwnd) & WS_EX_TOOLWINDOW as isize != 0
 }
 
+/// Windows that must not take focus (`set_focusable(false)`).
+fn no_activate() -> &'static Mutex<HashSet<isize>> {
+    static N: OnceLock<Mutex<HashSet<isize>>> = OnceLock::new();
+    N.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// The extended style a window ends up with, whoever writes it. tao
+/// rebuilds the whole style from its own flags on any change it makes
+/// (click-through, topmost, maximize), which drops the bits it does not
+/// know: the tool-window style (WIN-03) and the orb's no-activate (D-B10).
+fn kept_ex_style(new: u32, no_activate: bool) -> u32 {
+    let tool = (new | WS_EX_TOOLWINDOW) & !WS_EX_APPWINDOW;
+    if no_activate {
+        tool | WS_EX_NOACTIVATE
+    } else {
+        tool
+    }
+}
+
 /// Electron's setFocusable: WS_EX_NOACTIVATE off or on.
 pub fn set_focusable(hwnd: isize, focusable: bool) {
+    if focusable {
+        no_activate().lock().remove(&hwnd);
+    } else {
+        no_activate().lock().insert(hwnd);
+    }
     let s = ex_style(hwnd);
     let want = if focusable {
         s & !(WS_EX_NOACTIVATE as isize)
@@ -419,6 +457,9 @@ pub fn set_rect_px(hwnd: isize, r: Rect) {
 }
 
 pub fn scale_of(hwnd: isize) -> f64 {
+    if let Some(forced) = super::screen::forced_scale() {
+        return forced;
+    }
     // SAFETY: a query.
     let dpi = unsafe { GetDpiForWindow(h(hwnd)) };
     if dpi == 0 {
@@ -536,6 +577,16 @@ unsafe fn on_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Op
         WM_POWERBROADCAST if wparam == PBT_APMRESUMEAUTOMATIC => {
             crate::updater::on_resume();
         }
+        WM_DISPLAYCHANGE => {
+            if let Some(app) = APP.get() {
+                super::on_display_change(app);
+            }
+        }
+        WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
+            let keep = no_activate().lock().contains(&key);
+            let change = &mut *(lparam as *mut StyleStruct);
+            change.style_new = kept_ex_style(change.style_new, keep);
+        }
         WM_NCDESTROY => {
             RemoveWindowSubclass(hwnd, Some(subclass), SUBCLASS_ID);
             forget_hwnd(key);
@@ -587,7 +638,7 @@ pub fn is_click_through(label: &str) -> bool {
     clicks().lock().get(label).is_some_and(|c| c.effective)
 }
 
-fn mouse_down() -> bool {
+pub(super) fn mouse_down() -> bool {
     // SAFETY: a query.
     (unsafe { GetAsyncKeyState(i32::from(VK_LBUTTON)) } as u16 & 0x8000) != 0
 }
@@ -720,6 +771,17 @@ mod tests {
         assert_eq!(t(300.0, 114.0), None);
         assert_eq!(t(116.0, 116.0), None);
         assert_eq!(hit_test(win(), 20.0, 8.0, Resize::None, 115.0, 200.0), None);
+    }
+
+    /// The values the bar lane's `styleStable` probe sampled: tao's rewrite
+    /// dropped WS_EX_NOACTIVATE and WS_EX_TOOLWINDOW and set WS_EX_APPWINDOW.
+    #[test]
+    fn style_rewrite_keeps_our_bits() {
+        assert_eq!(kept_ex_style(0xc0138, true), 0x0808_01b8);
+        assert_eq!(kept_ex_style(0x40118, false), 0x198);
+        // Whatever else the rewrite changes, it changes.
+        let opaque = kept_ex_style(0xc0138, true) & !0x0008_0020;
+        assert_eq!(opaque, kept_ex_style(0x40118, true));
     }
 
     #[test]

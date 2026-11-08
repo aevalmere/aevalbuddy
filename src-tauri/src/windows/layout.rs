@@ -252,6 +252,19 @@ pub fn nudge_rect(
     )
 }
 
+/// B-025: `r` inside `wa`, the work area of its own display: no bigger than
+/// the area, and moved in only as far as it has to be.
+pub fn clamp_to(wa: Rect, r: Rect) -> Rect {
+    let w = r.width.min(wa.width);
+    let h = r.height.min(wa.height);
+    Rect::new(
+        clamp(r.x, wa.x, wa.x + wa.width - w),
+        clamp(r.y, wa.y, wa.y + wa.height - h),
+        w,
+        h,
+    )
+}
+
 /// JavaScript Math.sign (0 stays 0).
 fn sign(n: f64) -> f64 {
     if n > 0.0 {
@@ -388,6 +401,22 @@ mod tests {
         // A maximum holds.
         let capped = nudge_rect(wa(), r, (0.0, 0.0, 900.0, 0.0), lim.0, (900.0, 0.0));
         assert_eq!(capped.width, 900.0);
+    }
+
+    #[test]
+    fn output_clamps_to_its_own_display() {
+        let left = Rect::new(0.0, 0.0, 1920.0, 1040.0);
+        let right = Rect::new(1920.0, 200.0, 1280.0, 680.0);
+        // Past the right display's bottom: up into that display, not the other.
+        let low = Rect::new(2600.0, 800.0, 420.0, 200.0);
+        let raised = Rect::new(2600.0, 680.0, 420.0, 200.0);
+        assert_eq!(clamp_to(right, low), raised);
+        // Bigger than the area: capped to it.
+        let big = Rect::new(2000.0, 300.0, 2000.0, 900.0);
+        assert_eq!(clamp_to(right, big), right);
+        // Already inside: untouched.
+        let inside = Rect::new(100.0, 100.0, 420.0, 200.0);
+        assert_eq!(clamp_to(left, inside), inside);
     }
 
     #[test]

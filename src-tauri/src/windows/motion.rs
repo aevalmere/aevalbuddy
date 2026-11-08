@@ -136,12 +136,29 @@ pub fn glass(hwnd: isize) -> Rect {
     stage::deflate(screen::px_to_dip(flags::rect_px(hwnd)), m)
 }
 
-/// Puts the window's glass on `r` (DIPs) at once.
+/// Puts the window's glass on `r` (DIPs) at once, through the display the
+/// window is on while `r` is still on it (B-025).
 pub fn set_glass(hwnd: isize, r: Rect) {
+    let on = screen::matching_px(flags::rect_px(hwnd));
+    set_glass_on(hwnd, r, through(on, screen::matching(r), r));
+}
+
+/// Puts the window's glass on `r`, which is in `display`'s DIPs.
+pub fn set_glass_on(hwnd: isize, r: Rect, display: screen::Display) {
     let m = flags::meta(hwnd).margin;
-    let outer = stage::inflate(r, m);
-    let d = screen::matching(r);
-    flags::set_rect_px(hwnd, d.dip_to_px(outer));
+    flags::set_rect_px(hwnd, display.dip_to_px(stage::inflate(r, m)));
+}
+
+/// Which display a glass rect in DIPs is written through. The DIP ranges of
+/// displays with different scales overlap (each origin is its physical
+/// origin over its own scale), so `r` alone cannot say; the display the
+/// window was read from can.
+fn through(on: screen::Display, matched: screen::Display, r: Rect) -> screen::Display {
+    if r.overlap(&on.bounds) > 0.0 {
+        on
+    } else {
+        matched
+    }
 }
 
 pub type Done = Box<dyn FnOnce() + Send + 'static>;
@@ -205,6 +222,38 @@ pub fn shrunk_from(r: Rect, anchor_v: &str, anchor_h: &str) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn display(id: isize, scale: f64, px: Rect, dip: Rect) -> screen::Display {
+        screen::Display {
+            id,
+            primary: id == 1,
+            scale,
+            bounds_px: px,
+            work_px: px,
+            bounds: dip,
+            work_area: dip,
+        }
+    }
+
+    #[test]
+    fn set_glass_round_trips_in_overlap_band() {
+        let left_px = Rect::new(0.0, 0.0, 1920.0, 1080.0);
+        let left = display(1, 1.0, left_px, left_px);
+        // At 150% to the right: its DIP origin is 1920 / 1.5 = 1280, inside
+        // the first display's DIP range.
+        let right_px = Rect::new(1920.0, 0.0, 3840.0, 2160.0);
+        let right_dip = Rect::new(1280.0, 0.0, 2560.0, 1440.0);
+        let right = display(2, 1.5, right_px, right_dip);
+        // A window on the right display, in the band both DIP ranges cover.
+        let px = Rect::new(2400.0, 150.0, 600.0, 300.0);
+        let r = right.px_to_dip(px);
+        assert_eq!(r, Rect::new(1600.0, 100.0, 400.0, 200.0));
+        assert!(r.overlap(&left.bounds) > 0.0);
+        assert_eq!(through(right, left, r).dip_to_px(r), px);
+        // A rect that has left the window's display goes by where it sits.
+        let far = Rect::new(100.0, 100.0, 400.0, 200.0);
+        assert_eq!(through(right, left, far).id, 1);
+    }
 
     #[test]
     fn glide_curve_matches_the_browser() {
