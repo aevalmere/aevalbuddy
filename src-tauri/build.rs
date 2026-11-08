@@ -41,5 +41,18 @@ fn main() {
     println!("cargo:rerun-if-changed=../lib/backdrop-fixture.html");
     println!("cargo:rerun-if-changed=../preload.js");
     println!("cargo:rerun-if-changed=bridge/aeval-bridge.js");
-    tauri_build::build();
+    // The Common Controls v6 manifest goes to every linked target, unit
+    // tests included: without it the test exe dies on load (0xc0000139,
+    // TaskDialogIndirect). tauri-build would embed it in the app exe only, so
+    // its own copy is turned off. app.manifest is tauri-build's default.
+    // (agent c)
+    let manifest = std::env::current_dir().expect("cwd").join("app.manifest");
+    println!("cargo:rerun-if-changed=app.manifest");
+    println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+    println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest()),
+    )
+    .expect("tauri build");
 }

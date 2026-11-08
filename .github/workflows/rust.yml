@@ -53,15 +53,54 @@ jobs:
           cmd /c "$Command 2>&1" | Tee-Object -FilePath $out
           $code = $LASTEXITCODE
           if ($code -ne 0) {
-            $tail = (Get-Content $out -Tail 120) -join "`n"
-            $enc = $tail.Replace('%', '%25').Replace("`r", '').Replace("`n", '%0A')
-            Write-Output "::error title=$Title::$enc"
+            # An annotation holds 4096 characters and a step keeps 10 errors,
+            # so the last ~36 KB goes out in up to nine pieces, in order.
+            $tail = ((Get-Content $out -Tail 600) -join "`n").Replace("`r", '')
+            $size = 4000
+            $start = [Math]::Max(0, $tail.Length - 9 * $size)
+            $n = [Math]::Ceiling(($tail.Length - $start) / $size)
+            for ($i = 0; $i -lt $n; $i++) {
+              $c = $tail.Substring($start + $i * $size, [Math]::Min($size, $tail.Length - $start - $i * $size))
+              $enc = $c.Replace('%', '%25').Replace("`n", '%0A')
+              Write-Output "::error title=$Title $($i + 1) of $n::$enc"
+            }
             exit $code
           }
           '@ | Set-Content (Join-Path $env:RUNNER_TEMP 'gate.ps1')
 
+      # The desktop helper ships prebuilt (DESK-12): compile host.cs once,
+      # bundle build/desktop-<hash>.dll, and pin its SHA-256 into the exe.
+      - name: Prebuild desktop helper
+        run: |
+          node ../tools/build-desktop.js
+          $sha = (Get-Content ../lib/desktop/prebuilt.json -Raw | ConvertFrom-Json).sha256
+          if ($sha -notmatch '^[0-9a-f]{64}$') { throw "no prebuilt sha: $sha" }
+          "AEVAL_DESKTOP_DLL_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Format
         run: '& "$env:RUNNER_TEMP\gate.ps1" fmt "cargo fmt --all -- --check"'
+
+      # With no local toolchain, a failed fmt gate hands back its fix: the
+      # rustfmt patch, gzipped and base64'd across warning annotations
+      # (`fmtpatch i of n`), to be applied with `git apply`.
+      - name: Format patch
+        if: failure()
+        run: |
+          cargo fmt --all
+          git diff --output="$env:RUNNER_TEMP\fmt.patch"
+          $bytes = [IO.File]::ReadAllBytes("$env:RUNNER_TEMP\fmt.patch")
+          $ms = New-Object IO.MemoryStream
+          $gz = New-Object IO.Compression.GZipStream($ms, [IO.Compression.CompressionMode]::Compress)
+          $gz.Write($bytes, 0, $bytes.Length)
+          $gz.Close()
+          $b64 = [Convert]::ToBase64String($ms.ToArray())
+          $size = 4000
+          $n = [Math]::Ceiling($b64.Length / $size)
+          for ($i = 0; $i -lt $n; $i++) {
+            $c = $b64.Substring($i * $size, [Math]::Min($size, $b64.Length - $i * $size))
+            Write-Output "::warning title=fmtpatch $($i + 1) of $n::$c"
+          }
+          git checkout -- .
 
       - name: Clippy
         if: success() || failure()
@@ -92,6 +131,65 @@ jobs:
             Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
             exit 1
           }
+
+      # Split (c): capture fidelity and exclusion on the runner's real screen,
+      # then the desktop selfcheck (Notepad included).
+      - name: Capture check
+        if: success() || failure()
+        run: |
+          $exe = 'target\release\AevalBuddy.exe'
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          if (-not (Test-Path 'target\release\desktop')) { Write-Output '::warning::no bundled desktop/ folder beside the exe' }
+          $scratch = Join-Path $env:RUNNER_TEMP 'aeval-capture'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:AEVAL_CAPTURE_CHECK = '1'
+          $env:AEVAL_USERDATA = $scratch
+          $out = Join-Path $env:RUNNER_TEMP 'capture.out'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'capture.err')
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Write-Output '::error::capture check timed out' }
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
+          $errText = (Get-Content (Join-Path $env:RUNNER_TEMP 'capture.err') -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+          Write-Output $text $errText
+          $ok = $text -match '\[CAPTURE\] done'
+          $lines = ($text -split "`n" | Where-Object { $_ -match '^\[CAPTURE\]' }) -join "`n"
+          if (-not $ok) { $lines += "`n--- stderr ---`n" + $errText }
+          # 4096 characters per annotation, 10 per level per step.
+          $lines = $lines.Replace("`r", '')
+          $level = if ($ok) { 'notice' } else { 'error' }
+          $n = [Math]::Min(9, [Math]::Ceiling([Math]::Max(1, $lines.Length) / 4000))
+          for ($i = 0; $i -lt $n; $i++) {
+            $c = $lines.Substring([Math]::Min($lines.Length, $i * 4000), [Math]::Max(0, [Math]::Min(4000, $lines.Length - $i * 4000)))
+            Write-Output "::$level title=capture check $($i + 1) of $n::$($c.Replace('%', '%25').Replace("`n", '%0A'))"
+          }
+          if (-not $ok) { exit 1 }
+
+
+      - name: Desktop selfcheck
+        if: success() || failure()
+        run: |
+          $exe = 'target\release\AevalBuddy.exe'
+          $scratch = Join-Path $env:RUNNER_TEMP 'aeval-desktop'
+          New-Item -ItemType Directory -Force $scratch | Out-Null
+          $env:AEVAL_DESKTOP_CHECK = '1'
+          $env:AEVAL_USERDATA = $scratch
+          $out = Join-Path $env:RUNNER_TEMP 'desktop.out'
+          $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:RUNNER_TEMP 'desktop.err')
+          if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Output '::error::desktop selfcheck timed out' }
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
+          $errText = (Get-Content (Join-Path $env:RUNNER_TEMP 'desktop.err') -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+          Write-Output $text $errText
+          $ok = $text -match '\[DESKTOP\] done'
+          $lines = ($text -split "`n" | Where-Object { $_ -match '^\[DESKTOP\]' -and $_ -notmatch 'typeReadText|editorCandidates' }) -join "`n"
+          if (-not $ok) { $lines += "`n--- stderr ---`n" + $errText }
+          # 4096 characters per annotation, 10 per level per step.
+          $lines = $lines.Replace("`r", '')
+          $level = if ($ok) { 'notice' } else { 'error' }
+          $n = [Math]::Min(9, [Math]::Ceiling([Math]::Max(1, $lines.Length) / 4000))
+          for ($i = 0; $i -lt $n; $i++) {
+            $c = $lines.Substring([Math]::Min($lines.Length, $i * 4000), [Math]::Max(0, [Math]::Min(4000, $lines.Length - $i * 4000)))
+            Write-Output "::$level title=desktop selfcheck $($i + 1) of $n::$($c.Replace('%', '%25').Replace("`n", '%0A'))"
+          }
+          if (-not $ok) { exit 1 }
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

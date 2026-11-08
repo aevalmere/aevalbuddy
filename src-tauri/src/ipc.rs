@@ -217,6 +217,10 @@ pub async fn aeval_invoke(
         store::get().mark_first_request_sent();
         windows::send_overlay_state(&app);
     }
+    // Rows owned by split (c): region:*, buddy:*, glass:hello.
+    if let Some(r) = crate::desktop::channels::route(&window, &channel, &payload) {
+        return r;
+    }
     route(&app, &window, &channel, payload).await
 }
 
@@ -595,12 +599,6 @@ async fn route(
             return Ok(hotkeys::set(app, &action, &acc));
         }
         "shortcuts:reset" => return Ok(hotkeys::reset(app)),
-        // Called by every glass page while it loads; agent c's backdrop
-        // answers it once ported.
-        "glass:hello" => {
-            windows::on_hello(app, &label);
-            return Ok(json!({ "intensity": s.get_glass_intensity() }));
-        }
         _ => return not_ported(channel, &p),
     }
     Ok(Value::Null)

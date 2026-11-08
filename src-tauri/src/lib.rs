@@ -105,6 +105,10 @@ pub fn run() {
         .manage(ipc::Seen::default())
         .manage(state::Shared::default())
         .invoke_handler(tauri::generate_handler![ipc::aeval_invoke])
+        // Glass frames and the lens loupe, served from memory (agent c, D4).
+        .register_uri_scheme_protocol(backdrop::SCHEME, |_ctx, request| {
+            backdrop::serve(request.uri().path())
+        })
         .on_page_load(|webview, payload| {
             if !matches!(payload.event(), PageLoadEvent::Finished) {
                 return;
@@ -118,6 +122,8 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
             windows::boot(&handle)?;
+            // Desktop helper client, glass backdrop, CI checks (split c).
+            desktop::setup(&handle);
             let h2 = handle.clone();
             instance::serve(lock.name.clone(), move || {
                 let h3 = h2.clone();
@@ -173,6 +179,7 @@ pub fn run() {
         use tauri_plugin_global_shortcut::GlobalShortcutExt;
         let _ = app.global_shortcut().unregister_all();
         history::get().flush_now();
+        desktop::shutdown();
         updater::destroy();
         updater::install_on_quit();
         tray::destroy(app);
