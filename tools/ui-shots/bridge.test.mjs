@@ -102,7 +102,16 @@ const menu = (target) => {
   return prevented;
 };
 check('noBrowserMenu', menu({ closest: () => null }));
-check('editMenuInFields', !menu({ closest: () => ({}) }));
+// B-077 (WIN-14): a field no page menu claimed gets the app's own edit menu
+// (Cut, Copy, Paste, Select all) instead of WebView2's, so the browser menu
+// is prevented there too and the bridge asks for kind 'edit'.
+const menuEnv = makeWindow();
+vm.runInNewContext(`${SRC}\naevalBridge(['ui:context-menu'], []);`, { window: menuEnv.win, Promise, Set, Error, String, Object, setTimeout });
+let fieldPrevented = false;
+menuEnv.handlers.contextmenu.forEach((h) => h({ defaultPrevented: false, target: { closest: () => ({}) }, preventDefault: () => (fieldPrevented = true) }));
+await new Promise((r) => setTimeout(r, 0));
+const asked = menuEnv.log.some((l) => l[0] === 'invoke' && l[1] === 'ui:context-menu');
+check('editMenuInFields', fieldPrevented && asked, JSON.stringify({ fieldPrevented, log: menuEnv.log }));
 
 // The ui-shots lane files (K-31): all nine import, and each is in the shape
 // shots.mjs documents, with every cssLintEnforce file present.

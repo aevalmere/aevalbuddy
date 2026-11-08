@@ -10,7 +10,7 @@
 //! build still reads the key.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -32,16 +32,32 @@ impl OsCrypt {
     /// Reads the key from `<user_data>/Local State`, creating the file (or the
     /// `os_crypt` entry) with a new key when there is none, as Chromium does
     /// on a fresh profile.
+    ///
+    /// B-004: a key is minted only when the file is missing, or is a JSON
+    /// object with no `os_crypt.encrypted_key`. A file that cannot be read
+    /// or parsed is left alone (a copy goes to `Local State.corrupt`) and
+    /// encryption is unavailable this session: minting a new key there would
+    /// make every saved key unreadable for good.
     pub fn load_or_create(user_data: &Path) -> Self {
         let file = user_data.join("Local State");
-        let mut root = read_json(&file);
+        let mut root = match read_local_state(&file) {
+            Ok(root) => root,
+            Err(why) => {
+                let _ = fs::copy(&file, user_data.join("Local State.corrupt"));
+                crate::crash::write("store", &format!("Local State left alone: {why}"));
+                return OsCrypt { key: None };
+            }
+        };
         if let Some(key) = key_from_local_state(&root) {
             return OsCrypt { key: Some(key) };
         }
         // An existing key we cannot unwrap belongs to another Windows user
         // or a reinstalled OS. Replacing it would make the blobs written
         // under it unreadable for good, so it is left alone.
-        if encrypted_key_field(&root).is_some() {
+        let has_field = root
+            .get("os_crypt")
+            .is_some_and(|o| o.get("encrypted_key").is_some());
+        if has_field {
             return OsCrypt { key: None };
         }
         let mut key = [0u8; 32];
@@ -136,25 +152,27 @@ fn key_from_local_state(root: &Map<String, Value>) -> Option<[u8; 32]> {
     key.try_into().ok()
 }
 
-fn read_json(file: &Path) -> Map<String, Value> {
-    fs::read_to_string(file)
-        .ok()
-        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .and_then(|v| match v {
-            Value::Object(m) => Some(m),
-            _ => None,
-        })
-        .unwrap_or_default()
+/// `Local State` as a JSON object: empty when the file does not exist, an
+/// error (with the reason) when it exists but cannot be read or parsed.
+fn read_local_state(file: &Path) -> Result<Map<String, Value>, String> {
+    let bytes = match fs::read(file) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Map::new()),
+        Err(e) => return Err(format!("read failed: {:?}", e.kind())),
+    };
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    match serde_json::from_slice::<Value>(bytes) {
+        Ok(Value::Object(m)) => Ok(m),
+        Ok(_) => Err("not a JSON object".into()),
+        Err(e) => Err(format!("not JSON: {e}")),
+    }
 }
 
+/// Writes the whole object back, every other key Chromium keeps included,
+/// durably (unique temp, fsync, write-through replace).
 fn write_json(file: &Path, root: &Map<String, Value>) -> std::io::Result<()> {
-    let text = serde_json::to_string(root)?;
-    let tmp = PathBuf::from(format!("{}.tmp", file.display()));
-    if let Some(dir) = file.parent() {
-        fs::create_dir_all(dir)?;
-    }
-    fs::write(&tmp, text)?;
-    fs::rename(&tmp, file)
+    let text = serde_json::to_vec(root)?;
+    super::durable::write(file, &text)
 }
 
 /// Windows DPAPI, scoped to the current user.
@@ -287,10 +305,49 @@ mod tests {
         let blob = first.encrypt("k").unwrap();
         let second = OsCrypt::load_or_create(&dir);
         assert_eq!(second.decrypt(&blob).as_deref(), Some("k"));
-        let root = read_json(&dir.join("Local State"));
+        let root = read_local_state(&dir.join("Local State")).unwrap();
         assert_eq!(root["browser"]["x"], 1);
         let field = B64.decode(encrypted_key_field(&root).unwrap()).unwrap();
         assert!(field.starts_with(b"DPAPI"));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn temp(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("aeval-crypto-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn unreadable_local_state_is_left_alone() {
+        for (name, body) in [("torn", "{\"os_crypt\":"), ("array", "[1,2]")] {
+            let dir = temp(name);
+            let file = dir.join("Local State");
+            fs::write(&file, body).unwrap();
+            let ring = OsCrypt::load_or_create(&dir);
+            assert!(!ring.available(), "{name}");
+            assert_eq!(fs::read_to_string(&file).unwrap(), body, "{name}");
+            assert!(dir.join("Local State.corrupt").exists(), "{name}");
+        }
+        // A Local State that cannot be read at all (here a folder in its
+        // place) is not replaced either.
+        let dir = temp("folder");
+        fs::create_dir_all(dir.join("Local State")).unwrap();
+        assert!(!OsCrypt::load_or_create(&dir).available());
+        assert!(dir.join("Local State").is_dir());
+    }
+
+    #[test]
+    fn bom_local_state_keeps_its_key() {
+        let dir = temp("bom");
+        let blob = OsCrypt::load_or_create(&dir).encrypt("sk-or-kept").unwrap();
+        let file = dir.join("Local State");
+        let mut bytes = b"\xEF\xBB\xBF".to_vec();
+        bytes.extend(fs::read(&file).unwrap());
+        fs::write(&file, &bytes).unwrap();
+        let ring = OsCrypt::load_or_create(&dir);
+        assert_eq!(ring.decrypt(&blob).as_deref(), Some("sk-or-kept"));
+        assert_eq!(fs::read(&file).unwrap(), bytes, "not rewritten");
     }
 }

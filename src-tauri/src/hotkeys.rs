@@ -6,7 +6,10 @@
 //! area selector, layout editor); Enter never is.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicU32, Ordering::SeqCst};
+use std::sync::mpsc;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -292,52 +295,230 @@ fn bound() -> &'static Mutex<HashMap<u32, String>> {
 }
 
 const ESCAPE: &str = "escape";
+const ESCAPE_CHORD: &str = "Escape";
+/// How long a caller off the main thread waits for its answer.
+const MAIN_WAIT: Duration = Duration::from_secs(5);
+/// U48: offered when the chord asked for is taken.
+const ALTERNATIVES: [&str; 3] = ["Ctrl+Alt+A", "Super+Shift+Space", "Ctrl+Shift+Space"];
+/// C-56.
+const TAKEN: &str = "Another app already uses that shortcut. Try another.";
+const NOT_CHANGED: &str = "The shortcut was not changed. Try again.";
 
-fn register(app: &AppHandle, acc: &str, action: &str) -> bool {
-    let Ok((mods, code)) = parse(acc) else {
-        return false;
-    };
-    let sc = Shortcut::new(Some(mods), code);
-    if app.global_shortcut().register(sc).is_err() {
-        return false;
+/// Registration, as `reconcile` needs it: the plugin in the app, a fake in
+/// the tests.
+trait Keys {
+    fn register(&mut self, acc: &str, action: &str) -> bool;
+    fn unregister(&mut self, acc: &str);
+    fn unregister_all(&mut self);
+}
+
+struct Plugin<'a>(&'a AppHandle);
+
+impl Keys for Plugin<'_> {
+    fn register(&mut self, acc: &str, action: &str) -> bool {
+        let Ok((mods, code)) = parse(acc) else {
+            return false;
+        };
+        let sc = Shortcut::new(Some(mods), code);
+        if self.0.global_shortcut().register(sc).is_err() {
+            return false;
+        }
+        bound().lock().insert(sc.id(), action.to_string());
+        true
     }
-    bound().lock().insert(sc.id(), action.to_string());
-    true
+
+    fn unregister(&mut self, acc: &str) {
+        if let Ok((mods, code)) = parse(acc) {
+            let sc = Shortcut::new(Some(mods), code);
+            let _ = self.0.global_shortcut().unregister(sc);
+            bound().lock().remove(&sc.id());
+        }
+    }
+
+    fn unregister_all(&mut self) {
+        let _ = self.0.global_shortcut().unregister_all();
+        bound().lock().clear();
+    }
+}
+
+/// What is registered now. Only the main thread touches it.
+#[derive(Default)]
+struct Registered {
+    /// `(action, chord)` as last applied; None after anything unregistered
+    /// everything behind its back.
+    chords: Option<Vec<(String, String)>>,
+    escape: bool,
+}
+
+fn registered() -> &'static Mutex<Registered> {
+    static R: OnceLock<Mutex<Registered>> = OnceLock::new();
+    R.get_or_init(Default::default)
+}
+
+/// Brings the registrations to `chords` plus Escape when `escape_wanted` says
+/// so, touching nothing that is already right: an unchanged set registers
+/// nothing, an Escape-only change registers only Escape, and a chord that
+/// failed is retried alone. Returns whether `results` changed.
+/// `escape_wanted` is read after the chords, just before Escape is
+/// registered.
+fn reconcile(
+    keys: &mut dyn Keys,
+    reg: &mut Registered,
+    chords: Vec<(String, String)>,
+    results: &mut BTreeMap<String, Option<bool>>,
+    escape_wanted: impl FnOnce() -> bool,
+) -> bool {
+    let mut changed = false;
+    if reg.chords.as_ref() != Some(&chords) {
+        keys.unregister_all();
+        reg.escape = false;
+        for (action, acc) in &chords {
+            let r = (!acc.is_empty()).then(|| keys.register(acc, action));
+            results.insert(action.clone(), r);
+        }
+        reg.chords = Some(chords);
+        changed = true;
+    } else {
+        for (action, acc) in &chords {
+            if results.get(action) == Some(&Some(false)) && keys.register(acc, action) {
+                results.insert(action.clone(), Some(true));
+                changed = true;
+            }
+        }
+    }
+    let want = escape_wanted();
+    if want && !reg.escape {
+        reg.escape = keys.register(ESCAPE_CHORD, ESCAPE);
+    } else if !want && reg.escape {
+        keys.unregister(ESCAPE_CHORD);
+        reg.escape = false;
+    }
+    changed
+}
+
+/// KEY-09: each synthetic key that carries Escape suspends ours; it comes
+/// back when the last one is done, so two keys 30 ms apart cannot let the
+/// first one's resume retake Escape under the second.
+struct Depth(AtomicU32);
+
+impl Depth {
+    /// True when this call took Escape away (0 to 1).
+    fn suspend(&self) -> bool {
+        self.0.fetch_add(1, SeqCst) == 0
+    }
+
+    /// True when this call gave it back (1 to 0). A resume with no suspend
+    /// is ignored.
+    fn resume(&self) -> bool {
+        // A compare-exchange loop: `fetch_update` is deprecated on the CI
+        // toolchain and its replacement is newer than the crate's MSRV.
+        let mut d = self.0.load(SeqCst);
+        while d > 0 {
+            match self.0.compare_exchange_weak(d, d - 1, SeqCst, SeqCst) {
+                Ok(_) => return d == 1,
+                Err(now) => d = now,
+            }
+        }
+        false
+    }
+
+    fn suspended(&self) -> bool {
+        self.0.load(SeqCst) > 0
+    }
+}
+
+static ESCAPE_DEPTH: Depth = Depth(AtomicU32::new(0));
+
+/// Runs `f` on the main thread (inline when already there; Tauri runs a
+/// main-thread task in place) and waits for its answer.
+fn on_main_wait<R: Send + 'static>(
+    app: &AppHandle,
+    f: impl FnOnce(&AppHandle) -> R + Send + 'static,
+) -> Option<R> {
+    let (tx, rx) = mpsc::channel();
+    let a = app.clone();
+    let task = move || {
+        if let Some(r) = crate::crash::guard("hotkeys", || f(&a)) {
+            let _ = tx.send(r);
+        }
+    };
+    if let Err(e) = app.run_on_main_thread(task) {
+        eprintln!("[aevalbuddy] shortcuts: not run on the main thread: {e}");
+        return None;
+    }
+    rx.recv_timeout(MAIN_WAIT).ok()
 }
 
 /// main.js applyRegistrations: re-derives every global shortcut from state.
+/// Every call runs on the main thread, one after another, so two applies
+/// never interleave their plugin calls (KEY-09, LIFE-06).
 pub fn apply(app: &AppHandle) {
-    crate::state::refresh(app);
-    let gs = app.global_shortcut();
-    let _ = gs.unregister_all();
-    bound().lock().clear();
-    let st = shared(app);
-    let (capture_mode, want_escape) = {
-        let mut s = st.lock();
-        s.escape_registered = false;
-        let want = !s.escape_suspended
-            && (s.agent.running || s.buddy_active || s.region_active || s.mode == Mode::Hud);
-        (s.capture_mode, want)
+    let a = app.clone();
+    let task = move || {
+        crate::crash::guard("hotkeys.apply", || apply_now(&a));
     };
-    if capture_mode {
-        return;
+    if let Err(e) = app.run_on_main_thread(task) {
+        eprintln!("[aevalbuddy] shortcuts: not applied: {e}");
     }
+}
+
+fn want_escape(app: &AppHandle) -> bool {
+    if ESCAPE_DEPTH.suspended() {
+        return false;
+    }
+    let st = shared(app);
+    let s = st.lock();
+    let busy = s.agent.running || s.buddy_active || s.region_active || s.mode == Mode::Hud;
+    busy && !s.capture_mode
+}
+
+/// On the main thread.
+fn apply_now(app: &AppHandle) {
+    crate::state::refresh(app);
+    let st = shared(app);
+    let capture_mode = st.lock().capture_mode;
+    // Recording a new chord (KEY-11): nothing of ours may fire.
+    let chords: Vec<(String, String)> = if capture_mode {
+        Vec::new()
+    } else {
+        let store = store::get();
+        ACTIONS
+            .iter()
+            .map(|a| (a.to_string(), store.shortcut(a)))
+            .collect()
+    };
+    let mut results = st.lock().hotkeys.clone();
+    let mut keys = Plugin(app);
+    let wanted = || want_escape(app);
+    let mut reg = registered().lock();
+    let changed = reconcile(&mut keys, &mut reg, chords, &mut results, wanted);
+    let escape = reg.escape;
+    drop(reg);
+    {
+        let mut s = st.lock();
+        s.escape_registered = escape;
+        if changed {
+            s.hotkeys = results;
+        }
+    }
+    if changed {
+        crate::tray::refresh(app);
+    }
+}
+
+/// After the boot apply: each chord another app holds, as main.js logged it.
+pub fn report_failures(app: &AppHandle) {
+    let failed: Vec<String> = shared(app)
+        .lock()
+        .hotkeys
+        .iter()
+        .filter(|(_, r)| **r == Some(false))
+        .map(|(a, _)| a.clone())
+        .collect();
     let store = store::get();
-    let mut results = BTreeMap::new();
-    for action in ACTIONS {
-        let acc = store.shortcut(action);
-        let r = if acc.is_empty() {
-            None
-        } else {
-            Some(register(app, &acc, action))
-        };
-        results.insert(action.to_string(), r);
-    }
-    st.lock().hotkeys = results;
-    crate::tray::refresh(app);
-    if want_escape {
-        let ok = register(app, "Escape", ESCAPE);
-        st.lock().escape_registered = ok;
+    for action in failed {
+        let acc = store.shortcut(&action);
+        eprintln!("[aevalbuddy] shortcut {acc} ({action}) could not be registered");
     }
 }
 
@@ -377,35 +558,45 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     let Some(action) = action else {
         return;
     };
+    if action == ESCAPE {
+        ESCAPE_FIRED.fetch_add(1, SeqCst);
+    }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         crate::windows::on_hotkey(&app, &action);
     });
 }
 
-/// KEY-09: while the engine injects a synthetic Escape, ours lets go.
-pub fn suspend_escape(app: &AppHandle) {
-    let registered = {
-        let st = shared(app);
-        let mut s = st.lock();
-        s.escape_suspended = true;
-        std::mem::replace(&mut s.escape_registered, false)
-    };
-    if registered {
-        if let Ok((m, c)) = parse("Escape") {
-            let _ = app.global_shortcut().unregister(Shortcut::new(Some(m), c));
-        }
-    }
+/// How many times the global Escape has fired (smoke `escapeSuspend`).
+static ESCAPE_FIRED: AtomicU32 = AtomicU32::new(0);
+
+pub fn escape_fired() -> u32 {
+    ESCAPE_FIRED.load(SeqCst)
 }
 
-/// Retakes Escape 60 ms after the injected key.
-pub fn resume_escape(app: &AppHandle) {
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
-        shared(&app).lock().escape_suspended = false;
-        apply(&app);
+/// KEY-09: while the engine injects a synthetic Escape, ours lets go. Waits
+/// until Escape is unregistered, since the key goes out when this returns.
+pub fn suspend_escape(app: &AppHandle) {
+    if !ESCAPE_DEPTH.suspend() {
+        return;
+    }
+    on_main_wait(app, |a| {
+        let mut reg = registered().lock();
+        if reg.escape {
+            Plugin(a).unregister(ESCAPE_CHORD);
+            reg.escape = false;
+        }
+        drop(reg);
+        shared(a).lock().escape_registered = false;
     });
+}
+
+/// After the injected key (the desktop client has already waited 60 ms):
+/// the last resume retakes Escape if it is still wanted.
+pub fn resume_escape(app: &AppHandle) {
+    if ESCAPE_DEPTH.resume() {
+        apply(app);
+    }
 }
 
 /// `shortcuts:capture-mode` (KEY-11).
@@ -414,8 +605,46 @@ pub fn set_capture_mode(app: &AppHandle, on: bool) {
     apply(app);
 }
 
+/// Whether two accelerators name the same keys.
+fn same_chord(a: &str, b: &str) -> bool {
+    matches!((parse(a), parse(b)), (Ok(x), Ok(y)) if x == y)
+}
+
+/// U48: the suggestions no other app holds (per `probe`) and none of ours
+/// (`ours`, which includes the chord just refused) uses.
+fn free_alternatives(ours: &[String], mut probe: impl FnMut(&str) -> bool) -> Vec<String> {
+    ALTERNATIVES
+        .iter()
+        .filter(|c| !ours.iter().any(|o| same_chord(o, c)))
+        .filter(|c| probe(c))
+        .map(|c| c.to_string())
+        .collect()
+}
+
+/// Whether another app holds `acc`. Only meaningful with ours unregistered.
+fn probe(app: &AppHandle, acc: &str) -> bool {
+    let Ok((m, c)) = parse(acc) else {
+        return false;
+    };
+    let gs = app.global_shortcut();
+    let sc = Shortcut::new(Some(m), c);
+    let ok = gs.register(sc).is_ok();
+    if ok {
+        let _ = gs.unregister(sc);
+    }
+    ok
+}
+
 /// `shortcuts:set` (KEY-12).
 pub fn set(app: &AppHandle, action: &str, accelerator: &str) -> Value {
+    let (action, accelerator) = (action.to_string(), accelerator.to_string());
+    match on_main_wait(app, move |a| set_now(a, &action, &accelerator)) {
+        Some(answer) => answer,
+        None => json!({ "ok": false, "error": NOT_CHANGED }),
+    }
+}
+
+fn set_now(app: &AppHandle, action: &str, accelerator: &str) -> Value {
     if action_label(action).is_none() {
         return json!({ "ok": false, "error": "Unknown action." });
     }
@@ -426,12 +655,12 @@ pub fn set(app: &AppHandle, action: &str, accelerator: &str) -> Value {
         });
     }
     let store = store::get();
-    let clash = store
-        .get_shortcuts()
-        .into_iter()
-        .find(|(other, acc)| other != action && acc.as_str() == Some(accelerator));
+    let shortcuts = store.get_shortcuts();
+    let clash = shortcuts
+        .iter()
+        .find(|(other, acc)| other.as_str() != action && acc.as_str() == Some(accelerator));
     if let Some((other, _)) = clash {
-        let label = action_label(&other).unwrap_or("another action");
+        let label = action_label(other).unwrap_or("another action");
         return json!({
             "ok": false,
             "error": format!("Already used by \"{label}\". Pick a different combo."),
@@ -439,34 +668,29 @@ pub fn set(app: &AppHandle, action: &str, accelerator: &str) -> Value {
     }
     // Probe with everything of ours unregistered, so the probe only fails
     // when another application owns the combo.
-    let gs = app.global_shortcut();
-    let _ = gs.unregister_all();
-    bound().lock().clear();
+    Plugin(app).unregister_all();
+    *registered().lock() = Registered::default();
     shared(app).lock().escape_registered = false;
-    let available = match parse(accelerator) {
-        Ok((m, c)) => {
-            let sc = Shortcut::new(Some(m), c);
-            let ok = gs.register(sc).is_ok();
-            if ok {
-                let _ = gs.unregister(sc);
-            }
-            ok
-        }
-        Err(_) => false,
-    };
-    if !available {
-        apply(app);
-        return json!({ "ok": false, "error": "That shortcut is already in use - try another." });
+    if !probe(app, accelerator) {
+        let mut ours: Vec<String> = shortcuts
+            .values()
+            .filter_map(Value::as_str)
+            .map(String::from)
+            .collect();
+        ours.push(accelerator.to_string());
+        let free = free_alternatives(&ours, |c| probe(app, c));
+        apply_now(app);
+        return json!({ "ok": false, "error": TAKEN, "free": free });
     }
     store.set_shortcut(action, accelerator);
-    apply(app);
+    apply_now(app);
     json!({ "ok": true, "shortcuts": store.get_shortcuts(), "active": active(app) })
 }
 
 /// `shortcuts:reset` (KEY-13).
 pub fn reset(app: &AppHandle) -> Value {
     let shortcuts = store::get().reset_shortcuts();
-    apply(app);
+    on_main_wait(app, apply_now);
     json!({ "ok": true, "shortcuts": shortcuts, "active": active(app) })
 }
 
@@ -531,6 +755,10 @@ mod tests {
         assert!(!valid_accelerator("A"));
         assert!(!valid_accelerator("  "));
         assert!(!valid_accelerator("Ctrl+"));
+        for c in ALTERNATIVES {
+            assert!(valid_accelerator(c), "{c}");
+            assert!(parse(c).is_ok(), "{c}");
+        }
     }
 
     #[test]
@@ -544,5 +772,148 @@ mod tests {
         for a in ACTIONS {
             assert!(action_label(a).is_some());
         }
+    }
+
+    #[derive(Default)]
+    struct Fake {
+        taken: Vec<&'static str>,
+        on: Vec<String>,
+        calls: Vec<String>,
+    }
+
+    impl Keys for Fake {
+        fn register(&mut self, acc: &str, _action: &str) -> bool {
+            self.calls.push(format!("+{acc}"));
+            let ok = !self.taken.contains(&acc);
+            if ok {
+                self.on.push(acc.to_string());
+            }
+            ok
+        }
+
+        fn unregister(&mut self, acc: &str) {
+            self.calls.push(format!("-{acc}"));
+            self.on.retain(|a| a != acc);
+        }
+
+        fn unregister_all(&mut self) {
+            self.calls.push("-all".into());
+            self.on.clear();
+        }
+    }
+
+    #[derive(Default)]
+    struct Rig {
+        keys: Fake,
+        reg: Registered,
+        results: BTreeMap<String, Option<bool>>,
+    }
+
+    impl Rig {
+        fn run(&mut self, chords: Vec<(String, String)>, escape: bool) -> bool {
+            self.keys.calls.clear();
+            let Rig { keys, reg, results } = self;
+            reconcile(keys, reg, chords, results, || escape)
+        }
+
+        fn apply(&mut self, chord: &str, escape: bool) -> bool {
+            let chords = vec![
+                ("captureQuery".to_string(), chord.to_string()),
+                ("findOnScreen".to_string(), String::new()),
+            ];
+            self.run(chords, escape)
+        }
+    }
+
+    #[test]
+    fn apply_skips_unchanged_set() {
+        let mut rig = Rig::default();
+        assert!(rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.keys.calls, ["-all", "+Ctrl+Alt+Space"]);
+        assert_eq!(rig.results["captureQuery"], Some(true));
+        assert_eq!(rig.results["findOnScreen"], None);
+        // Opening the bar again changes nothing, so nothing is touched.
+        assert!(!rig.apply("Ctrl+Alt+Space", false));
+        assert!(rig.keys.calls.is_empty());
+        // Escape alone comes and goes.
+        assert!(!rig.apply("Ctrl+Alt+Space", true));
+        assert_eq!(rig.keys.calls, ["+Escape"]);
+        assert!(!rig.apply("Ctrl+Alt+Space", true));
+        assert!(rig.keys.calls.is_empty());
+        assert!(!rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.keys.calls, ["-Escape"]);
+        // A new chord re-registers the set.
+        assert!(rig.apply("Ctrl+Shift+K", true));
+        assert_eq!(rig.keys.calls, ["-all", "+Ctrl+Shift+K", "+Escape"]);
+        assert_eq!(rig.keys.on, ["Ctrl+Shift+K", "Escape"]);
+    }
+
+    #[test]
+    fn a_taken_chord_is_retried_alone() {
+        let mut rig = Rig::default();
+        rig.keys.taken = vec!["Ctrl+Alt+Space"];
+        assert!(rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.results["captureQuery"], Some(false));
+        assert!(!rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.keys.calls, ["+Ctrl+Alt+Space"]);
+        rig.keys.taken.clear();
+        assert!(rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.keys.calls, ["+Ctrl+Alt+Space"]);
+        assert_eq!(rig.results["captureQuery"], Some(true));
+    }
+
+    #[test]
+    fn capture_mode_lets_go_and_keeps_results() {
+        let mut rig = Rig::default();
+        rig.apply("Ctrl+Alt+Space", true);
+        assert!(rig.run(Vec::new(), false));
+        assert_eq!(rig.keys.calls, ["-all"]);
+        assert!(rig.keys.on.is_empty());
+        assert_eq!(rig.results["captureQuery"], Some(true));
+        assert!(rig.apply("Ctrl+Alt+Space", false));
+        assert_eq!(rig.keys.on, ["Ctrl+Alt+Space"]);
+    }
+
+    #[test]
+    fn escape_depth_counter() {
+        let depth = Depth(AtomicU32::new(0));
+        let mut rig = Rig::default();
+        rig.apply("Ctrl+Alt+Space", !depth.suspended());
+        assert!(rig.reg.escape);
+        // Two synthetic keys overlap.
+        assert!(depth.suspend());
+        assert!(!depth.suspend());
+        rig.apply("Ctrl+Alt+Space", !depth.suspended());
+        assert!(!rig.reg.escape);
+        // The first one finishes: Escape stays off.
+        assert!(!depth.resume());
+        assert!(depth.suspended());
+        rig.apply("Ctrl+Alt+Space", !depth.suspended());
+        assert!(!rig.reg.escape);
+        // The second one finishes: Escape comes back.
+        assert!(depth.resume());
+        rig.apply("Ctrl+Alt+Space", !depth.suspended());
+        assert!(rig.reg.escape);
+        // A resume with no suspend never goes below zero.
+        assert!(!depth.resume());
+        assert!(!depth.suspended());
+    }
+
+    #[test]
+    fn taken_returns_free_alternatives() {
+        let ours = vec!["Ctrl+Alt+Space".to_string(), "Control+Alt+A".to_string()];
+        let mut probed = Vec::new();
+        let free = free_alternatives(&ours, |c| {
+            probed.push(c.to_string());
+            c != "Super+Shift+Space"
+        });
+        assert_eq!(free, ["Ctrl+Shift+Space"]);
+        // Ctrl+Alt+A is already one of ours, so it is not offered or probed.
+        assert_eq!(probed, ["Super+Shift+Space", "Ctrl+Shift+Space"]);
+        assert!(free_alternatives(&ours, |_| false).is_empty());
+        assert_eq!(
+            TAKEN,
+            "Another app already uses that shortcut. Try another."
+        );
     }
 }
