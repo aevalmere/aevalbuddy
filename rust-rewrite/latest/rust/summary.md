@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42515162283](https://github.com/aevalmere/aevalbuddy/actions/runs/42515162283), attempt 1, on push
-- Commit: 5541e36908c9effbdfc1ab3486f8d6fc35de7941
+- Run: [42516624559](https://github.com/aevalmere/aevalbuddy/actions/runs/42516624559), attempt 1, on push
+- Commit: cb1db3c2bdb5d9829658bf0aa2b1c01655ff083c
 - Ref: rust-rewrite
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-08T19:39:21Z
+- Finished: 2026-11-08T19:56:36Z
 
 | Step | Outcome | Log |
 |---|---|---|

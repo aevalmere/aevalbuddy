@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42515162283,
+  "run_id": 42516624559,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42515162283",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42516624559",
   "event": "push",
-  "sha": "5541e36908c9effbdfc1ab3486f8d6fc35de7941",
+  "sha": "cb1db3c2bdb5d9829658bf0aa2b1c01655ff083c",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-08T19:39:21Z",
+  "finished": "2026-11-08T19:56:36Z",
   "error_lines": 4,
   "steps": [
     {
