@@ -2,7 +2,13 @@
 // runs in every page the scene frames, before the page's own scripts, the way
 // the Tauri bridge does. Each frame is one AevalBuddy window: its offset in
 // the scene is its screen position (window.screenX/Y), the scene is one
-// display, and Rust's answers come from window.top.__MOCK__[frame name].
+// display, and Rust's answers come from the scene page:
+//   window.top.__MOCK__[frame name].responses   that window's own answers
+//                                               (a scene's t.respond edits them)
+//   window.top.__MOCK_COMMON__                  kit.mjs COMMON merged with
+//                                               every lane file's `mocks`
+//                                               (tools/ui-shots/lanes/*.mjs)
+// Both are read at each invoke, so a changed answer applies from then on.
 (() => {
   'use strict';
   const fe = window.frameElement;
@@ -14,11 +20,14 @@
   Object.defineProperty(window, 'screenTop', { get: () => Math.round(off().top) });
 
   const top = window.top;
-  const cfg = (top.__MOCK__ && top.__MOCK__[fe.name]) || {};
-  const common = top.__MOCK_COMMON__ || {};
-  const answers = Object.assign({}, common, cfg.responses || {});
   const listeners = new Map();
   const calls = [];
+  const has = (o, k) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+  function answer(channel) {
+    const own = top.__MOCK__ && top.__MOCK__[fe.name] && top.__MOCK__[fe.name].responses;
+    if (has(own, channel)) return own[channel];
+    return (top.__MOCK_COMMON__ || {})[channel];
+  }
 
   const api = {
     invoke(channel, payload) {
@@ -29,7 +38,7 @@
         fe.style.height = `${Math.min(Math.round(payload.height) + 40, Number(fe.dataset.max || 900))}px`;
         return Promise.resolve(null);
       }
-      const r = answers[channel];
+      const r = answer(channel);
       if (r === '__reject__') return Promise.reject(new Error(`${channel} is not ported to Rust yet`));
       const v = typeof r === 'function' ? r(payload, window) : r;
       return Promise.resolve(v === undefined ? null : JSON.parse(JSON.stringify(v)));

@@ -131,12 +131,18 @@ jobs:
         id: build
         run: '& "$env:RUNNER_TEMP\gate.ps1" build "npx --yes @tauri-apps/cli@2 build --bundles nsis"'
 
-      - name: Scaffold smoke
+      # The smoke run (src-tauri/src/selftest): every lane's probe inside the
+      # built exe. tools/smoke-gate.mjs fails it on any =FAIL line, on a
+      # missing "[SMOKE] done", and on any label listed in
+      # tools/smoke-labels/*.txt that never printed; it checks itself first.
+      - name: Smoke
         id: smoke
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\smoke.log'
           $exe = 'target\release\AevalBuddy.exe'
           if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
+          node ../tools/smoke-gate.mjs --self-test 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { Write-Output '::error::the smoke gate failed its own self-test'; exit 1 }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-smoke'
           New-Item -ItemType Directory -Force $scratch | Out-Null
           $env:AEVAL_SMOKE = '1'
@@ -144,21 +150,32 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'smoke.out'
           $err = Join-Path $env:RUNNER_TEMP 'smoke.err'
           $p = Start-Process $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
-          $timedOut = -not $p.WaitForExit(90000)
-          if ($timedOut) { $p.Kill(); Write-Output '::error::smoke timed out' }
-          Get-Content $out, $err -ErrorAction SilentlyContinue | Tee-Object -FilePath $log
-          if ($timedOut) { Add-Content $log 'smoke timed out after 90 s' }
-          $text = Get-Content $out -Raw -ErrorAction SilentlyContinue
-          # The boot log as an annotation, readable without a token (a panic
-          # in host::setup or a hook shows here).
-          $tail = ((Get-Content $out, $err -Tail 40 -ErrorAction SilentlyContinue) -join "`n").Replace("`r", '')
-          if ($tail.Length -gt 4000) { $tail = $tail.Substring($tail.Length - 4000) }
-          Write-Output "::notice title=scaffold smoke::$($tail.Replace('%', '%25').Replace("`n", '%0A'))"
-          if ($text -notmatch '\[SMOKE\] scaffold\.bridge=ok') {
-            Write-Output '::error::scaffold smoke failed: a page never reached Rust through window.aeval'
-            Add-Content $log 'scaffold smoke failed: no "[SMOKE] scaffold.bridge=ok" line'
-            exit 1
+          $null = $p.Handle # keeps ExitCode readable once the process is gone
+          $timedOut = -not $p.WaitForExit(360000)
+          if ($timedOut) { $p.Kill(); Write-Output '::error::smoke timed out after 360 s' }
+          $code = if ($timedOut) { 'timeout' } else { $p.ExitCode }
+          @(Get-Content $out -ErrorAction SilentlyContinue) + @('--- stderr ---') + @(Get-Content $err -ErrorAction SilentlyContinue) + @("--- exit code: $code") | Add-Content $log
+          $gate = @(node ../tools/smoke-gate.mjs $out 2>&1)
+          $gateCode = $LASTEXITCODE
+          $gate | Add-Content $log
+          $gate
+          foreach ($b in @($gate | Where-Object { $_ -match '^\[GATE\] (fail|missing|verdict=FAIL)' } | Select-Object -First 9)) {
+            Write-Output "::error title=smoke gate::$($b.Replace('%', '%25'))"
           }
+          # Every [SMOKE] line as annotations, readable without a token (a
+          # panic in host::setup or a hook shows in the stderr tail).
+          $text = (Get-Content $out -Raw -ErrorAction SilentlyContinue) + ''
+          $ok = -not $timedOut -and $code -eq 0 -and $gateCode -eq 0
+          $lines = ($text -split "`n" | Where-Object { $_ -match '^\[SMOKE\]' }) -join "`n"
+          if (-not $ok) { $lines += "`n--- stderr ---`n" + ((Get-Content $err -Tail 40 -ErrorAction SilentlyContinue) -join "`n") }
+          $lines = $lines.Replace("`r", '')
+          $level = if ($ok) { 'notice' } else { 'error' }
+          $n = [Math]::Min(9, [Math]::Ceiling([Math]::Max(1, $lines.Length) / 4000))
+          for ($i = 0; $i -lt $n; $i++) {
+            $c = $lines.Substring([Math]::Min($lines.Length, $i * 4000), [Math]::Max(0, [Math]::Min(4000, $lines.Length - $i * 4000)))
+            Write-Output "::$level title=smoke $($i + 1) of $n::$($c.Replace('%', '%25').Replace("`n", '%0A'))"
+          }
+          if (-not $ok) { Add-Content $log "smoke failed: exit code $code, gate exit code $gateCode"; exit 1 }
 
       # Split (c): capture fidelity and exclusion on the runner's real screen,
       # then the desktop selfcheck (Notepad included).
@@ -263,7 +280,7 @@ jobs:
             Clippy|${{ steps.clippy.outcome }}|clippy.log
             Unit tests|${{ steps.test.outcome }}|test.log
             Build installer|${{ steps.build.outcome }}|build.log
-            Scaffold smoke|${{ steps.smoke.outcome }}|smoke.log
+            Smoke|${{ steps.smoke.outcome }}|smoke.log
             Capture check|${{ steps.capture.outcome }}|capture.log
             Desktop selfcheck|${{ steps.desktop.outcome }}|desktop.log
             Upload installer|${{ steps.upload.outcome }}
