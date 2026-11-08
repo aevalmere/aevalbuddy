@@ -104,7 +104,9 @@ pub fn eval(app: &AppHandle, label: &str, js: &str, timeout: Duration) -> Answer
     let end = Instant::now() + timeout;
     let started = execute(app, label, start(id, js), timeout)?;
     if started != Value::Bool(true) {
-        return Err(format!("the expression did not parse, or threw at once: {started}"));
+        return Err(format!(
+            "the expression did not parse, or threw at once: {started}"
+        ));
     }
     loop {
         let left = end.saturating_duration_since(Instant::now());

@@ -43,7 +43,11 @@ pub fn run(cx: &mut Cx) {
 
     desktop_selfcheck(cx);
     // Throwaway (B-009): a failed must has to turn the Smoke step red.
-    cx.must("deliberateFailure", false, "throwaway commit proving the gate");
+    cx.must(
+        "deliberateFailure",
+        false,
+        "throwaway commit proving the gate",
+    );
 }
 
 /// The desktop helper starts, lists windows without ours and refuses a click
