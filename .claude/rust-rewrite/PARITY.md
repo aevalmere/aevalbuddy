@@ -1007,3 +1007,11 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### PKG-01
 
 - B-085: status: ported (one click via the copied template); evidence: installer job `[INSTALL] oneClick=ok` (harness B-052)
+
+### NEW-05
+
+- B-061: status: done; evidence: SMOKE globMorphMs, ui-shots globWordsNeverOutsideShape, globOpenOnClock
+
+### NEW-06
+
+- B-166: status: done; evidence: SMOKE noOutputInput, ui-shots paidHopAsksFirst
