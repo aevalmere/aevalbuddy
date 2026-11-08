@@ -446,7 +446,7 @@ mark {
 /* ------------------------------------------------------------ row menu */
 
 /* The shared menu's solid tier: an opaque body inside a glass page. */
-.row-menu {
+#app > .row-menu {
   position: absolute;
   z-index: 20;
   min-width: 180px;

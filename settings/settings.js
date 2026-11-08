@@ -398,6 +398,14 @@ function viewOf(p) {
   }
   if (u.error) {
     v.msg = u.error;
+    if (!p.hasKey && p.id === 'openrouter' && u.mode !== 'paste') {
+      // Connecting failed: try again, or paste a key.
+      v.actions = [
+        { id: 'connect', label: 'Connect OpenRouter', kind: 'prominent' },
+        { id: 'paste', label: 'Paste a key instead', kind: 'text' },
+      ];
+      return v;
+    }
     v.field = !p.hasKey || !!u.mode;
     v.actions = p.hasKey ? [{ id: 'cancel', label: 'Cancel' }] : p.id === 'openrouter' ? [{ id: 'connect', label: 'Connect instead', kind: 'text' }] : [getKey];
     if (!p.hasKey && p.id === 'openrouter') v.actions.unshift(getKey);
@@ -611,11 +619,11 @@ function renderProviders() {
     head.setAttribute('aria-label', label.join(', '));
     li.classList.toggle('orderable', prov.ordered);
 
+    const u = uiOf(p.id);
     const msg = li.querySelector('.prov-msg');
     msg.textContent = v.msg;
-    msg.dataset.tone = p.status === 'rejected' && !uiOf(p.id).mode ? 'danger' : '';
+    msg.dataset.tone = (u.error && !v.busy) || (p.status === 'rejected' && !u.mode && !v.busy) ? 'danger' : '';
 
-    const u = uiOf(p.id);
     const clip = li.querySelector('.prov-clip');
     clip.hidden = !(u.clip && !p.hasKey && !v.busy && !u.removing);
     if (u.clip) clip.querySelector('.clip-text').textContent = `Key on the clipboard: ${u.clip}`;
