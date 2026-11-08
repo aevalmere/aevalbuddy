@@ -1,17 +1,20 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42463426923,
+  "run_id": 42465202390,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42463426923",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42465202390",
   "event": "push",
-  "sha": "bb4de93e0807b9f42c599aed12b7a703fb3ec608",
+  "sha": "9f3adb9c66873f353b8610887dcd0c9ae98b61fa",
   "ref": "rust/capture",
   "ref_dir": "rust-capture",
-  "conclusion": "success",
-  "failed": [],
-  "finished": "2026-11-08T08:42:19Z",
-  "error_lines": 0,
+  "conclusion": "failure",
+  "failed": [
+    "Clippy",
+    "Unit tests"
+  ],
+  "finished": "2026-11-08T09:04:34Z",
+  "error_lines": 37,
   "steps": [
     {
       "name": "Checkout",
@@ -55,23 +58,23 @@
     },
     {
       "name": "Clippy",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "clippy.log"
     },
     {
       "name": "Unit tests",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "test.log"
     },
     {
       "name": "Build installer",
-      "outcome": "success",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Scaffold smoke",
-      "outcome": "success",
-      "log": "smoke.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Capture check",
@@ -85,7 +88,7 @@
     },
     {
       "name": "Upload installer",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     }
   ]
