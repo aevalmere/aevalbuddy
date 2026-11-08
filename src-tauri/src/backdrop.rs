@@ -279,14 +279,14 @@ fn store(key: &str, bytes: Arc<Vec<u8>>) -> String {
 pub const APP_ORIGIN: &str = "http://tauri.localhost";
 
 /// The `aeval-frame` protocol handler (registered in lib.rs): the newest
-/// bytes for the key in the path, or 404. Frames are never cached.
+/// bytes for the key in the path, or 404. Frames are never cached. The
+/// protocol handler uses `serve_request`; this stays for the tests.
+#[allow(dead_code)]
 pub fn serve(path: &str) -> tauri::http::Response<Vec<u8>> {
     serve_from(path, None)
 }
 
-/// `serve` for a whole request, so its `Origin` is checked too.
-// lib.rs (platform) moves to this from `serve`; see the lane's Blockers.
-#[allow(dead_code)]
+/// `serve` for a whole request, so its `Origin` is checked too (B-112).
 pub fn serve_request(req: &tauri::http::Request<Vec<u8>>) -> tauri::http::Response<Vec<u8>> {
     let origin = req.headers().get("Origin").and_then(|v| v.to_str().ok());
     serve_from(req.uri().path(), origin)

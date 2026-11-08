@@ -189,7 +189,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![ipc::aeval_invoke])
         // Glass frames and the lens loupe, served from memory (agent c, D4).
         .register_uri_scheme_protocol(backdrop::SCHEME, |_ctx, request| {
-            backdrop::serve(request.uri().path())
+            backdrop::serve_request(&request)
         })
         .on_page_load(|webview, payload| {
             if !matches!(payload.event(), PageLoadEvent::Finished) {
