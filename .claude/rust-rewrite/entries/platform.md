@@ -34,3 +34,60 @@ status: done; evidence: UNIT history::tests::corrupt_file_is_kept_aside_not_over
 ## PARITY · HIST-06 · D-12
 Add (note to the row):
 D-12: history writes throttle from the first change (400 ms, never postponed by later changes) on one long-lived writer thread; `flush_now` on quit takes the same write lock, so the two never overlap. Reason: Electron's history.js throttled; the Rust port had become a debounce that a steady stream of saves could postpone forever, with a thread per change.
+
+## PARITY · KEY-09 · B-011
+Replace "While the engine injects a synthetic Escape, the global Escape is unregistered and retaken 60 ms after (RegisterHotKey fires on injected input)." with:
+While the engine injects a synthetic Escape, the global Escape is unregistered and retaken 60 ms after (RegisterHotKey fires on injected input). Suspensions nest: Escape comes back only when the last overlapping synthetic key is done. Every registration change runs on the main thread, one at a time, and an apply that changes nothing touches nothing (opening the bar registers Escape alone).
+status: done; evidence: UNIT hotkeys::tests::escape_depth_counter, hotkeys::tests::apply_skips_unchanged_set, hotkeys::tests::a_taken_chord_is_retried_alone, hotkeys::tests::capture_mode_lets_go_and_keeps_results
+
+## PARITY · KEY-12 · B-177
+Replace "probe with ours unregistered, "That shortcut is already in use - try another." Returns shortcuts and active map." with:
+probe with ours unregistered; a taken chord answers `{ok: false, error: "Another app already uses that shortcut. Try another." (C-56), free: [...]}`, where `free` lists those of Ctrl+Alt+A, Super+Shift+Space, Ctrl+Shift+Space that no other app holds and none of ours uses (U48). Returns shortcuts and active map.
+status: done (Rust half); evidence: UNIT hotkeys::tests::taken_returns_free_alternatives, hotkeys::tests::validation_matches_main_js
+
+## PARITY · LIFE-06 · B-011
+Add (evidence for "warn if any shortcut failed"):
+After the boot apply, each action whose chord could not be registered is written to stderr (`hotkeys::report_failures`).
+
+## PARITY · LIFE-01 · B-012
+Add (note to the row):
+The second copy calls AllowSetForegroundWindow(ASFW_ANY) before it writes `open`, and keeps trying for 15 s. The first copy serves the pipe from before the app is built (an `open` during boot is answered when setup is done), reads one line with a 2 s limit on its own task (a client that says nothing holds up nobody), and retries a failed pipe creation, 100 ms doubling to 5 s.
+status: UNIT instance::tests::stalled_client_does_not_block_server, instance::tests::an_open_during_boot_is_answered_once_ready; SMOKE+ singleInstance pending the platform probe (K-30)
+
+## PARITY · LIFE-05 · B-013
+Add (note to the row):
+Every main-thread entry point the platform owns runs inside `crash::guard` (page load, window events, global shortcuts, tray and context-menu clicks, main-thread tasks, exit), so a panic there is logged and survived. A panic on the main thread outside a guard cannot be survived (it would unwind into a window procedure): the toast says "AevalBuddy hit a problem and has to restart." and is shown before the process ends.
+status: UNIT crash::tests::guard_catches_and_logs, crash::tests::toast_follows_the_thread; SMOKE crashLogged and SMOKE+ crashMainThread pending the platform probe (K-30)
+
+## PARITY · LIFE-03 · B-015
+Add (evidence):
+`run()` appends `--force-device-scale-factor=<AEVAL_SHOT_SCALE>` to WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS (keeping any value already there) before any webview exists. The window-maths half is B-025 (windows).
+
+## PARITY · UPD-15 · B-016
+Add (note to the row):
+The installer finds the Electron entry by the first ten characters of DisplayName ("AevalBuddy <version>") and its folder from UninstallString, falling back to InstallLocation; it still requires "Uninstall AevalBuddy.exe" in that folder, runs it silently and waits.
+
+## PARITY · UPD-02 · B-017
+Add (note to the row):
+Every failed check or download is one attempt: it counts toward the backoff and schedules the next timer even when its message matches the last failure's (the port deduped by message and could stop rescheduling, leaving a manual check at `checking`).
+status: UNIT updater::tests::identical_failures_both_reschedule
+
+## PARITY · UPD-04 · B-079
+Replace "| UPD-04 | Backoff 2, 5, 15, 30, 60, 120 min then 4 h, +0..10 % jitter. |" with:
+| UPD-04 | Backoff 2, 5, 15, 30, 60, then 120 min for every later failure (it stays at 120 min plus jitter), +0..10 % jitter. |
+status: done; evidence: UNIT updater::tests::backoff_table
+
+## PARITY · UPD-07 · B-079
+Add (note to the row):
+A latest.yml without a sha512 is refused before the download (nothing unverified is installed). `in_flight` is cleared by a drop guard, so a check that panics never blocks the next one. An empty AEVAL_OFFLINE means online, as in Electron (LIFE-13, LIFE-17).
+status: UNIT updater::tests::missing_sha512_refuses, updater::tests::in_flight_clears_on_panic, updater::tests::empty_offline_env_is_online
+
+## PARITY · WIN-14 · B-077
+Add (note to the row):
+The bridge shows the menu wherever a page did not handle `contextmenu`: `ui:context-menu {kind:'edit'}` on a text field, `{kind:'selection'}` on a non-empty selection; `menu::edit_template` is the template as data (Electron roles). The context menu's pending actions are swapped in after the items are made and taken out with one lock, never held across a main-thread round trip (B-076).
+status: UNIT menu::tests::edit_and_selection_templates_match_main_js, menu::tests::pending_lock_not_held_while_building; SMOKE+ contextMenuEditable pending the platform probe (K-30)
+
+## PARITY · LIFE-10 · B-086
+Add (note to the row):
+`lib.rs` `stop_for_exit()` stops a running task through the agent service with "Stopped because AevalBuddy quit." on RunEvent::Exit (the port used the reasonless stop hook).
+status: code done; SMOKE+ quitStopReason pending the platform probe (K-26, K-30)

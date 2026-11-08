@@ -254,31 +254,39 @@ pub fn init(app: &AppHandle) -> tauri::Result<()> {
         .menu(&menu)
         .tooltip(tooltip(&update, running, &shortcuts))
         .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
+        .on_menu_event(|app, event| {
+            crate::crash::guard("tray.menu", || on_menu(app, event.id().as_ref()));
+        })
         .on_tray_icon_event(|tray, event| {
-            let open = matches!(
-                event,
-                TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    ..
-                } | TrayIconEvent::DoubleClick {
-                    button: MouseButton::Left,
-                    ..
-                }
-            );
-            if open {
-                let app = tray.app_handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    crate::windows::trigger_or_trail(&app);
-                });
-            }
+            crate::crash::guard("tray.click", || on_icon(tray, &event));
         });
     if let Some(img) = icon() {
         builder = builder.icon(img);
     }
     builder.build(app)?;
     Ok(())
+}
+
+/// A left click or double click opens the bar (or the trail while a task
+/// runs).
+fn on_icon(tray: &tauri::tray::TrayIcon, event: &TrayIconEvent) {
+    let open = matches!(
+        event,
+        TrayIconEvent::Click {
+            button: MouseButton::Left,
+            button_state: MouseButtonState::Up,
+            ..
+        } | TrayIconEvent::DoubleClick {
+            button: MouseButton::Left,
+            ..
+        }
+    );
+    if open {
+        let app = tray.app_handle().clone();
+        tauri::async_runtime::spawn(async move {
+            crate::windows::trigger_or_trail(&app);
+        });
+    }
 }
 
 /// Whether the tray came up (smoke `tray`).

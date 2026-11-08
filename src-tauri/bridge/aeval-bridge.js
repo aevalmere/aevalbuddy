@@ -85,9 +85,15 @@ function aevalBridge(invokeList, listenList) {
 
   // The page's own menus (answer, hit, row) call preventDefault themselves;
   // anything they leave would be WebView2's Back / Reload / Save as / Print.
-  // A text field keeps the edit menu (cut, copy, paste).
+  // In its place, as Electron's attachContextMenu did: a text field gets
+  // Cut, Copy, Paste and Select all, a selection gets Copy and Select all.
   window.addEventListener('contextmenu', (e) => {
-    if (!e.defaultPrevented && !editable(e.target)) e.preventDefault();
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    let kind = null;
+    if (editable(e.target)) kind = 'edit';
+    else if (String(window.getSelection ? window.getSelection() : '').trim()) kind = 'selection';
+    if (kind) api.invoke('ui:context-menu', { kind }).catch(() => {});
   });
 
   // Keys WebView2 acts on by itself. Pages see the key first (this runs in

@@ -295,8 +295,11 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
-- C1 (K-01, K-02, K-08, K-09, B-087, capabilities, Cargo.toml lane blocks): at 3e74cba Format, Clippy, Unit tests, Capture check and Desktop selfcheck passed; Build installer failed on `http status: 504` downloading nsis_tauri_utils.dll (a network error, not the code). This commit changes only this file, to run CI on the same code again.
+- C1 (K-01, K-02, K-08, K-09, B-087, capabilities, Cargo.toml lane blocks): at 3e74cba Format, Clippy, Unit tests, Capture check and Desktop selfcheck passed; Build installer failed on `http status: 504` downloading nsis_tauri_utils.dll (a network error, not the code). Re-run at caadb51 (same code, this file only): the same gates passed and Build installer failed on the same 504. See Blockers.
+- In progress (pushed, awaiting CI): B-001, B-002, B-003, B-004 (P0); B-011, B-012, B-013, B-015, B-016, B-017; B-076, B-077, B-079, B-086 (code; its probe waits on K-26, K-30); B-177.
 
 ## Blockers
 
-(None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+(Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)
+
+- C1 green, and every SMOKE acceptance: the rust workflow's Build installer step fails with `failed to bundle project: http status: 504` while the Tauri bundler downloads nsis_tauri_utils-v0.5.3/nsis_tauri_utils.dll (runs for 3e74cba and caadb51), and Scaffold smoke is skipped behind it; a GitHub release download outside my files; unblocked when the download succeeds again, or by caching %LOCALAPPDATA%\tauri\NSIS in rust.yml (not mine).
