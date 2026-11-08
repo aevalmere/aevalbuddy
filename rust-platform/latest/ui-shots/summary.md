@@ -1,13 +1,13 @@
 # ui-shots: failure
 
 - Workflow: ui-shots
-- Run: [42465866431](https://github.com/aevalmere/aevalbuddy/actions/runs/42465866431), attempt 1, on push
-- Commit: d7e5e5f9ad28dbe0f182e0b17bce8c0a6e2215e8
+- Run: [42494854061](https://github.com/aevalmere/aevalbuddy/actions/runs/42494854061), attempt 1, on push
+- Commit: fef30447e5904a69e22867b49eef07448d73a614
 - Ref: rust/platform
 - Conclusion: **failure**
 - Failed: Bridge unit checks
-- Finished: 2026-11-08T09:09:22Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/platform/d7e5e5f9ad28dbe0f182e0b17bce8c0a6e2215e8 (/ in the ref becomes -)
+- Finished: 2026-11-08T15:27:13Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/platform/fef30447e5904a69e22867b49eef07448d73a614 (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
