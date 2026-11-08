@@ -50,6 +50,8 @@ button {
 #hud[hidden],
 #bar-status[hidden],
 #intent-menu[hidden],
+#model-menu[hidden],
+#model-chip[hidden],
 #guess[hidden],
 #examples[hidden],
 #region-chip[hidden],
@@ -361,6 +363,28 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   height: var(--ico-i);
 }
 
+/* The model for this one question (@, bar.js): beside the token, and muted
+   under Find, which uses its own model. */
+#model-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(35%, calc(200px * var(--text-scale)));
+  height: var(--ctl-s);
+  margin-top: calc((var(--ctl) - var(--ctl-s)) / 2);
+  gap: var(--sp-1);
+  white-space: nowrap;
+}
+
+#model-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#model-chip[data-ignored="true"] {
+  color: var(--label-3);
+}
+
 /* The field's focus is the capsule's: its rim brightens and a two-tone
    ring sits outside it, dark inside light, so it holds 3:1 over a white
    desktop and a dark one. A ring around the text would draw a box inside
@@ -415,8 +439,8 @@ body[data-region="1"] #region-btn {
   height: var(--ctl);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 var(--sp-3) 0 10px;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3) 0 var(--sp-2);
   border-radius: var(--r-cap);
   font-size: var(--t-caption);
   font-weight: var(--w-strong);
@@ -472,6 +496,37 @@ body[data-region="1"] #region-btn {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* At rest (nothing chosen, Enter asks) the token is a 32 px glyph button
+   with no fill and no rim, so the bar reads as one field rather than a
+   mode switch beside it. The word stays for the FLIP morph and is hidden,
+   and the button's name still says what Enter does. */
+.intent-token[data-rest="true"][data-locked="false"] {
+  --own-shadow: none;
+  width: var(--ctl);
+  padding: 0;
+  justify-content: center;
+  background: none;
+  color: var(--label-2);
+}
+
+.intent-token[data-rest="true"][data-locked="false"]:hover {
+  background: var(--fill-1);
+}
+
+.intent-token[data-rest="true"] .intent-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Enter answers a running task: the token is not a menu then. */
+.intent-token[aria-disabled="true"] {
+  cursor: default;
+}
+
 .intent-token.swap .intent-name,
 .intent-token.swap .tok-glyph {
   animation: token-swap 200ms var(--ease-morph) both;
@@ -496,6 +551,18 @@ body[data-region="1"] #region-btn {
 #intent-menu {
   align-self: flex-start;
   min-width: calc(280px * var(--text-scale));
+}
+
+/* The list scrolls inside the glass, within what is left of Rust's 280 px
+   cap on the bar window's content (INPUT_MAX_HEIGHT). */
+#model-menu {
+  align-self: flex-start;
+  min-width: calc(320px * var(--text-scale));
+}
+
+#model-list {
+  max-height: calc(280px - var(--bar-h) - var(--sp-2) - 2 * var(--inset-menu));
+  overflow-y: auto;
 }
 
 @keyframes drop-in {
@@ -607,6 +674,42 @@ body[data-region="1"] #region-btn {
 #notice-text {
   flex: 1;
   color: var(--label);
+}
+
+/* Enter with no provider: the notice says "here" with a 2 px shake, or a
+   brightening under reduced motion. */
+#notice.nudge {
+  animation: notice-nudge 240ms var(--ease-glide);
+}
+
+@keyframes notice-nudge {
+  25% {
+    transform: translateX(2px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+html[data-motion="reduced"] #notice.nudge {
+  animation: notice-brighten var(--d-reduced) ease;
+}
+
+@keyframes notice-brighten {
+  from {
+    opacity: 0.55;
+  }
+}
+
+/* The token's key hints, under the bar, for keyboard and pointer alike. */
+#token-tip {
+  --r: var(--r-card);
+  align-self: flex-start;
+  max-width: 100%;
+  padding: var(--sp-1) var(--sp-3);
+  font: var(--w-body) var(--t-meta) / var(--lh-meta) var(--font-small);
+  color: var(--label);
+  animation: g-drop-in var(--d-reveal) var(--ease-morph);
 }
 
 /* --------------------------------------------------------- answer sheet */
@@ -2407,11 +2510,18 @@ html[data-motion="reduced"] *,
 html[data-motion="reduced"] *::before,
 html[data-motion="reduced"] *::after {
   animation-name: fade-only !important;
-  animation-duration: 100ms !important;
+  animation-duration: var(--d-reduced) !important;
   animation-iteration-count: 1 !important;
   animation-delay: 0ms !important;
-  transition-duration: 100ms !important;
+  transition-duration: var(--d-reduced) !important;
   transition-delay: 0ms !important;
+}
+
+/* The bar folds without its words blurring or shrinking. */
+html[data-motion="reduced"] #panel[data-morph="out"] .panel-top > :not(.gl),
+html[data-motion="reduced"] #panel[data-morph="out"] > :not(.panel-top) {
+  filter: none;
+  transform: none;
 }
 
 /* Loops stop altogether. */
@@ -2429,9 +2539,9 @@ html[data-motion="reduced"] .trow.running .trow-mark::before {
   *,
   *::before,
   *::after {
-    animation-duration: 100ms !important;
+    animation-duration: var(--d-reduced) !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 100ms !important;
+    transition-duration: var(--d-reduced) !important;
   }
 }
 

@@ -172,6 +172,8 @@
   --d-fast: 150ms;
   /* Every reduced-motion fade (DESIGN.md Motion). */
   --d-reduced: 150ms;
+  /* The change of tone (glass.js): 150 ms under reduced motion. */
+  --tone-fade: 300ms;
   --d-reveal: 140ms;
   --d-med: 240ms;
   --d-morph: 320ms;
@@ -386,7 +388,6 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
     background: Canvas;
     border: 1px solid CanvasText;
     box-shadow: none;
-    forced-color-adjust: none;
   }
   .glass > .gl > .gs,
   .glass > .gl > .gsc,
@@ -400,6 +401,46 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
    label crisp when a bright edge passes behind it. */
 .glass.thin {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+}
+
+/* The light tone (D-20): glass over a light page turns light, and dark text
+   goes on it. glass.js sets data-tone per window from what is behind it;
+   the scrim follows from glass.js too. */
+html[data-tone="light"] {
+  --tint: 246 247 250;
+  --label: #1C1C1F;
+  --label-2: #3C3D44;
+  --label-3: #4F515A;
+  --fill-1: rgb(0 0 0 / 0.05);
+  --fill-2: rgb(0 0 0 / 0.08);
+  --fill-3: rgb(0 0 0 / 0.12);
+  --hairline: rgb(0 0 0 / 0.1);
+  --chip-rim: inset 0 0 0 var(--px) rgb(0 0 0 / 0.1);
+  --accent-text: #823A80;
+}
+
+html[data-motion="reduced"] {
+  --tone-fade: var(--d-reduced);
+}
+
+html[data-tone="light"] .glass > .gl {
+  outline: var(--px) solid rgb(0 0 0 / 0.12);
+}
+
+html[data-tone="light"] .glass.thin {
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.4);
+}
+
+/* Only for the moment the tone changes: label colours are custom properties,
+   so each element fades its own. */
+html[data-tone-fade] *,
+html[data-tone-fade] *::before,
+html[data-tone-fade] *::after {
+  transition:
+    color var(--tone-fade) ease,
+    background-color var(--tone-fade) ease,
+    border-color var(--tone-fade) ease,
+    fill var(--tone-fade) ease !important;
 }
 
 /* The photograph mode of the visual self-check: the page's background is
@@ -449,7 +490,8 @@ html[data-shot-bg] body {
   mask-position: calc(var(--i) * 100% * 1.2 / 19.4) 0;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  /* In a contrast theme the fill is the inherited system text colour. */
+  /* A mask needs its background painted; the contrast-theme block names the
+     system colour. */
   forced-color-adjust: none;
 }
 
@@ -508,8 +550,7 @@ html[data-shot-bg] body {
 .g-icon:active,
 .g-btn:active,
 .g-chip:active {
-  transform: scale(0.96);
-  transition: transform 120ms var(--ease-out);
+  background: var(--fill-3);
 }
 
 .g-btn {
@@ -537,6 +578,10 @@ html[data-shot-bg] body {
 
 .g-btn.prominent:hover {
   background: rgb(197 111 195 / 0.55);
+}
+
+.g-btn.prominent:active {
+  background: rgb(197 111 195 / 0.7);
 }
 
 .g-btn[disabled] {
@@ -681,6 +726,28 @@ body[data-scrolled="1"] .sheet-bar::after,
   pointer-events: none;
 }
 
+/* The window menu, and the line that says what the arrows do (frame.js). */
+#window-menu {
+  position: fixed;
+  z-index: 2147483100;
+  margin: 0;
+  min-width: calc(180px * var(--text-scale));
+}
+
+#window-hint {
+  --r: var(--r-cap);
+  position: fixed;
+  z-index: 2147483100;
+  top: calc(var(--stage) + var(--sp-2));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--t-meta);
+  line-height: var(--lh-meta);
+  color: var(--label);
+  white-space: nowrap;
+}
+
 .g-menu-row,
 .g-menu [role="option"],
 .g-menu [role="menuitem"],
@@ -806,6 +873,16 @@ body[data-scrolled="1"] .sheet-bar::after,
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
+  }
+  /* An icon is a mask filled with its background, which a contrast theme
+     would paint Canvas, so it opts out and names the colour here: the
+     colour it would inherit is the author's, unreadable on a light theme. */
+  .ico {
+    background-color: CanvasText;
+  }
+  .g-menu [aria-selected="true"] .ico,
+  .g-menu [aria-checked="true"] .ico {
+    background-color: HighlightText;
   }
   /* Working. The travelling light on the rim is hidden in a contrast theme,
      so a working surface carries a Highlight outline instead; the orb's is

@@ -108,3 +108,34 @@ Liquidity lives at the edge, where text never sits, and the reading interior sta
 In code: blur thin `18px − 8px·k`, thick `32px − 8px·k`; saturation thin `1.1 + 0.9k`, thick `1.1 + 0.8k`; `spec = max(0, 2k − 1)`; band `round(4 + 20k + 8·spec)`; scale `round(base·2k + 12·spec)` with base 22 thin and 28 thick; scrim slope `(0.5 − k)·0.32·(1 − y)` thin and `·0.30` thick. The displacement is dropped while a window moves, as it is during a morph.
 
 The contrast floor holds at every stop: the scrim slope is 0 at y = 1, so a white page keeps the 4.5:1 floor; the edge band never carries text (sheet text is inset 16 px, at least half the widest band); and the light tone takes over on bright content (D-20). None is the solid tier, so its contrast never depends on the desktop at all. Reason: at the old values Very very looked the same as Liquid on the sheets (design-visual F6), and the bar and the sheet read as two materials (F11). Settings and History opt in to refraction with `refract` on `#app` (settings lane, B-073).
+
+## DESIGN · Material · D-20
+Add (after the Scrim bullet):
+- **Tone.** The tint is not always dark any more. Each window measures the median luma (y50) under its largest glass layer and turns light above 0.72 for two frames running, and dark again below 0.55; the gap keeps a page in the middle from flickering. The change is a 300 ms crossfade, 150 ms under reduced motion. The light tone: `--tint: 246 247 250`, `--label: #1C1C1F`, `--label-2: #3C3D44`, `--label-3: #4F515A`, black fills at 0.05 / 0.08 / 0.12, hairline and chip rim black at 0.10, `--accent-text: #823A80`, a black 0.12 outline outside the specular rim, and on thin glass a `0 1px 0 rgb(255 255 255 / 0.4)` text shadow. Its scrim thins as the page behind brightens: thin `a = 0.42 + 0.30 (1 − Y)`, thick `a = 0.62 + 0.20 (1 − Y)`. The solid tier stays dark whatever is behind it. Reason: one dark tint over a white page read as a grey slab; iOS 26 and macOS Tahoe glass flips to a light rendering over light content, which is how it can be clear and legible at once (design-visual F10). This departs from the dark tint the rest of this section assumes.
+
+## DESIGN · Keyboard · D-34
+Add (a new section):
+The bar has its own keyboard layer, and its keys are taught where the control is: in tooltips and `aria-keyshortcuts`.
+
+| Key | Does |
+| --- | --- |
+| Ctrl+N | Start a new conversation with the next question |
+| Ctrl+Tab, Ctrl+Shift+Tab | Choose which open answer the next question continues |
+| Ctrl+W, Ctrl+Shift+W | Close that answer; close them all |
+| Ctrl+Shift+C | Copy that answer's last reply |
+| Ctrl+. | Stop what is running |
+| Ctrl+Shift+R | Retry that answer |
+| Ctrl+R | Ask about an area of the screen |
+| Ctrl+, | Settings |
+| Ctrl+H | History |
+| F6 | Move to the answer |
+
+Reason: power users had to reach for the mouse for everything past Enter (design-ux U19). Ctrl+R means "ask about an area" because a reload is meaningless here and the bridge already blocks it, so no browser habit is broken.
+
+## DESIGN · Keyboard · D-35
+Add (to the same section):
+Alt+Space, or a right-click on a title bar, opens a window menu on outputs, Settings and History: Move, Size, Maximize or Restore (where the title bar maximizes on double-click, so Settings and History), and Close. In Move and Size the arrows go 16 px at a time, 64 with Shift; Enter keeps the result and Esc puts the window back. Reason: everything a drag does has to be reachable without a pointer (design-ux U30), and these windows draw their own title bars, so Windows does not supply the menu. The bar has no title bar and has the layout editor instead.
+
+## DESIGN · Accessibility · D-24
+Add (the pages' half):
+Every page applies `ui:text-scale {scale}` as `--text-scale` on `:root`, and every size and control height in `glass.css` is a `calc()` of it, so text and the controls around it grow together. Ctrl+=, Ctrl+- and Ctrl+0 step the setting by 0.1 within 1.0 to 2.0 from any page and save it through `settings:set-text-scale`. The bar's field, chips and menus are all sized from the same tokens, so nothing clips at 200%.
