@@ -132,19 +132,13 @@ pub fn parse_elements(report: Option<&str>, view: Option<View>) -> Vec<Element> 
     out
 }
 
-/// Lowercase, everything but ASCII letters, digits and spaces to a space,
-/// runs of whitespace collapsed.
+/// Lowercase, everything but letters and digits (in any script, as the UIA
+/// path in host/ask.rs does) to a space, runs of whitespace collapsed.
 pub fn norm_label(text: &str) -> String {
     let lower = text.to_lowercase();
     let mapped: String = lower
         .chars()
-        .map(|c| {
-            if c.is_ascii_lowercase() || c.is_ascii_digit() {
-                c
-            } else {
-                ' '
-            }
-        })
+        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
         .collect();
     mapped.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -258,6 +252,18 @@ mod tests {
         assert!(match_element("Print", &rows).is_none());
         let rows = [el("Save"), el("Save As Template")];
         assert_eq!(match_element("save", &rows).unwrap().label, "Save");
+    }
+
+    #[test]
+    fn cyrillic_and_cjk_names_match() {
+        let rows = [el("Сохранить"), el("Открыть файл"), el("保存")];
+        let hit = match_element("Сохранить", &rows).unwrap();
+        assert_eq!(hit.label, "Сохранить");
+        let hit = match_element("кнопка Открыть файл", &rows).unwrap();
+        assert_eq!(hit.label, "Открыть файл");
+        assert_eq!(match_element("保存", &rows).unwrap().label, "保存");
+        assert_eq!(norm_label("**Сохранить**!"), "сохранить");
+        assert!(match_element("Печать", &rows).is_none());
     }
 
     #[test]

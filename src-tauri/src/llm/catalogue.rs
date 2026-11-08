@@ -465,14 +465,22 @@ fn usable_for(kind: Kind, all: &[Value], id: &str) -> bool {
 }
 
 /// The next free model to try after one has failed: the first untried free
-/// one in the kind's pool (find uses the brains). An agent keeps its tool
-/// dialect, so only tools-capable stand-ins once the catalogue is known.
+/// one in the kind's pool (find uses the brains). Once the catalogue is
+/// known, only a stand-in that is listed and can do the job: a screen model
+/// that takes images, an agent model with tool calls (it keeps its tool
+/// dialect). A cold cache means curated order (B-042).
 pub fn next_free_model(kind: Kind, tried: &[String], all: Option<&[Value]>) -> Option<String> {
     let pool = pool_for(if kind == Kind::Find { Kind::Text } else { kind });
-    let ok = |id: &str| kind != Kind::Agent || all.is_none() || supports_tools(all, id);
+    let live = all.filter(|a| !a.is_empty());
+    let fits = |id: &str| match (kind, live) {
+        (_, None) => true,
+        (Kind::Vision, Some(a)) => find(a, id).is_some_and(accepts_images),
+        (Kind::Agent, Some(a)) => find(a, id).is_some_and(lists_tools),
+        (_, Some(a)) => find(a, id).is_some(),
+    };
     pool.into_iter()
-        .filter(|m| m.tier == Tier::Free && ok(m.id))
-        .find(|m| !tried.iter().any(|t| t == m.id))
+        .filter(|m| m.tier == Tier::Free && !tried.iter().any(|t| t == m.id))
+        .find(|m| fits(m.id))
         .map(|m| m.id.to_string())
 }
 
@@ -608,5 +616,29 @@ mod tests {
         let cat = vec![json!({"id": DEFAULT_BRAIN, "supported_parameters": []})];
         let next = next_free_model(Kind::Agent, &[], Some(&cat));
         assert_eq!(next, None);
+    }
+
+    #[test]
+    fn stand_in_is_live_and_sees_images() {
+        let tried = vec![DEFAULT_MODEL.to_string()];
+        let blind = json!({ "id": "google/gemma-4-26b-a4b-it:free",
+            "architecture": { "modality": "text->text" } });
+        let sees = json!({ "id": "google/gemma-4-31b-it:free",
+            "architecture": { "input_modalities": ["text", "image"] } });
+        // The quicker Gemma is blind here and the notes model is not listed,
+        // so the next one that is listed and reads images stands in.
+        let cat = vec![blind, sees];
+        let next = next_free_model(Kind::Vision, &tried, Some(&cat));
+        assert_eq!(next.as_deref(), Some("google/gemma-4-31b-it:free"));
+        // Nothing live and sighted: no stand-in rather than a dead one.
+        let next = next_free_model(Kind::Vision, &tried, Some(&cat[..1]));
+        assert_eq!(next, None);
+        // A cold cache keeps curated order.
+        let next = next_free_model(Kind::Vision, &tried, None);
+        assert_eq!(next.as_deref(), Some("google/gemma-4-26b-a4b-it:free"));
+        // Against the full catalogue every curated free model is live.
+        let all = catalogue();
+        let next = next_free_model(Kind::Vision, &tried, Some(&all));
+        assert_eq!(next.as_deref(), Some("google/gemma-4-26b-a4b-it:free"));
     }
 }

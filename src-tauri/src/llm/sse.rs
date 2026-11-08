@@ -5,6 +5,12 @@
 
 use std::time::Instant;
 
+use super::errors::ApiError;
+
+/// The longest line a stream may send: an event is a few KB, so a megabyte
+/// without a newline is a broken stream, not an answer (B-125).
+pub const MAX_LINE: usize = 1 << 20;
+
 /// Bytes in, complete lines out. A multi-byte character split across two
 /// chunks is joined before it is decoded, as `TextDecoder({stream: true})`
 /// does.
@@ -14,14 +20,20 @@ pub struct LineBuffer {
 }
 
 impl LineBuffer {
-    pub fn push(&mut self, chunk: &[u8]) -> Vec<String> {
+    /// The complete lines so far, or an error once an unfinished line
+    /// passes [`MAX_LINE`].
+    pub fn push(&mut self, chunk: &[u8]) -> Result<Vec<String>, ApiError> {
         self.buf.extend_from_slice(chunk);
         let mut out = Vec::new();
         while let Some(at) = self.buf.iter().position(|b| *b == b'\n') {
             let line: Vec<u8> = self.buf.drain(..=at).collect();
             out.push(String::from_utf8_lossy(&line[..at]).into_owned());
         }
-        out
+        if self.buf.len() > MAX_LINE {
+            self.buf = Vec::new();
+            return Err(ApiError::http(502, "the stream sent a line over 1 MB"));
+        }
+        Ok(out)
     }
 }
 
@@ -93,11 +105,26 @@ mod tests {
         let bytes = text.as_bytes();
         for cut in 1..bytes.len() {
             let mut b = LineBuffer::default();
-            let mut lines = b.push(&bytes[..cut]);
-            lines.extend(b.push(&bytes[cut..]));
+            let mut lines = b.push(&bytes[..cut]).unwrap();
+            lines.extend(b.push(&bytes[cut..]).unwrap());
             let want = ["data: {\"a\":\"é\"}", "", ": keepalive", "data: [DONE]"];
             assert_eq!(lines, want);
         }
+    }
+
+    #[test]
+    fn buffer_is_capped() {
+        let mut b = LineBuffer::default();
+        let half = vec![b'x'; MAX_LINE / 2];
+        assert!(b.push(&half).unwrap().is_empty());
+        assert!(b.push(&half).unwrap().is_empty());
+        let err = b.push(b"y").unwrap_err();
+        assert_eq!(err.status, Some(502));
+        // A long line that ends in time is fine.
+        let mut b = LineBuffer::default();
+        let mut line = vec![b'z'; MAX_LINE - 1];
+        line.push(b'\n');
+        assert_eq!(b.push(&line).unwrap().len(), 1);
     }
 
     #[test]

@@ -2,7 +2,10 @@
 //! model could answer (PARITY FAIL-02..04, FAIL-06). Port of `withFailover`
 //! and `shortModel` in main.js.
 
+use std::collections::HashSet;
 use std::future::Future;
+
+use parking_lot::Mutex;
 
 use super::errors::{should_failover, ApiError};
 
@@ -23,10 +26,50 @@ pub fn short_model(id: &str) -> String {
     }
 }
 
+/// Model ids that answered 404 this session (review-llm-agent P2-11): a
+/// retired free model is skipped as the first attempt and as a stand-in
+/// until the app restarts, instead of being asked again on every question.
+#[derive(Default)]
+pub struct BadModels {
+    ids: Mutex<HashSet<String>>,
+}
+
+impl BadModels {
+    pub fn mark(&self, id: &str) {
+        self.ids.lock().insert(id.to_string());
+    }
+
+    pub fn has(&self, id: &str) -> bool {
+        self.ids.lock().contains(id)
+    }
+
+    /// `tried` plus every bad id: what a stand-in must not be.
+    pub fn skip(&self, tried: &[String]) -> Vec<String> {
+        let mut out = tried.to_vec();
+        for id in self.ids.lock().iter() {
+            if !out.contains(id) {
+                out.push(id.clone());
+            }
+        }
+        out
+    }
+
+    /// The model to try first: `id`, unless it is a free model known to be
+    /// gone, in which case the stand-in `next` offers.
+    pub fn first(&self, id: &str, next: impl FnOnce(&[String]) -> Option<String>) -> String {
+        if !id.ends_with(":free") || !self.has(id) {
+            return id.to_string();
+        }
+        next(&self.skip(&[id.to_string()])).unwrap_or_else(|| id.to_string())
+    }
+}
+
 /// Runs `run` on `first`, then on each model `next` offers, while the error
 /// is a failover status, the model is a `:free` one (a paid request never
 /// changes bill), fewer than three models have been tried, and `can_retry`
-/// says nothing has reached the user yet. Returns the model that answered.
+/// says nothing has reached the user yet. Returns the model that answered;
+/// an error carries how many models were tried (contract K-17), so its copy
+/// claims a stand-in only when there was one.
 pub async fn with_failover<T, F, Fut>(
     first: &str,
     mut next: impl FnMut(&[String]) -> Option<String>,
@@ -49,6 +92,7 @@ where
         match run(model.clone()).await {
             Ok(value) => return Ok((model, value)),
             Err(err) => {
+                let err = err.with_attempts(tried.len() as u32);
                 if err.is_abort() || !can_retry() {
                     return Err(err);
                 }
@@ -109,9 +153,45 @@ mod tests {
                 async { Err(ApiError::http(429, "busy")) }
             },
         ));
-        assert_eq!(out.unwrap_err().status, Some(429));
+        let err = out.unwrap_err();
+        assert_eq!((err.status, err.attempts), (Some(429), 3));
         assert_eq!(*calls.borrow(), ["a:free", "b:free", "c:free"]);
         assert_eq!(*switched.borrow(), ["b:free", "c:free"]);
+    }
+
+    #[test]
+    fn bad_model_set_is_skipped() {
+        let bad = BadModels::default();
+        assert_eq!(bad.first("a:free", pool), "a:free");
+        bad.mark("a:free");
+        bad.mark("b:free");
+        assert!(bad.has("a:free"));
+        // Not as the first attempt.
+        assert_eq!(bad.first("a:free", pool), "c:free");
+        // Not as a stand-in.
+        let skip = bad.skip(&["c:free".to_string()]);
+        assert_eq!(pool(&skip).as_deref(), Some("d:free"));
+        // A paid model is asked anyway: it never changes to another bill.
+        bad.mark("paid/model");
+        assert_eq!(bad.first("paid/model", pool), "paid/model");
+    }
+
+    #[test]
+    fn daily_cap_stays_in_account() {
+        let calls = RefCell::new(0);
+        let out: Result<(String, ()), ApiError> = block(with_failover(
+            "a:free",
+            pool,
+            || true,
+            |_| {},
+            |_| {
+                *calls.borrow_mut() += 1;
+                let cap = "Rate limit exceeded: free-models-per-day";
+                async move { Err(ApiError::http(429, cap)) }
+            },
+        ));
+        assert_eq!(out.unwrap_err().attempts, 1);
+        assert_eq!(*calls.borrow(), 1);
     }
 
     #[test]

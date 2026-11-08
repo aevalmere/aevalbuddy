@@ -1,6 +1,6 @@
 //! The Ask flow (PARITY ASK-*): main.js handleQuerySubmit, abortCurrentQuery,
 //! prefetchBarContext, freshBarText, readExactText, showModelPoints,
-//! resolveUiaPoint, and the models:list / settings:test-key handlers, on the
+//! resolveUiaPoint, and the models:list handler, on the
 //! floating output windows: a question goes to the output `outputs::target`
 //! gives, and every event of that turn goes to that window only.
 
@@ -16,15 +16,16 @@ use crate::ask::{
     is_visual, point_fraction, AUTO_SKILL, CHAT_HISTORY_LIMIT, DEFAULT_PROMPT, TEXT_ONLY_CHARS,
 };
 use crate::capture::{self, Shot};
-use crate::llm::catalogue::Kind;
+use crate::llm::catalogue::{self, Kind};
 use crate::llm::client::{ChatTurn, QueryOpts, ReaderOpts};
 use crate::llm::elements::{match_element, parse_elements, View};
-use crate::llm::errors::{friendly_error_for, ApiError};
+use crate::llm::errors::{details, explain, About, ApiError};
 use crate::llm::failover::{short_model, with_failover};
+use crate::llm::payloads::{QueryError, Usage};
 use crate::llm::points::{Point, PointExtractor};
 use crate::llm::prompt::{extract_task, ExactText};
 use crate::llm::provider::Provider;
-use crate::llm::settings::{active, model_for, Active, LlmSettings};
+use crate::llm::settings::{active, candidates_for, model_for, Active, LlmSettings};
 use crate::llm::sse::Meter;
 use crate::state::{shared, Mode};
 use crate::windows::{self, outputs};
@@ -53,14 +54,75 @@ fn current() -> &'static Mutex<Option<Current>> {
     C.get_or_init(|| Mutex::new(None))
 }
 
-/// The shot taken when an area was chosen, used by the next question.
-fn pending_shot() -> &'static Mutex<Option<Shot>> {
-    static P: OnceLock<Mutex<Option<Shot>>> = OnceLock::new();
+/// The shot taken when an area was chosen, and when, for the next question.
+fn pending_shot() -> &'static Mutex<Option<(Shot, Instant)>> {
+    static P: OnceLock<Mutex<Option<(Shot, Instant)>>> = OnceLock::new();
     P.get_or_init(|| Mutex::new(None))
 }
 
 pub fn set_pending_shot(shot: Option<Shot>) {
-    *pending_shot().lock() = shot;
+    *pending_shot().lock() = shot.map(|s| (s, Instant::now()));
+}
+
+/// A pick-time shot stands in for a capture only this soon after the pick;
+/// later, the screen under the area may have changed (B-124, Decision D-08).
+const PICK_SHOT_FRESH: Duration = Duration::from_secs(1);
+
+/// What `slot` holds if it was stored less than [`PICK_SHOT_FRESH`] before
+/// `now`. The slot is emptied either way.
+fn take_fresh<T>(slot: &Mutex<Option<(T, Instant)>>, now: Instant) -> Option<T> {
+    let (value, at) = slot.lock().take()?;
+    (now.saturating_duration_since(at) < PICK_SHOT_FRESH).then_some(value)
+}
+
+/// The name people read for a model id: the catalogue's display name when
+/// the catalogue is cached, else one made from the id (B-119).
+fn display_name(id: &str) -> String {
+    let all = services().llm.known_catalogue();
+    catalogue::model_name(id, all.as_deref().map(Vec::as_slice))
+}
+
+/// Stage labels C-21..C-23: a busy model handed the question on.
+fn busy_stage(doing: &str, model: &str) -> Value {
+    let name = display_name(model);
+    let label = format!("That model is busy. {doing} {name}\u{2026}");
+    json!({ "label": label })
+}
+
+/// The `query:error` row for a failure (contract K-19), or `None` for
+/// Stop.
+fn query_error(err: &ApiError, a: &About<'_>, question: &str) -> Option<QueryError> {
+    let e = explain(err, a)?;
+    Some(QueryError {
+        message: e.text,
+        question: question.to_string(),
+        code: e.code.to_string(),
+        provider: a.provider.id().to_string(),
+        model: a.model.to_string(),
+        model_name: a.model_name.to_string(),
+        retry_in_ms: None,
+        tone: e.tone,
+        actions: e.actions,
+        detail: details(err, a),
+    })
+}
+
+/// [`query_error`] with what the app knows now: the model's display name,
+/// the next ready provider for `Ask <Provider>`, and whether the OS has a
+/// connection.
+fn error_row(
+    provider: Provider,
+    err: &ApiError,
+    model: &str,
+    kind: Kind,
+    question: &str,
+) -> Option<QueryError> {
+    let name = display_name(model);
+    let mut a = About::new(provider, model, &name, kind);
+    let ready = candidates_for(&*services().settings, kind);
+    a.next = ready.iter().map(|c| c.provider).find(|p| *p != provider);
+    a.online = super::online();
+    query_error(err, &a, question)
 }
 
 /// The window an Ask read its exact text from, for pointing by name.
@@ -453,7 +515,7 @@ pub async fn submit_to(
     };
     let cap_region = region.map(|r| capture::Rect::new(r.x, r.y, r.width, r.height));
     let pending = if region.is_some() {
-        pending_shot().lock().take()
+        take_fresh(pending_shot(), Instant::now())
     } else {
         None
     };
@@ -492,10 +554,18 @@ pub async fn submit_to(
     let meter = Arc::new(Mutex::new(Meter::default()));
     let t0 = meter.lock().t0;
     let llm = services().llm.clone();
+    // A free model that answered 404 earlier this session is not asked
+    // again (B-042).
+    let model = llm.first_model(Kind::Vision, &model);
+    let brain = llm.first_model(Kind::Text, &brain);
     let mut answering = model.clone();
+    let mut answer_kind = Kind::Vision;
 
     let result: Result<Option<String>, ApiError> = async {
         let mut report: Option<String> = None;
+        // The screen model that last answered, so "Answering directly"
+        // reuses a stand-in that worked rather than the busy first pick.
+        let mut seeing = model.clone();
         if use_brain {
             if let Some(s) = &shot {
                 send("query:stage", json!({ "label": "Reading your screen" }));
@@ -503,7 +573,7 @@ pub async fn submit_to(
                     &model,
                     |tried| llm.next_free_model(Kind::Vision, tried),
                     || true,
-                    |m| send("query:stage", json!({ "label": format!("Busy \u{2014} reading with {}", short_model(m)) })),
+                    |m| send("query:stage", busy_stage("Reading with", m)),
                     |m| {
                         let llm = llm.clone();
                         let act = act.clone();
@@ -525,7 +595,10 @@ pub async fn submit_to(
                 )
                 .await;
                 match read {
-                    Ok((_, r)) => report = Some(r),
+                    Ok((m, r)) => {
+                        seeing = m;
+                        report = Some(r);
+                    }
                     Err(e) if e.is_abort() => return Err(e),
                     Err(_) => report = None,
                 }
@@ -593,12 +666,13 @@ pub async fn submit_to(
 
         if let Some(rep) = report.clone() {
             answering = brain.clone();
+            answer_kind = Kind::Text;
             send("query:stage", json!({ "label": "Thinking" }));
             let spoke = with_failover(
                 &brain,
                 |tried| llm.next_free_model(Kind::Text, tried),
                 nothing_shown,
-                |m| send("query:stage", json!({ "label": format!("Busy \u{2014} thinking with {}", short_model(m)) })),
+                |m| send("query:stage", busy_stage("Thinking with", m)),
                 |m| attempt(m, None, Some(rep.clone())),
             )
             .await;
@@ -608,10 +682,11 @@ pub async fn submit_to(
                     if e.is_abort() || !nothing_shown() {
                         return Err(e);
                     }
-                    answering = model.clone();
+                    answering = seeing.clone();
+                    answer_kind = Kind::Vision;
                     send("query:stage", json!({ "label": "Answering directly" }));
                     let img = shot.as_ref().map(|s| s.base64.clone());
-                    attempt(model.clone(), img, None).await?;
+                    attempt(seeing.clone(), img, None).await?;
                 }
             }
         } else {
@@ -624,7 +699,7 @@ pub async fn submit_to(
                 &model,
                 |tried| llm.next_free_model(Kind::Vision, tried),
                 nothing_shown,
-                |m| send("query:stage", json!({ "label": format!("Busy \u{2014} asking {}", short_model(m)) })),
+                |m| send("query:stage", busy_stage("Trying", m)),
                 |m| attempt(m, img.clone(), None),
             )
             .await?;
@@ -649,18 +724,25 @@ pub async fn submit_to(
                     .push(json!({ "role": "assistant", "text": answer }));
             });
             let m = meter.lock().clone();
+            let usage = Usage {
+                model: short_model(&answering),
+                ttft_ms: m.ttft_ms,
+                ms: t0.elapsed().as_millis() as u64,
+                prompt: m.prompt,
+                completion: m.completion,
+                cost: m.cost,
+                text_only,
+                model_id: answering.clone(),
+                model_name: display_name(&answering),
+                provider: provider.id().to_string(),
+                provider_name: provider.name().to_string(),
+                via: None,
+                hop_reason: None,
+            };
             send(
                 "query:done",
                 json!({
-                    "usage": {
-                        "model": short_model(&answering),
-                        "ttftMs": m.ttft_ms,
-                        "ms": t0.elapsed().as_millis() as u64,
-                        "prompt": m.prompt,
-                        "completion": m.completion,
-                        "cost": m.cost,
-                        "textOnly": text_only,
-                    },
+                    "usage": usage,
                     "inferred": o.inferred,
                     "question": text,
                 }),
@@ -680,16 +762,13 @@ pub async fn submit_to(
                 });
                 super::remember_chat(app, &label, &answering);
             }
-            let named = if err.stage == Some("reader") {
-                &model
+            let (named, kind) = if err.stage == Some("reader") {
+                (&model, Kind::Vision)
             } else {
-                &answering
+                (&answering, answer_kind)
             };
-            match friendly_error_for(provider, Some(&err), named) {
-                Some(message) => send(
-                    "query:error",
-                    json!({ "message": message, "question": text }),
-                ),
+            match error_row(provider, &err, named, kind, &text) {
+                Some(row) => send("query:error", json!(row)),
                 None => send("query:done", json!({})),
             }
             "error"
@@ -749,8 +828,8 @@ async fn models_list(p: &Value) -> Value {
     result
 }
 
-/// IPC rows query:submit, query:cancel, query:retry, models:list,
-/// settings:test-key, after the Settings rows `host::settings::route` owns
+/// IPC rows query:submit, query:cancel, query:retry and models:list, after
+/// the Settings rows `host::settings::route` owns
 /// (contract K-15); None for any other channel.
 pub async fn route(
     app: &AppHandle,
@@ -795,7 +874,6 @@ pub async fn route(
             }
         }
         "models:list" => models_list(p).await,
-        "settings:test-key" => super::settings::test_key(p).await,
         _ => return None,
     };
     Some(Ok(out))
@@ -809,5 +887,40 @@ mod tests {
     fn names_compare_without_punctuation_or_role_words() {
         assert_eq!(norm_name("  Save   As… "), "save as");
         assert_eq!(norm_name(&strip_role_words("Save button")), "save");
+    }
+
+    #[test]
+    fn stale_pick_shot_is_not_reused() {
+        let slot = Mutex::new(None);
+        let t0 = Instant::now();
+        *slot.lock() = Some((7, t0));
+        let soon = t0 + Duration::from_millis(400);
+        assert_eq!(take_fresh(&slot, soon), Some(7));
+        assert!(slot.lock().is_none());
+        *slot.lock() = Some((8, t0));
+        let late = t0 + Duration::from_millis(1_500);
+        assert_eq!(take_fresh(&slot, late), None);
+        assert!(slot.lock().is_none(), "a stale shot is dropped, not kept");
+    }
+
+    #[test]
+    fn error_rows_name_the_model_and_the_fix() {
+        let name = "Gemma 4 26B A4B";
+        let id = "google/gemma-4-26b-a4b-it:free";
+        let a = About::new(Provider::OpenRouter, id, name, Kind::Vision);
+        let gone = ApiError::http(404, "No endpoints found").with_attempts(2);
+        let row = query_error(&gone, &a, "what now?").unwrap();
+        let v = json!(row);
+        assert_eq!(v["code"], "model-gone");
+        assert_eq!(v["modelName"], name);
+        assert_eq!(v["model"], id);
+        assert_eq!(v["provider"], "openrouter");
+        assert_eq!(v["tone"], "error");
+        assert_eq!(v["question"], "what now?");
+        assert_eq!(v["actions"][0]["id"], "choose-model");
+        assert!(v["message"].as_str().unwrap().starts_with(name));
+        assert!(v["detail"].as_str().unwrap().contains(id));
+        assert!(v.get("retryInMs").is_none());
+        assert!(query_error(&ApiError::abort(), &a, "q").is_none());
     }
 }
