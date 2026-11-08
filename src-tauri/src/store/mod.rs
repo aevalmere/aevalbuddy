@@ -442,9 +442,9 @@ impl Store {
     }
 
     fn save_failed(&self, why: &str) {
-        if SAVE_FAILURE_LOGGED.swap(true, Ordering::SeqCst) {
-            eprintln!("[aevalbuddy] store: settings not saved: {why}");
-        } else {
+        // Always on stderr, so a smoke log shows it; errors.log once.
+        eprintln!("[aevalbuddy] store: settings not saved: {why}");
+        if !SAVE_FAILURE_LOGGED.swap(true, Ordering::SeqCst) {
             crate::crash::write("store", &format!("settings not saved: {why}"));
         }
     }
@@ -1203,6 +1203,19 @@ mod tests {
         // electron-store writes tabs.
         let text = fs::read_to_string(dir.join("aevalbuddy.json")).unwrap();
         assert!(text.contains("\n\t\"apiKeyEncrypted\": \"\""));
+    }
+
+    /// A fresh profile saves, and a set lands on disk at once even while a
+    /// reader holds the file open (bar's suggestionsOnce polls it).
+    #[test]
+    fn fresh_store_set_lands_on_disk_while_file_is_open() {
+        let dir = temp("fresh-set");
+        let s = open(&dir);
+        assert!(!s.saving_disabled);
+        let held = fs::File::open(dir.join("aevalbuddy.json")).unwrap();
+        s.mark_first_request_sent();
+        drop(held);
+        assert_eq!(file(&dir)["hasSentFirstRequest"], true);
     }
 
     #[test]
