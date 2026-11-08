@@ -10,3 +10,15 @@ gateChords
 gateKeyActivation
 confirmFullText
 takeoverStopsStep
+agentNativeModel
+agentRun
+agentFocusKept
+agentJsonMode
+agentStopMs
+agentTakeover
+agentMaxSteps
+agentConfirmGate
+passwordRedacted
+cancelStopsTyping
+helperTimeoutNoLateInput
+clickExact

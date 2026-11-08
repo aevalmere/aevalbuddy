@@ -189,8 +189,9 @@ pub fn bootstrap_line(b: &Bootstrap<'_>) -> String {
     format!(
         "$AevalCs={};$AevalCache={};$AevalPrebuilt={};$AevalDllSha={};$AevalCompileOnly={};$AevalVersion={};iex ({})\n",
         decode(enc(b.host_cs)),
-        ps_quote(b.cache),
-        ps_quote(&prebuilt),
+        // Paths too: a console code page would mangle anything not ASCII.
+        decode(enc(b.cache)),
+        decode(enc(&prebuilt)),
         ps_quote(sha),
         if b.compile_only { "$true" } else { "$false" },
         ps_quote(b.version),
@@ -524,8 +525,10 @@ mod tests {
         assert!(l.ends_with('\n'));
         assert_eq!(l.matches('\n').count(), 1);
         assert!(l.starts_with("$AevalCs=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('Y2xhc3MgWCB7fQ=='));"));
-        assert!(l.contains(r"$AevalCache='C:\it''s';"));
-        assert!(l.contains(r"$AevalPrebuilt='C:\a;C:\b';"));
+        let cache = b64(r"C:\it's");
+        assert!(l.contains(&format!("$AevalCache={B64_OPEN}('{cache}'));")));
+        let prebuilt = b64(r"C:\a;C:\b");
+        assert!(l.contains(&format!("$AevalPrebuilt={B64_OPEN}('{prebuilt}'));")));
         assert!(
             l.contains("$AevalDllSha='ab';$AevalCompileOnly=$false;$AevalVersion='1.1.1';iex (")
         );
@@ -538,7 +541,42 @@ mod tests {
             compile_only: true,
             version: "",
         });
-        assert!(c.contains("$AevalPrebuilt='';$AevalDllSha='';$AevalCompileOnly=$true;"));
+        let empty = format!("$AevalPrebuilt={B64_OPEN}(''));$AevalDllSha='';");
+        assert!(c.contains(&format!("{empty}$AevalCompileOnly=$true;")));
+    }
+
+    const B64_OPEN: &str = "[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String";
+
+    fn b64(s: &str) -> String {
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, s)
+    }
+
+    /// Attack: a profile folder with an accent and a smart quote. It must
+    /// reach host.ps1 intact, and only ASCII may cross the pipe.
+    #[test]
+    fn bootstrap_paths_are_base64() {
+        let cache = "C:\\Users\\Jos\u{e9}\u{2019}s\\\u{2026}";
+        let dirs = vec![format!("{cache}\\a"), r"C:\b".to_string()];
+        let l = bootstrap_line(&Bootstrap {
+            host_cs: "",
+            host_ps1: "",
+            cache,
+            prebuilt_dirs: &dirs,
+            dll_sha: "ab",
+            compile_only: false,
+            version: "1.1.1",
+        });
+        assert!(l.is_ascii());
+        let decoded = |var: &str| {
+            let open = format!("${var}={B64_OPEN}('");
+            let rest = &l[l.find(&open).unwrap() + open.len()..];
+            let encoded = &rest[..rest.find('\'').unwrap()];
+            let standard = &base64::engine::general_purpose::STANDARD;
+            let bytes = base64::Engine::decode(standard, encoded).unwrap();
+            String::from_utf8(bytes).unwrap()
+        };
+        assert_eq!(decoded("AevalCache"), cache);
+        assert_eq!(decoded("AevalPrebuilt"), dirs.join(";"));
     }
 
     #[test]

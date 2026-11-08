@@ -16,10 +16,13 @@ use serde_json::{json, Value};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
 
+use crate::host::agent::{run_choice, Pin};
+use crate::llm::catalogue::Kind;
 use crate::llm::client::{Llm, Reply, Transport};
 use crate::llm::errors::ApiError;
 use crate::llm::fake::Fake;
-use crate::llm::settings::Active;
+use crate::llm::provider::Provider;
+use crate::llm::settings::{Active, MemorySettings};
 use crate::llm::wire::HttpRequest;
 
 use super::gate::{chords, gate, Class, GateEnv, Touches, Verdict};
@@ -33,7 +36,7 @@ pub struct Line {
     pub why: String,
 }
 
-fn line(label: &'static str, ok: bool, why: String) -> Line {
+pub(crate) fn line(label: &'static str, ok: bool, why: String) -> Line {
     Line { label, ok, why }
 }
 
@@ -338,7 +341,7 @@ pub async fn gate_lines() -> (String, Vec<Line>) {
 /// Canned replies by method, every call recorded. A method with no reply
 /// answers null.
 #[derive(Default)]
-struct Canned {
+pub(crate) struct Canned {
     replies: Mutex<HashMap<String, Value>>,
     calls: Mutex<Vec<String>>,
 }
@@ -363,7 +366,7 @@ impl DesktopOps for Canned {
 }
 
 /// An untitled Notepad in front, its document the only thing in it.
-fn notepad() -> Arc<Canned> {
+pub(crate) fn notepad() -> Arc<Canned> {
     let d = Arc::new(Canned::default());
     let w = json!({ "handle": "0x1", "title": "Untitled - Notepad", "process": "notepad.exe",
         "pid": 5, "className": "Notepad", "isForeground": true,
@@ -382,7 +385,7 @@ type Hook = Arc<dyn Fn() + Send + Sync>;
 
 /// A host that records every event and draws nothing.
 #[derive(Default)]
-struct Rec {
+pub(crate) struct Rec {
     events: Mutex<Vec<(String, Value)>>,
     /// Runs as the answer window would move aside, just before a pointer
     /// step acts.
@@ -390,7 +393,7 @@ struct Rec {
 }
 
 impl Rec {
-    fn last(&self, channel: &str) -> Option<Value> {
+    pub(crate) fn last(&self, channel: &str) -> Option<Value> {
         let events = self.events.lock();
         let hit = events.iter().rev().find(|(c, _)| c == channel);
         hit.map(|(_, v)| v.clone())
@@ -449,14 +452,18 @@ impl Transport for NoNet {
     }
 }
 
-/// An agent on `desktop` whose model answers only from `fixture`.
-fn agent_for(desktop: Arc<Canned>, fixture: Value) -> (Agent, Arc<Rec>) {
-    let fake = Arc::new(Fake::from_fixtures(vec![fixture]));
+/// An agent on `desktop` whose model is `fake`.
+pub(crate) fn agent_on(desktop: Arc<Canned>, fake: Arc<Fake>) -> (Agent, Arc<Rec>) {
     let mut llm = Llm::new(Arc::new(NoNet), Some(fake));
     llm.set_offline(false);
     let host = Arc::new(Rec::default());
     let agent = Agent::new(desktop, Arc::new(llm), host.clone(), Handle::current());
     (agent, host)
+}
+
+/// An agent on `desktop` whose model answers only from `fixture`.
+fn agent_for(desktop: Arc<Canned>, fixture: Value) -> (Agent, Arc<Rec>) {
+    agent_on(desktop, Arc::new(Fake::from_fixtures(vec![fixture])))
 }
 
 /// A fixture: the model makes `call`, then says `end`.
@@ -471,7 +478,7 @@ fn task(t: &str) -> StartOpts {
     }
 }
 
-async fn until(ms: u64, mut cond: impl FnMut() -> bool) -> bool {
+pub(crate) async fn until(ms: u64, mut cond: impl FnMut() -> bool) -> bool {
     let end = Instant::now() + Duration::from_millis(ms);
     while !cond() {
         if Instant::now() >= end {
@@ -544,12 +551,43 @@ async fn takeover_stops_step() -> Line {
     line("takeoverStopsStep", ok, why)
 }
 
-/// `confirmFullText` and `takeoverStopsStep`: runs on a canned desktop and
-/// the fake model.
+/// B-047: an account with only an Anthropic key. The run's requests go to
+/// Anthropic on Anthropic's own model id, never an OpenRouter one.
+async fn native_model() -> Line {
+    let s = MemorySettings::with_key("sk-ant-smoke");
+    let llm = Llm::new(Arc::new(NoNet), None);
+    let choice = run_choice(&s, &llm, &Pin::default());
+    let Some(choice) = choice else {
+        return line("agentNativeModel", false, "no choice".into());
+    };
+    let want = Provider::Anthropic.default_model(Kind::Agent);
+    let turns = json!([{ "text": "Done." }]);
+    let fixture = json!({ "purpose": "agent", "task": "smoke native", "turns": turns });
+    let fake = Arc::new(Fake::from_fixtures(vec![fixture]));
+    let (agent, _host) = agent_on(notepad(), fake.clone());
+    agent.start(StartOpts {
+        task: "smoke native".into(),
+        active: Some(choice.active),
+        model: Some(choice.model),
+        pinned: choice.pinned,
+        ..StartOpts::default()
+    });
+    let ended = until(10000, || !agent.is_running()).await;
+    let sent = fake.requests();
+    let first = sent.first();
+    let provider = first.map_or("", |r| r.provider.as_str());
+    let model = first.and_then(|r| r.model.as_deref()).unwrap_or("");
+    let ok = ended && provider == "anthropic" && model == want;
+    line("agentNativeModel", ok, format!("{provider}/{model}"))
+}
+
+/// `confirmFullText`, `takeoverStopsStep` and `agentNativeModel`: runs on a
+/// canned desktop and the fake model.
 pub async fn seam_lines() -> Vec<Line> {
     let full = confirm_full_text().await;
     let takeover = takeover_stops_step().await;
-    vec![full, takeover]
+    let native = native_model().await;
+    vec![full, takeover, native]
 }
 
 #[cfg(test)]
@@ -568,6 +606,6 @@ mod tests {
             .collect();
         assert!(failed.is_empty(), "{failed:#?}");
         assert_eq!(count, "37/37");
-        assert_eq!(lines.len(), 8);
+        assert_eq!(lines.len(), 9);
     }
 }

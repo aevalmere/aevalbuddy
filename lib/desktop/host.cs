@@ -1355,22 +1355,32 @@ namespace AevalDesktop
         static int Generation(IntPtr hwnd, AutomationElement root, out bool firstRead)
         {
             long key = hwnd.ToInt64();
+            int[] g;
             lock (genLock)
             {
-                int[] g;
                 if (generations.TryGetValue(key, out g)) { firstRead = false; return g[0]; }
                 firstRead = true;
                 g = new int[] { 1 };
                 generations[key] = g;
-                var gen = g;
-                StructureChangedEventHandler h = delegate (object s, StructureChangedEventArgs e) { Interlocked.Increment(ref gen[0]); };
-                try
+            }
+            var gen = g;
+            StructureChangedEventHandler h = delegate (object s, StructureChangedEventArgs e) { Interlocked.Increment(ref gen[0]); };
+            // Outside the lock: a slow app can take seconds to answer this,
+            // and every other window's read needs the lock.
+            bool subscribed = false;
+            try
+            {
+                Automation.AddStructureChangedEventHandler(root, TreeScope.Subtree, h);
+                subscribed = true;
+            }
+            catch (Exception) { }
+            lock (genLock)
+            {
+                if (subscribed)
                 {
-                    Automation.AddStructureChangedEventHandler(root, TreeScope.Subtree, h);
                     handlers[key] = h;
                     watched.Enqueue(new KeyValuePair<long, AutomationElement>(key, root));
                 }
-                catch (Exception) { }
                 while (watched.Count > MaxWatched)
                 {
                     var old = watched.Dequeue();
@@ -2183,8 +2193,10 @@ namespace AevalDesktop
             {
                 for (int n = 0; n < count; n++)
                 {
-                    SendMouseAbs(p[0], p[1], down, 0);
-                    SendMouseAbs(p[0], p[1], up, 0);
+                    // The button alone: an absolute move here would undo
+                    // MoveTo's correction by the rounding error.
+                    SendMouseRel(0, 0, down, 0);
+                    SendMouseRel(0, 0, up, 0);
                     if (n + 1 < count) Thread.Sleep(40);
                 }
             }
@@ -2223,22 +2235,19 @@ namespace AevalDesktop
             int steps = Math.Max(2, Math.Min(60, Int(a, "steps", 12)));
             MoveTo(from[0], from[1]);
             Thread.Sleep(30);
-            SendMouseAbs(from[0], from[1], 0x2, 0);
+            SendMouseRel(0, 0, 0x2, 0);
             // A drag stopped half way lets go where the pointer is, not at
             // the target.
-            int lx = from[0], ly = from[1];
             try
             {
                 for (int n = 1; n <= steps; n++)
                 {
                     int x = from[0] + (to[0] - from[0]) * n / steps, y = from[1] + (to[1] - from[1]) * n / steps;
-                    SendMouseAbs(x, y, 0, 0);
-                    lx = x;
-                    ly = y;
+                    MoveTo(x, y);
                     Thread.Sleep(12);
                 }
             }
-            finally { SendMouseAbs(lx, ly, 0x4, 0); }
+            finally { SendMouseRel(0, 0, 0x4, 0); }
             var res = new Dictionary<string, object>();
             res["ok"] = true;
             res["from"] = from;
