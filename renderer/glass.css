@@ -389,13 +389,45 @@ html[data-shot-bg] body {
   box-shadow: var(--own-shadow, none), 0 0 0 5px rgb(0 0 0 / 0.38);
 }
 
-/* Icons come from renderer/icons.svg (one family, one weight). */
+/* Icons: renderer/icons.svg, one family and one weight. Each glyph is a
+   <view> in the sprite, shown as a mask filled with currentColor, so it
+   takes the control's colour and its hover. A mask is a CSS image: these
+   URLs resolve against this file, so pages in settings/ and history/ find
+   the sprite too. Markup: <span class="ico i-x" aria-hidden="true"></span>,
+   or AevalGlass.icon('x'). */
 .ico {
+  display: inline-block;
   flex: 0 0 auto;
   width: var(--ico-i);
   height: var(--ico-i);
-  overflow: visible;
+  background-color: currentColor;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* In a contrast theme the fill is the inherited system text colour. */
+  forced-color-adjust: none;
 }
+
+.i-x { -webkit-mask-image: url(icons.svg#x); mask-image: url(icons.svg#x); }
+.i-chevron { -webkit-mask-image: url(icons.svg#chevron); mask-image: url(icons.svg#chevron); }
+.i-check { -webkit-mask-image: url(icons.svg#check); mask-image: url(icons.svg#check); }
+.i-copy { -webkit-mask-image: url(icons.svg#copy); mask-image: url(icons.svg#copy); }
+.i-gear { -webkit-mask-image: url(icons.svg#gear); mask-image: url(icons.svg#gear); }
+.i-history { -webkit-mask-image: url(icons.svg#history); mask-image: url(icons.svg#history); }
+.i-plus { -webkit-mask-image: url(icons.svg#plus); mask-image: url(icons.svg#plus); }
+.i-stop { -webkit-mask-image: url(icons.svg#stop); mask-image: url(icons.svg#stop); }
+.i-clock { -webkit-mask-image: url(icons.svg#clock); mask-image: url(icons.svg#clock); }
+.i-bubble { -webkit-mask-image: url(icons.svg#bubble); mask-image: url(icons.svg#bubble); }
+.i-viewfinder { -webkit-mask-image: url(icons.svg#viewfinder); mask-image: url(icons.svg#viewfinder); }
+.i-pointer { -webkit-mask-image: url(icons.svg#pointer); mask-image: url(icons.svg#pointer); }
+.i-area { -webkit-mask-image: url(icons.svg#area); mask-image: url(icons.svg#area); }
+.i-info { -webkit-mask-image: url(icons.svg#info); mask-image: url(icons.svg#info); }
+.i-search { -webkit-mask-image: url(icons.svg#search); mask-image: url(icons.svg#search); }
+.i-trash { -webkit-mask-image: url(icons.svg#trash); mask-image: url(icons.svg#trash); }
+.i-retry { -webkit-mask-image: url(icons.svg#retry); mask-image: url(icons.svg#retry); }
 
 .g-icon {
   flex: 0 0 auto;
@@ -409,6 +441,7 @@ html[data-shot-bg] body {
   transition: background var(--d-fast) ease, color var(--d-fast) ease, transform 120ms var(--ease-out);
 }
 
+.g-icon > .ico,
 .g-icon > svg {
   width: var(--ico);
   height: var(--ico);
@@ -419,6 +452,7 @@ html[data-shot-bg] body {
   height: var(--ctl-s);
 }
 
+.g-icon.small > .ico,
 .g-icon.small > svg {
   width: var(--ico-s);
   height: var(--ico-s);
@@ -543,6 +577,7 @@ kbd,
   height: var(--ctl-s);
 }
 
+.sheet-bar-tools > .g-icon > .ico,
 .sheet-bar-tools > .g-icon > svg {
   width: var(--ico-s);
   height: var(--ico-s);

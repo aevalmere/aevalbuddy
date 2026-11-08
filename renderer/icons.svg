@@ -1,105 +1,143 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <!-- The one icon family (DESIGN.md "Icons"): every glyph on a 20 px grid,
-       a 1.5 px stroke that stays 1.5 px at any size (non-scaling-stroke),
-       round caps and joins, drawn in currentColor. Sizes: 18 in a 32 px
-       button, 16 in a 28 px button, 14 inline (glass.css --ico, --ico-s,
-       --ico-i). Use: <svg class="ico"><use href="icons.svg#x"></use></svg>,
-       or AevalGlass.icon('x') from script. -->
-  <symbol id="x" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
-    </g>
-  </symbol>
-  <symbol id="chevron" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M6 8l4 4 4-4" />
-    </g>
-  </symbol>
-  <symbol id="check" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M5 10.5l3.5 3.5L15 6.5" />
-    </g>
-  </symbol>
-  <symbol id="copy" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect vector-effect="non-scaling-stroke" x="7.5" y="7.5" width="8.5" height="8.5" rx="2" />
-      <path vector-effect="non-scaling-stroke" d="M12.5 7.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4.5a2 2 0 0 0 2 2h1.5" />
-    </g>
-  </symbol>
-  <symbol id="gear" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M8.67 4.46L8.88 2.48A7.6 7.6 0 0 1 11.12 2.48L11.33 4.46A5.7 5.7 0 0 1 12.98 5.14L14.52 3.89A7.6 7.6 0 0 1 16.11 5.48L14.86 7.02A5.7 5.7 0 0 1 15.54 8.67L17.52 8.88A7.6 7.6 0 0 1 17.52 11.12L15.54 11.33A5.7 5.7 0 0 1 14.86 12.98L16.11 14.52A7.6 7.6 0 0 1 14.52 16.11L12.98 14.86A5.7 5.7 0 0 1 11.33 15.54L11.12 17.52A7.6 7.6 0 0 1 8.88 17.52L8.67 15.54A5.7 5.7 0 0 1 7.02 14.86L5.48 16.11A7.6 7.6 0 0 1 3.89 14.52L5.14 12.98A5.7 5.7 0 0 1 4.46 11.33L2.48 11.12A7.6 7.6 0 0 1 2.48 8.88L4.46 8.67A5.7 5.7 0 0 1 5.14 7.02L3.89 5.48A7.6 7.6 0 0 1 5.48 3.89L7.02 5.14A5.7 5.7 0 0 1 8.67 4.46Z" />
-      <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="2.25" />
-    </g>
-  </symbol>
-  <symbol id="history" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M3.75 10a6.25 6.25 0 1 0 6.25-6.25 6.77 6.77 0 0 0-4.68 1.91L3.75 7.25" />
-      <path vector-effect="non-scaling-stroke" d="M3.75 3.75v3.5h3.5" />
-      <path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.75 1.4" />
-    </g>
-  </symbol>
-  <symbol id="plus" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M10 4.5v11M4.5 10h11" />
-    </g>
-  </symbol>
-  <symbol id="stop" viewBox="0 0 20 20">
-    <rect x="5.5" y="5.5" width="9" height="9" rx="2" fill="currentColor" />
-  </symbol>
-  <symbol id="clock" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="6.5" />
-      <path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.5 1.5" />
-    </g>
-  </symbol>
-  <!-- Ask, Find and Do: the intent token's glyphs, and the kind of an output
-       window. -->
-  <symbol id="bubble" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M10 3.75c3.73 0 6.5 2.55 6.5 5.75s-2.77 5.75-6.5 5.75c-.8 0-1.55-.11-2.25-.33L4.25 16.25l.95-2.85C4.27 12.36 3.5 11 3.5 9.5c0-3.2 2.77-5.75 6.5-5.75z" />
-    </g>
-  </symbol>
-  <symbol id="viewfinder" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M3.75 7.25V5.75a2 2 0 0 1 2-2h1.5M12.75 3.75h1.5a2 2 0 0 1 2 2v1.5M16.25 12.75v1.5a2 2 0 0 1-2 2h-1.5M7.25 16.25h-1.5a2 2 0 0 1-2-2v-1.5" />
-      <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="2.25" />
-    </g>
-  </symbol>
-  <symbol id="pointer" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(3.4 2.1) scale(0.6)">
-      <path vector-effect="non-scaling-stroke" d="M2.6 1.6L2.6 20.4Q2.6 22.6 4.3 21.2L8.6 17.5L11.5 24.6Q12.2 26.3 13.9 25.6L15.6 24.9Q17.3 24.2 16.6 22.5L13.9 15.9L19.4 15.6Q21.6 15.5 20.1 13.9L4.8 0.9Q2.6 -0.6 2.6 1.6Z" />
-    </g>
-  </symbol>
-  <!-- Beyond the twelve: the bar's area button, notices, search, delete and
-       retry, so no page draws its own. -->
-  <symbol id="area" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M5.5 2.75v10a1.75 1.75 0 0 0 1.75 1.75h10" />
-      <path vector-effect="non-scaling-stroke" d="M2.75 5.5h10a1.75 1.75 0 0 1 1.75 1.75v10" />
-    </g>
-  </symbol>
-  <symbol id="info" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="7" />
-      <path vector-effect="non-scaling-stroke" d="M10 9.25v4.25M10 6.5v.01" />
-    </g>
-  </symbol>
-  <symbol id="search" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle vector-effect="non-scaling-stroke" cx="8.75" cy="8.75" r="5" />
-      <path vector-effect="non-scaling-stroke" d="M12.5 12.5l4 4" />
-    </g>
-  </symbol>
-  <symbol id="trash" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M3.75 5.75h12.5M8 5.75V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.25M5.25 5.75l.7 9.6a1.5 1.5 0 0 0 1.5 1.4h5.1a1.5 1.5 0 0 0 1.5-1.4l.7-9.6" />
-    </g>
-  </symbol>
-  <symbol id="retry" viewBox="0 0 20 20">
-    <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path vector-effect="non-scaling-stroke" d="M16.25 10a6.25 6.25 0 1 1-6.25-6.25c1.75 0 3.42.69 4.68 1.9L16.25 7.25" />
-      <path vector-effect="non-scaling-stroke" d="M16.25 3.75v3.5h-3.5" />
-    </g>
-  </symbol>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 408 20" width="408" height="20">
+  <!-- The one icon family (DESIGN.md "One system"): every glyph on a 20 px
+       grid, a 1.5 px stroke that stays 1.5 px at any size
+       (non-scaling-stroke), round caps and joins. Each glyph is a <view>
+       24 units apart, so a page shows one as a CSS mask filled with
+       currentColor: glass.css .ico plus .i-<name>, or AevalGlass.icon(name)
+       from script. A mask is a CSS image, which every page's CSP allows
+       (img-src 'self'); an external <use> is not. Sizes: 18 in a 32 px
+       button, 16 in a 28 px button, 14 inline (--ico, --ico-s, --ico-i). -->
+  <defs>
+    <symbol id="s-x" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+      </g>
+    </symbol>
+    <symbol id="s-chevron" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M6 8l4 4 4-4" />
+      </g>
+    </symbol>
+    <symbol id="s-check" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M5 10.5l3.5 3.5L15 6.5" />
+      </g>
+    </symbol>
+    <symbol id="s-copy" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect vector-effect="non-scaling-stroke" x="7.5" y="7.5" width="8.5" height="8.5" rx="2" />
+        <path vector-effect="non-scaling-stroke" d="M12.5 7.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4.5a2 2 0 0 0 2 2h1.5" />
+      </g>
+    </symbol>
+    <symbol id="s-gear" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M8.67 4.46L8.88 2.48A7.6 7.6 0 0 1 11.12 2.48L11.33 4.46A5.7 5.7 0 0 1 12.98 5.14L14.52 3.89A7.6 7.6 0 0 1 16.11 5.48L14.86 7.02A5.7 5.7 0 0 1 15.54 8.67L17.52 8.88A7.6 7.6 0 0 1 17.52 11.12L15.54 11.33A5.7 5.7 0 0 1 14.86 12.98L16.11 14.52A7.6 7.6 0 0 1 14.52 16.11L12.98 14.86A5.7 5.7 0 0 1 11.33 15.54L11.12 17.52A7.6 7.6 0 0 1 8.88 17.52L8.67 15.54A5.7 5.7 0 0 1 7.02 14.86L5.48 16.11A7.6 7.6 0 0 1 3.89 14.52L5.14 12.98A5.7 5.7 0 0 1 4.46 11.33L2.48 11.12A7.6 7.6 0 0 1 2.48 8.88L4.46 8.67A5.7 5.7 0 0 1 5.14 7.02L3.89 5.48A7.6 7.6 0 0 1 5.48 3.89L7.02 5.14A5.7 5.7 0 0 1 8.67 4.46Z" />
+        <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="2.25" />
+      </g>
+    </symbol>
+    <symbol id="s-history" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M3.75 10a6.25 6.25 0 1 0 6.25-6.25 6.77 6.77 0 0 0-4.68 1.91L3.75 7.25" />
+        <path vector-effect="non-scaling-stroke" d="M3.75 3.75v3.5h3.5" />
+        <path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.75 1.4" />
+      </g>
+    </symbol>
+    <symbol id="s-plus" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M10 4.5v11M4.5 10h11" />
+      </g>
+    </symbol>
+    <symbol id="s-stop" viewBox="0 0 20 20">
+      <rect x="5.5" y="5.5" width="9" height="9" rx="2" fill="#000" />
+    </symbol>
+    <symbol id="s-clock" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="6.5" />
+        <path vector-effect="non-scaling-stroke" d="M10 6.5V10l2.5 1.5" />
+      </g>
+    </symbol>
+    <!-- Ask, Find and Do: the intent token's glyphs, and the kind of an
+         output window. -->
+    <symbol id="s-bubble" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M10 3.75c3.73 0 6.5 2.55 6.5 5.75s-2.77 5.75-6.5 5.75c-.8 0-1.55-.11-2.25-.33L4.25 16.25l.95-2.85C4.27 12.36 3.5 11 3.5 9.5c0-3.2 2.77-5.75 6.5-5.75z" />
+      </g>
+    </symbol>
+    <symbol id="s-viewfinder" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M3.75 7.25V5.75a2 2 0 0 1 2-2h1.5M12.75 3.75h1.5a2 2 0 0 1 2 2v1.5M16.25 12.75v1.5a2 2 0 0 1-2 2h-1.5M7.25 16.25h-1.5a2 2 0 0 1-2-2v-1.5" />
+        <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="2.25" />
+      </g>
+    </symbol>
+    <symbol id="s-pointer" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(3.4 2.1) scale(0.6)">
+        <path vector-effect="non-scaling-stroke" d="M2.6 1.6L2.6 20.4Q2.6 22.6 4.3 21.2L8.6 17.5L11.5 24.6Q12.2 26.3 13.9 25.6L15.6 24.9Q17.3 24.2 16.6 22.5L13.9 15.9L19.4 15.6Q21.6 15.5 20.1 13.9L4.8 0.9Q2.6 -0.6 2.6 1.6Z" />
+      </g>
+    </symbol>
+    <!-- Beyond the twelve: the bar's area button, notices, search, delete
+         and retry, so no page draws its own. -->
+    <symbol id="s-area" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M5.5 2.75v10a1.75 1.75 0 0 0 1.75 1.75h10" />
+        <path vector-effect="non-scaling-stroke" d="M2.75 5.5h10a1.75 1.75 0 0 1 1.75 1.75v10" />
+      </g>
+    </symbol>
+    <symbol id="s-info" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle vector-effect="non-scaling-stroke" cx="10" cy="10" r="7" />
+        <path vector-effect="non-scaling-stroke" d="M10 9.25v4.25M10 6.5v.01" />
+      </g>
+    </symbol>
+    <symbol id="s-search" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle vector-effect="non-scaling-stroke" cx="8.75" cy="8.75" r="5" />
+        <path vector-effect="non-scaling-stroke" d="M12.5 12.5l4 4" />
+      </g>
+    </symbol>
+    <symbol id="s-trash" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M3.75 5.75h12.5M8 5.75V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.25M5.25 5.75l.7 9.6a1.5 1.5 0 0 0 1.5 1.4h5.1a1.5 1.5 0 0 0 1.5-1.4l.7-9.6" />
+      </g>
+    </symbol>
+    <symbol id="s-retry" viewBox="0 0 20 20">
+      <g fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path vector-effect="non-scaling-stroke" d="M16.25 10a6.25 6.25 0 1 1-6.25-6.25c1.75 0 3.42.69 4.68 1.9L16.25 7.25" />
+        <path vector-effect="non-scaling-stroke" d="M16.25 3.75v3.5h-3.5" />
+      </g>
+    </symbol>
+  </defs>
+  <view id="x" viewBox="0 0 20 20" />
+  <use href="#s-x" x="0" y="0" width="20" height="20" />
+  <view id="chevron" viewBox="24 0 20 20" />
+  <use href="#s-chevron" x="24" y="0" width="20" height="20" />
+  <view id="check" viewBox="48 0 20 20" />
+  <use href="#s-check" x="48" y="0" width="20" height="20" />
+  <view id="copy" viewBox="72 0 20 20" />
+  <use href="#s-copy" x="72" y="0" width="20" height="20" />
+  <view id="gear" viewBox="96 0 20 20" />
+  <use href="#s-gear" x="96" y="0" width="20" height="20" />
+  <view id="history" viewBox="120 0 20 20" />
+  <use href="#s-history" x="120" y="0" width="20" height="20" />
+  <view id="plus" viewBox="144 0 20 20" />
+  <use href="#s-plus" x="144" y="0" width="20" height="20" />
+  <view id="stop" viewBox="168 0 20 20" />
+  <use href="#s-stop" x="168" y="0" width="20" height="20" />
+  <view id="clock" viewBox="192 0 20 20" />
+  <use href="#s-clock" x="192" y="0" width="20" height="20" />
+  <view id="bubble" viewBox="216 0 20 20" />
+  <use href="#s-bubble" x="216" y="0" width="20" height="20" />
+  <view id="viewfinder" viewBox="240 0 20 20" />
+  <use href="#s-viewfinder" x="240" y="0" width="20" height="20" />
+  <view id="pointer" viewBox="264 0 20 20" />
+  <use href="#s-pointer" x="264" y="0" width="20" height="20" />
+  <view id="area" viewBox="288 0 20 20" />
+  <use href="#s-area" x="288" y="0" width="20" height="20" />
+  <view id="info" viewBox="312 0 20 20" />
+  <use href="#s-info" x="312" y="0" width="20" height="20" />
+  <view id="search" viewBox="336 0 20 20" />
+  <use href="#s-search" x="336" y="0" width="20" height="20" />
+  <view id="trash" viewBox="360 0 20 20" />
+  <use href="#s-trash" x="360" y="0" width="20" height="20" />
+  <view id="retry" viewBox="384 0 20 20" />
+  <use href="#s-retry" x="384" y="0" width="20" height="20" />
 </svg>

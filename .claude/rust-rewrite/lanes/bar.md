@@ -246,6 +246,10 @@ Stop when every item below and the standing labels task is green on CI at your b
 
 (One line per item as it turns green: `- B-xxx: green at <sha>; <acceptance names>`. Also `C1 green at <sha>` and any notes the next agent needs.)
 
+- C1 green at c114f4a (rust and ui-shots). K-40 tokens, `.sheet-bar`, `.g-menu`, `AevalGlass.scrimFor`, `--text-scale`, `--accent-text`; K-41 `html[data-maximized]`; K-42 `AevalA11y.say`.
+- C1 follow-up (icons): at c114f4a the sprite was referenced with an external `<use href="icons.svg#x">`, which draws nothing under the pages' CSP (ui-shots 01 and 10 show empty buttons). The follow-up draws each glyph as a CSS mask of a `<view>` in `icons.svg` (an image, allowed by `img-src 'self'`): markup `<span class="ico i-<name>" aria-hidden="true"></span>` or `AevalGlass.icon(name)`. Consumers should take the follow-up sha, not c114f4a.
+- In progress: B-055 (glass levels), kept aside as a patch while the icon follow-up runs.
+
 ## Blockers
 
 (None yet. Format: `- B-xxx: <what blocks it>; <why>; <what would unblock it>`.)

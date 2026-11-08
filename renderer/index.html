@@ -33,9 +33,9 @@
       <button id="intent" class="intent-token" type="button" data-intent="ask" data-locked="false"
               data-confidence="low" aria-haspopup="listbox" aria-expanded="false"
               aria-controls="intent-menu" title="Ask ? or Ctrl+1 · Find / or Ctrl+2 · Do &gt; or Ctrl+3 · Alt+Down for this menu">
-        <svg class="tok-glyph g-ask" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#bubble"></use></svg>
-        <svg class="tok-glyph g-find" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#viewfinder"></use></svg>
-        <svg class="tok-glyph g-do" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#pointer"></use></svg>
+        <span class="ico tok-glyph g-ask i-bubble" aria-hidden="true"></span>
+        <span class="ico tok-glyph g-find i-viewfinder" aria-hidden="true"></span>
+        <span class="ico tok-glyph g-do i-pointer" aria-hidden="true"></span>
         <span class="intent-name">Ask</span>
       </button>
       <input
@@ -50,22 +50,22 @@
       <span id="intent-desc" class="sr-only"></span>
       <button id="region-btn" class="g-icon" type="button" aria-label="Ask about an area of the screen"
               title="Ask about an area">
-        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#area"></use></svg>
+        <span class="ico i-area" aria-hidden="true"></span>
       </button>
       <button id="settings-btn" class="g-icon" type="button" aria-label="Open settings" title="Settings">
-        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#gear"></use></svg>
+        <span class="ico i-gear" aria-hidden="true"></span>
       </button>
       <!-- Esc and a click outside collapse the bar; this stays for anyone
            who looks for a button, and for switch access. -->
       <button id="close-btn" class="g-icon" type="button" aria-label="Collapse" title="Collapse (Esc)">
-        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#x"></use></svg>
+        <span class="ico i-x" aria-hidden="true"></span>
       </button>
     </div>
 
     <ul id="intent-menu" class="glass thin g-menu" role="listbox" aria-label="What Enter does" hidden>
-      <li role="option" tabindex="-1" data-intent="ask"><span class="g-menu-label">Ask about the screen</span><span class="g-menu-keys"><kbd>?</kbd><kbd>Ctrl+1</kbd></span><svg class="g-check" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#check"></use></svg></li>
-      <li role="option" tabindex="-1" data-intent="find"><span class="g-menu-label">Find words on screen</span><span class="g-menu-keys"><kbd>/</kbd><kbd>Ctrl+2</kbd></span><svg class="g-check" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#check"></use></svg></li>
-      <li role="option" tabindex="-1" data-intent="do"><span class="g-menu-label">Do it as a task</span><span class="g-menu-keys"><kbd>&gt;</kbd><kbd>Ctrl+3</kbd></span><svg class="g-check" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#check"></use></svg></li>
+      <li role="option" tabindex="-1" data-intent="ask"><span class="g-menu-label">Ask about the screen</span><span class="g-menu-keys"><kbd>?</kbd><kbd>Ctrl+1</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
+      <li role="option" tabindex="-1" data-intent="find"><span class="g-menu-label">Find words on screen</span><span class="g-menu-keys"><kbd>/</kbd><kbd>Ctrl+2</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
+      <li role="option" tabindex="-1" data-intent="do"><span class="g-menu-label">Do it as a task</span><span class="g-menu-keys"><kbd>&gt;</kbd><kbd>Ctrl+3</kbd></span><span class="ico g-check i-check" aria-hidden="true"></span></li>
     </ul>
 
     <!-- A task that was only guessed never starts on Enter. -->
@@ -84,7 +84,7 @@
          one that chose it, so it stays on screen for as long as it is in
          force. -->
     <div id="region-chip" class="glass thin" hidden>
-      <svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#area"></use></svg>
+      <span class="ico i-area" aria-hidden="true"></span>
       <span id="region-size"></span>
       <button id="region-clear" type="button" class="g-chip">Whole screen</button>
     </div>
@@ -97,7 +97,7 @@
     </div>
 
     <div id="notice" class="glass thin" hidden>
-      <svg class="ico" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="icons.svg#info"></use></svg>
+      <span class="ico i-info" aria-hidden="true"></span>
       <span id="notice-text"></span>
       <button id="notice-settings" type="button" class="g-btn prominent" hidden>Open settings</button>
     </div>

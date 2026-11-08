@@ -638,27 +638,14 @@
 
   // ---------------------------------------------------------------- icons
 
-  // renderer/icons.svg, resolved from this script so pages in other folders
-  // (settings/, history/) find it too.
-  const SPRITE = (() => {
-    try {
-      return new URL('icons.svg', document.currentScript.src).href;
-    } catch (err) {
-      return 'icons.svg';
-    }
-  })();
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
+  // A glyph from renderer/icons.svg: a span that glass.css masks with the
+  // sprite's <view> of that name (.ico .i-<name>), filled with currentColor.
+  // Extra classes size it (for example 'g-check').
   function icon(name, cls) {
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', cls || 'ico');
-    svg.setAttribute('viewBox', '0 0 20 20');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    const use = document.createElementNS(SVG_NS, 'use');
-    use.setAttribute('href', `${SPRITE}#${name}`);
-    svg.appendChild(use);
-    return svg;
+    const el = document.createElement('span');
+    el.className = `ico i-${name}${cls ? ` ${cls}` : ''}`;
+    el.setAttribute('aria-hidden', 'true');
+    return el;
   }
 
   // ---------------------------------------------------------- announcements
@@ -762,7 +749,6 @@
     resetPassthrough,
     scrimFor,
     icon,
-    sprite: SPRITE,
     textScale: () => Number(getComputedStyle(root).getPropertyValue('--text-scale')) || 1,
     stepTextScale,
     // Settings' slider: applied here at once, shared with every other page.
