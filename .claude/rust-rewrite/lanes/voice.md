@@ -27,7 +27,8 @@ Speak instead of typing: a mic in the bar that fills the field, and Wispr-Flow-s
 
 | Item | Status |
 |---|---|
-| Engine decision and build (D-voice-1, D-voice-2) | in progress |
-| Capture, model download, Whisper, cleanup, insertion, hook | in progress |
-| Bar mic, pill, Settings Voice | in progress |
-| Probe, labels, ui-shots lane | in progress |
+| Engine decision and build (D-voice-1, D-voice-2): whisper-rs-sys builds /MT with libclang on the runner; `voiceNoCppRuntime` ok | 9131c77 (rust green, run 42540496429) |
+| Capture, model download and SHA check, Whisper, cleanup, insertion, hold-to-talk hook | 9131c77 |
+| Bar mic, dictation pill, Settings Voice page | b66d255 (ui-shots green, run 42525770477; renderer unchanged since) |
+| Probe and 7 smoke labels, ui-shots lane | 9131c77 (all voice labels ok) |
+| Not done: `hotkeys::set` does not yet refuse an app shortcut equal to the dictation chord (voice refuses the reverse) | open |
