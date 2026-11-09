@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42570767165](https://github.com/aevalmere/aevalbuddy/actions/runs/42570767165), attempt 1, on push
-- Commit: d4a1b729efd2d496072bd1716e83276083674607
+- Run: [42585027206](https://github.com/aevalmere/aevalbuddy/actions/runs/42585027206), attempt 1, on push
+- Commit: de37306d16f02520be0c5445d2fca849bb908f6d
 - Ref: rust/voice-speed
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-09T06:24:13Z
+- Finished: 2026-11-09T08:44:17Z
 
 | Step | Outcome | Log |
 |---|---|---|

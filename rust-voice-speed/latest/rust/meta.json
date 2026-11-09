@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42570767165,
+  "run_id": 42585027206,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42570767165",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42585027206",
   "event": "push",
-  "sha": "d4a1b729efd2d496072bd1716e83276083674607",
+  "sha": "de37306d16f02520be0c5445d2fca849bb908f6d",
   "ref": "rust/voice-speed",
   "ref_dir": "rust-voice-speed",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-09T06:24:13Z",
+  "finished": "2026-11-09T08:44:17Z",
   "error_lines": 6,
   "steps": [
     {
