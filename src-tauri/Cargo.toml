@@ -174,12 +174,3 @@ strip = true
 # capture: BGRA resizing is the backdrop's hot loop (B-030).
 [profile.release.package.fast_image_resize]
 opt-level = 3
-
-# voice lane (entries/voice-speed.md, D-voice-15): whisper.cpp is the
-# dictation hot loop. Under the workspace's opt-level "s", cmake-rs builds it
-# MinSizeRel (/O1), which ran Whisper base several times slower.
-[profile.release.package.whisper-rs-sys]
-opt-level = 3
-
-[profile.release.package.whisper-rs]
-opt-level = 3
