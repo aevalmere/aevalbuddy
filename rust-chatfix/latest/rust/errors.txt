@@ -1,14 +1,5 @@
-== fmt.log ==
-Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\selftest\probes\windows.rs:151:
-                 .collect()
-         })
-         .unwrap_or_default();
--    cx.log("windowsAfter", format!("{} (answer shown at start: {was_shown})", shown.join(",")));
-+    cx.log(
-+        "windowsAfter",
-+        format!("{} (answer shown at start: {was_shown})", shown.join(",")),
-+    );
- }
- 
- /// The bar moved to that corner and the answer placed afresh beside it, as
-
+== smoke.log ==
+[SMOKE] backdropIdle=FAIL:fast=true slow=false after 6047ms
+[SMOKE] failed: backdropIdle
+[GATE] fail backdropIdle=FAIL:fast=true slow=false after 6047ms
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: backdropIdle; 1 listed label(s) never printed
