@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42562431181,
+  "run_id": 42562594916,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42562431181",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42562594916",
   "event": "push",
-  "sha": "cad1fcb0ef5a28d58f05e94c72f6faaba33a7ab5",
+  "sha": "e7761c02d90933bec51a604bb49e05bd82a3a055",
   "ref": "rust/polish",
   "ref_dir": "rust-polish",
-  "conclusion": "cancelled",
+  "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-09T04:34:40Z",
+  "finished": "2026-11-09T04:48:10Z",
   "error_lines": 0,
   "steps": [
     {
@@ -55,23 +55,23 @@
     },
     {
       "name": "Clippy",
-      "outcome": "cancelled",
+      "outcome": "success",
       "log": "clippy.log"
     },
     {
       "name": "Unit tests",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "test.log"
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "nsis.log"
     },
     {
       "name": "Save NSIS toolset",
@@ -80,27 +80,27 @@
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "desktop.log"
     },
     {
       "name": "Upload installer",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     }
   ]
