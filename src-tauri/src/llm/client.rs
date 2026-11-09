@@ -186,6 +186,9 @@ pub struct Meta {
     pub purpose: String,
     pub query: Option<String>,
     pub task: Option<String>,
+    /// A longer cap than `OVERALL_TIMEOUT` for this one non-streamed call
+    /// (an agent turn on a native provider takes up to 180 s, B-132).
+    pub overall: Option<Duration>,
 }
 
 impl Meta {
@@ -450,7 +453,7 @@ impl Llm {
         }
         // A stream sends its headers at once; a whole reply only when done.
         let stream = body["stream"].as_bool().unwrap_or(false);
-        let wait = if stream { self.idle } else { self.overall };
+        let wait = if stream { self.idle } else { self.overall_for(meta) };
         let sent = async {
             match &self.fake {
                 Some(fake) => {
@@ -502,10 +505,16 @@ impl Llm {
         meta: &Meta,
     ) -> Result<(Value, Provider), ApiError> {
         let whole = self.read_json(active, body, cancel, meta);
-        match tokio::time::timeout(self.overall, whole).await {
+        let cap = self.overall_for(meta);
+        match tokio::time::timeout(cap, whole).await {
             Ok(r) => r,
-            Err(_) => Err(stalled(self.overall)),
+            Err(_) => Err(stalled(cap)),
         }
+    }
+
+    /// The whole-call cap: the call's own when it asks for longer.
+    fn overall_for(&self, meta: &Meta) -> Duration {
+        meta.overall.map_or(self.overall, |d| d.max(self.overall))
     }
 
     async fn read_json(
@@ -1433,6 +1442,15 @@ AevalBuddy is skipping Google Gemini until you replace it.";
         let meta = Meta::default();
         let e = block(llm.chat_turn(&k, "m", &[], None, c, &meta)).unwrap_err();
         assert_eq!(e.status, Some(408));
+        // A call that asks for longer (a native agent turn, B-132) gets it.
+        let meta = Meta {
+            overall: Some(Duration::from_millis(400)),
+            ..Meta::default()
+        };
+        let t0 = std::time::Instant::now();
+        let e = block(llm.chat_turn(&k, "m", &[], None, c, &meta)).unwrap_err();
+        assert_eq!(e.status, Some(408));
+        assert!(t0.elapsed() >= Duration::from_millis(350));
     }
 
     #[test]

@@ -22,7 +22,6 @@ let mode = 'idle';
 let lastGen = 0;
 let renderQueued = false;
 let resizeQueued = false;
-let lastSentHeight = 0;
 let lastGlass = '';
 let fixedHeight = false;
 // The assistant message currently streaming: { el, body, raw, ... }.
@@ -947,10 +946,8 @@ function renderLive() {
 }
 
 // Rust is told the sheet's glass rect once per frame (output:glass, K-23),
-// so its resize bands follow the visible sheet; and, until the window stops
-// following content on its own (B-027), the height it should be. An 8 px
-// deadband keeps that from twitching, and it never shrinks while an answer
-// streams, so the bottom edge does not chase the text.
+// so its resize bands and click-through follow the visible sheet. The
+// window itself is sized once (B-027); the sheet grows inside it.
 function requestResize() {
   if (opanel.hidden || resizeQueued) return;
   resizeQueued = true;
@@ -966,11 +963,6 @@ function requestResize() {
       lastGlass = glass;
       send('output:glass', { top, height });
     }
-    if (fixedHeight) return;
-    if (height < lastSentHeight && liveMsg) return;
-    if (Math.abs(height - lastSentHeight) < 8) return;
-    lastSentHeight = height;
-    send('output:resize', { height });
   });
 }
 window.requestResize = requestResize;
@@ -1021,8 +1013,8 @@ listen('overlay:state', (next) => {
   if (next.chatMax) {
     document.documentElement.style.setProperty('--chat-max', next.chatMax + 'px');
   }
-  // A dragged height means the window no longer follows the transcript, so
-  // the renderer stops asking it to.
+  // A dragged height means the window no longer follows the transcript;
+  // the sheet fills it and scrolls.
   fixedHeight = !!next.outputFixedHeight;
   document.body.dataset.fixedHeight = fixedHeight ? '1' : '0';
   syncMeta();
@@ -1198,7 +1190,6 @@ listen('chat:reset', (p) => {
   chatEl.innerHTML = '';
   chatEl.removeAttribute('aria-busy');
   liveMsg = null;
-  lastSentHeight = 0;
   titled = false;
   setTitle('Answer', '');
   syncOrbit();

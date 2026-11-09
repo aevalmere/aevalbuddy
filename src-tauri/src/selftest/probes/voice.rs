@@ -141,7 +141,7 @@ fn bar_field(cx: &Cx) {
         "(() => { const f = document.getElementById('query-input'); f.value = ''; \
          f.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
     );
-    cx.on_main(|app| crate::windows::collapse_panel(app, false));
+    cx.on_main(|app| crate::windows::collapse_panel(app));
     cx.sleep(300);
 }
 

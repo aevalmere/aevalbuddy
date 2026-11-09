@@ -2198,21 +2198,23 @@ impl Ctx {
         let (active, use_tools) = self.st(|s| (s.active.clone(), s.use_tools));
         let task = self.st(|s| s.task.clone());
         let messages = self.st(|s| wire_messages(&s.messages));
+        let limit = if active.provider.is_native() {
+            NATIVE_TURN_MS
+        } else {
+            MODEL_TIMEOUT_MS
+        };
+        // The client's own cap must not cut a native turn short of `limit`.
         let meta = Meta {
             purpose: "agent".into(),
             query: None,
             task: Some(task),
+            overall: Some(Duration::from_millis(limit)),
         };
         let cancel = self.r.cancel.child_token();
         let t0 = Instant::now();
         let tool_defs = if use_tools { Some(tools()) } else { None };
         let llm = &self.a.llm;
         let call = llm.chat_turn(&active, model, &messages, tool_defs, &cancel, &meta);
-        let limit = if active.provider.is_native() {
-            NATIVE_TURN_MS
-        } else {
-            MODEL_TIMEOUT_MS
-        };
         let timeout = tokio::time::sleep(Duration::from_millis(limit));
         let turn = tokio::select! {
             turn = call => turn?,

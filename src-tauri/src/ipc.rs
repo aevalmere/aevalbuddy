@@ -29,7 +29,6 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "overlay:resize",
     "overlay:set-ignore",
     "overlay:open-settings",
-    "output:resize",
     "open-external",
     "query:submit",
     "query:cancel",
@@ -135,6 +134,7 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "settings:set-failover",
     "auth:openrouter-connect",
     "skills:open-folder",
+    "output:sent-image",
     // ---- end: llm ----
     // ---- lane: agent ----
     // ---- end: agent ----
@@ -654,7 +654,7 @@ async fn route(
             if shared(app).lock().mode == Mode::Hud {
                 windows::exit_hud(app);
             } else {
-                windows::collapse_panel(app, false);
+                windows::collapse_panel(app);
             }
         }
         "overlay:resize" => windows::overlay_resize(app, p_num(&p, "height")),
@@ -669,11 +669,6 @@ async fn route(
         "overlay:open-settings" => {
             let section = p_str(&p, "section");
             windows::open_settings(app, Some(section.as_str()).filter(|s| !s.is_empty()));
-        }
-        "output:resize" => {
-            if shared(app).lock().mode != Mode::Hud {
-                outputs::resize(app, &label, p_num(&p, "height"));
-            }
         }
         "output:bar" => {
             let open = {
@@ -691,7 +686,7 @@ async fn route(
         // target. With no window at all the bar folds, as before.
         "output:close" => match output_for(app, &label, &p) {
             Some(l) => outputs::close(app, &l),
-            None => windows::collapse_panel(app, false),
+            None => windows::collapse_panel(app),
         },
         "output:close-all" => outputs::close_all(app),
         // Esc in an output: the foreground goes back to the app (D-01).

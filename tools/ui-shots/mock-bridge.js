@@ -34,9 +34,16 @@
       calls.push({ channel, payload });
       if (channel === 'output:bar') return Promise.resolve(window.__barRect || null);
       // Rust sizes the window to the sheet plus the 20 px margin on each side.
-      if ((channel === 'output:resize' || channel === 'overlay:resize') && payload && payload.height > 0 && !fe.dataset.fixed) {
+      // An output reports its sheet as output:glass {top, height} (B-164);
+      // the frame stands in for the room Rust gives it, and the call still
+      // reaches the recorded calls and mocks below.
+      if (channel === 'overlay:resize' && payload && payload.height > 0 && !fe.dataset.fixed) {
         fe.style.height = `${Math.min(Math.round(payload.height) + 40, Number(fe.dataset.max || 900))}px`;
         return Promise.resolve(null);
+      }
+      if (channel === 'output:glass' && payload && payload.height > 0 && !fe.dataset.fixed) {
+        const top = Number(payload.top) > 0 ? Math.round(payload.top) : 20;
+        fe.style.height = `${Math.min(top + Math.round(payload.height) + 20, Number(fe.dataset.max || 900))}px`;
       }
       const r = answer(channel);
       if (r === '__reject__') return Promise.reject(new Error(`${channel} is not ported to Rust yet`));

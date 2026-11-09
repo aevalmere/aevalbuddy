@@ -1602,6 +1602,7 @@ impl Inner {
                     purpose: "find-expand".into(),
                     query: Some(q.to_string()),
                     task: None,
+                    overall: None,
                 };
                 let system = EXPAND_SYSTEM.join("\n");
                 let user = format!("Query: {q}");
@@ -1711,6 +1712,7 @@ impl Inner {
             purpose: "find-correlate".into(),
             query: Some(q.to_string()),
             task: None,
+            overall: None,
         };
         let system = CORRELATE_SYSTEM.join("\n");
         let mut on_delta = |d: &str| {
