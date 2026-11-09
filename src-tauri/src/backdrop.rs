@@ -964,8 +964,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn intensity_defaults_to_half() {
-        assert_eq!(intensity(), 0.5);
+    fn intensity_defaults_to_liquid() {
+        assert_eq!(intensity(), 0.75);
     }
 
     #[test]

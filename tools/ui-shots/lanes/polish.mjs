@@ -129,9 +129,13 @@ export const scenes = [
       const f = t.frame('settings');
       await t.settle(300);
       await f.evaluate(() => {
-        showPage('pg-models');
-        openSection('sec-model');
+        const main = document.querySelector('main');
+        main.style.scrollBehavior = 'auto';
+        main.scrollTop = document.getElementById('pg-models').offsetTop - main.offsetTop;
+        main.dispatchEvent(new Event('scroll'));
       });
+      await t.settle(300);
+      await f.click('#sec-model > .row-head > .edit');
       await t.settle(500);
       await f.evaluate(() => {
         const main = document.querySelector('main');

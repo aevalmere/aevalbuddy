@@ -817,7 +817,7 @@
   // measured and corrected, so a transformed ancestor cannot shift it either.
   // anchor: an element, a DOMRect, or a point {x, y}.
   const POP_EDGE = 8;
-  function place(el, anchor, opts) {
+  function placePopup(el, anchor, opts) {
     const o = opts || {};
     const gap = o.gap === undefined ? 4 : o.gap;
     const edge = o.edge === undefined ? POP_EDGE : o.edge;
@@ -891,7 +891,7 @@
   else boot();
 
   window.AevalGlass = {
-    place,
+    place: placePopup,
     adopt,
     track,
     morph,
