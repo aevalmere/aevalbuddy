@@ -1,7 +1,0 @@
-== smoke.log ==
-[SMOKE] voiceSpeed=FAIL:6619ms of 1500ms
-[SMOKE] voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6588,"stopMs":1,"waitMs":197,"transcribeMs":7309,"cleanupMs":0,"insertMs":0,"totalMs":7508} budget=1500ms
-[SMOKE] failed: voiceSpeed, voiceSpeedE2e
-[GATE] fail voiceSpeed=FAIL:6619ms of 1500ms
-[GATE] fail voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6588,"stopMs":1,"waitMs":197,"transcribeMs":7309,"cleanupMs":0,"insertMs":0,"totalMs":7508} budget=1500ms
-[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: voiceSpeed, voiceSpeedE2e; 1 listed label(s) never printed
