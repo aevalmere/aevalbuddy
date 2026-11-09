@@ -76,20 +76,10 @@ pub fn run(cx: &mut Cx) {
     let before = cx.on_main(move |app| {
         let st = shared(app);
         let s = st.lock();
-        // Every answer's "active" too: opening the bar shows each one with
-        // a conversation, and an active answer holds the backdrop's fast
-        // pace (capture's backdropIdle).
-        let actives: Vec<(String, bool)> = s
-            .outputs
-            .values()
-            .map(|o| (o.label.clone(), o.active))
-            .collect();
         let shown = flags::hwnd_for(&l).is_some_and(flags::is_visible);
-        s.outputs
-            .get(&l)
-            .map(|o| (o.chat.messages.clone(), actives, shown))
+        s.outputs.get(&l).map(|o| (o.chat.messages.clone(), shown))
     });
-    let Some(Some((messages, actives, was_shown))) = before else {
+    let Some(Some((messages, was_shown))) = before else {
         for l in LABELS {
             cx.must(l, false, "the output has no state");
         }
@@ -141,16 +131,11 @@ pub fn run(cx: &mut Cx) {
         if let Some(p) = payload {
             windows::emit(app, &l, "chat:sync", p);
         }
-        // Only the orb, as the later probes expect (capture's backdropIdle).
-        // The answer may have been up when this probe started: before the
-        // fix, tao hid it the first time a probe's pointer crossed it.
-        outputs::hide_windows(app);
-        if let Some(w) = windows::window(app, &l) {
-            flags::hide(&w);
-        }
-        for (label, active) in actives {
-            outputs::with(app, &label, |o| o.active = active);
-        }
+        // Only the orb, as the later probes expect: an answer shown or
+        // active holds the backdrop's fast pace (capture's backdropIdle).
+        // One was up when this probe started; before the fix, tao hid it
+        // the first time a probe's pointer crossed it.
+        outputs::hide_all(app);
         windows::collapse_panel(app);
     });
     cx.sleep(400);
