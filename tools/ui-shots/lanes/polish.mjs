@@ -2,7 +2,7 @@
 // the least room, ends inside its own window (a WebView cannot draw past its
 // window, so anything outside is cut). The shape is documented at the top of
 // tools/ui-shots/shots.mjs.
-import { ANSWER, BAR, openBar, streamAnswer } from '../kit.mjs';
+import { ANSWER, BAR, COMMON, openBar, streamAnswer } from '../kit.mjs';
 
 export const mocks = {};
 export const checks = [];
@@ -124,7 +124,7 @@ export const scenes = [
   {
     name: 'menu-bounds-combo',
     backdrop: 'wallpaper',
-    windows: [{ name: 'settings', src: '/settings/settings.html', x: 470, y: 160, w: 660, h: 520, z: 1 }],
+    windows: [{ name: 'settings', src: '/settings/settings.html', x: 470, y: 160, w: 660, h: 520, z: 1, responses: { 'settings:get': { ...COMMON['settings:get'], model: 'mistralai/mistral-small-3.1-24b-instruct:free' } } }],
     async run(t) {
       const f = t.frame('settings');
       await t.settle(300);

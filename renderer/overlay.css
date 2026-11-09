@@ -1000,7 +1000,7 @@ body[data-target="1"] #opanel > .gl::after {
   padding-inline-start: calc(var(--inset-text) + max(0px, calc((100% - var(--measure)) / 2)));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
   margin-left: calc(var(--inset-text) * -1);
-  margin-right: -14px;
+  margin-right: -10px;
   user-select: text;
 }
 
@@ -1919,7 +1919,7 @@ body[data-fixed-height="1"] #chat {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin: 0 -14px 0 -12px;
+  margin: 0 -10px 0 -12px;
   padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
 }

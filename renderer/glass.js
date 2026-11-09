@@ -836,20 +836,29 @@
     let side = 'below';
     if (h > below && (h <= above || above > below)) side = 'above';
     const room = Math.max(0, side === 'below' ? below : above);
-    const tall = Math.min(h, room);
-    if (h > room) {
-      el.style.maxHeight = `${room}px`;
-      el.style.overflowY = 'auto';
-    }
+    // Capped at the room on its side even when it fits now: a list that
+    // fills in later (names arriving) scrolls instead of passing the edge.
+    el.style.maxHeight = `${room}px`;
+    el.style.overflowY = 'auto';
     const left = Math.round(Math.max(edge, Math.min(o.align === 'end' ? r.right - w : r.left, vw - w - edge)));
-    const top = Math.round(side === 'below' ? r.bottom + gap : r.top - gap - tall);
     el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
     el.style.right = 'auto';
-    el.style.bottom = 'auto';
+    // Pinned by the edge next to the anchor, so growing moves away from it.
+    if (side === 'below') {
+      const top = Math.round(r.bottom + gap);
+      el.style.top = `${top}px`;
+      el.style.bottom = 'auto';
+      const got = el.getBoundingClientRect();
+      if (Math.abs(got.top - top) >= 0.5) el.style.top = `${Math.round(top + (top - got.top))}px`;
+    } else {
+      const bottom = Math.round(r.top - gap);
+      el.style.bottom = `${vh - bottom}px`;
+      el.style.top = 'auto';
+      const got = el.getBoundingClientRect();
+      if (Math.abs(got.bottom - bottom) >= 0.5) el.style.bottom = `${Math.round(vh - bottom - (bottom - got.bottom))}px`;
+    }
     const got = el.getBoundingClientRect();
     if (Math.abs(got.left - left) >= 0.5) el.style.left = `${Math.round(left + (left - got.left))}px`;
-    if (Math.abs(got.top - top) >= 0.5) el.style.top = `${Math.round(top + (top - got.top))}px`;
     el.dataset.side = side;
     el.style.setProperty('--drop-from', side === 'below' ? '-4px' : '4px');
     return side;
