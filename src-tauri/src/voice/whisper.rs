@@ -115,6 +115,15 @@ pub fn preload(path: &Path) {
     let _ = load(path);
 }
 
+/// Prints whisper.cpp's own stage times for the loaded model to stderr and
+/// starts them again (the speed probe).
+pub fn print_timings() {
+    if let Some(l) = LOADED.lock().as_ref() {
+        l.ctx.print_timings();
+        l.ctx.reset_timings();
+    }
+}
+
 /// Whether `path` is the model in memory now.
 pub fn loaded(path: &Path) -> bool {
     LOADED.lock().as_ref().is_some_and(|l| l.path == path)

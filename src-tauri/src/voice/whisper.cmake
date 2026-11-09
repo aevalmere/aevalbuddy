@@ -19,6 +19,13 @@ if(MSVC)
     string(REGEX REPLACE "[-/]MDd?( |$)" "-MT\\1" ${flags} "${${flags}}")
   endforeach()
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+  # 3. Speed over size whatever configuration cmake-rs picks: the release
+  #    profile's opt-level "s" maps to MinSizeRel (/O1 /Ob1), several times
+  #    slower in ggml's inner loops (entries/voice-speed.md, D-voice-15).
+  foreach(flags CMAKE_C_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_MINSIZEREL)
+    string(REGEX REPLACE "[-/]O1( |$)" "-O2\\1" ${flags} "${${flags}}")
+    string(REGEX REPLACE "[-/]Ob1( |$)" "-Ob2\\1" ${flags} "${${flags}}")
+  endforeach()
 endif()
 
 set(GGML_NATIVE OFF CACHE BOOL "voice lane: a portable build" FORCE)

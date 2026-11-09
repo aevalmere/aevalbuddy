@@ -273,6 +273,7 @@ fn speed(cx: &Cx) {
         if let Ok(ctx) = ctx {
             let t1 = Instant::now();
             let text = whisper::run(&ctx, &clip, "en", "", false);
+            ctx.print_timings();
             cx.log(
                 "voiceSpeedBefore",
                 format!("load={load_ms}ms transcribe={}ms text={text:?}", ms(t1)),
@@ -292,12 +293,14 @@ fn speed(cx: &Cx) {
     let t0 = Instant::now();
     whisper::preload(&path);
     let load_ms = ms(t0);
+    whisper::print_timings();
     let t1 = Instant::now();
     let speech = engine::trim(&clip).unwrap_or(&clip);
     let trim_ms = ms(t1);
     let t2 = Instant::now();
     let text = whisper::transcribe(&path, speech, "en");
     let run_ms = ms(t2);
+    whisper::print_timings();
     let total = trim_ms + run_ms;
     cx.log(
         "voiceSpeedAfter",
