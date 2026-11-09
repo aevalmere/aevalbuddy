@@ -12,7 +12,8 @@ pub struct Heard {
 
 /// The Whisper model a `whisper-*` engine uses.
 pub fn spec(s: &VoiceSettings) -> Option<&'static model::Spec> {
-    s.whisper_size().map(|size| model::spec_for(size, &s.language))
+    s.whisper_size()
+        .map(|size| model::spec_for(size, &s.language))
 }
 
 /// Whether the engine can run now without a download or a missing key.
@@ -30,17 +31,25 @@ pub async fn transcribe(
 ) -> Result<Heard, String> {
     let Some(m) = spec(s) else {
         let text = gemini::transcribe(&samples, &s.language, s.cleanup).await?;
-        return Ok(Heard { text, cleaned: s.cleanup });
+        return Ok(Heard {
+            text,
+            cleaned: s.cleanup,
+        });
     };
     if !whisper::cpu_ok() {
         return Err(whisper::OLD_CPU.into());
     }
     let path = model::ensure(m, on_progress).await?;
     let language = s.language.clone();
-    let text = tauri::async_runtime::spawn_blocking(move || whisper::transcribe(&path, &samples, &language))
-        .await
-        .map_err(|_| "Transcription stopped unexpectedly.".to_string())??;
-    Ok(Heard { text, cleaned: false })
+    let text = tauri::async_runtime::spawn_blocking(move || {
+        whisper::transcribe(&path, &samples, &language)
+    })
+    .await
+    .map_err(|_| "Transcription stopped unexpectedly.".to_string())??;
+    Ok(Heard {
+        text,
+        cleaned: false,
+    })
 }
 
 /// While the person is still talking: load the model if it is on disk, so

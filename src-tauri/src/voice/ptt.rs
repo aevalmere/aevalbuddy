@@ -69,7 +69,9 @@ fn key_name(vk: u16) -> String {
         0x21 => "PageUp".into(),
         0x22 => "PageDown".into(),
         0x70..=0x87 => format!("F{}", vk - 0x6F),
-        v => char::from_u32(v as u32).map(String::from).unwrap_or_default(),
+        v => char::from_u32(v as u32)
+            .map(String::from)
+            .unwrap_or_default(),
     }
 }
 
@@ -88,15 +90,23 @@ pub fn parse(acc: &str) -> Result<Chord, String> {
                 if key.is_some() {
                     return Err("Use one key with the modifiers.".into());
                 }
-                key = Some(key_code(part).ok_or_else(|| format!("{part} can't be part of the dictation shortcut."))?);
+                key =
+                    Some(key_code(part).ok_or_else(|| {
+                        format!("{part} can't be part of the dictation shortcut.")
+                    })?);
             }
         }
     }
-    let n = [mods.ctrl, mods.alt, mods.shift, mods.win].iter().filter(|m| **m).count();
+    let n = [mods.ctrl, mods.alt, mods.shift, mods.win]
+        .iter()
+        .filter(|m| **m)
+        .count();
     match (n, key) {
         (0, _) => Err("Add Ctrl, Alt, Shift or Win to the shortcut.".into()),
         (1, None) => Err("Hold two modifiers, like Ctrl+Win, or add a key.".into()),
-        (1, Some(_)) if mods.shift => Err("Shift and one key would type a capital. Add Ctrl, Alt or Win.".into()),
+        (1, Some(_)) if mods.shift => {
+            Err("Shift and one key would type a capital. Add Ctrl, Alt or Win.".into())
+        }
         _ => Ok(Chord { mods, key }),
     }
 }
@@ -105,7 +115,12 @@ pub fn parse(acc: &str) -> Result<Chord, String> {
 pub fn accelerator(c: &Chord) -> String {
     let mut parts: Vec<String> = Vec::new();
     let m = c.mods;
-    for (on, name) in [(m.ctrl, "Ctrl"), (m.alt, "Alt"), (m.shift, "Shift"), (m.win, "Super")] {
+    for (on, name) in [
+        (m.ctrl, "Ctrl"),
+        (m.alt, "Alt"),
+        (m.shift, "Shift"),
+        (m.win, "Super"),
+    ] {
         if on {
             parts.push(name.into());
         }
@@ -146,7 +161,9 @@ enum Phase {
     Idle,
     Held,
     /// Hands-free; `released` once the chord has been let go.
-    Latched { released: bool },
+    Latched {
+        released: bool,
+    },
     /// Waits for every key of the chord to be up before it can start again.
     Spent,
 }
@@ -228,7 +245,11 @@ impl Machine {
     fn all_up(&self, c: &Chord) -> bool {
         let m = self.mods;
         let want = c.mods;
-        !(want.ctrl && m.ctrl || want.alt && m.alt || want.shift && m.shift || want.win && m.win || self.key_down)
+        !(want.ctrl && m.ctrl
+            || want.alt && m.alt
+            || want.shift && m.shift
+            || want.win && m.win
+            || self.key_down)
     }
 
     /// One key event. Returns what to tell the session and whether the key
@@ -243,10 +264,12 @@ impl Machine {
             self.key_down = down;
         }
         if self.paused {
-            let mask = down && self.mods.win && (self.mods.ctrl || self.mods.alt || self.mods.shift);
+            let mask =
+                down && self.mods.win && (self.mods.ctrl || self.mods.alt || self.mods.shift);
             return (mask.then_some(Event::Mask), false);
         }
         match (self.phase, down) {
+            (Phase::Idle, false) => (None, false),
             (Phase::Idle, true) => {
                 if self.chord_held(&c) {
                     self.phase = Phase::Held;
@@ -279,7 +302,11 @@ impl Machine {
             }
             (Phase::Held, false) => {
                 if self.chord_part_up(&c) {
-                    self.phase = if self.all_up(&c) { Phase::Idle } else { Phase::Spent };
+                    self.phase = if self.all_up(&c) {
+                        Phase::Idle
+                    } else {
+                        Phase::Spent
+                    };
                     return (Some(Event::Finish), is_key);
                 }
                 (None, false)
@@ -400,26 +427,30 @@ pub fn start(chord: Option<Chord>, on_event: impl Fn(Event) + Send + 'static) {
         return;
     }
     *MACHINE.lock() = Some(Machine::new(chord));
-    let _ = std::thread::Builder::new().name("voice-ptt-events".into()).spawn(move || {
-        for e in rx {
-            on_event(e);
-        }
-    });
-    let _ = std::thread::Builder::new().name("voice-ptt".into()).spawn(|| {
-        // SAFETY: a low-level hook for this module, kept for the life of the
-        // app; this thread pumps the messages it needs.
-        unsafe {
-            let module = GetModuleHandleW(std::ptr::null());
-            let h = wm::SetWindowsHookExW(wm::WH_KEYBOARD_LL, Some(hook), module, 0);
-            if h.is_null() {
-                crate::crash::write("voice-ptt", "SetWindowsHookExW failed");
-                return;
+    let _ = std::thread::Builder::new()
+        .name("voice-ptt-events".into())
+        .spawn(move || {
+            for e in rx {
+                on_event(e);
             }
-            let mut msg: wm::MSG = std::mem::zeroed();
-            while wm::GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
-            wm::UnhookWindowsHookEx(h);
-        }
-    });
+        });
+    let _ = std::thread::Builder::new()
+        .name("voice-ptt".into())
+        .spawn(|| {
+            // SAFETY: a low-level hook for this module, kept for the life of the
+            // app; this thread pumps the messages it needs.
+            unsafe {
+                let module = GetModuleHandleW(std::ptr::null());
+                let h = wm::SetWindowsHookExW(wm::WH_KEYBOARD_LL, Some(hook), module, 0);
+                if h.is_null() {
+                    crate::crash::write("voice-ptt", "SetWindowsHookExW failed");
+                    return;
+                }
+                let mut msg: wm::MSG = std::mem::zeroed();
+                while wm::GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
+                wm::UnhookWindowsHookEx(h);
+            }
+        });
 }
 
 #[cfg(test)]
@@ -431,7 +462,9 @@ mod tests {
     const D: u16 = 0x44;
 
     fn feed(m: &mut Machine, keys: &[(u16, bool)]) -> Vec<Event> {
-        keys.iter().filter_map(|(k, d)| m.on_key(*k, *d).0).collect()
+        keys.iter()
+            .filter_map(|(k, d)| m.on_key(*k, *d).0)
+            .collect()
     }
 
     #[test]
@@ -440,7 +473,10 @@ mod tests {
         assert_eq!((c.mods.ctrl, c.mods.win, c.key), (true, true, None));
         assert_eq!(label(DEFAULT), "Ctrl+Win");
         assert_eq!(accelerator(&parse("win+control").unwrap()), "Ctrl+Super");
-        assert_eq!(accelerator(&parse("Ctrl+Alt+space").unwrap()), "Ctrl+Alt+Space");
+        assert_eq!(
+            accelerator(&parse("Ctrl+Alt+space").unwrap()),
+            "Ctrl+Alt+Space"
+        );
         assert_eq!(parse("Alt+F9").unwrap().key, Some(0x78));
         assert!(parse("Ctrl").is_err());
         assert!(parse("Shift+A").is_err());
@@ -452,14 +488,38 @@ mod tests {
     fn hold_then_release_dictates_and_a_shortcut_does_not() {
         let mut m = Machine::new(parse(DEFAULT).ok());
         // Either order of the two modifiers starts it; letting go finishes.
-        assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true), (WIN, true)]), [Event::Start]);
-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false)]), [Event::Finish]);
-        assert_eq!(feed(&mut m, &[(WIN, true), (CTRL, true), (CTRL, false), (WIN, false)]), [Event::Start, Event::Finish]);
+        assert_eq!(
+            feed(&mut m, &[(CTRL, true), (WIN, true), (WIN, true)]),
+            [Event::Start]
+        );
+        assert_eq!(
+            feed(&mut m, &[(WIN, false), (CTRL, false)]),
+            [Event::Finish]
+        );
+        assert_eq!(
+            feed(
+                &mut m,
+                &[(WIN, true), (CTRL, true), (CTRL, false), (WIN, false)]
+            ),
+            [Event::Start, Event::Finish]
+        );
         // Ctrl+Win+D is the desktop shortcut: no words, no restart until up.
-        assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true), (D, true), (D, false)]), [Event::Start, Event::Abort]);
-        assert_eq!(feed(&mut m, &[(WIN, false), (WIN, true), (CTRL, false)]), []);
+        assert_eq!(
+            feed(&mut m, &[(CTRL, true), (WIN, true), (D, true), (D, false)]),
+            [Event::Start, Event::Abort]
+        );
+        assert_eq!(
+            feed(&mut m, &[(WIN, false), (WIN, true), (CTRL, false)]),
+            []
+        );
         // Ctrl+Shift+Win is a different chord.
-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, true), (0xA0, true), (WIN, true)]), []);
+        assert_eq!(
+            feed(
+                &mut m,
+                &[(WIN, false), (CTRL, true), (0xA0, true), (WIN, true)]
+            ),
+            []
+        );
         let mut off = Machine::new(None);
         assert_eq!(feed(&mut off, &[(CTRL, true), (WIN, true)]), []);
     }
@@ -480,12 +540,24 @@ mod tests {
         assert_eq!(m.on_key(WIN, true), (Some(Event::Start), false));
         assert_eq!(m.on_key(VK_SPACE, true), (Some(Event::Latch), true));
         assert_eq!(m.on_key(VK_SPACE, false), (None, true));
-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false), (0x41, true), (0x41, false)]), []);
+        assert_eq!(
+            feed(
+                &mut m,
+                &[(WIN, false), (CTRL, false), (0x41, true), (0x41, false)]
+            ),
+            []
+        );
         assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true)]), [Event::Finish]);
         assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false)]), []);
         assert_eq!(feed(&mut m, &[(CTRL, true), (WIN, true)]), [Event::Start]);
         assert_eq!(m.on_key(VK_ESCAPE, true), (Some(Event::Cancel), true));
-        assert_eq!(feed(&mut m, &[(WIN, false), (CTRL, false), (CTRL, true), (WIN, true)]), [Event::Start]);
+        assert_eq!(
+            feed(
+                &mut m,
+                &[(WIN, false), (CTRL, false), (CTRL, true), (WIN, true)]
+            ),
+            [Event::Start]
+        );
     }
 
     #[test]

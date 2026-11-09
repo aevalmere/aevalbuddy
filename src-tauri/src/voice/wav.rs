@@ -13,7 +13,8 @@ pub fn read(bytes: &[u8]) -> Result<(Vec<f32>, u32), String> {
         return Err("not a WAV file".into());
     }
     let u16_at = |i: usize| u16::from_le_bytes([bytes[i], bytes[i + 1]]);
-    let u32_at = |i: usize| u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
+    let u32_at =
+        |i: usize| u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
     let mut fmt: Option<(u16, usize, u32, usize)> = None;
     let mut at = 12;
     while at + 8 <= bytes.len() {

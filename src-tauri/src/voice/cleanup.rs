@@ -108,7 +108,9 @@ pub fn accept(raw: &str, reply: &str) -> Option<String> {
     let mut out = tags.replace_all(reply, "").trim().to_string();
     for (a, b) in [('"', '"'), ('\u{201c}', '\u{201d}'), ('\'', '\'')] {
         if out.len() > 2 && out.starts_with(a) && out.ends_with(b) && !raw.trim().starts_with(a) {
-            out = out[a.len_utf8()..out.len() - b.len_utf8()].trim().to_string();
+            out = out[a.len_utf8()..out.len() - b.len_utf8()]
+                .trim()
+                .to_string();
         }
     }
     if out.is_empty() {
@@ -132,7 +134,12 @@ pub fn accept(raw: &str, reply: &str) -> Option<String> {
 
 /// Cleans `raw` with `llm`, within `budget`. Always returns text: the
 /// cleaned words, or [`tidy`] of the raw ones.
-pub async fn clean_with(llm: &Llm, settings: &dyn LlmSettings, raw: &str, budget: Duration) -> (String, Outcome) {
+pub async fn clean_with(
+    llm: &Llm,
+    settings: &dyn LlmSettings,
+    raw: &str,
+    budget: Duration,
+) -> (String, Outcome) {
     let raw = raw.trim();
     let Some(c) = free_candidate(settings) else {
         return (tidy(raw), Outcome::NoFreeModel);
@@ -142,6 +149,7 @@ pub async fn clean_with(llm: &Llm, settings: &dyn LlmSettings, raw: &str, budget
     let user = user_message(raw);
     let meta = Meta::purpose(PURPOSE);
     let active = c.active();
+    let mut sink = |_: &str| {};
     let call = llm.stream_text(
         &active,
         c.model(Kind::Text),
@@ -150,7 +158,7 @@ pub async fn clean_with(llm: &Llm, settings: &dyn LlmSettings, raw: &str, budget
         &meta,
         Some(max_tokens),
         &cancel,
-        &mut |_| {},
+        &mut sink,
     );
     match tokio::time::timeout(budget, call).await {
         Err(_) => {
@@ -220,15 +228,26 @@ mod tests {
 
     #[tokio::test]
     async fn a_free_model_cleans_the_words() {
-        let (llm, fake) = llm(vec![json!({ "purpose": PURPOSE, "text": "So I think we should meet at 4pm tomorrow." })]);
+        let (llm, fake) = llm(vec![
+            json!({ "purpose": PURPOSE, "text": "So I think we should meet at 4pm tomorrow." }),
+        ]);
         let s = openrouter("clean", "acme/tiny:free");
         let (text, why) = clean_with(&llm, &s, RAW, BUDGET).await;
-        assert_eq!((text.as_str(), why), ("So I think we should meet at 4pm tomorrow.", Outcome::Cleaned));
+        assert_eq!(
+            (text.as_str(), why),
+            (
+                "So I think we should meet at 4pm tomorrow.",
+                Outcome::Cleaned
+            )
+        );
         let sent = fake.requests();
         assert_eq!(sent.len(), 1);
         assert_eq!(sent[0].model.as_deref(), Some("acme/tiny:free"));
         assert!(sent[0].body.contains("<transcript>"), "{}", sent[0].body);
-        assert!(sent[0].body.contains("Never add"), "the prompt forbids additions");
+        assert!(
+            sent[0].body.contains("Never add"),
+            "the prompt forbids additions"
+        );
     }
 
     #[tokio::test]
@@ -245,31 +264,70 @@ mod tests {
         assert!(fake.requests().is_empty());
         // A failing provider, a slow one, and one that answers instead.
         let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "status": 429 })]);
-        assert_eq!(clean_with(&l, &openrouter("busy", "a/b:free"), RAW, BUDGET).await.1, Outcome::Failed);
-        let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "text": "Late.", "delayMs": 3000 })]);
-        let slow = clean_with(&l, &openrouter("slow", "a/b:free"), RAW, Duration::from_millis(150)).await;
+        assert_eq!(
+            clean_with(&l, &openrouter("busy", "a/b:free"), RAW, BUDGET)
+                .await
+                .1,
+            Outcome::Failed
+        );
+        let (l, _) = llm(vec![
+            json!({ "purpose": PURPOSE, "text": "Late.", "delayMs": 3000 }),
+        ]);
+        let slow = clean_with(
+            &l,
+            &openrouter("slow", "a/b:free"),
+            RAW,
+            Duration::from_millis(150),
+        )
+        .await;
         assert_eq!(slow, (tidied.to_string(), Outcome::TimedOut));
         let chat = "Sure! Here is your text. Also, I would suggest booking a room for the meeting and inviting the whole team.";
         let (l, _) = llm(vec![json!({ "purpose": PURPOSE, "text": chat })]);
-        assert_eq!(clean_with(&l, &openrouter("chat", "a/b:free"), RAW, BUDGET).await.1, Outcome::Rejected);
+        assert_eq!(
+            clean_with(&l, &openrouter("chat", "a/b:free"), RAW, BUDGET)
+                .await
+                .1,
+            Outcome::Rejected
+        );
     }
 
     #[test]
     fn replies_that_add_or_chat_are_refused() {
-        assert_eq!(accept("hi there", "\"Hi there.\""), Some("Hi there.".into()));
-        assert_eq!(accept("hi there", "<transcript>Hi there.</transcript>"), Some("Hi there.".into()));
+        assert_eq!(
+            accept("hi there", "\"Hi there.\""),
+            Some("Hi there.".into())
+        );
+        assert_eq!(
+            accept("hi there", "<transcript>Hi there.</transcript>"),
+            Some("Hi there.".into())
+        );
         assert_eq!(accept("hi there", "  "), None);
-        assert_eq!(accept("what time is it", "It is 4pm, and here is a long explanation of time zones."), None);
+        assert_eq!(
+            accept(
+                "what time is it",
+                "It is 4pm, and here is a long explanation of time zones."
+            ),
+            None
+        );
         assert_eq!(accept("call mom", "Sure, call Mom."), None);
-        assert_eq!(accept("sure thing see you then", "Sure thing, see you then."), Some("Sure thing, see you then.".into()));
+        assert_eq!(
+            accept("sure thing see you then", "Sure thing, see you then."),
+            Some("Sure thing, see you then.".into())
+        );
     }
 
     #[test]
     fn the_local_tidy_only_takes_out_hesitations() {
-        assert_eq!(tidy("um, so I think we should, uh, meet"), "So I think we should meet");
+        assert_eq!(
+            tidy("um, so I think we should, uh, meet"),
+            "So I think we should meet"
+        );
         assert_eq!(tidy("I think, um. Yes"), "I think. Yes");
         assert_eq!(tidy("Umbrella, hmm, number"), "Umbrella number");
-        assert_eq!(strip_noise("[BLANK_AUDIO] hello (music) there [ Silence ]"), "hello there");
+        assert_eq!(
+            strip_noise("[BLANK_AUDIO] hello (music) there [ Silence ]"),
+            "hello there"
+        );
         assert_eq!(strip_noise("  "), "");
     }
 }

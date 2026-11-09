@@ -13,7 +13,8 @@ use crate::llm::catalogue::Kind;
 use crate::llm::provider::Provider;
 use crate::llm::settings::{model_for, usable_key};
 
-pub const NO_KEY: &str = "Gemini needs its key. Add it under Settings, Providers, or switch Voice to this PC.";
+pub const NO_KEY: &str =
+    "Gemini needs its key. Add it under Settings, Providers, or switch Voice to this PC.";
 const FAILED: &str = "Gemini could not transcribe that. Try again, or switch Voice to this PC.";
 
 /// Whether a Gemini key is saved.
@@ -43,7 +44,10 @@ pub fn prompt(language: &str, clean: bool) -> String {
 
 /// The text of a generateContent reply.
 pub fn reply_text(v: &Value) -> String {
-    let parts = v["candidates"][0]["content"]["parts"].as_array().cloned().unwrap_or_default();
+    let parts = v["candidates"][0]["content"]["parts"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
     parts
         .iter()
         .filter_map(|p| p["text"].as_str())
@@ -63,7 +67,8 @@ pub async fn transcribe(samples: &[f32], language: &str, clean: bool) -> Result<
         ] }],
         "generationConfig": { "temperature": 0 },
     });
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
+    let url =
+        format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent");
     let client = reqwest::Client::builder()
         .use_rustls_tls()
         .connect_timeout(Duration::from_secs(10))
@@ -80,7 +85,10 @@ pub async fn transcribe(samples: &[f32], language: &str, clean: bool) -> Result<
     let status = resp.status();
     let v: Value = resp.json().await.unwrap_or(Value::Null);
     if !status.is_success() {
-        crate::crash::write("voice-gemini", &format!("HTTP {status}: {}", v["error"]["message"]));
+        crate::crash::write(
+            "voice-gemini",
+            &format!("HTTP {status}: {}", v["error"]["message"]),
+        );
         return Err(match status.as_u16() {
             400 | 401 | 403 => "Gemini refused the key. Check it under Settings, Providers.".into(),
             429 => "Gemini is busy or out of free requests for now. Try again in a minute.".into(),

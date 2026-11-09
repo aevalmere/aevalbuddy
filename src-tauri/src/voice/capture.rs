@@ -138,7 +138,11 @@ fn push(buf: &Shared, level: &AtomicU32, frames: impl Iterator<Item = f32>, chan
     let now = wav::level(wav::rms(&mono));
     // Fast attack, slower release, so speech reads as a steady meter.
     let was = f32::from_bits(level.load(Ordering::Relaxed));
-    let next = if now > was { now } else { was * 0.8 + now * 0.2 };
+    let next = if now > was {
+        now
+    } else {
+        was * 0.8 + now * 0.2
+    };
     level.store(next.to_bits(), Ordering::Relaxed);
     buf.lock().extend_from_slice(&mono);
 }
@@ -160,14 +164,21 @@ fn open(device: &str, buf: Shared, level: Arc<AtomicU32>) -> Result<(cpal::Strea
     let stream = match cfg.sample_format() {
         cpal::SampleFormat::F32 => dev.build_input_stream(
             &sc,
-            move |d: &[f32], _: &cpal::InputCallbackInfo| push(&buf, &level, d.iter().copied(), channels),
+            move |d: &[f32], _: &cpal::InputCallbackInfo| {
+                push(&buf, &level, d.iter().copied(), channels)
+            },
             on_err,
             None,
         ),
         cpal::SampleFormat::I16 => dev.build_input_stream(
             &sc,
             move |d: &[i16], _: &cpal::InputCallbackInfo| {
-                push(&buf, &level, d.iter().map(|s| *s as f32 / 32768.0), channels)
+                push(
+                    &buf,
+                    &level,
+                    d.iter().map(|s| *s as f32 / 32768.0),
+                    channels,
+                )
             },
             on_err,
             None,
@@ -175,12 +186,21 @@ fn open(device: &str, buf: Shared, level: Arc<AtomicU32>) -> Result<(cpal::Strea
         cpal::SampleFormat::U16 => dev.build_input_stream(
             &sc,
             move |d: &[u16], _: &cpal::InputCallbackInfo| {
-                push(&buf, &level, d.iter().map(|s| (*s as f32 - 32768.0) / 32768.0), channels)
+                push(
+                    &buf,
+                    &level,
+                    d.iter().map(|s| (*s as f32 - 32768.0) / 32768.0),
+                    channels,
+                )
             },
             on_err,
             None,
         ),
-        other => return Err(format!("The microphone sends {other:?} audio, which is not supported.")),
+        other => {
+            return Err(format!(
+                "The microphone sends {other:?} audio, which is not supported."
+            ))
+        }
     }
     .map_err(mic_error)?;
     stream.play().map_err(mic_error)?;
@@ -267,7 +287,10 @@ mod tests {
 
     #[test]
     fn a_fixture_records_like_a_microphone() {
-        let path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src/voice/fixtures/dictation.wav"));
+        let path = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/voice/fixtures/dictation.wav"
+        ));
         let rec = start_fixture(path).unwrap();
         thread::sleep(Duration::from_millis(600));
         assert!(rec.level() > 0.0, "the meter never moved");
@@ -283,7 +306,10 @@ mod tests {
     #[test]
     fn microphone_errors_read_as_sentences() {
         assert_eq!(mic_error("Access is denied. (0x80070005)"), MIC_BLOCKED);
-        assert_eq!(mic_error("The requested device is no longer available."), NO_MIC);
+        assert_eq!(
+            mic_error("The requested device is no longer available."),
+            NO_MIC
+        );
         assert!(mic_error("boom").starts_with("The microphone did not start"));
     }
 }

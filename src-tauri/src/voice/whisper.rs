@@ -49,7 +49,9 @@ fn load(path: &Path) -> Result<Arc<WhisperContext>, String> {
         return Ok(l.ctx.clone());
     }
     *slot = None;
-    let p = path.to_str().ok_or("The voice model's folder has a name Whisper can't read.")?;
+    let p = path
+        .to_str()
+        .ok_or("The voice model's folder has a name Whisper can't read.")?;
     let ctx = WhisperContext::new_with_params(p, WhisperContextParameters::default())
         .map_err(|e| format!("The voice model did not load ({e:?})."))?;
     let ctx = Arc::new(ctx);
@@ -114,7 +116,9 @@ pub fn transcribe(path: &Path, samples: &[f32], language: &str) -> Result<String
     let n = state.full_n_segments().map_err(|e| format!("{e:?}"))?;
     let mut out = String::new();
     for i in 0..n {
-        let seg = state.full_get_segment_text(i).map_err(|e| format!("{e:?}"))?;
+        let seg = state
+            .full_get_segment_text(i)
+            .map_err(|e| format!("{e:?}"))?;
         out.push_str(&seg);
     }
     if let Some(l) = LOADED.lock().as_mut() {

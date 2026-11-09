@@ -12,7 +12,10 @@ use crate::desktop;
 use crate::selftest::{notepad, Cx, Input};
 use crate::voice::{self, capture, insert, model, pill, settings, wav, whisper};
 
-const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/voice/fixtures/dictation.wav");
+const FIXTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/src/voice/fixtures/dictation.wav"
+);
 const CLIP: &str = "voice probe clipboard";
 
 pub fn run(cx: &mut Cx) {
@@ -38,7 +41,9 @@ pub fn run(cx: &mut Cx) {
 /// exe, so it starts on a PC without the Visual C++ redistributable.
 fn runtime(cx: &Cx) {
     let exe = std::env::current_exe().and_then(std::fs::read);
-    let dlls = exe.map(|b| imports(&b).unwrap_or_default()).unwrap_or_default();
+    let dlls = exe
+        .map(|b| imports(&b).unwrap_or_default())
+        .unwrap_or_default();
     let bad: Vec<&String> = dlls
         .iter()
         .filter(|d| d.starts_with("msvcp") || d.starts_with("vcomp") || d.starts_with("vcruntime"))
@@ -53,7 +58,10 @@ fn runtime(cx: &Cx) {
 /// The DLL names in a PE32+ file's import table, lowercased.
 fn imports(b: &[u8]) -> Option<Vec<String>> {
     let u16_at = |o: usize| b.get(o..o + 2).map(|s| u16::from_le_bytes([s[0], s[1]]));
-    let u32_at = |o: usize| b.get(o..o + 4).map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]));
+    let u32_at = |o: usize| {
+        b.get(o..o + 4)
+            .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+    };
     let pe = u32_at(0x3C)? as usize;
     let sections = u16_at(pe + 6)? as usize;
     let opt = pe + 24;
@@ -93,7 +101,9 @@ fn transcribes(cx: &Cx) -> bool {
         .map(|(s, rate)| wav::resample(&s, rate, wav::RATE));
     let text = samples.and_then(|s| whisper::transcribe(&model::path(spec), &s, "en"));
     cx.log("voiceHeard", format!("{text:?}"));
-    let heard = text.as_ref().is_ok_and(|t| t.to_lowercase().contains("tomorrow"));
+    let heard = text
+        .as_ref()
+        .is_ok_and(|t| t.to_lowercase().contains("tomorrow"));
     cx.must("voiceTranscribe", heard, format!("{text:?}"));
     heard
 }
@@ -108,7 +118,12 @@ fn bar_field(cx: &Cx) {
             .and_then(|v| v.as_str().map(str::to_lowercase))
             .unwrap_or_default()
     };
-    let mic = |what: &str| cx.eval("overlay", &format!("document.getElementById('mic-btn').{what}"));
+    let mic = |what: &str| {
+        cx.eval(
+            "overlay",
+            &format!("document.getElementById('mic-btn').{what}"),
+        )
+    };
     let _ = mic("click()");
     let listening = cx.wait_for(Duration::from_secs(3), || {
         mic("dataset.state") == Ok(json!("listening"))
@@ -152,7 +167,13 @@ fn key(vk: u16, up: bool) {
         let i = km::INPUT {
             r#type: km::INPUT_KEYBOARD,
             Anonymous: km::INPUT_0 {
-                ki: km::KEYBDINPUT { wVk: vk, wScan: scan, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+                ki: km::KEYBDINPUT {
+                    wVk: vk,
+                    wScan: scan,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
             },
         };
         km::SendInput(1, &i, std::mem::size_of::<km::INPUT>() as i32);
@@ -185,12 +206,22 @@ fn dictation(cx: &mut Cx) {
     cx.must("voicePill", shown, "the pill did not show listening");
 
     let typed = cx.wait_for(Duration::from_secs(40), || {
-        notepad_text(cx, &handle).to_lowercase().contains("tomorrow")
+        notepad_text(cx, &handle)
+            .to_lowercase()
+            .contains("tomorrow")
     });
-    cx.must("voiceDictation", typed, format!("{:?}", notepad_text(cx, &handle)));
+    cx.must(
+        "voiceDictation",
+        typed,
+        format!("{:?}", notepad_text(cx, &handle)),
+    );
     cx.sleep(800);
     let clip = insert::clipboard_text();
-    cx.must("voiceClipboard", clip.as_deref() == Some(CLIP), format!("{clip:?}"));
+    cx.must(
+        "voiceClipboard",
+        clip.as_deref() == Some(CLIP),
+        format!("{clip:?}"),
+    );
 
     // Put the file's text back for the lanes after.
     let _ = insert::set_clipboard_text(notepad::TEXT);

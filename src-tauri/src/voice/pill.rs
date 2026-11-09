@@ -26,28 +26,32 @@ fn last() -> std::sync::MutexGuard<'static, Option<Value>> {
 }
 
 fn create(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
-    let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/voice-pill.html".into()))
-        .title("AevalBuddy dictation")
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .resizable(false)
-        .focusable(false)
-        .focused(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .content_protected(true)
-        .visible(false)
-        .data_directory(crate::paths::webview_data_dir())
-        .initialization_script(crate::ipc::bridge_script())
-        .on_page_load(|w, p| {
-            if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
-                if let Some(v) = last().clone() {
-                    let _ = tauri::Emitter::emit_to(&w, LABEL, "voice:state", v);
-                }
+    let win = WebviewWindowBuilder::new(
+        app,
+        LABEL,
+        WebviewUrl::App("renderer/voice-pill.html".into()),
+    )
+    .title("AevalBuddy dictation")
+    .decorations(false)
+    .transparent(true)
+    .shadow(false)
+    .resizable(false)
+    .focusable(false)
+    .focused(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .content_protected(true)
+    .visible(false)
+    .data_directory(crate::paths::webview_data_dir())
+    .initialization_script(crate::ipc::bridge_script())
+    .on_page_load(|w, p| {
+        if matches!(p.event(), tauri::webview::PageLoadEvent::Finished) {
+            if let Some(v) = last().clone() {
+                let _ = tauri::Emitter::emit_to(&w, LABEL, "voice:state", v);
             }
-        })
-        .build()?;
+        }
+    })
+    .build()?;
     let raw = capture::hwnd_of(&win);
     win::tool_window(raw, true);
     let _ = win.set_ignore_cursor_events(true);
@@ -146,10 +150,23 @@ mod tests {
 
     #[test]
     fn it_sits_at_the_bottom_centre() {
-        let work = PxRect { x: 0, y: 0, width: 1920, height: 1040 };
+        let work = PxRect {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1040,
+        };
         let r = place_on(work, 1.0);
         assert_eq!((r.x, r.width, r.y + r.height), (860, 200, 1020));
-        let r2 = place_on(PxRect { x: -2560, y: 0, width: 2560, height: 1400 }, 2.0);
+        let r2 = place_on(
+            PxRect {
+                x: -2560,
+                y: 0,
+                width: 2560,
+                height: 1400,
+            },
+            2.0,
+        );
         assert_eq!((r2.x, r2.width), (-2560 + 880, 400));
     }
 }

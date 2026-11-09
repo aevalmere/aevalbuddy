@@ -111,7 +111,11 @@ pub fn get() -> VoiceSettings {
 
 /// `cur` with the fields of `patch` applied, or a sentence saying why not.
 /// `taken` lists the app's other shortcuts, which the chord may not equal.
-pub fn merge(cur: &VoiceSettings, patch: &Value, taken: &[String]) -> Result<VoiceSettings, String> {
+pub fn merge(
+    cur: &VoiceSettings,
+    patch: &Value,
+    taken: &[String],
+) -> Result<VoiceSettings, String> {
     let mut next = cur.clone();
     if let Some(b) = patch.get("dictation").and_then(Value::as_bool) {
         next.dictation = b;
@@ -121,9 +125,14 @@ pub fn merge(cur: &VoiceSettings, patch: &Value, taken: &[String]) -> Result<Voi
     }
     if let Some(h) = patch.get("hotkey").and_then(Value::as_str) {
         let chord = ptt::parse(h)?;
-        let clash = taken.iter().any(|t| ptt::parse(t).is_ok_and(|o| o == chord));
+        let clash = taken
+            .iter()
+            .any(|t| ptt::parse(t).is_ok_and(|o| o == chord));
         if clash {
-            return Err(format!("{} already opens AevalBuddy. Choose another.", ptt::label(h)));
+            return Err(format!(
+                "{} already opens AevalBuddy. Choose another.",
+                ptt::label(h)
+            ));
         }
         next.hotkey = ptt::accelerator(&chord);
     }
@@ -157,7 +166,9 @@ mod tests {
     fn missing_or_bad_fields_read_as_defaults() {
         assert_eq!(from_value(None), VoiceSettings::default());
         assert_eq!(from_value(Some(&json!("x"))), VoiceSettings::default());
-        let s = from_value(Some(&json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "cleanup": 0 })));
+        let s = from_value(Some(
+            &json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "cleanup": 0 }),
+        ));
         assert_eq!(s.hotkey, "Ctrl+Super");
         assert_eq!(s.engine, "whisper-base");
         assert_eq!(s.language, "fr");
@@ -170,7 +181,12 @@ mod tests {
     fn a_patch_is_checked_before_it_is_kept() {
         let cur = VoiceSettings::default();
         let taken = vec!["Ctrl+Alt+Space".to_string()];
-        let next = merge(&cur, &json!({ "hotkey": "alt+shift+d", "cleanup": false }), &taken).unwrap();
+        let next = merge(
+            &cur,
+            &json!({ "hotkey": "alt+shift+d", "cleanup": false }),
+            &taken,
+        )
+        .unwrap();
         assert_eq!((next.hotkey.as_str(), next.cleanup), ("Alt+Shift+D", false));
         assert!(merge(&cur, &json!({ "hotkey": "Control+Alt+Space" }), &taken).is_err());
         assert!(merge(&cur, &json!({ "hotkey": "Ctrl" }), &taken).is_err());

@@ -65,7 +65,8 @@ pub const MODELS: [Spec; 6] = [
 
 const SOURCE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/";
 
-pub const DOWNLOAD_FAILED: &str = "Couldn't download the voice model. Check the connection and try again.";
+pub const DOWNLOAD_FAILED: &str =
+    "Couldn't download the voice model. Check the connection and try again.";
 pub const DAMAGED: &str = "The voice model arrived damaged. Try again.";
 
 /// The model for a Whisper size (`tiny`, `base`, `small`) and language.
@@ -130,7 +131,10 @@ fn downloads() -> &'static tokio::sync::Mutex<()> {
 /// The model's path, downloading it first if need be. One download at a
 /// time; a second caller waits for the first and then finds the file.
 /// `on_progress(received, total)` runs about once per percent.
-pub async fn ensure(spec: &'static Spec, on_progress: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<PathBuf, String> {
+pub async fn ensure(
+    spec: &'static Spec,
+    on_progress: &(dyn Fn(u64, u64) + Send + Sync),
+) -> Result<PathBuf, String> {
     let file = path(spec);
     if ready_at(&file, spec) {
         return Ok(file);
@@ -154,7 +158,11 @@ fn client() -> Result<reqwest::Client, String> {
         .map_err(|_| DOWNLOAD_FAILED.to_string())
 }
 
-async fn download(spec: &'static Spec, file: &Path, on_progress: &(dyn Fn(u64, u64) + Send + Sync)) -> Result<(), String> {
+async fn download(
+    spec: &'static Spec,
+    file: &Path,
+    on_progress: &(dyn Fn(u64, u64) + Send + Sync),
+) -> Result<(), String> {
     let folder = file.parent().ok_or(DOWNLOAD_FAILED)?;
     std::fs::create_dir_all(folder).map_err(|_| DOWNLOAD_FAILED.to_string())?;
     let part = folder.join(format!("{}.part", spec.file));
@@ -164,7 +172,11 @@ async fn download(spec: &'static Spec, file: &Path, on_progress: &(dyn Fn(u64, u
         DOWNLOAD_FAILED.to_string()
     };
     let url = format!("{SOURCE}{}", spec.file);
-    let resp = client()?.get(&url).send().await.map_err(|e| failed(e.to_string()))?;
+    let resp = client()?
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| failed(e.to_string()))?;
     if !resp.status().is_success() {
         return Err(failed(format!("{url}: HTTP {}", resp.status())));
     }
@@ -197,7 +209,10 @@ async fn download(spec: &'static Spec, file: &Path, on_progress: &(dyn Fn(u64, u
     let hex = format!("{:x}", hash.finalize());
     if let Err(e) = verify(spec, got, &hex) {
         let _ = std::fs::remove_file(&part);
-        crate::crash::write("voice-model", &format!("{}: {got} bytes, sha256 {hex}", spec.file));
+        crate::crash::write(
+            "voice-model",
+            &format!("{}: {got} bytes, sha256 {hex}", spec.file),
+        );
         return Err(e);
     }
     std::fs::rename(&part, file).map_err(|e| failed(e.to_string()))?;
@@ -216,7 +231,9 @@ mod tests {
         assert_eq!(spec_for("tiny", "en").id, "tiny.en");
         assert_eq!(spec_for("small", "fr").id, "small-q5_1");
         assert_eq!(spec_for("huge", "en").id, "base.en");
-        assert!(MODELS.iter().all(|m| m.sha256.len() == 64 && m.file.ends_with(".bin")));
+        assert!(MODELS
+            .iter()
+            .all(|m| m.sha256.len() == 64 && m.file.ends_with(".bin")));
     }
 
     #[test]

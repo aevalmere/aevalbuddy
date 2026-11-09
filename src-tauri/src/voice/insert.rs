@@ -69,7 +69,10 @@ fn send(events: &[km::INPUT]) -> Result<(), String> {
     if n as usize == events.len() {
         Ok(())
     } else {
-        Err("Windows did not take the keystrokes. An app running as administrator may have focus.".into())
+        Err(
+            "Windows did not take the keystrokes. An app running as administrator may have focus."
+                .into(),
+        )
     }
 }
 
@@ -281,7 +284,10 @@ impl Clipboard {
         }
         let no = 0u32.to_le_bytes().to_vec();
         let marks = [
-            (register("ExcludeClipboardContentFromMonitorProcessing"), no.clone()),
+            (
+                register("ExcludeClipboardContentFromMonitorProcessing"),
+                no.clone(),
+            ),
             (register("CanIncludeInClipboardHistory"), no.clone()),
             (register("CanUploadToCloudClipboard"), no),
         ];
@@ -298,13 +304,13 @@ impl Clipboard {
                 }
                 let p = mem::GlobalLock(h) as *mut u8;
                 if p.is_null() {
-                    mem::GlobalFree(h);
+                    windows_sys::Win32::Foundation::GlobalFree(h);
                     continue;
                 }
                 std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
                 mem::GlobalUnlock(h);
                 if dx::SetClipboardData(*f, h).is_null() {
-                    mem::GlobalFree(h);
+                    windows_sys::Win32::Foundation::GlobalFree(h);
                 }
             }
         }
@@ -378,7 +384,13 @@ mod tests {
         events
             .iter()
             // SAFETY: every event built here is a keyboard event.
-            .map(|e| unsafe { (e.Anonymous.ki.wVk, e.Anonymous.ki.wScan, e.Anonymous.ki.dwFlags & km::KEYEVENTF_KEYUP != 0) })
+            .map(|e| unsafe {
+                (
+                    e.Anonymous.ki.wVk,
+                    e.Anonymous.ki.wScan,
+                    e.Anonymous.ki.dwFlags & km::KEYEVENTF_KEYUP != 0,
+                )
+            })
             .collect()
     }
 
@@ -392,7 +404,9 @@ mod tests {
         assert_eq!(u[1], (0, 'a' as u16, true));
         assert_eq!((u[2].1, u[4].1), (0xD83D, 0xDE00));
         assert_eq!(u[6].0, VK_RETURN);
-        assert!(ev.iter().all(|e| unsafe { e.Anonymous.ki.dwExtraInfo } == OWN_INPUT));
+        assert!(ev
+            .iter()
+            .all(|e| unsafe { e.Anonymous.ki.dwExtraInfo } == OWN_INPUT));
         assert!(unicode_inputs("").is_empty());
     }
 
