@@ -1,12 +1,11 @@
-# rust: failure
+# rust: cancelled
 
 - Workflow: rust
-- Run: [42546358691](https://github.com/aevalmere/aevalbuddy/actions/runs/42546358691), attempt 1, on push
-- Commit: 5d2ace8215004b46b82814bc88cfcea6ec032fe3
+- Run: [42547836950](https://github.com/aevalmere/aevalbuddy/actions/runs/42547836950), attempt 1, on push
+- Commit: 64a5661ddecdf7b727844852af07dcf53bc0e89e
 - Ref: rust/polish
-- Conclusion: **failure**
-- Failed: Unit tests, Capture check, Desktop selfcheck
-- Finished: 2026-11-09T01:45:10Z
+- Conclusion: **cancelled**
+- Finished: 2026-11-09T02:07:37Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,14 +18,14 @@
 | Format | success |  |
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
-| Unit tests | failure | [test.log](test.log) |
-| Restore NSIS toolset | skipped |  |
-| Seed NSIS toolset | skipped |  |
-| Save NSIS toolset | skipped |  |
-| Build installer | skipped |  |
+| Unit tests | success | [test.log](test.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | success |  |
+| Build installer | cancelled | [build.log](build.log) |
 | Smoke | skipped |  |
-| Capture check | failure | [capture.log](capture.log) |
-| Desktop selfcheck | failure | [desktop.log](desktop.log) |
+| Capture check | skipped |  |
+| Desktop selfcheck | skipped |  |
 | Upload installer | skipped |  |
 
-errors.txt: 7 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
