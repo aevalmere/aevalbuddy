@@ -1959,7 +1959,7 @@ body[data-fixed-height="1"] #chat {
 /* In the row's own padding, centred on the first line of text. */
 .kind-mark {
   position: absolute;
-  left: 0;
+  left: 2px; /* centred in the row's 12 px padding */
   top: 14px;
   width: 8px;
   height: 8px;

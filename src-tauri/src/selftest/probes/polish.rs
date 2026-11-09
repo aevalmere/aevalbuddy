@@ -83,7 +83,7 @@ fn inside_after_resize(cx: &Cx) -> String {
 }
 
 fn bar_menu_inside(cx: &Cx) {
-    cx.on_main(|app| windows::collapse_panel(app, false));
+    cx.on_main(windows::collapse_panel);
     let _ = cx.wait_for(WAIT, || mode(cx) == "pill");
     cx.sleep(400);
 
@@ -109,6 +109,6 @@ fn bar_menu_inside(cx: &Cx) {
         ok,
         format!("opened={opened} gliding={gliding} tall={tall}"),
     );
-    cx.on_main(|app| windows::collapse_panel(app, false));
+    cx.on_main(windows::collapse_panel);
     let _ = cx.wait_for(WAIT, || mode(cx) == "pill");
 }
