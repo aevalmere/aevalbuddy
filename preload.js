@@ -11,7 +11,6 @@ const INVOKE_CHANNELS = new Set([
   'overlay:resize',
   'overlay:set-ignore',
   'overlay:open-settings',
-  'output:resize',
   'open-external',
   'query:submit',
   'query:cancel',
@@ -122,6 +121,7 @@ const INVOKE_CHANNELS = new Set([
   'settings:set-failover',
   'auth:openrouter-connect',
   'skills:open-folder',
+  'output:sent-image',
   // ---- end: llm ----
   // ---- lane: agent ----
   // ---- end: agent ----

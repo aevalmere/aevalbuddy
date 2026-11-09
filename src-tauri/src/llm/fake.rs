@@ -675,6 +675,7 @@ mod tests {
             purpose: "find-correlate".into(),
             query: Some(" OWE ".into()),
             task: None,
+            overall: None,
         };
         let user = "Spans:\n[0] Invoice\n[3] total due: $5\n[4]nothing";
         let body = json!({ "messages": [{ "role": "user", "content": user }] });

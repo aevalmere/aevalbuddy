@@ -4,7 +4,7 @@
 //! floating output windows: a question goes to the output `outputs::target`
 //! gives, and every event of that turn goes to that window only.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -37,7 +37,7 @@ use crate::{buddy, store};
 use super::{services, BarContext};
 
 /// `query:submit` options.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SubmitOpts {
     /// Re-run the turn already at the end of the transcript.
     pub retry: bool,
@@ -45,6 +45,24 @@ pub struct SubmitOpts {
     pub inferred: bool,
     /// Always send the picture (Find's "Ask about this").
     pub with_image: bool,
+    /// The bar's `@` pick for this one question: that provider and model
+    /// answer, with no reading step and no failover (B-122).
+    pub pin: Option<(Provider, String)>,
+}
+
+/// `{provider, model}` in a `query:submit` or `query:retry` payload, when
+/// that provider has a key to send it with.
+fn pin_of(p: &Value) -> Option<(Provider, String)> {
+    let model = p.get("model").and_then(Value::as_str).map(str::trim)?;
+    let provider = p
+        .get("provider")
+        .and_then(Value::as_str)
+        .and_then(Provider::from_id)?;
+    if model.is_empty() {
+        return None;
+    }
+    llm_settings::usable_key(&*services().settings, provider)?;
+    Some((provider, model.to_string()))
 }
 
 struct Current {
@@ -78,6 +96,44 @@ fn uninstall(map: &Mutex<HashMap<String, Current>>, label: &str, gen: u64) {
     if m.get(label).is_some_and(|c| c.gen == gen) {
         m.remove(label);
     }
+}
+
+/// How many sent pictures each window keeps for "What was sent" (D-38).
+const SENT_KEPT: usize = 3;
+
+/// The JPEGs (base64) the last answers in each window sent, by `msgId`,
+/// newest last. Memory only, never on disk (B-121).
+type SentImages = HashMap<String, VecDeque<(u64, String)>>;
+
+fn sent_images() -> &'static Mutex<SentImages> {
+    static S: OnceLock<Mutex<SentImages>> = OnceLock::new();
+    S.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Keeps `label`'s picture for answer `msg_id`, dropping the oldest past
+/// [`SENT_KEPT`] and every window `alive` no longer knows.
+fn keep_sent(
+    map: &Mutex<SentImages>,
+    label: &str,
+    msg_id: u64,
+    base64: String,
+    alive: impl Fn(&str) -> bool,
+) {
+    let mut m = map.lock();
+    m.retain(|l, _| l == label || alive(l));
+    let q = m.entry(label.to_string()).or_default();
+    q.push_back((msg_id, base64));
+    while q.len() > SENT_KEPT {
+        q.pop_front();
+    }
+}
+
+/// `output:sent-image`: the picture answer `msg_id` sent, as a data URL,
+/// or None once it has been dropped.
+fn sent_image(map: &Mutex<SentImages>, label: &str, msg_id: u64) -> Option<String> {
+    let m = map.lock();
+    let (_, b64) = m.get(label)?.iter().find(|(id, _)| *id == msg_id)?;
+    Some(format!("data:image/jpeg;base64,{b64}"))
 }
 
 /// The shot taken when an area was chosen, and when, for the next question.
@@ -523,7 +579,8 @@ pub async fn submit_to(
         (resume, prior)
     })
     .unwrap_or((false, Vec::new()));
-    let use_brain = store::get().get_brain_enabled();
+    // A pinned model answers by itself: no reading step by another model.
+    let use_brain = store::get().get_brain_enabled() && o.pin.is_none();
     let send = {
         let app = app.clone();
         let label = label.clone();
@@ -563,6 +620,18 @@ pub async fn submit_to(
         }
     };
     let (shot_taken, (act, model, brain), exact) = tokio::join!(shot_f, models_now(), exact_f);
+    let pinned = o.pin.is_some();
+    let (act, model) = match &o.pin {
+        Some((provider, m)) => {
+            let key = llm_settings::usable_key(&*services().settings, *provider);
+            let act = key.map(|key| Active {
+                provider: *provider,
+                key,
+            });
+            (act, m.clone())
+        }
+        None => (act, model),
+    };
     *last_exact().lock() = exact.clone();
     shared(app).lock().capture_ok = shot_taken.is_some();
     super::send_overlay_state(app);
@@ -592,11 +661,25 @@ pub async fn submit_to(
     let t0 = meter.lock().t0;
     let llm = services().llm.clone();
     // A free model that answered 404 earlier this session is not asked
-    // again (B-042).
-    let model = llm.first_model(Kind::Vision, &model);
+    // again (B-042). A pinned one is asked as picked.
+    let model = if pinned {
+        model
+    } else {
+        llm.first_model(Kind::Vision, &model)
+    };
     let brain = llm.first_model(Kind::Text, &brain);
+    // A pinned model never hands the question on (B-122).
+    let next_free = |kind: Kind, tried: &[String]| {
+        if pinned {
+            None
+        } else {
+            llm.next_free_model(kind, tried)
+        }
+    };
     let mut answering = model.clone();
     let mut answer_kind = Kind::Vision;
+    // The screen model whose reading the answer used (B-121).
+    let mut reader_used: Option<String> = None;
 
     let result: Result<Option<String>, ApiError> = async {
         let mut report: Option<String> = None;
@@ -608,7 +691,7 @@ pub async fn submit_to(
                 send("query:stage", json!({ "label": "Reading your screen" }));
                 let read = with_failover(
                     &model,
-                    |tried| llm.next_free_model(Kind::Vision, tried),
+                    |tried| next_free(Kind::Vision, tried),
                     || true,
                     |m| send("query:stage", busy_stage("Reading with", m)),
                     |m| {
@@ -633,6 +716,7 @@ pub async fn submit_to(
                 .await;
                 match read {
                     Ok((m, r)) => {
+                        reader_used = Some(m.clone());
                         seeing = m;
                         report = Some(r);
                     }
@@ -711,7 +795,7 @@ pub async fn submit_to(
             send("query:stage", json!({ "label": "Thinking" }));
             let spoke = with_failover(
                 &brain,
-                |tried| llm.next_free_model(Kind::Text, tried),
+                |tried| next_free(Kind::Text, tried),
                 nothing_shown,
                 |m| send("query:stage", busy_stage("Thinking with", m)),
                 |m| attempt(m, None, Some(rep.clone())),
@@ -738,7 +822,7 @@ pub async fn submit_to(
             let img = shot.as_ref().map(|s| s.base64.clone());
             let (m, _) = with_failover(
                 &model,
-                |tried| llm.next_free_model(Kind::Vision, tried),
+                |tried| next_free(Kind::Vision, tried),
                 nothing_shown,
                 |m| send("query:stage", busy_stage("Trying", m)),
                 |m| attempt(m, img.clone(), None),
@@ -780,12 +864,48 @@ pub async fn submit_to(
                 via: None,
                 hop_reason: None,
             };
+            // What left this PC for this answer (B-121, K-19).
+            let window_text = exact.as_ref().filter(|e| !e.text.is_empty()).map(|e| {
+                let app: String = e.title.chars().take(60).collect();
+                json!({ "app": app, "chars": e.text.chars().count() })
+            });
+            let image = shot.as_ref().map(|s| {
+                if s.region.is_some() {
+                    "region"
+                } else {
+                    "screen"
+                }
+            });
+            let reader = reader_used
+                .as_ref()
+                .filter(|_| report.is_some())
+                .map(|m| json!({ "modelName": display_name(m) }));
+            let sent = json!({
+                "provider": provider.id(),
+                "providerName": provider.name(),
+                "model": answering,
+                "modelName": display_name(&answering),
+                "free": answering.ends_with(":free")
+                    || reader_used.as_ref().is_some_and(|m| m.ends_with(":free")),
+                "image": image,
+                "imageSize": shot.as_ref().map(|s| json!([s.width, s.height])),
+                "windowText": window_text,
+                "history": prior.len(),
+                "reader": reader,
+                "msgId": gen,
+            });
+            if let Some(s) = &shot {
+                let alive = |l: &str| outputs::with(app, l, |_| ()).is_some();
+                keep_sent(sent_images(), &label, gen, s.base64.clone(), alive);
+            }
             send(
                 "query:done",
                 json!({
                     "usage": usage,
                     "inferred": o.inferred,
                     "question": text,
+                    "sent": sent,
+                    "msgId": gen,
                 }),
             );
             super::remember_chat(app, &label, &answering);
@@ -873,7 +993,44 @@ async fn models_list(p: &Value) -> Value {
         m.insert("kind".into(), json!(kind.as_str()));
         m.insert("current".into(), json!(current));
     }
+    // The bar's `@` menu and an answer's "Retry with" ask with no kind and
+    // no provider: they list every provider with a key (K-19, B-122).
+    if p.get("kind").is_none() && p.get("provider").is_none() {
+        result["providers"] = json!(ready_providers().await);
+    }
     result
+}
+
+/// Every provider with a usable key, in the person's order, with its
+/// screen-question models and the one in use now.
+async fn ready_providers() -> Vec<Value> {
+    let sv = services();
+    let settings = &*sv.settings;
+    let mut out = Vec::new();
+    for c in llm_settings::keyed(settings) {
+        let provider = c.provider;
+        if provider.is_native() {
+            sv.llm.native_catalogue(provider, &c.key).await;
+        }
+        let list = sv
+            .llm
+            .list_models(provider, Kind::Vision, settings.show_paid())
+            .await;
+        let current = if provider.is_native() {
+            let pick = model_for(settings, provider, Kind::Vision);
+            sv.llm.known_native(provider, Kind::Vision, &pick)
+        } else {
+            super::live_models(true).await.0
+        };
+        out.push(json!({
+            "id": provider.id(),
+            "name": provider.name(),
+            "groups": list["groups"].clone(),
+            "current": current,
+            "ready": true,
+        }));
+    }
+    out
 }
 
 /// IPC rows query:submit, query:cancel, query:retry and models:list, after
@@ -893,6 +1050,7 @@ pub async fn route(
             let q = text_of(&p["question"]);
             let o = SubmitOpts {
                 inferred: crate::store::truthy(p.get("inferred")),
+                pin: pin_of(p),
                 ..SubmitOpts::default()
             };
             submit(app, &q, o).await
@@ -920,14 +1078,20 @@ pub async fn route(
             if last.is_empty() {
                 json!({ "status": "nothing-to-retry" })
             } else {
+                // "Retry with" another model sends it; a plain Retry has none.
                 let o = SubmitOpts {
                     retry: true,
+                    pin: pin_of(p),
                     ..SubmitOpts::default()
                 };
                 submit_to(app, from, &last, o).await
             }
         }
         "models:list" => models_list(p).await,
+        "output:sent-image" => {
+            let id = p.get("msgId").and_then(Value::as_u64).unwrap_or(0);
+            json!(sent_image(sent_images(), label, id))
+        }
         _ => return None,
     };
     Some(Ok(out))
@@ -965,6 +1129,24 @@ mod tests {
         );
         uninstall(&map, "output-1", 3);
         assert!(!map.lock().contains_key("output-1"));
+    }
+
+    #[test]
+    fn sent_images_keep_last_three() {
+        let map = Mutex::new(HashMap::new());
+        for id in 1..=4 {
+            keep_sent(&map, "output-1", id, format!("img{id}"), |_| true);
+        }
+        assert_eq!(
+            sent_image(&map, "output-1", 1),
+            None,
+            "the oldest is dropped"
+        );
+        let url = sent_image(&map, "output-1", 4).unwrap();
+        assert_eq!(url, "data:image/jpeg;base64,img4");
+        assert_eq!(sent_image(&map, "output-2", 4), None, "per window");
+        keep_sent(&map, "output-2", 5, "x".into(), |_| false);
+        assert!(!map.lock().contains_key("output-1"), "a closed window's go");
     }
 
     #[test]

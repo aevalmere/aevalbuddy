@@ -731,11 +731,13 @@ listen('agent:done', ({ state, text, usage }) => {
     copy.type = 'button';
     copy.setAttribute('aria-label', 'Copy the result');
     copy.addEventListener('click', () => {
-      send('clipboard:write', { text });
-      copy.textContent = 'Copied';
-      setTimeout(() => {
-        copy.textContent = 'Copy';
-      }, 1500);
+      send('clipboard:write', { text }).then((r) => {
+        if (!copied(r)) return;
+        copy.textContent = 'Copied';
+        setTimeout(() => {
+          copy.textContent = 'Copy';
+        }, 1500);
+      });
     });
     block.meta.insertBefore(copy, block.meta.firstChild);
   } else if (text) {
