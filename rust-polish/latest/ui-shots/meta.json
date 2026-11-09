@@ -1,18 +1,18 @@
 {
   "workflow": "ui-shots",
   "workflow_name": "ui-shots",
-  "run_id": 42550242093,
+  "run_id": 42551308251,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42550242093",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42551308251",
   "event": "push",
-  "sha": "b4f81ca72133d80f7a998d8e83ef23d48d13cb84",
+  "sha": "c965f44732a8850adc566d806b8849b200253d9c",
   "ref": "rust/polish",
   "ref_dir": "rust-polish",
-  "conclusion": "failure",
+  "conclusion": "cancelled",
   "failed": [
     "Screenshots and renderer checks"
   ],
-  "finished": "2026-11-09T02:28:41Z",
+  "finished": "2026-11-09T02:40:54Z",
   "error_lines": 2,
   "steps": [
     {
