@@ -1680,7 +1680,7 @@ export const scenes = [
         plan: await inset(t.frame('o3'), '.plan-item .plan-text'),
         status: await inset(t.frame('o3'), '.trail-status'),
       };
-      t.check('textInsetIs16InEveryKind', Object.values(got).every((v) => v === 16), JSON.stringify(got));
+      t.check('textInsetIs20InEveryKind', Object.values(got).every((v) => v === 20), JSON.stringify(got));
     },
   },
 

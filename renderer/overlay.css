@@ -7,8 +7,8 @@
   --gutter: 12px;
   --control: 32px;
   /* A scrollbar has to be visible to count as one. */
-  --scroll-thumb: rgba(255, 255, 255, 0.28);
-  --scroll-thumb-hover: rgba(255, 255, 255, 0.46);
+  --scroll-thumb: rgb(201 212 226 / 0.26);
+  --scroll-thumb-hover: rgb(201 212 226 / 0.44);
   /* Agent trail rows that are finished recede, in a solid colour. */
   --step-done: var(--label-2);
 }
@@ -20,8 +20,8 @@
 }
 
 ::selection {
-  background: rgba(197, 111, 195, 0.5);
-  color: #fff;
+  background: rgb(94 134 180 / 0.55);
+  color: var(--label);
 }
 
 html,
@@ -395,8 +395,11 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   box-shadow: none;
 }
 
+/* The bar is focused whenever it is open, so its focus is quiet: the
+   specular rim brightens and a faint pastel halo sits just outside it; the
+   caret, in the accent, is the live mark. */
 #bar:focus-within > .gl {
-  box-shadow: var(--shadow-control), 0 0 0 2px rgb(16 18 28 / 0.9), 0 0 0 4px rgb(235 192 233 / 0.95);
+  box-shadow: var(--shadow-control), 0 0 0 var(--px) rgb(169 198 228 / 0.42), 0 0 0 4px rgb(169 198 228 / 0.12);
 }
 
 #bar:focus-within > .gl::after {
@@ -449,7 +452,7 @@ body[data-region="1"] #region-btn {
   box-shadow: var(--own-shadow);
   white-space: nowrap;
   overflow: hidden;
-  transition: background 160ms ease, box-shadow 160ms ease;
+  transition: background 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
 }
 
 .intent-token:hover {
@@ -457,7 +460,7 @@ body[data-region="1"] #region-btn {
 }
 
 .intent-token[data-locked="true"] {
-  --own-shadow: inset 0 1px 0 rgb(255 255 255 / 0.24), inset 0 0 0 var(--px) rgb(255 255 255 / 0.2);
+  --own-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.16);
   background: var(--accent-glass);
 }
 
@@ -493,7 +496,7 @@ body[data-region="1"] #region-btn {
 /* A low-confidence guess is the same word with a quieter glyph; the word
    itself stays at full contrast. */
 .intent-token[data-locked="false"][data-confidence="low"] {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--fill-1);
 }
 
 /* At rest (nothing chosen, Enter asks) the token is a 32 px glyph button
@@ -539,7 +542,7 @@ body[data-region="1"] #region-btn {
 @keyframes token-swap {
   from {
     opacity: 0;
-    transform: translateY(5px) scale(0.85);
+    transform: translateY(4px) scale(0.97);
     filter: blur(2px);
   }
 }
@@ -553,15 +556,16 @@ body[data-region="1"] #region-btn {
   min-width: calc(280px * var(--text-scale));
 }
 
-/* The list scrolls inside the glass, within what is left of Rust's 280 px
-   cap on the bar window's content (INPUT_MAX_HEIGHT). */
+/* The list scrolls inside the glass after about seven models, well inside
+   Rust's 400 px cap on the bar window (INPUT_MAX_HEIGHT, scaled with the
+   text), so the menu is never cut by the window's edge. */
 #model-menu {
   align-self: flex-start;
   min-width: calc(320px * var(--text-scale));
 }
 
 #model-list {
-  max-height: calc(280px - var(--bar-h) - var(--sp-2) - 2 * var(--inset-menu));
+  max-height: calc(280px * var(--text-scale) - var(--bar-h) - var(--sp-2) - 2 * var(--inset-menu));
   overflow-y: auto;
 }
 
@@ -715,13 +719,13 @@ html[data-motion="reduced"] #notice.nudge {
 /* --------------------------------------------------------- answer sheet */
 /* The sheet's own tints, named by their alpha: raw colours live only here. */
 :root {
-  --tint-accent-55: rgb(197 111 195 / 0.55);
-  --tint-accent-75: rgb(197 111 195 / 0.75);
-  --tint-k-28: rgb(0 0 0 / 0.28);
-  --tint-k-30: rgb(0 0 0 / 0.3);
-  --tint-k-35: rgb(0 0 0 / 0.35);
-  --tint-k-40: rgb(0 0 0 / 0.4);
-  --tint-k-45: rgb(0 0 0 / 0.45);
+  --tint-accent-55: rgb(94 134 180 / 0.62);
+  --tint-accent-75: rgb(169 198 228 / 0.75);
+  --tint-k-28: rgb(8 12 20 / 0.24);
+  --tint-k-30: rgb(8 12 20 / 0.26);
+  --tint-k-35: rgb(8 12 20 / 0.3);
+  --tint-k-40: rgb(8 12 20 / 0.36);
+  --tint-k-45: rgb(8 12 20 / 0.4);
   --tint-w-06: rgb(255 255 255 / 0.06);
   --tint-w-10: rgb(255 255 255 / 0.1);
   --tint-w-12: rgb(255 255 255 / 0.12);
@@ -741,7 +745,11 @@ html[data-motion="reduced"] #notice.nudge {
   --r: var(--r-sheet);
   /* The reading measure (D-05): about 68 characters at 15/24. */
   --measure: 640px;
-  padding: 0 var(--sp-4) var(--sp-4);
+  /* Words sit 20 px from the glass at the sides (v2.2, was 16): the sheet
+     breathes like a page, not a panel. Top and bottom match optically: the
+     title's glyphs sit about 17 px under the glass (4 px plus half the
+     44 px bar), the footer's buttons 16 px above it. */
+  padding: var(--sp-1) var(--inset-text) var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
@@ -760,8 +768,9 @@ body[data-grow="up"] #opanel {
   bottom: var(--stage);
 }
 
-/* The title bar (the shared sheet bar, K-40): 44 px, the title 16 px from
-   the glass, 28 px tools 4 px apart, the last one 8 px from the glass. */
+/* The title bar (the shared sheet bar, K-40): 44 px, the title 20 px from
+   the glass like the words under it, 28 px tools, the last one 12 px from
+   the glass. */
 #sheet-bar {
   position: relative;
   z-index: 2;
@@ -769,8 +778,8 @@ body[data-grow="up"] #opanel {
   align-items: center;
   gap: var(--sp-2);
   height: var(--sheet-bar-h);
-  margin: 0 calc(var(--sp-2) * -1) 0 calc(var(--sp-4) * -1);
-  padding: 0 var(--sp-2) 0 var(--sp-4);
+  margin: 0 calc(var(--sp-3) * -1) 0 calc(var(--inset-text) * -1);
+  padding: 0 var(--sp-1) 0 var(--inset-text);
   cursor: default;
 }
 
@@ -862,7 +871,7 @@ body[data-front="0"] .sheet-title {
 }
 
 body[data-front="0"] #opanel > .gl {
-  box-shadow: 0 0 0 var(--px) var(--tint-k-30), 0 4px 12px -6px var(--tint-k-35);
+  box-shadow: 0 4px 12px -6px var(--tint-k-35);
 }
 
 body[data-front="0"] #opanel > .gl::after {
@@ -870,9 +879,9 @@ body[data-front="0"] #opanel > .gl::after {
 }
 
 body[data-target="1"] #opanel > .gl::after {
-  background: linear-gradient(var(--accent-text), var(--accent-text));
+  background: linear-gradient(var(--accent-bright), var(--accent-bright));
   padding: calc(var(--px) * 1.5);
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 /* The glob (glob.js, B-061): it sits under the sheet. While it runs, the
@@ -981,7 +990,7 @@ body[data-target="1"] #opanel > .gl::after {
 #chat {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
@@ -990,9 +999,9 @@ body[data-target="1"] #opanel > .gl::after {
   padding-block: 2px; /* hairline */
   /* The scrollport reaches the sheet's edge, so a mark hung in the 16 px
      gutter (the plan's checks) is not clipped; the text stays where it was. */
-  padding-inline-start: calc(var(--sp-4) + max(0px, calc((100% - var(--measure)) / 2)));
+  padding-inline-start: calc(var(--inset-text) + max(0px, calc((100% - var(--measure)) / 2)));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
-  margin-left: calc(var(--sp-4) * -1);
+  margin-left: calc(var(--inset-text) * -1);
   margin-right: -10px;
   user-select: text;
 }
@@ -1199,7 +1208,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 
 .accent-btn {
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 var(--tint-w-30), inset 0 0 0 var(--px) var(--tint-w-18);
+  box-shadow: inset 0 var(--px) 0 var(--tint-w-18);
 }
 
 .accent-btn:hover {
@@ -1276,7 +1285,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 /* The model list for a retry: the shared menu's look, solid, because it
    opens on glass (never glass on glass). */
 .retry-menu {
-  position: absolute;
+  position: fixed;
   z-index: 5;
   min-width: 240px;
   max-width: calc(100% - 2 * var(--sp-4));
@@ -1286,11 +1295,11 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   list-style: none;
   border-radius: var(--r-card);
   background: var(--solid);
-  box-shadow: var(--shadow-menu, 0 0 0 var(--px) var(--tint-k-30), 0 8px 18px -6px var(--tint-k-45)), inset 0 0 0 var(--px) var(--tint-w-12);
+  box-shadow: var(--shadow-menu), inset 0 var(--px) 0 var(--tint-w-10);
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
   color: var(--label);
-  animation: retry-menu-in 220ms var(--ease-morph);
+  animation: retry-menu-in 200ms var(--ease-out);
 }
 
 .retry-menu [role="option"] {
@@ -1636,7 +1645,7 @@ body[data-fixed-height="1"] #chat {
   font-family: var(--font-mono);
   font-weight: 400;
   font-size: 0.875em;
-  padding: 0.1em 0.35em;
+  padding: 0.05em 0.25em;
   border-radius: var(--r-key);
   background: var(--tint-k-28);
   -webkit-box-decoration-break: clone;
@@ -1651,7 +1660,6 @@ body[data-fixed-height="1"] #chat {
   margin: var(--sp-2) 0 var(--sp-3);
   border-radius: var(--r-plate);
   background: var(--tint-k-28);
-  box-shadow: inset 0 0 0 var(--px) var(--tint-w-06);
 }
 
 .md-body .md-code-head {
@@ -1855,7 +1863,7 @@ body[data-fixed-height="1"] #chat {
   position: absolute;
   inset: 6px;
   border-radius: 22px;
-  border: 1.5px dashed rgb(197 111 195 / 0.85);
+  border: 1.5px dashed rgb(169 198 228 / 0.85);
   pointer-events: none;
   transition: border-color var(--d-fast) ease;
 }
@@ -1918,8 +1926,8 @@ body[data-fixed-height="1"] #chat {
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
 }
 
-/* Concentric with the sheet: a row 4 px inside the glass edge's 16 px
-   inset takes 12. */
+/* A row's fill starts 8 px inside the glass edge, so its words land on the
+   sheet's 20 px text inset. */
 .find-row {
   position: relative;
   display: flex;
@@ -1939,7 +1947,7 @@ body[data-fixed-height="1"] #chat {
    The swatch already carries the hit's colour, so no stripe at the edge. */
 .find-row.current {
   background: var(--fill-2);
-  box-shadow: inset 0 0 0 var(--px) var(--tint-w-18), inset 0 1px 0 var(--tint-w-14);
+  box-shadow: inset 0 var(--px) 0 var(--tint-w-10);
 }
 
 .find-row:focus-visible {
@@ -1953,7 +1961,7 @@ body[data-fixed-height="1"] #chat {
 /* In the row's own padding, centred on the first line of text. */
 .kind-mark {
   position: absolute;
-  left: 0;
+  left: 2px; /* centred in the row's 12 px padding */
   top: 14px;
   width: 8px;
   height: 8px;
@@ -2103,12 +2111,12 @@ body[data-fixed-height="1"] #chat {
   list-style: none;
   display: grid;
   gap: var(--sp-1);
-  margin-left: calc(var(--sp-4) * -1);
+  margin-left: calc(var(--inset-text) * -1);
 }
 
 .trow {
   display: grid;
-  grid-template-columns: var(--sp-4) 1fr auto;
+  grid-template-columns: var(--inset-text) 1fr auto;
   align-items: start;
   column-gap: 0;
   padding: 2px 0; /* optical */
@@ -2137,7 +2145,7 @@ body[data-fixed-height="1"] #chat {
 .trow-mark,
 .plan-item > .plan-mark {
   position: relative;
-  width: var(--sp-4);
+  width: var(--inset-text);
   height: var(--lh-row, 20px);
 }
 
@@ -2145,7 +2153,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item > .plan-mark::before {
   content: "";
   position: absolute;
-  left: 5px;
+  left: 7px;
   top: 7px;
   width: 6px;
   height: 6px;
@@ -2156,7 +2164,7 @@ body[data-fixed-height="1"] #chat {
 /* Running: an arc turning, the rim light's language at row size. */
 .trow.running .trow-mark::before,
 .plan-item.running > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2169,7 +2177,7 @@ body[data-fixed-height="1"] #chat {
 /* Done: a check in a circle. */
 .trow.done .trow-mark::before,
 .plan-item.done > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2181,7 +2189,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item.done > .plan-mark::after {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   top: 7px;
   width: 3px;
   height: 5px;
@@ -2193,7 +2201,7 @@ body[data-fixed-height="1"] #chat {
 /* Failed: a cross in a circle, in the danger colour. */
 .trow.failed .trow-mark::before,
 .plan-item.failed > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2205,7 +2213,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item.failed > .plan-mark::after {
   content: "×";
   position: absolute;
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   text-align: center;
@@ -2217,7 +2225,7 @@ body[data-fixed-height="1"] #chat {
 
 /* Skipped: a dash. */
 .trow.skipped .trow-mark::before {
-  left: 4px;
+  left: 6px;
   top: 9px;
   width: 8px;
   height: 0;
@@ -2277,7 +2285,7 @@ body[data-fixed-height="1"] #chat {
 
 .plan-item {
   display: grid;
-  grid-template-columns: var(--sp-4) 1fr;
+  grid-template-columns: var(--inset-text) 1fr;
   align-items: start;
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
@@ -2380,10 +2388,10 @@ body[data-fixed-height="1"] #chat {
 .confirm-card,
 .msg.consent {
   width: 100%;
-  background: var(--tint-w-10);
-  box-shadow: inset 0 1px 0 var(--tint-w-18), inset 0 0 0 var(--px) var(--tint-w-14);
+  background: var(--fill-1);
+  box-shadow: inset 0 var(--px) 0 var(--tint-w-10);
   border-radius: var(--r-plate);
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
   display: grid;
   gap: var(--sp-2);
   animation: card-rise 280ms var(--ease-settle);
@@ -2419,7 +2427,6 @@ body[data-fixed-height="1"] #chat {
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-row);
   background: var(--tint-k-28);
-  box-shadow: inset 0 0 0 var(--px) var(--tint-w-06);
   font: 400 var(--t-code, 13px) / var(--lh-code, 20px) var(--font-mono);
   color: var(--label);
   white-space: pre-wrap;

@@ -685,11 +685,11 @@ pub fn broadcast_tier() {
     schedule(Some(0));
 }
 
-/// Stored `glassIntensity` (0..1, default 0.5), as bits. The page renders
+/// Stored `glassIntensity` (0..1, default 0.75), as bits. The page renders
 /// glass from it (`--glass-k`, ARCHITECTURE.md 10); settings owns the value
 /// and calls `set_intensity`, which rebroadcasts the tier.
 static INTENSITY: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(0x3FE0_0000_0000_0000);
+    std::sync::atomic::AtomicU64::new(0x3FE8_0000_0000_0000);
 
 pub fn intensity() -> f64 {
     f64::from_bits(INTENSITY.load(std::sync::atomic::Ordering::Relaxed))
@@ -699,7 +699,7 @@ pub fn set_intensity(k: f64) {
     let k = if k.is_finite() {
         (k.clamp(0.0, 1.0) * 100.0).round() / 100.0
     } else {
-        0.5
+        crate::store::DEFAULT_GLASS_INTENSITY
     };
     INTENSITY.store(k.to_bits(), std::sync::atomic::Ordering::Relaxed);
     broadcast_tier();
@@ -964,8 +964,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn intensity_defaults_to_half() {
-        assert_eq!(intensity(), 0.5);
+    fn intensity_defaults_to_liquid() {
+        assert_eq!(intensity(), 0.75);
     }
 
     #[test]

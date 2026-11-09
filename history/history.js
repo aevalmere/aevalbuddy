@@ -507,13 +507,8 @@ function menuItems() {
 function openMenu(item, x, y) {
   menuFor = item.dataset.id;
   menuEl.hidden = false;
-  const app = $('app').getBoundingClientRect();
-  const w = menuEl.offsetWidth;
-  const h = menuEl.offsetHeight;
-  const left = Math.max(8, Math.min(x - app.left, app.width - w - 8));
-  const top = Math.max(8, Math.min(y - app.top, app.height - h - 8));
-  menuEl.style.left = `${left}px`;
-  menuEl.style.top = `${top}px`;
+  // At the point, flipped and clamped inside the window (glass.js).
+  window.AevalGlass.place(menuEl, { x, y }, { gap: 0 });
   menuItems()[0].focus();
 }
 

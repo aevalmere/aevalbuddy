@@ -246,9 +246,13 @@
     });
     const back = document.activeElement;
     document.body.appendChild(el);
-    const r = el.getBoundingClientRect();
-    el.style.left = `${Math.round(Math.max(8, Math.min(x, window.innerWidth - r.width - 8)))}px`;
-    el.style.top = `${Math.round(Math.max(8, Math.min(y, window.innerHeight - r.height - 8)))}px`;
+    // At the pointer, flipped and clamped inside the window (glass.js).
+    if (window.AevalGlass && window.AevalGlass.place) window.AevalGlass.place(el, { x, y }, { gap: 0 });
+    else {
+      const r = el.getBoundingClientRect();
+      el.style.left = `${Math.round(Math.max(8, Math.min(x, window.innerWidth - r.width - 8)))}px`;
+      el.style.top = `${Math.round(Math.max(8, Math.min(y, window.innerHeight - r.height - 8)))}px`;
+    }
     menu = { el, items, rows, back };
     items[0].focus();
     if (window.AevalGlass) window.AevalGlass.placeAll();

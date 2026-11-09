@@ -11,8 +11,9 @@ import * as bar from './lanes/bar.mjs';
 import * as sheet from './lanes/sheet.mjs';
 import * as settings from './lanes/settings.mjs';
 import * as voice from './lanes/voice.mjs'; // voice lane
+import * as polish from './lanes/polish.mjs'; // polish lane
 
-export const LANES = { harness, platform, windows, capture, llm, agent, bar, sheet, settings, voice };
+export const LANES = { harness, platform, windows, capture, llm, agent, bar, sheet, settings, voice, polish };
 
 // One problem string per way a lane file breaks the shape; empty when fine.
 export function shapeProblems(lanes = LANES) {

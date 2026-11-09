@@ -13,17 +13,20 @@
 // (--px), and how liquid the glass is (--glass-k, data-glass-level).
 //
 // How liquid: Settings' "Liquid glass" slider, 0 (None: solid frosted
-// panels) to 1 (Very very). It moves blur, refraction, the specular light,
-// saturation and the scrim together, live, in every window: Settings writes
-// it to localStorage, which every page of the app shares, so the others hear
-// it through the storage event; Rust also repeats it in glass:tier and in the
-// glass:hello reply (ARCHITECTURE.md section 10).
+// panels) to 1 (Very liquid), default 0.75 (Liquid). It moves blur,
+// refraction, the specular light, saturation and the scrim together, live,
+// in every window: Settings writes it to localStorage, which every page of
+// the app shares, so the others hear it through the storage event; Rust also
+// repeats it in glass:tier and in the glass:hello reply (ARCHITECTURE.md
+// section 10). The scale widened in v2.2 (glassScale 2 in the store); Rust
+// migrates a stored v2.1 value, and the page key changed with it, so a
+// stale v2.1 value in localStorage is never read as a v2.2 one.
 
 (() => {
   const root = document.documentElement;
   const bridge = window.aeval;
   const S = {
-    k: 0.5,
+    k: 0.75,
     tier: 'live',
     reasons: [],
     display: null,
@@ -59,8 +62,8 @@
 
   // ---------------------------------------------------------- liquidness
 
-  const K_KEY = 'aeval.glassIntensity';
-  const K_DEFAULT = 0.5;
+  const K_KEY = 'aeval.glassLevel2';
+  const K_DEFAULT = 0.75;
   const clampK = (v) => Math.min(1, Math.max(0, Math.round(Number(v) * 100) / 100));
   function storedK() {
     try {
@@ -474,15 +477,19 @@
       const h = Math.round(el.offsetHeight);
       if (!w || !h) return;
       const radius = parseFloat(getComputedStyle(g.gl).borderTopLeftRadius) || 0;
-      // The edge band widens and the bend deepens as the glass gets more
-      // liquid, and again past 0.5 (spec): 9 px / 11 / 14 at Subtle, the
-      // v2.1 14 px / 22 thin / 28 thick at Liquid, 32 px / 56 / 68 at Very
-      // very. None has no refraction at all. The band is also where the
-      // scrim clears (glass.css, .gsc).
-      const spec = Math.max(0, 2 * S.k - 1);
-      const band = Math.round(4 + 20 * S.k + 8 * spec);
+      // The edge band widens and the bend deepens on a k^1.5 curve, so the
+      // low end stays nearly flat and the top end turns molten:
+      //   k      band  thin  thick
+      //   0.25    8     9    11   Frosted
+      //   0.5    17    25    32   Soft (about v2.1's Liquid)
+      //   0.75   27    46    58   Liquid, the default
+      //   1      40    70    90   Very liquid
+      // None has no refraction at all. The band is also where the scrim
+      // clears (glass.css, .gsc).
+      const e = S.k ** 1.5;
+      const band = Math.round(4 + 36 * e);
       const base = el.classList.contains('thick') ? 28 : 22;
-      const scale = Math.round(base * 2 * S.k + 12 * spec);
+      const scale = Math.round(base * 3.2 * e);
       const key = `${w}x${h}r${radius}b${band}s${scale}`;
       if (key === g.mapKey && !force) return;
       g.mapKey = key;
@@ -798,6 +805,88 @@
 
   window.AevalA11y = Object.freeze({ say, speak });
 
+  // ---------------------------------------------------------------- popups
+
+  // Every menu that hangs off a control or a point is placed here, so none
+  // is ever cut by its window's edge (the window is the only canvas a page
+  // has). It opens below its anchor when it fits, above when it fits there
+  // instead, and when neither side fits it takes the roomier one and
+  // scrolls inside. Across, it starts at the anchor's left (or ends at its
+  // right with align: 'end') and is clamped inside the window. Use
+  // position: fixed, so no scrolling ancestor clips it; the result is
+  // measured and corrected, so a transformed ancestor cannot shift it either.
+  // anchor: an element, a DOMRect, or a point {x, y}.
+  const POP_EDGE = 8;
+  function placePopup(el, anchor, opts) {
+    const o = opts || {};
+    const gap = o.gap === undefined ? 4 : o.gap;
+    const edge = o.edge === undefined ? POP_EDGE : o.edge;
+    const a = anchor && typeof anchor.getBoundingClientRect === 'function' ? anchor.getBoundingClientRect() : anchor || {};
+    const ax = Number(a.left !== undefined ? a.left : a.x) || 0;
+    const ay = Number(a.top !== undefined ? a.top : a.y) || 0;
+    const vw = root.clientWidth || window.innerWidth;
+    const vh = root.clientHeight || window.innerHeight;
+    // An anchor scrolled past the window's edge counts as at the edge.
+    const inV = (v) => Math.min(vh, Math.max(0, v));
+    const r = { left: ax, top: inV(ay), right: a.right !== undefined ? a.right : ax, bottom: inV(a.bottom !== undefined ? a.bottom : ay) };
+    if (o.width === 'anchor') el.style.width = `${Math.round(r.right - r.left)}px`;
+    el.style.maxHeight = '';
+    const own = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const below = Math.floor(vh - edge - (r.bottom + gap));
+    const above = Math.floor(r.top - gap - edge);
+    let side = 'below';
+    if (h > below && (h <= above || above > below)) side = 'above';
+    const room = Math.max(0, side === 'below' ? below : above);
+    // Capped at the room on its side even when it fits now: a list that
+    // fills in later (names arriving) scrolls instead of passing the edge.
+    el.style.maxHeight = `${Math.min(room, own)}px`;
+    el.style.overflowY = 'auto';
+    const left = Math.round(Math.max(edge, Math.min(o.align === 'end' ? r.right - w : r.left, vw - w - edge)));
+    // A transformed ancestor moves what position: fixed is measured from; a
+    // probe finds where its edges really are (the menu's own entrance
+    // transform is left out of the sum).
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none';
+    (el.parentNode || document.body).appendChild(probe);
+    const o0 = probe.getBoundingClientRect();
+    probe.style.top = 'auto';
+    probe.style.bottom = '0';
+    const o1 = probe.getBoundingClientRect();
+    probe.remove();
+    el.style.left = `${Math.round(left - o0.left)}px`;
+    el.style.right = 'auto';
+    // Pinned by the edge next to the anchor, so growing moves away from it.
+    if (side === 'below') {
+      el.style.top = `${Math.round(r.bottom + gap - o0.top)}px`;
+      el.style.bottom = 'auto';
+    } else {
+      el.style.bottom = `${Math.round(o1.bottom - (r.top - gap))}px`;
+      el.style.top = 'auto';
+    }
+    el.dataset.side = side;
+    el.style.setProperty('--drop-from', side === 'below' ? '-4px' : '4px');
+    return side;
+  }
+
+  // ------------------------------------------------------- menu focus ring
+
+  // A menu opened with the pointer moves focus to its first row without a
+  // ring; the soft --fill-2 highlight shows where it is, and the ring comes
+  // back with the first key. Every menu (.g-menu) that focuses a row on
+  // open goes through here, so none needs to know how it was opened.
+  root.dataset.input = 'keyboard';
+  document.addEventListener('pointerdown', () => { root.dataset.input = 'pointer'; }, true);
+  document.addEventListener('keydown', () => { root.dataset.input = 'keyboard'; }, true);
+  const nativeFocus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function focus(opts) {
+    if (!opts && root.dataset.input === 'pointer' && this.closest && this.closest('.g-menu')) {
+      return nativeFocus.call(this, { focusVisible: false });
+    }
+    return nativeFocus.call(this, opts);
+  };
+
   // ----------------------------------------------------------------- boot
 
   syncPx();
@@ -834,6 +923,7 @@
   else boot();
 
   window.AevalGlass = {
+    place: placePopup,
     adopt,
     track,
     morph,

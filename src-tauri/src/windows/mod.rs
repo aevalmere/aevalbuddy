@@ -338,7 +338,7 @@ fn pill_rect() -> Rect {
 
 fn input_rect(height: f64) -> Rect {
     let w = store::get().get_input_width() as f64;
-    layout::input_bounds(bar_area(), &anchor(), w, height)
+    layout::input_bounds(bar_area(), &anchor(), w, height, text_scale::scale())
 }
 
 /// The bar's glass rect as it is now, or where it would be.
@@ -951,6 +951,13 @@ pub fn overlay_resize(app: &AppHandle, height: f64) {
         return;
     };
     if motion::is_animating(h) {
+        // A menu opened while the bar glides in: the height is kept above
+        // and applied once the glide ends, so the menu is never left cut
+        // off by a window still at its old size.
+        let app2 = app.clone();
+        debounce("sync-input", layout::T_EXPAND, move || {
+            sync_input_bounds(&app2)
+        });
         return;
     }
     set_input_bounds(app, input_rect(height));

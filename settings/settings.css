@@ -7,29 +7,53 @@
 :root {
   /* This page's own values; everything shared is in glass.css. */
   --rail-w: 160px;
-  --row-h: 44px;
+  --row-h: 48px;
   --prov-h: 52px;
   --measure: 720px;
   --rail-w-wide: 220px;
   --ring: rgb(255 255 255 / 0.92);
-  --group-fill: rgb(255 255 255 / 0.06);
-  --group-rim: rgb(255 255 255 / 0.08);
-  --field-bg: rgb(0 0 0 / 0.26);
-  --field-bg-focus: rgb(0 0 0 / 0.34);
-  --field-rim: rgb(255 255 255 / 0.14);
-  --on: rgb(197 111 195 / 0.85);
-  --thumb: #FFFFFF;
-  --thumb-shadow: 0 1px 3px rgb(0 0 0 / 0.45), inset 0 0 0 var(--px) rgb(0 0 0 / 0.1);
-  --tick: rgb(255 255 255 / 0.6);
+  /* Groups and fields are told apart by tone alone: a cream wash for a
+     group, an ink well for a field, and no outline on either. */
+  --group-fill: rgb(247 243 234 / 0.05);
+  --group-rim: transparent;
+  --field-bg: rgb(8 12 20 / 0.24);
+  --field-bg-focus: rgb(8 12 20 / 0.32);
+  --field-rim: transparent;
+  --on: rgb(94 134 180 / 0.9);
+  --thumb: #FFFDF8;
+  --thumb-shadow: 0 1px 3px rgb(8 12 20 / 0.36), 0 0 0 var(--px) rgb(8 12 20 / 0.06);
+  --tick: rgb(247 243 234 / 0.5);
   --warn: #F2CB8C;
   --danger-fill: rgb(242 160 168 / 0.22);
   --danger-fill-hover: rgb(242 160 168 / 0.32);
-  --selection: rgb(130 58 128 / 0.6);
-  --scroll-thumb: rgb(201 207 221 / 0.26);
-  --scroll-thumb-hover: rgb(201 207 221 / 0.46);
-  --menu-rim: rgb(255 255 255 / 0.14);
+  --selection: rgb(94 134 180 / 0.55);
+  --scroll-thumb: rgb(201 212 226 / 0.24);
+  --scroll-thumb-hover: rgb(201 212 226 / 0.42);
+  --menu-rim: rgb(255 255 255 / 0.08);
   --halo: rgb(0 0 0 / 0.38);
-  --drag-fill: #2E3039;
+  --drag-fill: #253041;
+  /* The light tone's values (html[data-tone="light"], below). */
+  --group-fill-light: rgb(255 253 248 / 0.5);
+  --field-bg-light: rgb(22 32 45 / 0.06);
+  --field-bg-focus-light: rgb(22 32 45 / 0.1);
+  --tick-light: rgb(22 32 45 / 0.4);
+  --selection-light: rgb(169 198 228 / 0.7);
+  --scroll-thumb-light: rgb(22 32 45 / 0.2);
+  --scroll-thumb-hover-light: rgb(22 32 45 / 0.36);
+  --drag-fill-light: #F3EEE3;
+}
+
+/* The light tone (glass.css): the same roles in ink on cream, from the
+   -light tokens above. */
+html[data-tone="light"] {
+  --group-fill: var(--group-fill-light);
+  --field-bg: var(--field-bg-light);
+  --field-bg-focus: var(--field-bg-focus-light);
+  --tick: var(--tick-light);
+  --selection: var(--selection-light);
+  --scroll-thumb: var(--scroll-thumb-light);
+  --scroll-thumb-hover: var(--scroll-thumb-hover-light);
+  --drag-fill: var(--drag-fill-light);
 }
 
 * {
@@ -122,8 +146,8 @@ ol {
   flex: 0 0 var(--rail-w);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
-  padding: var(--sp-1) var(--sp-2) var(--sp-4) var(--sp-3);
+  gap: 2px; /* optical */
+  padding: var(--sp-1) var(--sp-3) var(--sp-4) var(--sp-3);
   overflow-y: auto;
 }
 
@@ -134,7 +158,7 @@ ol {
   font-size: var(--fs-row);
   color: var(--label-2);
   text-align: left;
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+  transition: background var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out);
 }
 
 #rail button:hover {
@@ -143,9 +167,8 @@ ol {
 }
 
 #rail button[aria-current="true"] {
-  background: var(--fill-2);
+  background: var(--fill-1);
   color: var(--label);
-  font-weight: var(--w-strong);
 }
 
 main {
@@ -153,7 +176,7 @@ main {
   min-width: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 0 var(--sp-3) var(--sp-6) var(--sp-2);
+  padding: 0 var(--sp-4) var(--sp-8) var(--sp-3);
 }
 
 /* Below 560 px of glass the rail goes; the column keeps every page and each
@@ -203,11 +226,11 @@ main {
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
 }
 
 .page + .page {
-  margin-top: var(--sp-6);
+  margin-top: var(--sp-8);
 }
 
 h1 {
@@ -240,9 +263,9 @@ h1:focus-visible {
 }
 
 .group-title {
-  padding: var(--sp-3) var(--sp-4) 0;
+  padding: var(--sp-4) var(--sp-4) 0;
   font-size: var(--fs-small);
-  font-weight: var(--w-strong);
+  font-weight: var(--w-body);
   line-height: var(--lh-caption);
   color: var(--label-2);
 }
@@ -280,9 +303,8 @@ h1:focus-visible {
    hover fills take the plate's corners from their position instead. */
 .group {
   list-style: none;
-  border-radius: var(--r-plate);
+  border-radius: var(--r-card);
   background: var(--group-fill);
-  box-shadow: inset 0 0 0 var(--px) var(--group-rim);
 }
 
 .row {
@@ -311,15 +333,15 @@ h1:focus-visible {
 .group > :first-child > .row-head,
 .group > :first-child > .prov-head,
 .group > .choice-row:first-child {
-  border-top-left-radius: var(--r-plate);
-  border-top-right-radius: var(--r-plate);
+  border-top-left-radius: var(--r-card);
+  border-top-right-radius: var(--r-card);
 }
 
 .group > :last-child:not([data-open="1"]) > .row-head,
 .group > :last-child:not([data-open="1"]) > .prov-head,
 .group > .choice-row:last-child {
-  border-bottom-left-radius: var(--r-plate);
-  border-bottom-right-radius: var(--r-plate);
+  border-bottom-left-radius: var(--r-card);
+  border-bottom-right-radius: var(--r-card);
 }
 
 .row-head {
@@ -572,7 +594,6 @@ h1:focus-visible {
   margin: 0;
   border-radius: var(--r-cap);
   background: var(--fill-3);
-  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
   transition: background var(--d-fast) ease;
 }
 
@@ -619,7 +640,6 @@ h1:focus-visible {
   margin: 0;
   border-radius: var(--r-key);
   background: var(--fill-2);
-  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
 }
 
 .check input:checked {
@@ -648,7 +668,6 @@ h1:focus-visible {
   font-size: var(--fs-row);
   color: var(--label);
   background: var(--field-bg);
-  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
   user-select: text;
 }
 
@@ -800,10 +819,9 @@ input[type="range"] {
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-  height: 6px;
+  height: 4px;
   border-radius: var(--r-cap);
   background: linear-gradient(to right, var(--on) var(--at), var(--fill-3) var(--at));
-  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -811,6 +829,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 22px;
   height: 22px;
   margin-top: -8px;
+  translate: 0 -1px; /* centres the 22 px thumb on the 4 px track */
   border-radius: var(--r-cap);
   background: var(--thumb);
   box-shadow: var(--thumb-shadow);
@@ -834,7 +853,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
    stops (the ends flush with the track's ends), the current one brighter. */
 .glass-slider {
   display: grid;
-  gap: var(--sp-1);
+  gap: var(--sp-2);
 }
 
 #glass-range::-webkit-slider-runnable-track {
@@ -920,7 +939,6 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   padding: var(--sp-1) calc(var(--sp-6) + var(--sp-2)) var(--sp-1) var(--sp-3);
   border-radius: var(--r-plate);
   background: var(--field-bg);
-  box-shadow: inset 0 0 0 var(--px) var(--field-rim);
   text-align: left;
   transition: background var(--d-fast) ease;
 }
@@ -957,18 +975,17 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 
 /* The list is the shared menu in its solid tier: an opaque body, the same
    rim and radius, never glass drawn on glass. */
+/* Placed by glass.js (AevalGlass.place): under the button, or over it when
+   the window has no room below, and never cut by the window or the page. */
 .combo > .g-menu {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + var(--sp-1));
+  position: fixed;
   z-index: 10;
   max-height: min(320px, 60vh);
   overflow-y: auto;
   padding: var(--sp-1);
   border-radius: var(--r-card);
   background: var(--solid);
-  box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
+  box-shadow: inset 0 var(--px) 0 var(--menu-rim), var(--shadow-menu);
 }
 
 /* A model row is two lines (name, then price and context) with the shared
@@ -1180,7 +1197,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   z-index: 2;
   border-radius: var(--r-plate);
   background: var(--drag-fill);
-  box-shadow: inset 0 0 0 var(--px) var(--menu-rim), var(--shadow-menu);
+  box-shadow: inset 0 var(--px) 0 var(--menu-rim), var(--shadow-menu);
 }
 
 #providers .prov.dragging .grip {

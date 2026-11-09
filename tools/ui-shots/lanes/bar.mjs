@@ -757,7 +757,7 @@ export const scenes = [
       await setField(f, 'What does this error mean?');
       await showBackdrop(t, 'overlay');
       const c = await f.evaluate(() => ({ tone: document.documentElement.dataset.tone, label: getComputedStyle(document.documentElement).getPropertyValue('--label').trim() }));
-      t.check('lightToneDarkLabels', c.tone === 'light' && c.label.toUpperCase() === '#1C1C1F', JSON.stringify(c));
+      t.check('lightToneDarkLabels', c.tone === 'light' && c.label.toUpperCase() === '#16202D', JSON.stringify(c));
       await t.shot('light-tone-bar', BAR_CLIP);
     },
   },

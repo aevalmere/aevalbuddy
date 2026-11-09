@@ -35,19 +35,28 @@
   --font-small: "Segoe UI Variable Small", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", Consolas, monospace;
 
-  /* Labels on glass. Solid values only: alpha text over a backdrop that can
-     be anything has no fixed contrast. --label-2 is the palette's slate. */
-  --label: #F4F6FB;
-  --label-2: #C9CFDD;
-  --label-3: #B8BECA;
+  /* The palette is Ethan Zhang's (his site's global.css): ink #16202D
+     grounds, cream #F7F3EA and fog #C9D4E2 type on the dark, pastel
+     #A9C6E4 and signal #5E86B4 as the one accent, link-deep #2E4E75 for
+     accent words on the light, blush #F9E7E0 as a rare warm touch.
+     Labels on glass. Solid values only: alpha text over a backdrop that can
+     be anything has no fixed contrast. */
+  --label: #F7F3EA;
+  --label-2: #C9D4E2;
+  --label-3: #B4BFCE;
 
-  --accent: #823A80;
-  --accent-bright: #C56FC3;
-  --accent-glass: rgb(197 111 195 / 0.42);
-  /* The accent as text or an icon on glass: --accent-bright is 2.6-3.9:1 on
-     the scrim, this holds 4.5:1 (DESIGN.md Palette). --accent-bright stays
-     for fills, rims and the lens ring. */
-  --accent-text: #EBC0E9;
+  --accent: #2E4E75;
+  --accent-bright: #A9C6E4;
+  --accent-glass: rgb(94 134 180 / 0.5);
+  --accent-glass-hover: rgb(94 134 180 / 0.62);
+  --accent-glass-press: rgb(94 134 180 / 0.74);
+  /* The accent as text or an icon on glass: mist, which holds 4.5:1 on the
+     scrim (DESIGN.md Palette). --accent-bright (pastel) stays for fills,
+     rims and the lens ring. */
+  --accent-text: #CFE0F1;
+  /* A menu row's keyboard focus: pastel, soft but past 3:1 on the menu. */
+  --menu-ring: rgb(169 198 228 / 0.6);
+  --blush: #F9E7E0;
   --danger: #F2A0A8;
   --danger-edge: #6B2E38;
 
@@ -76,17 +85,19 @@
   --w-body: 450;
   --w-strong: 600;
 
-  /* The glass body: a cool near-black drawn from shadow grey and indigo, so
-     the material keeps a trace of the brand. */
-  --tint: 16 18 28;
-  --solid: linear-gradient(#383A45, #23252D);
+  /* The glass body: deep ink, so the material reads as the site's dark
+     ground with the desktop showing through it. */
+  --tint: 16 26 42;
+  --solid: linear-gradient(#2A3545, #1A2331);
 
-  /* Fills for controls that sit on glass. Never glass on glass. */
-  --fill-1: rgba(255, 255, 255, 0.08);
-  --fill-2: rgba(255, 255, 255, 0.13);
-  --fill-3: rgba(255, 255, 255, 0.2);
-  --hairline: rgba(255, 255, 255, 0.1);
-  --chip-rim: inset 0 0 0 var(--px) rgba(255, 255, 255, 0.14);
+  /* Fills for controls that sit on glass: cream washes, never glass on
+     glass. Controls are told apart by tone, not by outlines: --chip-rim is
+     a light catch along the top edge, not a ring. */
+  --fill-1: rgb(247 243 234 / 0.07);
+  --fill-2: rgb(247 243 234 / 0.12);
+  --fill-3: rgb(247 243 234 / 0.18);
+  --hairline: rgb(247 243 234 / 0.07);
+  --chip-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.06);
 
   /* One device pixel, so hairlines are crisp at 125% and 150% (glass.js). */
   --px: 1px;
@@ -114,9 +125,11 @@
   --sp-4: 16px;
   --sp-5: 24px;
   --sp-6: 32px;
-  --inset-text: 16px;
+  --sp-7: 40px;
+  --sp-8: 48px;
+  --inset-text: 20px;
   --inset-row: 12px;
-  --inset-menu: 4px;
+  --inset-menu: 6px;
   /* The names the surfaces were built with, kept: the same sizes. */
   --fs-meta: var(--t-meta);
   --fs-small: var(--t-caption);
@@ -134,40 +147,44 @@
   --ico-s: calc(16px * var(--text-scale));
   --ico-i: calc(14px * var(--text-scale));
 
-  /* How liquid the glass is: Settings' slider, 0..1 (glass.js). 0.5 is the
-     v2.1 material exactly. */
-  --glass-k: 0.5;
-  /* Above 0.5 only: the extra specular sheen of "Very" and "Very very". */
-  --spec: clamp(0, calc(var(--glass-k) * 2 - 1), 1);
+  /* How liquid the glass is: Settings' slider, 0..1 (glass.js). The scale
+     was widened in v2.2: just above 0 is frosted and nearly flat, 1 is
+     molten, and the default, 0.75 ("Liquid"), bends more than v2.1's top
+     stop did. */
+  --glass-k: 0.75;
+  /* The specular sheen and the clear edge band: nothing up to 1/3, then
+     rising to full at 1. */
+  --spec: clamp(0, calc(var(--glass-k) * 1.5 - 0.5), 1);
 
-  /* Elevation: controls (the bar, chips, the orb), sheets (outputs,
-     Settings, History; it fits the 20 px stage) and menus. Plates inside
-     glass have none: the rim and the fill are enough. */
+  /* Elevation: soft ink-tinted shadows and no outline ring; the glass's own
+     specular edge is the boundary. Controls (the bar, chips, the orb),
+     sheets (outputs, Settings, History; it fits the 20 px stage) and menus.
+     Plates inside glass have none: tone is enough. */
+  --shade: 8 12 20;
   --shadow-control:
-    0 0 0 var(--px) rgb(0 0 0 / 0.30),
-    0 1px 2px rgb(0 0 0 / 0.20),
-    0 4px 12px -4px rgb(0 0 0 / 0.35);
+    0 1px 2px rgb(var(--shade) / 0.14),
+    0 6px 16px -6px rgb(var(--shade) / 0.42);
   --shadow-sheet:
-    0 0 0 var(--px) rgb(0 0 0 / 0.34),
-    0 2px 6px rgb(0 0 0 / 0.18),
-    0 10px 22px -10px rgb(0 0 0 / 0.50);
+    0 2px 6px rgb(var(--shade) / 0.12),
+    0 10px 22px -10px rgb(var(--shade) / 0.48);
   --shadow-menu:
-    0 0 0 var(--px) rgb(0 0 0 / 0.3),
-    0 8px 18px -6px rgb(0 0 0 / 0.45);
+    0 2px 4px rgb(var(--shade) / 0.12),
+    0 10px 20px -8px rgb(var(--shade) / 0.44);
   --shadow:
-    0 0 0 var(--px) rgba(0, 0, 0, 0.34),
-    0 1px 2px rgba(0, 0, 0, 0.24),
-    0 6px 18px -4px rgba(0, 0, 0, 0.4);
+    0 1px 2px rgb(var(--shade) / 0.16),
+    0 6px 18px -4px rgb(var(--shade) / 0.38);
 
+  /* Motion: the site's two curves, soft and unhurried, never past the
+     target. */
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-morph: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-morph: cubic-bezier(0.23, 1, 0.32, 1);
   /* The glob's body: a spring with a response near 0.42 s and damping 0.88,
      no overshoot. */
   --ease-spring: cubic-bezier(0.2, 0.9, 0.25, 1);
-  /* About 5% overshoot, for small arrivals only (owner-approved): the token
-     locking, the loupe, a switch. */
-  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
+  /* Small arrivals (the token locking, the loupe, a switch): a soft
+     deceleration with no overshoot (v2.2; it was a 5% bounce). */
+  --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --d-press: 100ms;
   --d-fast: 150ms;
   /* Every reduced-motion fade (DESIGN.md Motion). */
@@ -223,13 +240,13 @@
    14 / 28 px, the v2.1 blur. The scrim before the first frame follows k
    too; once a frame arrives glass.js measures it. */
 .glass.thin {
-  --gf: blur(calc(18px - 8px * var(--glass-k))) saturate(calc(1.1 + 0.9 * var(--glass-k))) brightness(0.94);
-  --scrim: calc(0.66 - 0.12 * var(--glass-k));
+  --gf: blur(calc(24px - 16px * var(--glass-k))) saturate(calc(1 + 0.4 * var(--glass-k))) brightness(0.95);
+  --scrim: calc(0.7 - 0.12 * var(--glass-k));
 }
 
 .glass.thick {
-  --gf: blur(calc(32px - 8px * var(--glass-k))) saturate(calc(1.1 + 0.8 * var(--glass-k))) brightness(0.9);
-  --scrim: calc(0.86 - 0.12 * var(--glass-k));
+  --gf: blur(calc(36px - 14px * var(--glass-k))) saturate(calc(1 + 0.35 * var(--glass-k))) brightness(0.92);
+  --scrim: calc(0.88 - 0.12 * var(--glass-k));
 }
 
 /* The scrim, in two parts. The whole layer gets the edge value, up to 0.26
@@ -238,7 +255,7 @@
    the scrim is exactly what glass.js measured (1 - (1 - e)(1 - i) = scrim).
    At 0.5 and below --spec is 0 and this is one flat scrim, as before. */
 .glass > .gl > .gsc {
-  --scrim-edge: calc(var(--scrim) - 0.26 * var(--spec));
+  --scrim-edge: calc(var(--scrim) - 0.3 * var(--spec));
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -265,14 +282,13 @@
   border-radius: inherit;
   z-index: 1;
   background:
-    radial-gradient(110px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / var(--lit, 0.09)), transparent 70%),
-    linear-gradient(162deg, rgb(255 255 255 / calc(0.16 * var(--spec))) 0%, rgb(255 255 255 / 0) 34%);
+    radial-gradient(120px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / var(--lit, 0.07)), transparent 70%),
+    linear-gradient(162deg, rgb(255 255 255 / calc(0.14 * var(--spec))) 0%, rgb(255 255 255 / 0) 30%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / calc(0.1 + 0.2 * var(--glass-k))),
-    inset 0 -1px 1px rgb(0 0 0 / 0.2),
-    inset 0 0 calc(10px + 24px * var(--glass-k)) rgb(255 255 255 / calc(0.06 * var(--glass-k))),
-    inset 0 -12px 24px -16px rgb(0 0 0 / calc(0.35 * var(--spec))),
-    inset 0 0 0 var(--px) rgb(255 255 255 / calc(0.08 * var(--spec)));
+    inset 0 1px 0 rgb(255 255 255 / calc(0.06 + 0.16 * var(--glass-k))),
+    inset 0 -1px 1px rgb(var(--shade) / 0.14),
+    inset 0 0 calc(8px + 28px * var(--glass-k)) rgb(255 255 255 / calc(0.07 * var(--glass-k))),
+    inset 0 -14px 28px -18px rgb(var(--shade) / calc(0.4 * var(--spec)));
 }
 
 /* The specular rim: lit from the top left, a weaker bounce at the bottom
@@ -286,19 +302,21 @@
   padding: var(--px);
   z-index: 2;
   background: conic-gradient(from var(--rim-a) at 50% 50%,
-    rgba(255, 255, 255, 0.16) 0deg,
-    rgba(255, 255, 255, 0.05) 70deg,
-    rgba(255, 255, 255, 0.3) 130deg,
-    rgba(255, 255, 255, 0.08) 200deg,
-    rgba(255, 255, 255, 0.05) 270deg,
-    rgb(255 255 255 / calc(0.62 + 0.23 * var(--spec))) 318deg,
-    rgba(255, 255, 255, 0.16) 360deg);
+    rgb(255 255 255 / 0.1) 0deg,
+    rgb(255 255 255 / 0.02) 70deg,
+    rgb(255 255 255 / calc(0.1 + 0.14 * var(--spec))) 130deg,
+    rgb(255 255 255 / 0.03) 200deg,
+    rgb(255 255 255 / 0.02) 270deg,
+    rgb(255 255 255 / calc(0.36 + 0.34 * var(--spec))) 318deg,
+    rgb(255 255 255 / 0.1) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  /* The specular rim: half strength at None's neighbour, full from 0.5 up,
-     brighter (0.85 at the peak) and up to a second pixel wide at Very very. */
-  opacity: clamp(0.5, calc(0.5 + var(--glass-k)), 1);
+  /* The specular rim: a light catch at the top left and a faint bounce at
+     the bottom right, almost nothing on the sides, so it never reads as a
+     drawn border. Faint at Frosted, full from Liquid up, and up to a second
+     pixel wide at the top of the scale. */
+  opacity: clamp(0.45, calc(0.3 + var(--glass-k)), 1);
 }
 
 html[data-glass-level="high"] .glass > .gl::after {
@@ -309,11 +327,11 @@ html[data-glass-level="high"] .glass > .gl::after {
    three thinking dots and is the only continuous animation in the product. */
 .glass.orbit > .gl::after {
   background: conic-gradient(from var(--rim-a) at 50% 50%,
-    rgba(255, 255, 255, 0.08) 0deg,
-    rgba(255, 255, 255, 0.08) 250deg,
-    rgba(232, 170, 230, 0.55) 320deg,
-    rgba(255, 255, 255, 0.95) 352deg,
-    rgba(255, 255, 255, 0.08) 360deg);
+    rgb(255 255 255 / 0.06) 0deg,
+    rgb(255 255 255 / 0.06) 250deg,
+    rgb(169 198 228 / 0.6) 320deg,
+    rgb(255 255 255 / 0.92) 352deg,
+    rgb(255 255 255 / 0.06) 360deg);
   padding: calc(var(--px) * 1.5);
   animation: rim-orbit 2.4s linear infinite;
 }
@@ -407,24 +425,37 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
    goes on it. glass.js sets data-tone per window from what is behind it;
    the scrim follows from glass.js too. */
 html[data-tone="light"] {
-  --tint: 246 247 250;
-  --label: #1C1C1F;
-  --label-2: #3C3D44;
-  --label-3: #4F515A;
-  --fill-1: rgb(0 0 0 / 0.05);
-  --fill-2: rgb(0 0 0 / 0.08);
-  --fill-3: rgb(0 0 0 / 0.12);
-  --hairline: rgb(0 0 0 / 0.1);
-  --chip-rim: inset 0 0 0 var(--px) rgb(0 0 0 / 0.1);
-  --accent-text: #823A80;
+  /* Cream and paper glass with ink type, as the site's light pages. */
+  --tint: 250 247 240;
+  --label: #16202D;
+  --label-2: #3B4656;
+  --label-3: #4A5668;
+  --fill-1: rgb(22 32 45 / 0.05);
+  --fill-2: rgb(22 32 45 / 0.08);
+  --fill-3: rgb(22 32 45 / 0.12);
+  --hairline: rgb(22 32 45 / 0.08);
+  --chip-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.6);
+  --accent-text: #2E4E75;
+  --menu-ring: rgb(46 78 117 / 0.62);
+  --accent-glass: rgb(169 198 228 / 0.62);
+  --accent-glass-hover: rgb(169 198 228 / 0.78);
+  --accent-glass-press: rgb(169 198 228 / 0.92);
+  --solid: linear-gradient(#FFFDF8, #F3EEE3);
+  --shade: 22 32 45;
 }
 
 html[data-motion="reduced"] {
   --tone-fade: var(--d-reduced);
 }
 
+/* Light glass on a light page has no dark ring: the ink shadow and a
+   faint ink edge hold it. */
 html[data-tone="light"] .glass > .gl {
-  outline: var(--px) solid rgb(0 0 0 / 0.12);
+  box-shadow: var(--shadow-control), 0 0 0 var(--px) rgb(22 32 45 / 0.05);
+}
+
+html[data-tone="light"] .glass.thick > .gl {
+  box-shadow: var(--shadow-sheet), 0 0 0 var(--px) rgb(22 32 45 / 0.05);
 }
 
 html[data-tone="light"] .glass.thin {
@@ -564,7 +595,7 @@ html[data-shot-bg] body {
   color: var(--label);
   background: var(--fill-1);
   box-shadow: var(--own-shadow);
-  transition: background var(--d-fast) ease, transform 240ms var(--ease-settle);
+  transition: background var(--d-fast) var(--ease-out), transform 200ms var(--ease-out);
 }
 
 .g-btn:hover {
@@ -572,16 +603,16 @@ html[data-shot-bg] body {
 }
 
 .g-btn.prominent {
-  --own-shadow: inset 0 1px 0 rgb(255 255 255 / 0.3), inset 0 0 0 var(--px) rgb(255 255 255 / 0.18);
+  --own-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.18);
   background: var(--accent-glass);
 }
 
 .g-btn.prominent:hover {
-  background: rgb(197 111 195 / 0.55);
+  background: var(--accent-glass-hover);
 }
 
 .g-btn.prominent:active {
-  background: rgb(197 111 195 / 0.7);
+  background: var(--accent-glass-press);
 }
 
 .g-btn[disabled] {
@@ -620,8 +651,7 @@ kbd,
   font-size: var(--t-meta);
   font-weight: var(--w-body);
   color: var(--label-2);
-  background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+  background: var(--fill-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -702,7 +732,7 @@ body[data-scrolled="1"] .sheet-bar::after,
   font-size: var(--t-row);
   line-height: var(--lh-row);
   color: var(--label);
-  animation: g-drop-in 220ms var(--ease-morph);
+  animation: g-drop-in 200ms var(--ease-out);
 }
 
 .g-menu > .gl {
@@ -776,9 +806,20 @@ body[data-scrolled="1"] .sheet-bar::after,
 .g-menu [role="option"]:focus-visible,
 .g-menu [role^="menuitem"]:focus-visible {
   background: var(--fill-1);
-  outline: 2px solid rgb(255 255 255 / 0.92);
+  /* In the accent's text tone (mist on the dark, link-deep on the light):
+     past 3:1 on the menu either way, and quieter than white. */
+  outline: 2px solid var(--menu-ring);
   outline-offset: -2px;
   box-shadow: none;
+}
+
+/* Opened with the pointer (glass.js): no ring until a key is pressed, only
+   the highlight. */
+html[data-input="pointer"] .g-menu-row:focus,
+html[data-input="pointer"] .g-menu [role="option"]:focus,
+html[data-input="pointer"] .g-menu [role^="menuitem"]:focus {
+  outline: none;
+  background: var(--fill-2);
 }
 
 .g-menu [role][aria-selected="true"],
@@ -825,7 +866,7 @@ body[data-scrolled="1"] .sheet-bar::after,
   font-family: var(--font-small);
   font-size: var(--t-meta);
   line-height: var(--lh-meta);
-  font-weight: var(--w-strong);
+  font-weight: var(--w-body);
   color: var(--label-2);
 }
 
@@ -845,7 +886,7 @@ body[data-scrolled="1"] .sheet-bar::after,
 @keyframes g-drop-in {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.98);
+    transform: translateY(var(--drop-from, -4px)) scale(0.98);
   }
 }
 

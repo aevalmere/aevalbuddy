@@ -117,7 +117,7 @@ check('editMenuInFields', fieldPrevented && asked, JSON.stringify({ fieldPrevent
 // shots.mjs documents, with every cssLintEnforce file present.
 const { LANES, shapeProblems } = await import('./lanes.mjs');
 const shape = shapeProblems(LANES);
-check('laneFiles', Object.keys(LANES).length === 10 && shape.length === 0, shape.join('; ')); // voice lane: 10
+check('laneFiles', Object.keys(LANES).length === 11 && shape.length === 0, shape.join('; ')); // voice lane: 10, polish lane: 11
 const ROOT = path.join(HERE, '..', '..');
 const listed = Object.values(LANES).flatMap((m) => m.cssLintEnforce || []);
 const absent = listed.filter((f) => !fs.existsSync(path.join(ROOT, f)));
