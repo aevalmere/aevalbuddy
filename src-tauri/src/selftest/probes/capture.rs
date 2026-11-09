@@ -451,7 +451,10 @@ fn backdrop_idle(cx: &Cx) {
                 .collect()
         })
         .unwrap_or_default();
-    let value = format!("fast={fast} slow={slow} after {ms}ms shown=[{}]", shown.join(","));
+    let value = format!(
+        "fast={fast} slow={slow} after {ms}ms shown=[{}]",
+        shown.join(",")
+    );
     check(cx, "backdropIdle", fast && slow, value);
 }
 
