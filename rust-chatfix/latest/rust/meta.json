@@ -1,19 +1,21 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42589122396,
+  "run_id": 42591963739,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42589122396",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42591963739",
   "event": "push",
-  "sha": "f721a65212e9f28d09520af6ef59fade2fdf47ba",
+  "sha": "ef3e653315ff192ca4b2f6577bea7bf4a88e5586",
   "ref": "rust/chatfix",
   "ref_dir": "rust-chatfix",
   "conclusion": "failure",
   "failed": [
-    "Smoke"
+    "Format",
+    "Capture check",
+    "Desktop selfcheck"
   ],
-  "finished": "2026-11-09T09:13:47Z",
-  "error_lines": 4,
+  "finished": "2026-11-09T09:25:45Z",
+  "error_lines": 12,
   "steps": [
     {
       "name": "Checkout",
@@ -47,13 +49,13 @@
     },
     {
       "name": "Format",
-      "outcome": "success",
-      "log": ""
+      "outcome": "failure",
+      "log": "fmt.log"
     },
     {
       "name": "Format patch",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "fmt.patch"
     },
     {
       "name": "Clippy",
@@ -67,13 +69,13 @@
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "success",
-      "log": "nsis.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Save NSIS toolset",
@@ -82,22 +84,22 @@
     },
     {
       "name": "Build installer",
-      "outcome": "success",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Smoke",
-      "outcome": "failure",
-      "log": "smoke.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Capture check",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "capture.log"
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "desktop.log"
     },
     {
