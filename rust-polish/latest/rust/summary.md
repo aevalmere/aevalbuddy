@@ -1,12 +1,11 @@
-# rust: failure
+# rust: cancelled
 
 - Workflow: rust
-- Run: [42551308267](https://github.com/aevalmere/aevalbuddy/actions/runs/42551308267), attempt 1, on push
-- Commit: c965f44732a8850adc566d806b8849b200253d9c
+- Run: [42552196271](https://github.com/aevalmere/aevalbuddy/actions/runs/42552196271), attempt 1, on push
+- Commit: 54dab43d476d7f719b99622cbef0d4d4a0a0d89a
 - Ref: rust/polish
-- Conclusion: **failure**
-- Failed: Clippy, Unit tests, Capture check, Desktop selfcheck
-- Finished: 2026-11-09T02:38:41Z
+- Conclusion: **cancelled**
+- Finished: 2026-11-09T02:52:33Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -18,15 +17,15 @@
 | Prebuild desktop helper | success | [prebuild.log](prebuild.log) |
 | Format | success |  |
 | Format patch | skipped |  |
-| Clippy | failure | [clippy.log](clippy.log) |
-| Unit tests | failure | [test.log](test.log) |
-| Restore NSIS toolset | skipped |  |
-| Seed NSIS toolset | skipped |  |
+| Clippy | success | [clippy.log](clippy.log) |
+| Unit tests | success | [test.log](test.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
 | Save NSIS toolset | skipped |  |
-| Build installer | skipped |  |
+| Build installer | cancelled | [build.log](build.log) |
 | Smoke | skipped |  |
-| Capture check | failure | [capture.log](capture.log) |
-| Desktop selfcheck | failure | [desktop.log](desktop.log) |
+| Capture check | skipped |  |
+| Desktop selfcheck | skipped |  |
 | Upload installer | skipped |  |
 
-errors.txt: 70 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
