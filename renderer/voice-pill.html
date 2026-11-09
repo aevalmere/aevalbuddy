@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src ipc: http://ipc.localhost" />
+  <title>AevalBuddy dictation</title>
+  <link rel="stylesheet" href="glass.css" />
+  <link rel="stylesheet" href="voice-pill.css" />
+</head>
+<body data-state="idle">
+  <!-- Dictation's only surface (entries/voice.md): a capsule at the bottom
+       centre, never focused, clicks pass through. The words go to the app
+       that has the focus, so all this does is say what is happening. -->
+  <div id="capsule">
+    <span id="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+    <span id="say" role="status" aria-live="polite"></span>
+  </div>
+  <script src="voice-pill.js"></script>
+</body>
+</html>

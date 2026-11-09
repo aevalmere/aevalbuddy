@@ -27,6 +27,7 @@
         <button type="button" data-page="pg-answers">Answers</button>
         <button type="button" data-page="pg-find">Find</button>
         <button type="button" data-page="pg-agent">Tasks</button>
+        <button type="button" data-page="pg-voice">Voice</button> <!-- voice lane -->
         <button type="button" data-page="pg-privacy">Privacy</button>
         <button type="button" data-page="pg-shortcuts">Shortcuts</button>
         <button type="button" data-page="pg-general">General</button>
@@ -283,6 +284,104 @@
           </div>
         </div>
 
+        <!-- voice lane: the Voice page (renderer/voice-settings.js). -->
+        <div class="page" id="pg-voice">
+          <h1 tabindex="-1">Voice</h1>
+          <div class="group">
+            <section class="row" id="sec-voice-dictation">
+              <div class="row-head">
+                <h2 id="voice-dictation-heading">Dictation</h2>
+                <span id="voice-dictation-summary" class="summary">Ctrl+Win</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-dictation-body" aria-labelledby="voice-dictation-heading voice-dictation-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-voice-dictation-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Type with your voice in any app</span>
+                    <input id="voice-dictation" type="checkbox" role="switch" />
+                  </label>
+                  <div class="sc-row" id="voice-hotkey-row">
+                    <span class="sc-label" id="voice-hotkey-label">Hold to talk</span>
+                    <kbd class="sc-current" id="voice-hotkey">Ctrl+Win</kbd>
+                    <button id="voice-hotkey-change" class="sc-change g-btn" type="button" aria-describedby="voice-hotkey-label">Change</button>
+                    <div class="sc-warn" id="voice-hotkey-warn" role="alert" hidden></div>
+                  </div>
+                  <p class="note">Hold the keys, speak, and let go: the words are typed where your cursor is. Press Space while holding to keep listening hands-free; Esc stops without typing.</p>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-voice-engine">
+              <div class="row-head">
+                <h2 id="voice-engine-heading">Transcription</h2>
+                <span id="voice-engine-summary" class="summary">On this PC</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-engine-body" aria-labelledby="voice-engine-heading voice-engine-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-voice-engine-body">
+                <div class="body-in">
+                  <div class="choice" role="radiogroup" aria-labelledby="voice-engine-heading" id="voice-engines">
+                    <button type="button" class="choice-option" role="radio" data-voice-engine="whisper-base">On this PC<span class="choice-note">Free and offline. Balanced.</span></button>
+                    <button type="button" class="choice-option" role="radio" data-voice-engine="whisper-tiny">On this PC, fastest<span class="choice-note">Free and offline. Gets more words wrong.</span></button>
+                    <button type="button" class="choice-option" role="radio" data-voice-engine="whisper-small">On this PC, most accurate<span class="choice-note">Free and offline. Slower on older PCs.</span></button>
+                    <button type="button" class="choice-option" role="radio" data-voice-engine="gemini">Gemini<span class="choice-note">Uses your Gemini key. The recording is sent to Google.</span></button>
+                  </div>
+                  <div id="voice-progress" class="progress" hidden><span></span></div>
+                  <div class="actions">
+                    <button id="voice-download" type="button" class="g-btn" hidden>Download now</button>
+                  </div>
+                  <p id="voice-engine-status" class="status" role="status" hidden></p>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-voice-language">
+              <div class="row-head">
+                <h2 id="voice-language-heading">Language</h2>
+                <span id="voice-language-summary" class="summary">English</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-language-body" aria-labelledby="voice-language-heading voice-language-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-voice-language-body">
+                <div class="body-in">
+                  <select id="voice-language" class="field voice-select" aria-labelledby="voice-language-heading"></select>
+                  <p class="note">English has a model of its own, which gets more words right. Any other language uses the multilingual model.</p>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-voice-mic">
+              <div class="row-head">
+                <h2 id="voice-mic-heading">Microphone</h2>
+                <span id="voice-mic-summary" class="summary">Windows default</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-mic-body" aria-labelledby="voice-mic-heading voice-mic-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-voice-mic-body">
+                <div class="body-in">
+                  <select id="voice-mic" class="field voice-select" aria-labelledby="voice-mic-heading"></select>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-voice-cleanup">
+              <div class="row-head">
+                <h2 id="voice-cleanup-heading">Cleanup</h2>
+                <span id="voice-cleanup-summary" class="summary">On</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-cleanup-body" aria-labelledby="voice-cleanup-heading voice-cleanup-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-voice-cleanup-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Fix punctuation, drop filler words, and keep only the correction when I correct myself</span>
+                    <input id="voice-cleanup" type="checkbox" role="switch" />
+                  </label>
+                  <p id="voice-cleanup-note" class="note">Uses a free OpenRouter model when one is set up, and never adds words. Without one, or when it takes longer than two seconds, you get the words as heard.</p>
+                </div>
+              </div>
+            </section>
+            <section class="row static" id="sec-voice-privacy">
+              <div class="row-head">
+                <h2 id="voice-privacy-heading">What is kept</h2>
+              </div>
+              <p class="note row-note">Nothing is recorded or kept beyond the utterance. The audio stays in memory while you speak and is gone once the text is in. On this PC it never leaves the computer; with Gemini it goes to Google to be transcribed. Cleanup sends the text, never the audio.</p>
+            </section>
+          </div>
+        </div>
+
         <div class="page" id="pg-privacy">
           <h1 tabindex="-1">Privacy</h1>
           <div class="group">
@@ -524,5 +623,6 @@
   <script src="../renderer/glass.js"></script>
   <script src="../renderer/frame.js"></script>
   <script src="settings.js"></script>
+  <script src="../renderer/voice-settings.js"></script> <!-- voice lane -->
 </body>
 </html>
