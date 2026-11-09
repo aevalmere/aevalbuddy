@@ -321,7 +321,7 @@ fn speed(cx: &Cx) {
         );
         // Thread counts, on tiny to keep the run short.
         let mut sweep = Vec::new();
-        for n in [1, 2, 3, 4, 6] {
+        for n in [1, 2, 4] {
             whisper::set_threads(n);
             let t = Instant::now();
             let _ = whisper::transcribe(&tp, speech, "en");
@@ -329,6 +329,9 @@ fn speed(cx: &Cx) {
         }
         whisper::set_threads(0);
         cx.log("voiceSpeedThreads", sweep.join(" "));
+        if let Ok(ctx) = whisper::cold(&tp, true) {
+            cx.log("voiceSpeedBreakdown", whisper::breakdown(&ctx, speech));
+        }
         whisper::preload(&path);
     }
     cx.log(

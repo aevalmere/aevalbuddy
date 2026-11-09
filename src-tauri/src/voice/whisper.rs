@@ -187,6 +187,31 @@ pub fn transcribe_after(
     out
 }
 
+/// Where the time goes in one pass, for the speed probe: making a state,
+/// the mel spectrogram, one full-window encode, then a whole run and its
+/// token count.
+pub fn breakdown(ctx: &WhisperContext, samples: &[f32]) -> String {
+    let n = threads() as usize;
+    let t = Instant::now();
+    let Ok(mut state) = ctx.create_state() else {
+        return "no state".into();
+    };
+    let state_ms = t.elapsed().as_millis();
+    let t = Instant::now();
+    let mel = state.pcm_to_mel(samples, n).is_ok();
+    let mel_ms = t.elapsed().as_millis();
+    let t = Instant::now();
+    let enc = state.encode(0, n).is_ok();
+    let enc_ms = t.elapsed().as_millis();
+    let t = Instant::now();
+    let text = run(ctx, samples, "en", "", true).unwrap_or_default();
+    let run_ms = t.elapsed().as_millis();
+    format!(
+        "state={state_ms}ms mel={mel_ms}ms({mel}) encode1500={enc_ms}ms({enc}) run={run_ms}ms words={}",
+        text.split_whitespace().count()
+    )
+}
+
 /// The last `n` words of `text`.
 fn last_words(text: &str, n: usize) -> String {
     let words: Vec<&str> = text.split_whitespace().collect();
