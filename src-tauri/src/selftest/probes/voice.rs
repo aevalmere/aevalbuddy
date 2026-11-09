@@ -319,8 +319,26 @@ fn speed(cx: &Cx) {
             "voiceSpeedTiny",
             format!("transcribe={}ms text={tt:?}", ms(t)),
         );
+        // Thread counts, on tiny to keep the run short.
+        let mut sweep = Vec::new();
+        for n in [1, 2, 3, 4, 6] {
+            whisper::set_threads(n);
+            let t = Instant::now();
+            let _ = whisper::transcribe(&tp, speech, "en");
+            sweep.push(format!("{n}={}ms", ms(t)));
+        }
+        whisper::set_threads(0);
+        cx.log("voiceSpeedThreads", sweep.join(" "));
         whisper::preload(&path);
     }
+    cx.log(
+        "voiceSystem",
+        format!(
+            "threads={} {}",
+            whisper::threads(),
+            whisper::system_info().trim()
+        ),
+    );
     cx.must(
         "voiceSpeed",
         lower(&text).contains("tomorrow") && total <= SPEED_BUDGET_MS,

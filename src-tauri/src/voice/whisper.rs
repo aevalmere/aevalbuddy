@@ -13,7 +13,7 @@
 //!   piece of text, and none of the timing is used.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -47,6 +47,8 @@ struct Loaded {
 static LOADED: Mutex<Option<Loaded>> = parking_lot::const_mutex(None);
 static PINNED: AtomicBool = AtomicBool::new(false);
 static EVICTOR: AtomicBool = AtomicBool::new(false);
+/// Threads for Whisper; 0 picks them from the processor.
+static THREADS: AtomicI32 = AtomicI32::new(0);
 
 /// whisper.cpp is built for AVX2, FMA and F16C (whisper.cmake).
 pub fn cpu_ok() -> bool {
@@ -129,9 +131,24 @@ pub fn loaded(path: &Path) -> bool {
     LOADED.lock().as_ref().is_some_and(|l| l.path == path)
 }
 
-fn threads() -> i32 {
-    let n = std::thread::available_parallelism().map_or(4, |n| n.get());
-    n.clamp(1, 8) as i32
+/// Sets the thread count (the speed probe); 0 goes back to the default.
+pub fn set_threads(n: i32) {
+    THREADS.store(n, Ordering::SeqCst);
+}
+
+pub fn threads() -> i32 {
+    match THREADS.load(Ordering::SeqCst) {
+        0 => {
+            let n = std::thread::available_parallelism().map_or(4, |n| n.get());
+            n.clamp(1, 8) as i32
+        }
+        n => n,
+    }
+}
+
+/// whisper.cpp's build: the instruction sets it was compiled with.
+pub fn system_info() -> &'static str {
+    whisper_rs::print_system_info()
 }
 
 /// The encoder window for `samples` at 16 kHz: the clip plus a margin, or
