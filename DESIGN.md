@@ -1073,6 +1073,8 @@ hang below it. Rows that do one thing (Bar position, Tour) have a trailing text 
 name (`Move…`, `Replay`) and a value (`Top right`, `4 steps`) instead of a chevron. Groups are r12 plates;
 rows inside are separated by a hairline from the text's left edge.
 
+**Settings, Voice** (after Tasks): Dictation (on/off, the hold-to-talk chord recorded by holding it, which may be two modifiers alone), Transcription (on this PC at three sizes, each with its download size or Downloaded, and Gemini, which says the recording goes to Google; a progress bar while the model downloads), Language, Microphone (Windows default first), Cleanup (on/off and which free model does it) and What is kept: "Nothing is recorded or kept beyond the utterance."
+
 ### Settings and History frames
 
 Settings and History use the shared sheet bar (title left, 28 px close), sit inside the 20 px stage margin
@@ -1187,3 +1189,11 @@ Reason: "the model" is not an answer to who sees your screen.
 
 Nothing found offers the next step and no key hints: `Ask about "<query>"`, and `Look on the whole screen` when the search was the window only. When Find has no hit to hand over, the words become the question.
 Reason: an empty result is the moment someone needs a way forward.
+
+### Bar
+
+**The mic.** An icon button before the area button. At rest, a stroked mic in `--label-2`. Listening, it takes `--accent-glass` with `--accent-text`, and the mic becomes a five-bar level meter, so the person can see they are heard. Writing it down, the mic breathes (no motion when reduced). An error tints it `--danger`, and the sentence takes the field's placeholder for four seconds. Click to start and again to stop, or hold and let go; Esc stops without keeping anything. The words land at the caret and the field's own input handling guesses Ask, Find or Do as for typing. Every state is said through the bar's live region.
+
+### Dictation
+
+**The dictation pill.** A 200 by 52 capsule 20 px above the bottom of the work area, centred on the screen the person is working on. It never takes focus and lets clicks through, and it is kept out of screenshots. It carries its own ground (the lens chip's tint at 92%) rather than refracting, since it floats over any app. A thirteen-bar waveform in `--accent-text` scrolls with the voice; Writing, it greys and breathes; Done shows for 0.7 s; an error says why in two lines for 2.6 s.
