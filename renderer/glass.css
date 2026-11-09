@@ -804,7 +804,9 @@ body[data-scrolled="1"] .sheet-bar::after,
 .g-menu [role="option"]:focus-visible,
 .g-menu [role^="menuitem"]:focus-visible {
   background: var(--fill-1);
-  outline: 2px solid rgb(255 255 255 / 0.92);
+  /* In the accent's text tone (mist on the dark, link-deep on the light):
+     past 3:1 on the menu either way, and quieter than white. */
+  outline: 2px solid var(--accent-text);
   outline-offset: -2px;
   box-shadow: none;
 }
