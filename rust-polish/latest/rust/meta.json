@@ -1,11 +1,11 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42550242083,
+  "run_id": 42551308267,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42550242083",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42551308267",
   "event": "push",
-  "sha": "b4f81ca72133d80f7a998d8e83ef23d48d13cb84",
+  "sha": "c965f44732a8850adc566d806b8849b200253d9c",
   "ref": "rust/polish",
   "ref_dir": "rust-polish",
   "conclusion": "failure",
@@ -15,7 +15,7 @@
     "Capture check",
     "Desktop selfcheck"
   ],
-  "finished": "2026-11-09T02:26:33Z",
+  "finished": "2026-11-09T02:38:41Z",
   "error_lines": 70,
   "steps": [
     {

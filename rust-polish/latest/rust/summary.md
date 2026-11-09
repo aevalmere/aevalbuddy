@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42550242083](https://github.com/aevalmere/aevalbuddy/actions/runs/42550242083), attempt 1, on push
-- Commit: b4f81ca72133d80f7a998d8e83ef23d48d13cb84
+- Run: [42551308267](https://github.com/aevalmere/aevalbuddy/actions/runs/42551308267), attempt 1, on push
+- Commit: c965f44732a8850adc566d806b8849b200253d9c
 - Ref: rust/polish
 - Conclusion: **failure**
 - Failed: Clippy, Unit tests, Capture check, Desktop selfcheck
-- Finished: 2026-11-09T02:26:33Z
+- Finished: 2026-11-09T02:38:41Z
 
 | Step | Outcome | Log |
 |---|---|---|
