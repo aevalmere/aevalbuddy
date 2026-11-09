@@ -8,6 +8,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const INVOKE_CHANNELS = new Set([
   'overlay:trigger',
   'overlay:collapse',
+  'overlay:minimize',
   'overlay:resize',
   'overlay:set-ignore',
   'overlay:open-settings',

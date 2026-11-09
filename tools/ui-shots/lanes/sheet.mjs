@@ -1179,7 +1179,7 @@ export const scenes = [
           svgs: b.querySelectorAll('svg').length,
         };
       });
-      t.check('outputTitleBarIsSheetBar', bar.shared && bar.height === 44 && bar.kind && bar.font === '600 13px' && bar.glyphs === 4 && bar.svgs === 0, JSON.stringify(bar));
+      t.check('outputTitleBarIsSheetBar', bar.shared && bar.height === 44 && bar.kind && bar.font === '600 13px' && bar.glyphs === 5 && bar.svgs === 0, JSON.stringify(bar));
     },
   },
 
@@ -1780,6 +1780,71 @@ export const scenes = [
       await t.shot('sheet-two-turn-scrolled', await clipOf(t, 'out1'));
       const s = await f.evaluate(() => ({ scrolled: document.body.dataset.scrolled, more: document.body.dataset.more }));
       t.check('scrolledShowsBothEdges', s.scrolled === '1' && s.more === '1', JSON.stringify(s));
+    },
+  },
+
+  // A continued conversation (Andy: "the pill thing takes up space and makes
+  // the chat malform"): three turns in a narrow window, the last answer
+  // still streaming. An earlier answer's action pills (Copy, Retry, What was
+  // sent) were invisible but kept their 40 px row, so every turn after the
+  // first opened with a dead gap; at a narrow width the last row ran past
+  // the column. The turns must read one after another: no overlap, the same
+  // rhythm between every turn, nothing wider than the column.
+  {
+    name: 'sheet-continued',
+    backdrop: 'wallpaper',
+    textScale: true,
+    windows: [outWin('out1', { x: 560, y: 60, w: 420, h: 900 }, { fixed: true })],
+    async run(t) {
+      const f = t.frame('out1');
+      const short = 'Install the **Visual C++ 2015-2022 Redistributable (x64)**, then run the build again.';
+      await ask(f, { done: { inferred: true, sent: { model: 'google/gemma-3-27b-it:free', screenshot: true } } });
+      await ask(f, { gen: 2, q: 'And on Linux, where the same build stops at the link step with a long error about a missing shared object?', a: short, done: { sent: { model: 'google/gemma-3-27b-it:free', screenshot: true } } });
+      await emitAll(f, [
+        ['overlay:state', { mode: 'panel', chatMax: 1200 }],
+        ['chat:user', { gen: 3, text: 'Does it matter?' }],
+        ['query:start', { gen: 3 }],
+        ['query:delta', { gen: 3, text: 'It does on' }],
+      ]);
+      await t.settle(600);
+      await t.shot('sheet-continued', await clipOf(t, 'out1'));
+      const streaming = await f.evaluate(() => {
+        const chat = document.getElementById('chat');
+        const c = chat.getBoundingClientRect();
+        const msgs = [...chat.querySelectorAll(':scope > .msg')]
+          .filter((m) => getComputedStyle(m).position !== 'absolute')
+          .map((m) => {
+            const r = m.getBoundingClientRect();
+            const b = m.querySelector(':scope > .bubble').getBoundingClientRect();
+            return { kind: m.classList.contains('user') ? 'q' : 'a', top: r.top, bottom: r.bottom, bubbleBottom: b.bottom, right: b.right };
+          });
+        return { msgs, wide: chat.scrollWidth - chat.clientWidth, colRight: c.right };
+      });
+      // Done: the last answer's actions come in where it ends.
+      await emitAll(f, [
+        ['query:delta', { gen: 3, text: ' Windows only.' }],
+        ['query:done', { gen: 3, usage: USAGE, question: 'Does it matter?', sent: { model: 'google/gemma-3-27b-it:free' } }],
+      ]);
+      await t.settle(500);
+      const done = await f.evaluate(() => {
+        const chat = document.getElementById('chat');
+        const metas = [...chat.querySelectorAll('.msg.assistant .msg-meta')].map((m) => Math.round(m.getBoundingClientRect().height));
+        return { metas, wide: chat.scrollWidth - chat.clientWidth };
+      });
+      await t.shot('sheet-continued-done', await clipOf(t, 'out1'));
+      const m = streaming.msgs;
+      const overlaps = m.slice(1).filter((x, i) => x.top < m[i].bottom - 0.5).length;
+      // From the end of one answer's words to the next question.
+      const gaps = m.slice(1).map((x, i) => (x.kind === 'q' && m[i].kind === 'a' ? Math.round(x.top - m[i].bubbleBottom) : null)).filter((g) => g !== null);
+      const even = gaps.length >= 2 && Math.max(...gaps) - Math.min(...gaps) <= 1 && Math.max(...gaps) <= 32;
+      const rights = m.filter((x) => x.kind === 'q').map((x) => Math.round(x.right));
+      const aligned = rights.every((r) => r === rights[0]);
+      const earlier = done.metas.slice(0, -1).every((h) => h === 0) && done.metas[done.metas.length - 1] > 0;
+      t.check(
+        'continuedTurnsRead',
+        !overlaps && even && aligned && streaming.wide <= 1 && done.wide <= 1 && earlier,
+        JSON.stringify({ overlaps, gaps, rights, wide: [streaming.wide, done.wide], metas: done.metas })
+      );
     },
   },
 

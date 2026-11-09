@@ -742,6 +742,21 @@ pub fn collapse_panel(app: &AppHandle) {
     hotkeys::apply(app);
 }
 
+/// The way back to the pill: the bar folds and every answer window goes
+/// with it. Nothing is closed or stopped; the conversations stay, and the
+/// next open (the pill, the hotkey, the tray) brings back each one with
+/// content (`trigger_capture`'s `show_with_chat`). Collapse alone (Esc,
+/// D-01) still leaves the answers floating.
+pub fn minimize(app: &AppHandle) {
+    crate::state::refresh(app);
+    if shared(app).lock().mode == Mode::Hud {
+        exit_hud(app);
+        return;
+    }
+    outputs::hide_windows(app);
+    collapse_panel(app);
+}
+
 /// main.js triggerCapture: the bar opens, and conversations come back.
 pub fn trigger_capture(app: &AppHandle) {
     flags::remember_foreground();

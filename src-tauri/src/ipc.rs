@@ -26,6 +26,7 @@ use crate::{autostart, history, hotkeys, store, updater};
 pub const INVOKE_CHANNELS: &[&str] = &[
     "overlay:trigger",
     "overlay:collapse",
+    "overlay:minimize",
     "overlay:resize",
     "overlay:set-ignore",
     "overlay:open-settings",
@@ -305,6 +306,8 @@ const EXCEPTIONS: &[(&str, &[Caller])] = &[
     ("settings:get", GLASS_PAGES),
     ("settings:set-text-scale", GLASS_PAGES),
     ("overlay:collapse", PAGES),
+    // The bar and an answer window fold everything back into the pill.
+    ("overlay:minimize", ASK),
     ("overlay:open-history", PAGES),
     ("overlay:open-settings", PAGES),
     ("bar:prefill-open", ASK),
@@ -657,6 +660,7 @@ async fn route(
                 windows::collapse_panel(app);
             }
         }
+        "overlay:minimize" => windows::minimize(app),
         "overlay:resize" => windows::overlay_resize(app, p_num(&p, "height")),
         "overlay:set-ignore" => windows::overlay_set_ignore(app, p_bool(&p, "ignore")),
         "glass:passthrough" => {

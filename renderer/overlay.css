@@ -414,8 +414,9 @@ body[data-waiting="asking"] #bar > .gl::after {
   opacity: 0.85;
 }
 
-/* Esc and a click outside collapse; the close button is kept for anyone
-   looking for one when the bar is wide enough to hold it. */
+/* Minimize: the bar and its answers fold into the pill. Shown when the
+   bar is wide enough to hold it; Ctrl+M and the sheet's own minimize work
+   at any width. */
 #close-btn {
   display: none;
 }
