@@ -42,6 +42,7 @@ The merge agent (integrator) is the only writer of `rust-rewrite` while the nine
 | 25 | sheet | checkpoint | `49f1eeb` | `a0ed3c0` | pending | pending | Rust and ui-shots green at the lane sha; `barAnswersTask` matches bar's exact placeholder |
 | 26 | platform | checkpoint | `b816e2d` | see `git log` | covered by `8f0524e`, fully green (run 42520232253) | n/a | Fully green at the lane sha (`suggestionsOnce=ok`). Fixes a dropped settings save: MoveFileExW refuses to replace a file another handle has open (antivirus, search indexer), so `durable::replace` falls back to `fs::rename` with a longer backoff. Likely the cause of `suggestionsOnce`'s `disk=false` on windows `0069af0`. Platform's B-112 TODO is already covered by the `ea1a0d0` seam fix. Pushed before capture's fix, superseding `cb1db3c`'s run |
 | 27 | capture | checkpoint (rust/capture-fix) | `2734165` | see `git log` | green at `8f0524e` (run 42520232253, Smoke and Upload installer included) | n/a | Fixes `buddyReload`: the smoke run's real cursor rested on the reload point's bubble, so the check failed depending on cursor position. Green at the lane sha (`buddyReload` ok in 456 ms); touches only `buddy.rs` and capture's probe |
+| 28 | voice | final (new lane) | `171ccc7` | see `git log` | pending | pending | A new feature Andy asked for: voice input and a dictation mode (whisper.cpp on this PC through `whisper-rs`; D-voice-1, D-voice-2 in ARCHITECTURE §2). Code green at `9131c77` (run 42540496429, all 7 voice smoke labels ok), ui-shots green at `b66d255` and the renderer unchanged since; `171ccc7` adds only Progress docs. Merged clean. Its shared edits are each marked "voice lane": the `ipc.rs`/`preload.js` allowlist blocks, Cargo.toml, lib.rs, the probe lane count (9 to 10), `bridge.test.mjs`, `lanes.mjs` and Settings. `entries/voice.md` folded and deleted |
 
 ## Reverts
 
@@ -71,12 +72,13 @@ How the folds are applied: an exact `Replace "..." with:` is replaced in place. 
 | capture | `2734165` (#27, rust/capture-fix) | `bf07bec` | yes |
 | llm | `4e95f64` (#24) | `535f6bb` | yes |
 | agent | `9a32c00` (final merge; green in run 42524337034) | `9a32c00` | yes |
+| voice | `9131c77` (#28, new lane) | `171ccc7` | yes |
 | bar | `688cb40` (#20) | `688cb40` (no newer tip) | yes |
 | sheet | `49f1eeb` (#25) | `49f1eeb` (no newer tip) | yes |
 | settings | `493483b` (#17) | `493483b` (no newer tip) | yes |
 | harness | `76c8c95` (#18) | `b01e049` | yes |
 
-- All nine lanes are final-merged and `entries/` is empty. Pushes: `fc4fbed` (platform, windows, capture, llm; green in run 42522288599), `60f7382` (bar, sheet, settings, harness; green in run 42523176242), then agent.
+- All nine lanes are final-merged and `entries/` is empty. Pushes: `fc4fbed` (platform, windows, capture, llm; green in run 42522288599), `60f7382` (bar, sheet, settings, harness; green in run 42523176242), then agent (`54c4b02`; green in run 42525819366, installer uploaded), then voice (#28).
 - Not merged, on purpose: harness's uncommitted B-010/B-052 work, left as `git stash@{0}` in the harness worktree and as `harness-wip-b010-b052.patch` in the coordinator's scratchpad. It needs its own lane run to finish.
 - Follow-ups, not blockers: sheet B-164 sends `output:resize` until windows' B-027 lands. `uiaTree` timed out once on `88bf490` and passed on `8f0524e`.
 - When rust is green with Build installer and Smoke passing, the installer is the `aevalbuddy-tauri-nsis` artifact on that sha's rust workflow run (the "Run:" line `ci-wait` prints). `8f0524e`'s is in run 42520232253.
