@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42593458133](https://github.com/aevalmere/aevalbuddy/actions/runs/42593458133), attempt 1, on push
-- Commit: 499a9551a2f9de438fd277bb03ebaf454e22059d
+- Run: [42596529840](https://github.com/aevalmere/aevalbuddy/actions/runs/42596529840), attempt 1, on push
+- Commit: 7254777e2f44fb604af875a18c8982122d3a09d0
 - Ref: rust/chatfix
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-09T09:48:43Z
+- Finished: 2026-11-09T10:15:42Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -29,4 +29,4 @@
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 6 error and warning lines from the logs.
+errors.txt: 4 error and warning lines from the logs.

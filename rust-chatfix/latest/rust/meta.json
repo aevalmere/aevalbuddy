@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42593458133,
+  "run_id": 42596529840,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42593458133",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42596529840",
   "event": "push",
-  "sha": "499a9551a2f9de438fd277bb03ebaf454e22059d",
+  "sha": "7254777e2f44fb604af875a18c8982122d3a09d0",
   "ref": "rust/chatfix",
   "ref_dir": "rust-chatfix",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-09T09:48:43Z",
-  "error_lines": 6,
+  "finished": "2026-11-09T10:15:42Z",
+  "error_lines": 4,
   "steps": [
     {
       "name": "Checkout",

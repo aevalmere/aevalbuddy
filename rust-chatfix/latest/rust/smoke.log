@@ -15,28 +15,28 @@
 [SMOKE] selftest.input=ok
 [SMOKE] pillCentre=Some((986, 38))
 [SMOKE] desktopReady=ok
-[SMOKE] desktopReadyMs=1893
+[SMOKE] desktopReadyMs=1796
 [SMOKE] desktopDpi=per-monitor-v2
 [SMOKE] desktopWindows=ok
 [SMOKE] desktopWindowCount=1
 [SMOKE] desktopOwnExcluded=ok
 [SMOKE] ownWindowBlocked=ok
 [SMOKE] desktopNotepadIncluded=ok
-[SMOKE] notepadWindow=w1020A:notepad:Notepad
+[SMOKE] notepadWindow=w1022C:notepad:Notepad
 [SMOKE] focusMethod=already
 [SMOKE] uiaTree=ok
 [SMOKE] uiaTreeNodes=20
-[SMOKE] uiaTreeMs=1728
+[SMOKE] uiaTreeMs=1724
 [SMOKE] uiaTreeRoles=window,document,button,edit,menuitem
 [SMOKE] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
 [SMOKE] editor=ref_2:document:Text Editor
-[SMOKE] ocrMs=840
+[SMOKE] ocrMs=880
 [SMOKE] ocrWords=ok
-[SMOKE] ocrDetail=hits=invoice|total|due words=23 inWindow=true lang=en-US
+[SMOKE] ocrDetail=hits=invoice|total|due words=26 inWindow=true lang=en-US
 [SMOKE] typeFocus=element
 [SMOKE] typeReadText="System\nFile\nEdit\nFormat\nView\nHelp\nInvoice total due 42.00\n AevalBuddy smoke 4271\n  Ln 2, Col 23\n 100%\n Windows (CRLF)\n UTF-8\n"
 [SMOKE] uiaTypeRead=ok
-[SMOKE] uiaSetValueMs=134
+[SMOKE] uiaSetValueMs=112
 [SMOKE] uiaSetValueVia=sendinput
 [SMOKE] uiaSetValue=ok
 [SMOKE] getTextSpans=11
@@ -92,41 +92,41 @@
 [SMOKE] probe.platform=ok
 [SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 outside:visible=true,sheet=true,through=true,rect=-4,121,460,515 after-hotkey:visible=true,sheet=true,rect=-4,121,460,515
 [SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 outside:visible=true,sheet=true,through=true,rect=388,121,460,515 after-hotkey:visible=true,sheet=true,rect=388,121,460,515
-[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=false,rect=-4,84,460,515 outside:visible=true,sheet=true,through=true,rect=-4,84,460,515 after-hotkey:visible=true,sheet=true,rect=-4,84,460,515
-[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=false,rect=192,84,460,515 outside:visible=true,sheet=true,through=false,rect=192,84,460,515 after-hotkey:visible=true,sheet=true,rect=192,84,460,515
+[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 outside:visible=true,sheet=true,through=true,rect=-4,84,460,515 after-hotkey:visible=true,sheet=true,rect=-4,84,460,515
+[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 outside:visible=true,sheet=true,through=true,rect=192,84,460,515 after-hotkey:visible=true,sheet=true,rect=192,84,460,515
 [SMOKE] hoverKeepsAnswer=ok
-[SMOKE] marginClickThrough=FAIL:[left-bottom] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 outside:visible=true,sheet=true,through=true,rect=-4,121,460,515 after-hotkey:visible=true,sheet=true,rect=-4,121,460,515 [right-bottom] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 outside:visible=true,sheet=true,through=true,rect=388,121,460,515 after-hotkey:visible=true,sheet=true,rect=388,121,460,515 [left-top] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=false,rect=-4,84,460,515 outside:visible=true,sheet=true,through=true,rect=-4,84,460,515 after-hotkey:visible=true,sheet=true,rect=-4,84,460,515 [center-top] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=false,rect=192,84,460,515 outside:visible=true,sheet=true,through=false,rect=192,84,460,515 after-hotkey:visible=true,sheet=true,rect=192,84,460,515
+[SMOKE] marginClickThrough=ok
 [SMOKE] minimizeToPill=ok
-[SMOKE] windowsAfter=overlay (answer shown at start: true)
+[SMOKE] windowsAfter=shown=overlay active=output-1 mode=Pill (answer shown at start: true)
 [SMOKE] probe.windows=ok
 [SMOKE] helperNotAtBoot=ok
-[SMOKE] capture=ok:309012bytes:1024x768
+[SMOKE] capture=ok:310317bytes:1024x768
 [SMOKE] captureActiveDisplay=0,0 1024x768
 [SMOKE] regionCapture=320x200:tagged
 [SMOKE] regionSharper=1.00x->1.00x
 [SMOKE] regionPointTarget={"x":200,"y":140}
 [SMOKE] regionSelectorCancels=true
 [SMOKE] regionEscape=cancelled:panel-kept
-[SMOKE] captureFailNull=null in 3002ms, then a shot
+[SMOKE] captureFailNull=null in 3000ms, then a shot
 [SMOKE] dpiRoundTrip=ok:5 rects within 1px
 [SMOKE] glassTier=live reasons=none canHide=true
 [SMOKE] glassLoaded=ok
-[SMOKE] snapCost=n=50 wallP50=30.9ms wallP95=43.6ms encodeP95=3ms blockP95=0.5ms
+[SMOKE] snapCost=n=50 wallP50=30ms wallP95=47.8ms encodeP95=3.4ms blockP95=0.4ms
 [SMOKE] snapCost=ok
-[SMOKE] glassCost=live total=1.6% | solid total=2.6% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
+[SMOKE] glassCost=live total=0.5% | solid total=2.6% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
 [SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
 [SMOKE] lensFirstDraw=ok
 [SMOKE] lensReady=said=true ready=true
 [SMOKE] lensWhyClear=covers=0 at=243,197
 [SMOKE] lensWhyClear=ok
-[SMOKE] backdropIdle=FAIL:fast=true slow=false after 6046ms shown=[]
+[SMOKE] backdropIdle=FAIL:fast=true slow=false after 6045ms shown=[]
 [SMOKE] pointResolved=true
 [SMOKE] buddyPoints=true
 [SMOKE] buddyPointsDone=true
 [SMOKE] walkthrough=true
 [SMOKE] onboardingSteps=0>1>2>3
-[SMOKE] buddyReuse=points in 33ms, agent waited 17ms
-[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 508ms (clickThrough=true ready=true freshPage=true cursor=(422, 306))
+[SMOKE] buddyReuse=points in 43ms, agent waited 21ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 410ms (clickThrough=true ready=true freshPage=true cursor=(422, 306))
 [SMOKE] probe.capture=ok
 [SMOKE] intentTable=42/42
 [SMOKE] intentTable=ok
@@ -199,7 +199,7 @@
 [SMOKE] v21basics=ok
 [SMOKE] glassGates=ok
 [SMOKE] v2desktop=ok
-[SMOKE] failed: marginClickThrough, backdropIdle
+[SMOKE] failed: backdropIdle
 --- stderr ---
 [aevalbuddy] panic: smoke: deliberate task panic
     at src\selftest\probes\platform.rs:580
@@ -291,7 +291,7 @@ whisper_init_with_params_no_state: flash attn = 0
 whisper_init_with_params_no_state: gpu_device = 0
 whisper_init_with_params_no_state: dtw        = 0
 register_backend: registered backend CPU (1 devices)
-register_device: registered device CPU (INTEL(R) XEON(R) PLATINUM 8573C)
+register_device: registered device CPU (AMD EPYC 7763 64-Core Processor                )
 whisper_init_with_params_no_state: devices    = 1
 whisper_init_with_params_no_state: backends   = 1
 whisper_model_load: loading model
@@ -333,11 +333,10 @@ whisper_init_state: compute buffer (conv)   =   13.19 MB
 whisper_init_state: compute buffer (encode) =   64.79 MB
 whisper_init_state: compute buffer (cross)  =    3.88 MB
 whisper_init_state: compute buffer (decode) =   95.89 MB
-[1109/094826.114:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1109/101524.205:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
 --- exit code: 1
 [GATE] SMOKE lines=194 listed=142
-[GATE] fail marginClickThrough=FAIL:[left-bottom] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 outside:visible=true,sheet=true,through=true,rect=-4,121,460,515 after-hotkey:visible=true,sheet=true,rect=-4,121,460,515 [right-bottom] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 outside:visible=true,sheet=true,through=true,rect=388,121,460,515 after-hotkey:visible=true,sheet=true,rect=388,121,460,515 [left-top] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=false,rect=-4,84,460,515 outside:visible=true,sheet=true,through=true,rect=-4,84,460,515 after-hotkey:visible=true,sheet=true,rect=-4,84,460,515 [center-top] start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=false,rect=192,84,460,515 outside:visible=true,sheet=true,through=false,rect=192,84,460,515 after-hotkey:visible=true,sheet=true,rect=192,84,460,515
-[GATE] fail backdropIdle=FAIL:fast=true slow=false after 6046ms shown=[]
+[GATE] fail backdropIdle=FAIL:fast=true slow=false after 6045ms shown=[]
 [GATE] missing harness:done
-[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: marginClickThrough, backdropIdle; 1 listed label(s) never printed
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: backdropIdle; 1 listed label(s) never printed
 smoke failed: exit code 1, gate exit code 1
