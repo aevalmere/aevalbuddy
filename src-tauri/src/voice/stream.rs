@@ -8,8 +8,7 @@
 //! the text before it as Whisper's prompt, so casing and names carry over.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -32,29 +31,23 @@ pub struct Done {
     pub busy_ms: u64,
 }
 
+/// Dropping it (a cancelled or too-short utterance) ends the thread at
+/// once, or after the piece it is transcribing.
 pub struct Streamer {
-    stop: Arc<AtomicBool>,
+    stop: Option<mpsc::Sender<()>>,
     thread: Option<JoinHandle<Done>>,
-}
-
-impl Drop for Streamer {
-    // A cancelled or too-short utterance: the thread ends at its next look.
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::SeqCst);
-    }
 }
 
 impl Streamer {
     /// Starts watching `tap`, transcribing with the model at `path`.
     pub fn start(tap: Tap, path: PathBuf, language: String) -> Option<Streamer> {
-        let stop = Arc::new(AtomicBool::new(false));
-        let s = stop.clone();
+        let (stop, rx) = mpsc::channel();
         let thread = std::thread::Builder::new()
             .name("voice-stream".into())
-            .spawn(move || watch(&tap, &path, &language, &s))
+            .spawn(move || watch(&tap, &path, &language, &rx))
             .ok()?;
         Some(Streamer {
-            stop,
+            stop: Some(stop),
             thread: Some(thread),
         })
     }
@@ -62,7 +55,7 @@ impl Streamer {
     /// Stops watching. Waits for a piece being transcribed now, and hands
     /// back what was done.
     pub fn finish(mut self) -> Done {
-        self.stop.store(true, Ordering::SeqCst);
+        self.stop.take();
         self.thread
             .take()
             .and_then(|t| t.join().ok())
@@ -79,13 +72,11 @@ pub fn join(a: &str, b: &str) -> String {
     }
 }
 
-fn watch(tap: &Tap, path: &std::path::Path, language: &str, stop: &AtomicBool) -> Done {
+fn watch(tap: &Tap, path: &std::path::Path, language: &str, stop: &mpsc::Receiver<()>) -> Done {
     let mut done = Done::default();
-    while !stop.load(Ordering::SeqCst) {
-        std::thread::sleep(POLL);
-        if stop.load(Ordering::SeqCst) {
-            break;
-        }
+    // Wakes every POLL, and at once when the Streamer is finished or
+    // dropped (its sender goes).
+    while let Err(RecvTimeoutError::Timeout) = stop.recv_timeout(POLL) {
         let fresh = tap.since(done.upto);
         let Some(cut) = vad::last_pause(&fresh, MIN_SPEECH, MIN_PAUSE) else {
             continue;

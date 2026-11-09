@@ -233,11 +233,12 @@ fn dictation(cx: &mut Cx) {
     let _ = cx.on_main(|app| voice::cancel(app, true));
 }
 
-/// What the speed gate allows on the runner (4 vCPUs, no GPU), in ms:
+/// What the speed gate allows on the runner (4 vCPUs of an EPYC 9V74, no
+/// GPU), in ms, about 1.5 times what it measured (a4a6634: 566 and 790):
 /// Whisper on the fixture (7.9 s of speech) with the default model kept
 /// loaded, and the whole release-to-text of a 17 s utterance with a pause.
-const SPEED_BUDGET_MS: u64 = 1500;
-const E2E_BUDGET_MS: u64 = 1500;
+const SPEED_BUDGET_MS: u64 = 900;
+const E2E_BUDGET_MS: u64 = 1100;
 
 fn fixture_16k() -> Result<Vec<f32>, String> {
     std::fs::read(FIXTURE)

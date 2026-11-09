@@ -1,6 +1,6 @@
 # Lane brief: voice-speed
 
-Branch `rust/voice-speed`, cut from `rust-rewrite`. Decisions in `.claude/rust-rewrite/entries/voice-speed.md` (D-voice-10 to D-voice-14).
+Branch `rust/voice-speed`, cut from `rust-rewrite`. Decisions in `.claude/rust-rewrite/entries/voice-speed.md` (D-voice-10 to D-voice-15).
 
 ## Goal
 
@@ -8,7 +8,7 @@ Andy: "transcription and stuff is super slow, how come whimpr flow (open source 
 
 ## Files
 
-`src-tauri/src/voice/**` (new: `vad.rs`, `stream.rs`), `src-tauri/src/selftest/probes/voice.rs`, `renderer/voice-settings.js`, the Voice page in `settings/settings.html`, `tools/smoke-labels/voice.txt`, `tools/ui-shots/lanes/voice.mjs`. No Cargo or build config change.
+`src-tauri/src/voice/**` (new: `vad.rs`, `stream.rs`), `src-tauri/src/selftest/probes/voice.rs`, `renderer/voice-settings.js`, the Voice page in `settings/settings.html`, `tools/smoke-labels/voice.txt`, `tools/ui-shots/lanes/voice.mjs`, `src-tauri/src/voice/whisper.cmake` (/O2, D-voice-15). No Cargo change.
 
 ## Smoke labels added
 
@@ -19,10 +19,12 @@ Andy: "transcription and stuff is super slow, how come whimpr flow (open source 
 | Item | Status |
 |---|---|
 | Research: WhimprFlow (Blueturboguy07/WhimprFlow, MIT), Handy, OpenWhispr, Whispering | done, entries/voice-speed.md |
-| q5_1 models, legacy f16 kept until replaced; model kept loaded while dictation is on, loaded at app start | pushed, CI pending |
-| `audio_ctx` fitted to the clip, single segment, no timestamps, flash attention | pushed, CI pending |
-| Energy VAD trims silence; pieces before pauses transcribed while the key is held | pushed, CI pending |
-| AI cleanup off by default (stored as `aiCleanup`), 800 ms budget when on; Settings says the cost | pushed, CI pending |
-| Clipboard restored off the critical path | pushed, CI pending |
-| Stage timings (`voice::last_timings`, `[voice] timings` on stderr), before/after probe | pushed, CI pending |
+| q5_1 models, legacy f16 kept until replaced; model kept loaded while dictation is on, loaded at app start | green at a4a6634 |
+| `audio_ctx` fitted to the clip, single segment, no timestamps, flash attention | green at a4a6634 |
+| Energy VAD trims silence; pieces before pauses transcribed while the key is held | green at a4a6634 |
+| AI cleanup off by default (stored as `aiCleanup`), 800 ms budget when on; Settings says the cost | green at a4a6634 |
+| Clipboard restored off the critical path | green at a4a6634 |
+| Stage timings (`voice::last_timings`, `[voice] timings` on stderr), before/after probe | green at a4a6634 |
+| whisper.cpp compiled /O2 (it was /Od in every build so far) | green at a4a6634 |
+| Stream thread wakes at once on release; budgets tightened to 900 / 1100 ms | pushed, CI pending |
 | Not done: Parakeet engine, Vulkan GPU backend, whisper.cpp's Silero VAD (needs whisper-rs 0.15) | see entries/voice-speed.md, "Left" |

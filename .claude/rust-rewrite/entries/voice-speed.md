@@ -40,9 +40,25 @@ Where their speed comes from, roughly in order of effect: (1) no network on the 
 
 **D-voice-14: every utterance is timed.** `voice::Timings` (stop, wait for an in-flight piece, transcribe, cleanup, insert, total from release to text in) is kept as `voice::last_timings()`, printed as `[voice] timings {...}` on stderr, and shown in Settings. The smoke run's `voiceSpeed` and `voiceSpeedE2e` labels fail the build over budget. The clipboard is now restored on a thread of its own after the paste, so "text in" is the moment Ctrl+V is sent.
 
-## Numbers (CI runner, windows-latest, 4 vCPU, no GPU)
+**D-voice-15: whisper.cpp is compiled with /O2.** The largest cause of all. cmake-rs hands CMake cc's flags as `CMAKE_C_FLAGS_RELEASE` (and the other build types), and asks cc for them at opt-level 0, so on MSVC the build type's flags carried no optimisation at all and ggml was compiled at /Od. `whisper.cmake` (already included after every `project()`, D-voice-2) now drops `/Od` and adds `/O2 /Ob2 /DNDEBUG` to every optimised build type. Whisper got about 12 times faster on the same model, parameters and clip. Every build before this one shipped unoptimised Whisper. Found with the probe's stage breakdown: tiny took 10.8 s for one 30 s encode with AVX2 on and a calibration loop showing the runner idle.
 
-Filled in from the green run: see "Measured" below.
+## Numbers
+
+CI runner (windows-latest, 4 vCPU of an AMD EPYC 9V74, no GPU), the fixture `dictation.wav` (7.9 s, "Um, so I think we should meet at three, no, four pm tomorrow, to go over the budget.").
+
+| Path | Whisper time | Release to text |
+|---|---|---|
+| Shipped before this lane: base.en f16, /Od build, 30 s window, model reloaded after 2 idle min, cleanup up to 2 s | 21.0 s (ef9c9df) | about 21-23 s, plus about 0.1 s of reload when cold |
+| Earlier parameters, optimised build (`voiceSpeedBefore`) | 1.76 s | |
+| This lane: base.en q5_1 kept loaded, trimmed, window fitted (`voiceSpeedAfter`) | 0.57 s | |
+| Same, tiny.en q5_1 (`voiceSpeedTiny`) | 0.27 s | |
+| 17 s utterance with a pause, through the real pipeline, first half transcribed while held (`voiceSpeedTimings`) | 0.61 s for the tail | 0.79 s (a4a6634); the 0.17 s wait for the stream thread to notice the release is gone in the next commit |
+
+Thread sweep on tiny: 1 thread 547 ms, 2 296 ms, 4 267 ms; 6 threads on 4 vCPUs took 94 s (ggml's spin barrier when oversubscribed), so the thread count stays at the logical CPU count, capped at 8. Stage breakdown on tiny: state 7 ms, mel 8 ms, one 30 s encode 1009 ms, fitted run 268 ms. A laptop with 8 or more cores should land under the 300-500 ms target for base; the runner's 4 vCPUs are the floor.
+
+The gates: `voiceSpeed` (base, fixture, kept loaded) at most 900 ms, `voiceSpeedE2e` at most 1100 ms.
+
+Installer size: no new files or DLLs. The exe changes only by the new Rust code and an optimised whisper.cpp (/O2 code is a little larger than /Od). The first download for the default engine drops from 148 MB to 60 MB (tiny 78 to 32 MB).
 
 ## Left
 
