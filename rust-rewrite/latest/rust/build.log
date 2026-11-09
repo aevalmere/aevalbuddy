@@ -1,42 +1,99 @@
         Info Looking up installed tauri packages to check mismatched versions...
         Warn The bundle identifier "com.aevalbuddy.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
+   Compiling syn v3.0.10
    Compiling itoa v1.0.19
+   Compiling brotli-decompressor v6.3.1
    Compiling serde_json v1.0.154
-   Compiling cssparser v0.37.0
    Compiling http v1.5.0
-   Compiling selectors v0.38.0
-   Compiling jsonptr v0.7.1
-   Compiling cargo_metadata v0.19.2
-   Compiling schemars v0.8.22
-   Compiling json-patch v4.2.0
-   Compiling dom_query v0.28.0
-   Compiling tauri-utils v2.10.2
+   Compiling brotli v9.1.1
+   Compiling synstructure v0.14.0
+   Compiling darling_core v0.24.1
    Compiling http-body v1.1.0
-   Compiling wry v0.57.1
-   Compiling serialize-to-javascript v0.1.2
-   Compiling hyper v1.12.0
-   Compiling hyper-util v0.1.21
-   Compiling http-body-util v0.1.5
-   Compiling hyper-rustls v0.27.10
-   Compiling tower-http v0.6.11
-   Compiling serde_urlencoded v0.7.1
-   Compiling reqwest v0.12.28
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling serde_derive v1.0.229
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.21
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling tinystr v0.8.5
+   Compiling icu_locale_core v2.4.0
+   Compiling thiserror v2.0.21
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling serde v1.0.229
+   Compiling icu_collections v2.4.0
+   Compiling darling_macro v0.24.1
+   Compiling darling v0.24.1
+   Compiling icu_provider v2.4.0
+   Compiling serde_with_macros v3.24.0
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling cssparser-macros v0.7.1
+   Compiling indexmap v1.9.3
+   Compiling cssparser v0.37.0
+   Compiling jsonptr v0.7.1
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling selectors v0.38.0
+   Compiling cargo-platform v0.1.9
+   Compiling json-patch v4.2.0
+   Compiling url v2.5.8
+   Compiling cargo_metadata v0.19.2
+   Compiling serde_with v3.24.0
+   Compiling dom_query v0.28.0
+   Compiling schemars v0.8.22
+   Compiling urlpattern v0.6.0
+   Compiling plist v1.10.3
+   Compiling tauri-utils v2.10.2
+   Compiling tokio-macros v2.7.2
+   Compiling cargo_toml v1.0.1
+   Compiling tokio v1.54.1
+   Compiling dpi v0.1.2
+   Compiling webview2-com-sys v0.39.1
    Compiling tauri-build v2.7.4
    Compiling tauri-plugin v2.7.2
-   Compiling tauri-runtime v2.12.2
-   Compiling tauri-codegen v2.7.4
-   Compiling tauri-runtime-wry v2.12.3
+   Compiling webview2-com v0.39.1
+   Compiling keyboard-types v0.8.3
+   Compiling futures-macro v0.3.34
+   Compiling muda v0.20.0
+   Compiling futures-util v0.3.34
    Compiling tauri v2.12.5
+   Compiling wry v0.57.1
+   Compiling tauri-codegen v2.7.4
+   Compiling tao v0.37.2
+   Compiling serialize-to-javascript v0.1.2
+   Compiling tray-icon v0.25.1
    Compiling tauri-macros v2.7.4
+   Compiling serde_repr v0.1.21
+   Compiling hyper v1.12.0
    Compiling tauri-plugin-global-shortcut v2.4.1
    Compiling tauri-plugin-opener v2.7.2
    Compiling tauri-plugin-clipboard-manager v2.5.0
+   Compiling tauri-runtime v2.12.2
+   Compiling tower v0.5.3
+   Compiling hyper-util v0.1.21
+   Compiling tauri-runtime-wry v2.12.3
+   Compiling tokio-rustls v0.26.6
+   Compiling keyboard-types v0.7.0
+   Compiling tokio-util v0.7.20
+   Compiling serde_urlencoded v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling global-hotkey v0.8.0
+   Compiling tower-http v0.6.11
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `release` profile [optimized] target(s) in 4m 54s
+   Compiling http-body-util v0.1.5
+   Compiling reqwest v0.12.28
+   Compiling tauri-winrt-notification v0.7.3
+   Compiling fast_image_resize v5.5.0
+   Compiling async-trait v0.1.92
+    Finished `release` profile [optimized] target(s) in 8m 13s
        Built application at: D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe
         Info Patching D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe with bundle type information: nsis
         Info Target: x64
      Running makensis to produce D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\bundle\nsis\AevalBuddy_1.1.1_x64-setup.exe
     Finished 1 bundle at:
-        D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\bundle\nsis\AevalBuddy_1.1.1_x64-setup.exe (4.99 MiB)
+        D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\bundle\nsis\AevalBuddy_1.1.1_x64-setup.exe (5.01 MiB)
 

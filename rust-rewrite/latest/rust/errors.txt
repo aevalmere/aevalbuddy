@@ -1,5 +1,7 @@
 == smoke.log ==
-[SMOKE] updateFeed=FAIL:retrying: The update server did not answer. Trying again at 5:33 AM.
-[SMOKE] failed: updateFeed
-[GATE] fail updateFeed=FAIL:retrying: The update server did not answer. Trying again at 5:33 AM.
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: updateFeed; 1 listed label(s) never printed
+[SMOKE] voiceSpeed=FAIL:6514ms of 900ms
+[SMOKE] voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6497,"stopMs":1,"waitMs":0,"transcribeMs":7277,"cleanupMs":0,"insertMs":0,"totalMs":7279} budget=1100ms
+[SMOKE] failed: voiceSpeed, voiceSpeedE2e
+[GATE] fail voiceSpeed=FAIL:6514ms of 900ms
+[GATE] fail voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6497,"stopMs":1,"waitMs":0,"transcribeMs":7277,"cleanupMs":0,"insertMs":0,"totalMs":7279} budget=1100ms
+[GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: voiceSpeed, voiceSpeedE2e; 1 listed label(s) never printed

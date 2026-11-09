@@ -1,0 +1,115 @@
+    Updating crates.io index
+     Locking 597 packages to highest compatible versions
+      Adding aes-gcm v0.10.3 (available: v0.11.1)
+      Adding base64 v0.22.1 (available: v0.23.1)
+      Adding cpal v0.15.3 (available: v0.18.2)
+      Adding fancy-regex v0.14.0 (available: v0.20.0)
+      Adding fast_image_resize v5.5.0 (available: v6.1.0)
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding jpeg-encoder v0.6.1 (available: v0.7.1)
+      Adding parking_lot v0.12.5 (available: v0.13.0)
+      Adding png v0.17.16 (available: v0.18.1)
+      Adding rand v0.8.8 (available: v0.10.3)
+      Adding reqwest v0.12.28 (available: v0.13.5)
+      Adding sha2 v0.10.9 (available: v0.11.1)
+      Adding tauri-winrt-notification v0.7.3 (available: v0.8.1)
+      Adding toml v0.8.2 (available: v0.8.23)
+      Adding toml_datetime v0.6.3 (available: v0.6.11)
+      Adding toml_edit v0.20.2 (available: v0.20.7)
+      Adding whisper-rs v0.14.4 (available: v0.16.0)
+      Adding windows-sys v0.59.0 (available: v0.61.2)
+      Adding winreg v0.55.0 (available: v0.56.0)
+ Downloading crates ...
+  Downloaded brotli-decompressor v6.3.1
+  Downloaded itoa v1.0.19
+  Downloaded syn v3.0.10
+   Compiling syn v3.0.10
+   Compiling itoa v1.0.19
+   Compiling brotli-decompressor v6.3.1
+    Checking http v1.5.0
+   Compiling serde_json v1.0.154
+   Compiling brotli v9.1.1
+   Compiling synstructure v0.14.0
+   Compiling darling_core v0.24.1
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.4
+   Compiling serde_derive v1.0.229
+   Compiling zerovec-derive v0.11.7
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.21
+   Compiling zerofrom v0.1.8
+   Compiling yoke v0.8.4
+   Compiling zerovec v0.11.9
+   Compiling zerotrie v0.2.5
+   Compiling darling_macro v0.24.1
+   Compiling tinystr v0.8.5
+   Compiling serde v1.0.229
+   Compiling icu_locale_core v2.4.0
+   Compiling potential_utf v0.1.6
+   Compiling thiserror v2.0.21
+   Compiling icu_collections v2.4.0
+   Compiling darling v0.24.1
+   Compiling serde_with_macros v3.24.0
+   Compiling cssparser-macros v0.7.1
+   Compiling cssparser v0.37.0
+   Compiling icu_provider v2.4.0
+   Compiling jsonptr v0.7.1
+   Compiling icu_normalizer v2.4.0
+   Compiling icu_properties v2.4.0
+   Compiling selectors v0.38.0
+   Compiling indexmap v1.9.3
+   Compiling cargo-platform v0.1.9
+   Compiling cargo_metadata v0.19.2
+   Compiling json-patch v4.2.0
+   Compiling dom_query v0.28.0
+   Compiling serde_with v3.24.0
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling plist v1.10.3
+   Compiling url v2.5.8
+   Compiling schemars v0.8.22
+   Compiling urlpattern v0.6.0
+   Compiling tokio-macros v2.7.2
+   Compiling tauri-utils v2.10.2
+    Checking tokio v1.54.1
+   Compiling cargo_toml v1.0.1
+    Checking dpi v0.1.2
+   Compiling webview2-com-sys v0.39.1
+    Checking webview2-com v0.39.1
+    Checking keyboard-types v0.8.3
+   Compiling futures-macro v0.3.34
+   Compiling tauri-build v2.7.4
+   Compiling tauri-plugin v2.7.2
+    Checking http-body v1.1.0
+    Checking futures-util v0.3.34
+    Checking muda v0.20.0
+   Compiling tauri-codegen v2.7.4
+    Checking wry v0.57.1
+    Checking tao v0.37.2
+    Checking serialize-to-javascript v0.1.2
+    Checking tray-icon v0.25.1
+    Checking tauri-runtime v2.12.2
+   Compiling serde_repr v0.1.21
+    Checking hyper v1.12.0
+    Checking tauri-runtime-wry v2.12.3
+    Checking tower v0.5.3
+    Checking tokio-rustls v0.26.6
+    Checking keyboard-types v0.7.0
+    Checking hyper-util v0.1.21
+    Checking serde_urlencoded v0.7.1
+    Checking tokio-util v0.7.20
+    Checking tower-http v0.6.11
+    Checking global-hotkey v0.8.0
+    Checking http-body-util v0.1.5
+    Checking tauri-winrt-notification v0.7.3
+    Checking hyper-rustls v0.27.10
+    Checking fast_image_resize v5.5.0
+   Compiling async-trait v0.1.92
+    Checking reqwest v0.12.28
+   Compiling tauri v2.12.5
+   Compiling tauri-macros v2.7.4
+   Compiling tauri-plugin-clipboard-manager v2.5.0
+   Compiling tauri-plugin-global-shortcut v2.4.1
+   Compiling tauri-plugin-opener v2.7.2
+   Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 28s
