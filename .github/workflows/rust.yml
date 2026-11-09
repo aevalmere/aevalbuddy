@@ -44,6 +44,11 @@ jobs:
           rustc --version
           cargo --version
 
+      # whisper.cmake reaches whisper.cpp's CMake build through an env var whose
+      # value never changes, so cargo cannot see an edit to it and would keep a
+      # cached whisper-rs-sys built with the old flags (D-voice-15 shipped /Od
+      # that way). Its hash is part of the key and of the restore prefix, so a
+      # change to it starts from a clean target once.
       - name: Cache cargo
         id: cache
         uses: actions/cache@v4
@@ -52,8 +57,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
-          restore-keys: cargo-${{ runner.os }}-
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/src/voice/whisper.cmake') }}-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/src/voice/whisper.cmake') }}-
 
       # Each gate tees its output to $RUNNER_TEMP/ci-logs/<title>.log for the
       # ci-logs branch, and repeats the end of it as an annotation.
