@@ -67,9 +67,15 @@ export const scenes = [
       await t.settle();
       await setField(f, 'Why does the build fail\non the release branch\nbut not on main\nsince Tuesday?');
       await t.settle(200);
-      await f.evaluate(() => document.getElementById('intent').click());
+      // A real click: a menu opened with the pointer shows no focus ring.
+      await f.click('#intent');
       await t.settle(400);
       await check(t, 'menuInsideWindow.barIntent', f, '#intent-menu');
+      const ring = await f.evaluate(() => {
+        const a = document.activeElement;
+        return a && a.closest('.g-menu') ? getComputedStyle(a).outlineStyle : `focus on ${a && a.id}`;
+      });
+      t.check('pointerMenuNoRing', ring === 'none', ring);
       await t.shot('menu-bounds-bar-intent', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: BAR_MAX + 40 });
       await f.evaluate(() => document.getElementById('intent').click());
       await setField(f, '@');

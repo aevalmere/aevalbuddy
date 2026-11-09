@@ -870,6 +870,23 @@
     return side;
   }
 
+  // ------------------------------------------------------- menu focus ring
+
+  // A menu opened with the pointer moves focus to its first row without a
+  // ring; the soft --fill-2 highlight shows where it is, and the ring comes
+  // back with the first key. Every menu (.g-menu) that focuses a row on
+  // open goes through here, so none needs to know how it was opened.
+  root.dataset.input = 'keyboard';
+  document.addEventListener('pointerdown', () => { root.dataset.input = 'pointer'; }, true);
+  document.addEventListener('keydown', () => { root.dataset.input = 'keyboard'; }, true);
+  const nativeFocus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function focus(opts) {
+    if (!opts && root.dataset.input === 'pointer' && this.closest && this.closest('.g-menu')) {
+      return nativeFocus.call(this, { focusVisible: false });
+    }
+    return nativeFocus.call(this, opts);
+  };
+
   // ----------------------------------------------------------------- boot
 
   syncPx();

@@ -745,9 +745,11 @@ html[data-motion="reduced"] #notice.nudge {
   --r: var(--r-sheet);
   /* The reading measure (D-05): about 68 characters at 15/24. */
   --measure: 640px;
-  /* Words sit 20 px from the glass on every side (v2.2, was 16): the
-     sheet breathes like a page, not a panel. */
-  padding: 0 var(--inset-text) var(--inset-text);
+  /* Words sit 20 px from the glass at the sides (v2.2, was 16): the sheet
+     breathes like a page, not a panel. Top and bottom match optically: the
+     title's glyphs sit about 17 px under the glass (4 px plus half the
+     44 px bar), the footer's buttons 16 px above it. */
+  padding: var(--sp-1) var(--inset-text) var(--sp-4);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);

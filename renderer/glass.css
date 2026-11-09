@@ -813,6 +813,15 @@ body[data-scrolled="1"] .sheet-bar::after,
   box-shadow: none;
 }
 
+/* Opened with the pointer (glass.js): no ring until a key is pressed, only
+   the highlight. */
+html[data-input="pointer"] .g-menu-row:focus,
+html[data-input="pointer"] .g-menu [role="option"]:focus,
+html[data-input="pointer"] .g-menu [role^="menuitem"]:focus {
+  outline: none;
+  background: var(--fill-2);
+}
+
 .g-menu [role][aria-selected="true"],
 .g-menu [role][aria-checked="true"],
 .g-menu .g-menu-row.selected {

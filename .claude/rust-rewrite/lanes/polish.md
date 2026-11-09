@@ -36,3 +36,4 @@ CSS: `renderer/glass.css`, `renderer/overlay.css` (colours, rims, menus), `rende
 - d74aee3 (rust and ui-shots green): popups placed from a probe of their containing block. Then the menu focus ring moved to `--accent-text`.
 - 54dab43: popups capped at their own max height and at the window when the anchor is past it; build fixed for the function lane's `collapse_panel(app)`; find mark centred in its padding.
 - e8a615e (rust and ui-shots green): coordinator review applied. Menu rows 6 px in, soft pastel `--menu-ring` for focus, borderless keycaps; History search a filled well with no rim, 24 px bottom room over the shared edge fade; glass tint bluer ink (16 26 42) with far less saturation boost and a slightly higher starting scrim; tighter inline code chips. Left: an inline code token with a hyphen can still wrap at the hyphen.
+- Pointer-opened menus show no ring (pointerMenuNoRing), sheet top/bottom evened (4 px over the title bar, 16 px under the footer).
