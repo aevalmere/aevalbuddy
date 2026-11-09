@@ -22,7 +22,7 @@ Seen with the bar at the bottom left; holding Ctrl+Alt+Space kept it.
 - Not fixed here: `buddy.rs` and `lens.rs` still use tao's click-through on windows shown raw
   (`desktop::win::show_inactive`), so the tour card may have the same problem.
 - Smoke: `hoverKeepsAnswer` and `marginClickThrough` move the real pointer over an answer with the
-  bar in four corners (sheet, clear part, sheet, clear part, outside, then the hotkey) and require
+  bar in four corners (sheet, clear part, sheet, clear part, outside, then the hotkey path) and require
   the window shown, unmoved and with its glass inside the work area; the clear part passes clicks
   through and the sheet takes them.
 

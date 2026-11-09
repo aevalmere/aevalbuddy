@@ -13,6 +13,7 @@
 use std::time::Duration;
 
 use serde_json::{json, Value};
+use tauri::Manager;
 
 use crate::selftest::{Cx, Input};
 use crate::state::{shared, Rect};
@@ -138,6 +139,17 @@ pub fn run(cx: &mut Cx) {
         windows::collapse_panel(app);
     });
     cx.sleep(400);
+    // The later probes expect only the orb (capture's backdropIdle).
+    let shown: Vec<String> = cx
+        .on_main(|app| {
+            app.webview_windows()
+                .into_iter()
+                .filter(|(_, w)| w.is_visible().unwrap_or(false))
+                .map(|(l, _)| l)
+                .collect()
+        })
+        .unwrap_or_default();
+    cx.log("windowsAfter", shown.join(","));
 }
 
 /// The bar moved to that corner and the answer placed afresh beside it, as
@@ -257,14 +269,15 @@ fn hover(cx: &Cx, label: &str) -> (bool, bool, String) {
     }
     // Andy saw the answer only while he held Ctrl+Alt+Space: each repeat
     // showed it again. Once let go, the pointer over it must not hide it.
-    let chord = store_chord();
-    let pressed = !chord.is_empty() && cx.input(Input::Key(&chord)).is_ok();
+    // The hotkey's own path, not the keys: the real chord is also the voice
+    // lane's push-to-talk and would leave its pill up for the later probes.
+    cx.on_main(|app| windows::on_hotkey(app, "captureQuery"));
     cx.sleep(600);
     if let Some(y) = in_margin {
         let (visible, rect, sheet, _) = stop(cx, label, hwnd, (x, y));
         ok &= visible && sheet;
         trail.push(format!(
-            "after-hotkey({chord},pressed={pressed}):visible={visible},sheet={sheet},rect={},{},{},{}",
+            "after-hotkey:visible={visible},sheet={sheet},rect={},{},{},{}",
             rect.x, rect.y, rect.width, rect.height
         ));
     }
@@ -278,11 +291,6 @@ fn hover(cx: &Cx, label: &str) -> (bool, bool, String) {
     );
     cx.log("hoverTrail", &why);
     (ok, through, why)
-}
-
-/// The ask hotkey as the person set it (Ctrl+Alt+Space by default).
-fn store_chord() -> String {
-    store::get().shortcut("captureQuery")
 }
 
 fn bar_mode(cx: &Cx) -> String {
