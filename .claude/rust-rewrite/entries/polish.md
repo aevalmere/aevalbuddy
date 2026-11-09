@@ -1,0 +1,20 @@
+## DESIGN · Rust rewrite: decisions and notes from the lanes · polish
+Add:
+### Polish (v2.2): Ethan Zhang's palette, quiet edges, wider glass
+
+Andy tested the first Tauri install and asked for the borders to go, for more room, for the colours of his site (ethanzhang) and for glass that is much more liquid by default.
+
+- **Palette.** Dark tone: glass tint ink `18 26 38`, solid body `#2A3545` to `#1A2331`; labels cream `#F7F3EA`, fog `#C9D4E2`, `#B4BFCE`; fills are cream washes at 7 / 12 / 18%. Light tone: tint `250 247 240` (cream to paper), labels ink `#16202D`, body `#3B4656`, `#4A5668`; fills ink at 5 / 8 / 12%. Accent: pastel `#A9C6E4` (`--accent-bright`, rims and fills), mist `#CFE0F1` (`--accent-text` on dark), link-deep `#2E4E75` (`--accent`, and `--accent-text` on light), signal `#5E86B4` at 50 / 62 / 74% for prominent buttons (`--accent-glass`, `-hover`, `-press`; pastel at 62 / 78 / 92% on light). `--blush #F9E7E0` is defined for a rare warm touch. Lens and region marks use `#86AAD4` (between pastel and signal) with their dark rim; the agent frame uses signal.
+- **Edges.** No outline rings: `--chip-rim` is a one-pixel light catch along the top, groups, fields and menus carry no rim, and the shadows (`--shadow-control`, `-sheet`, `-menu`) are soft ink (`--shade 8 12 20`, ink on light) with no 1 px ring. The glass's own specular rim is the only line, faint on the sides and brightest at the top left. The bar's focus is a faint pastel halo, not a two-tone ring; keyboard focus on controls keeps the two-tone ring.
+- **Spacing.** `--sp-7` 40 and `--sp-8` 48 join the scale. Settings rows are 48 px, pages 16 px apart inside and 48 between, groups r16; the rail is quieter (selected row a cream wash, no bold).
+- **Motion.** `--ease-out` and `--ease-morph` are the site's `cubic-bezier(0.23, 1, 0.32, 1)`; `--ease-glide` stays the drawer curve. `--ease-settle` no longer overshoots. Menus drop in over 200 ms, from above or below by the side they open on.
+- **Liquid glass.** Five stops: None, Frosted, Soft, Liquid (default, 0.75), Very liquid. Refraction follows k^1.5 so the low end is nearly flat and the top is molten (band 8 / 17 / 27 / 40 px; bend 9 / 25 / 46 / 70 thin, 11 / 32 / 58 / 90 thick); blur thins from 24 to 8 px (thin) and 36 to 22 (thick); the sheen and clear edge band (`--spec`) start at 1/3. The scrim under text is unchanged, so contrast holds at every stop. Stored as `glassScale: 2`; a v2.1 value is moved once (0.5 to 0.75, others to 0.12 + 0.74 v).
+- **Menus never cut.** `AevalGlass.place(el, anchor, {gap, align, width})` places every popup inside its window (below, else above, else the roomier side with a scroll). The bar's menus grow the bar window, whose cap is 400 px times the text scale.
+
+## DESIGN · Palette · polish
+Add:
+The accent is Ethan Zhang's blue (see "Polish (v2.2)" under the lanes' notes): pastel `#A9C6E4` for fills and rims, mist `#CFE0F1` for accent text on the dark tone, link-deep `#2E4E75` on the light tone, signal `#5E86B4` under prominent buttons. The grape-soda violet and `#EBC0E9` are retired.
+
+## ARCHITECTURE · 11.2 Windows · polish
+Add:
+- The open bar's window cap is `INPUT_MAX_HEIGHT` (400 DIP) times the text scale, never past the work area (`layout::input_bounds(.., text_scale)`). An `overlay:resize` that arrives while the bar glides is applied when the glide ends (`sync-input` debounce), so a menu opened at once is never left cut.

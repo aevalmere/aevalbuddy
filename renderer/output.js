@@ -763,13 +763,9 @@ function openRetryMenu(anchor, onRetry) {
     }
   });
   opanel.appendChild(el);
-  // Under the chevron, or above it when the sheet has no room below.
-  const a = anchor.getBoundingClientRect();
-  const s = opanel.getBoundingClientRect();
-  const h = el.offsetHeight;
-  const below = a.bottom + 4 + h <= s.bottom - 8;
-  el.style.top = `${Math.round((below ? a.bottom + 4 : a.top - 4 - h) - s.top)}px`;
-  el.style.left = `${Math.round(Math.max(16, Math.min(a.left - s.left, s.width - el.offsetWidth - 16)))}px`;
+  // Under the chevron, or above it when the window has no room below; past
+  // both it scrolls inside. Never cut by the window's edge (glass.js).
+  window.AevalGlass.place(el, anchor);
   document.addEventListener('pointerdown', outsideMenu, true);
   const focusFirst = () => {
     const sel = el.querySelector('[aria-selected="true"]') || el.querySelector('[role="option"]');

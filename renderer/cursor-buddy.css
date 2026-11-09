@@ -69,8 +69,8 @@ body {
 }
 
 .arrow-body {
-  fill: #823A80;
-  stroke: #C9CFDD;
+  fill: #5E86B4;
+  stroke: #F7F3EA;
   stroke-width: 1.6;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -131,14 +131,14 @@ body {
 .bubble-body {
   max-width: 280px;
   min-width: 168px;
-  background: #10254F;
-  border: 1px solid #303D6A;
-  border-radius: 12px;
-  color: #C9CFDD;
+  background: #16202D;
+  border: none;
+  border-radius: 16px;
+  color: #C9D4E2;
   font-size: 14px;
   line-height: 1.45;
-  padding: 8px 12px 10px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  padding: 12px 16px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 8px 24px -6px rgb(8 12 20 / 0.5);
   cursor: grab;
 }
 
@@ -148,8 +148,8 @@ body {
 
 .bubble-body:hover {
   background-image: linear-gradient(
-    rgba(201, 207, 221, 0.06),
-    rgba(201, 207, 221, 0.06)
+    rgb(247 243 234 / 0.05),
+    rgb(247 243 234 / 0.05)
   );
 }
 
@@ -202,7 +202,7 @@ body {
   height: 14px;
   margin-left: 1px;
   vertical-align: -2px;
-  background: #823A80;
+  background: #A9C6E4;
   animation: caret 900ms steps(1) infinite;
 }
 
@@ -240,21 +240,21 @@ body {
   border: none;
   border-radius: 4px;
   background: none;
-  color: #C9CFDD;
+  color: #C9D4E2;
   opacity: 0.7;
   cursor: pointer;
   transition: background 150ms ease, opacity 150ms ease;
 }
 
 #callout-close:hover {
-  background: rgba(48, 61, 106, 0.6);
+  background: rgb(94 134 180 / 0.24);
   opacity: 1;
 }
 
 #callout-close:focus-visible {
-  outline: 2px solid #823A80;
+  outline: 2px solid #A9C6E4;
   outline-offset: 1px;
-  box-shadow: 0 0 0 1px #C9CFDD;
+  box-shadow: 0 0 0 1px #C9D4E2;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -293,13 +293,13 @@ body {
 }
 
 #callout-actions .act:hover {
-  color: #C9CFDD;
-  background: rgba(48, 61, 106, 0.6);
+  color: #C9D4E2;
+  background: rgb(94 134 180 / 0.24);
 }
 
 #callout-actions .act.primary {
-  background: #823A80;
-  color: #C9CFDD;
+  background: #A9C6E4;
+  color: #16202D;
   font-weight: 600;
   padding: 4px 12px;
 }
@@ -309,9 +309,9 @@ body {
 }
 
 #callout-actions .act:focus-visible {
-  outline: 2px solid #823A80;
+  outline: 2px solid #A9C6E4;
   outline-offset: 1px;
-  box-shadow: 0 0 0 1px #C9CFDD;
+  box-shadow: 0 0 0 1px #C9D4E2;
 }
 
 /* The agent's bubble narrates and carries no close button: Esc and the
@@ -435,11 +435,11 @@ body[data-kind="agent"] #callout-close {
   font-weight: 600;
   color: var(--label);
   background: var(--accent-glass);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 var(--px) rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.18);
 }
 
 #callout-actions .act.primary:hover {
-  background: rgb(197 111 195 / 0.55);
+  background: var(--accent-glass-hover);
   opacity: 1;
 }
 

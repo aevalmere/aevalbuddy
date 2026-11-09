@@ -10,7 +10,8 @@
 //! - `apiKeys`: one safeStorage blob per provider (anthropic, openai, gemini,
 //!   openrouter). The OpenRouter key is migrated from `apiKeyEncrypted` /
 //!   `apiKeyPlain` and kept mirrored there, so a rollback still finds it.
-//! - `glassIntensity`: 0 (no glass) to 1 (most liquid); 0.5 is today's look.
+//! - `glassIntensity`: 0 (no glass) to 1 (most liquid), default 0.75, on the
+//!   v2.2 scale named by `glassScale` (2); a v2.1 value is moved on open.
 //! - `hasSentFirstRequest`: set once the first request is sent; suggestions
 //!   are shown only before it.
 
@@ -38,8 +39,31 @@ pub const DEFAULT_AGENT: &str = "nvidia/nemotron-3.5-super-vl:free";
 /// Providers a key can be saved for (REQUESTS.md 2).
 pub const PROVIDERS: [&str; 4] = ["anthropic", "openai", "gemini", "openrouter"];
 
-/// The shipping glass intensity: today's look.
-pub const DEFAULT_GLASS_INTENSITY: f64 = 0.5;
+/// The shipping glass intensity on the v2.2 scale: "Liquid", well past
+/// v2.1's top stop.
+pub const DEFAULT_GLASS_INTENSITY: f64 = 0.75;
+/// The glass scale `glassIntensity` is written in. 2 is the widened v2.2
+/// scale; a profile without `glassScale` holds a v2.1 value (see
+/// `glass_v1_to_v2`).
+pub const GLASS_SCALE: i64 = 2;
+
+/// A v2.1 `glassIntensity` on the v2.2 scale. The untouched v2.1 default
+/// (0.5) becomes the new default; any other level keeps about the look it
+/// had (v2.1 0.25 / 0.75 / 1 match v2.2 0.31 / 0.68 / 0.86), and 0, no
+/// glass, stays 0.
+pub fn glass_v1_to_v2(v: f64) -> f64 {
+    if !v.is_finite() {
+        return DEFAULT_GLASS_INTENSITY;
+    }
+    let v = v.clamp(0.0, 1.0);
+    if v <= 0.0 {
+        0.0
+    } else if (v - 0.5).abs() < 0.005 {
+        DEFAULT_GLASS_INTENSITY
+    } else {
+        ((0.12 + 0.74 * v) * 100.0).round() / 100.0
+    }
+}
 
 pub const MIN_W: i64 = 320;
 pub const MAX_W: i64 = 900;
@@ -121,6 +145,7 @@ pub fn defaults() -> Map<String, Value> {
         "apiKeys": {},
         "apiKeysVersion": 0,
         "glassIntensity": DEFAULT_GLASS_INTENSITY,
+        "glassScale": GLASS_SCALE,
         "hasSentFirstRequest": false,
     });
     match v {
@@ -396,6 +421,8 @@ impl Store {
         // keeps its look: no glass (ARCHITECTURE.md 10.1).
         let was_solid = !file.contains_key("glassIntensity")
             && file.get("surface").and_then(Value::as_str) == Some("solid");
+        // A level stored on the v2.1 glass scale moves to the v2.2 one.
+        let glass_v1 = file.contains_key("glassIntensity") && !file.contains_key("glassScale");
         // Object.assign({}, defaults, file): defaults' order, file values.
         let mut data = defaults();
         if was_solid {
@@ -403,6 +430,11 @@ impl Store {
         }
         for (k, v) in file {
             data.insert(k, v);
+        }
+        if glass_v1 {
+            let v = glass_v1_to_v2(js_number(data.get("glassIntensity")));
+            data.insert("glassIntensity".into(), json!(v));
+            data.insert("glassScale".into(), json!(GLASS_SCALE));
         }
         let store = Store {
             path,
@@ -1451,9 +1483,23 @@ mod tests {
         fs::write(dir.join("aevalbuddy.json"), r#"{"surface":"solid"}"#).unwrap();
         assert_eq!(open(&dir).get_glass_intensity(), 0.0);
         let dir = temp("solid-set");
-        let text = r#"{"surface":"solid","glassIntensity":0.7}"#;
+        let text = r#"{"surface":"solid","glassIntensity":0.7,"glassScale":2}"#;
         fs::write(dir.join("aevalbuddy.json"), text).unwrap();
         assert_eq!(open(&dir).get_glass_intensity(), 0.7);
+    }
+
+    #[test]
+    fn v1_glass_levels_move_to_the_wider_scale() {
+        for (stored, want) in [("0.5", 0.75), ("0", 0.0), ("0.25", 0.31), ("1", 0.86)] {
+            let dir = temp(&format!("glass-v1-{stored}"));
+            let text = format!(r#"{{"glassIntensity":{stored}}}"#);
+            fs::write(dir.join("aevalbuddy.json"), text).unwrap();
+            let s = open(&dir);
+            assert_eq!(s.get_glass_intensity(), want, "v2.1 {stored}");
+            assert_eq!(file(&dir)["glassScale"], GLASS_SCALE);
+            // Opened again, the value is not moved a second time.
+            assert_eq!(open(&dir).get_glass_intensity(), want);
+        }
     }
 
     #[test]

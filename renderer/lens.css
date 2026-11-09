@@ -8,7 +8,12 @@
 :root {
   /* --accent-bright at 22%: black text under it stays readable on white, and
      it still shows on a dark editor. */
-  --hit-fill: rgb(197 111 195 / 0.22);
+  --hit-fill: rgb(94 134 180 / 0.26);
+  /* The marks' accent: between pastel and signal, so a 1.5 px ring reads on
+     a dark editor and, with its dark rim, on a white page. The agent's frame
+     takes signal itself. */
+  --accent-bright: #86AAD4;
+  --accent: #5E86B4;
   /* The rim that keeps a ring legible against pale content, the job
      --danger-edge does for the warning. */
   --hit-rim: rgb(0 0 0 / 0.55);
@@ -119,8 +124,7 @@ body {
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-cap);
   background: var(--chip-fill);
-  box-shadow: inset 0 var(--px) 0 var(--chip-light), inset 0 0 0 var(--px) var(--hairline),
-    var(--shadow-menu);
+  box-shadow: inset 0 var(--px) 0 var(--chip-light), var(--shadow-menu);
   color: var(--label);
   font-size: var(--fs-row);
   line-height: var(--lh-row);

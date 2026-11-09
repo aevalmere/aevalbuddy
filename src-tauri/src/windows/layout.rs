@@ -10,7 +10,10 @@ pub const PILL: (f64, f64) = (44.0, 44.0);
 /// The bar's default width, the store's default (B-106; main.js 420).
 pub const PANEL_WIDTH: f64 = 600.0;
 pub const INPUT_MIN_HEIGHT: f64 = 62.0;
-pub const INPUT_MAX_HEIGHT: f64 = 280.0;
+/// The open bar's tallest glass at 100% text: room for a seven-line question
+/// with the token's menu or the @ model menu open under it, so a menu is
+/// never cut by the window (B-polish). Scaled by the text size.
+pub const INPUT_MAX_HEIGHT: f64 = 400.0;
 pub const DEFAULT_INPUT_HEIGHT: f64 = 76.0;
 /// Output window minimum (ARCHITECTURE.md 10.3: 320x160).
 pub const OUTPUT_MIN_HEIGHT: f64 = 160.0;
@@ -307,9 +310,17 @@ pub fn pill_bounds(wa: Rect, anchor: &Anchor) -> Rect {
     bounds_for_size(wa, PILL, anchor)
 }
 
-/// The open bar's place (inputBounds).
-pub fn input_bounds(wa: Rect, anchor: &Anchor, width: f64, height: f64) -> Rect {
-    let h = clamp(round(height), INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT);
+/// The open bar's place (inputBounds). `text_scale` (1..3) scales the
+/// height cap with the type, so a menu at 200% text fits as it does at 100%;
+/// the work area caps it too.
+pub fn input_bounds(wa: Rect, anchor: &Anchor, width: f64, height: f64, text_scale: f64) -> Rect {
+    let s = if text_scale.is_finite() {
+        text_scale.clamp(1.0, 3.0)
+    } else {
+        1.0
+    };
+    let max = (INPUT_MAX_HEIGHT * s).min(wa.height.max(INPUT_MIN_HEIGHT));
+    let h = clamp(round(height), INPUT_MIN_HEIGHT, max);
     bounds_for_size(wa, (width, h), anchor)
 }
 
@@ -506,7 +517,14 @@ mod tests {
     #[test]
     fn constants_match_main_js() {
         assert_eq!(PILL, (44.0, 44.0));
-        assert_eq!((INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT), (62.0, 280.0));
+        assert_eq!((INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT), (62.0, 400.0));
+        // The cap follows the text size, and never passes the work area.
+        let r = input_bounds(wa(), &a("left", "top", 0.0, 0.0), 600.0, 900.0, 2.0);
+        assert_eq!(r.height, 800.0);
+        let r = input_bounds(wa(), &a("left", "top", 0.0, 0.0), 600.0, 900.0, 1.0);
+        assert_eq!(r.height, 400.0);
+        let r = input_bounds(wa(), &a("left", "top", 0.0, 0.0), 600.0, 5000.0, 3.0);
+        assert_eq!(r.height, 1040.0);
         assert_eq!(DEFAULT_INPUT_HEIGHT, 76.0);
         assert_eq!((OUTPUT_MAX_FRACTION, OUTPUT_MAX_FLOOR), (0.66, 380.0));
         assert_eq!(DEFAULT_OUTPUT_HEIGHT, 120.0);

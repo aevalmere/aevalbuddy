@@ -1439,10 +1439,20 @@ function makeCombo(config) {
     return [...list.querySelectorAll('[role="option"]')];
   }
 
+  // The list hangs off the button, below it or above it, never cut by the
+  // window or the scrolling page (glass.js); it follows the button while
+  // the page scrolls or the window changes size.
+  function place() {
+    if (!list.hidden) window.AevalGlass.place(list, button, { width: 'anchor' });
+  }
+
   function open() {
     closeCombos(false);
     list.hidden = false;
     button.setAttribute('aria-expanded', 'true');
+    place();
+    document.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
     const target = list.querySelector('[aria-selected="true"]') || options()[0];
     if (target) {
       target.focus();
@@ -1453,6 +1463,8 @@ function makeCombo(config) {
   function close(focusButton) {
     if (list.hidden) return;
     list.hidden = true;
+    document.removeEventListener('scroll', place, true);
+    window.removeEventListener('resize', place);
     button.setAttribute('aria-expanded', 'false');
     if (focusButton) button.focus();
   }
@@ -2026,7 +2038,7 @@ const SURFACE_WHY = {
   'capture-failed': 'The screen could not be read for the glass, so surfaces are solid for now.',
 };
 const TRANSPARENCY_NOTE = 'Windows transparency effects are off. AevalBuddy keeps its glass; choose None for solid panels.';
-const GLASS_NAMES = ['None', 'Subtle', 'Liquid', 'Very', 'Very very'];
+const GLASS_NAMES = ['None', 'Frosted', 'Soft', 'Liquid', 'Very liquid'];
 const glassRange = $('glass-range');
 const clamp01 = (k) => Math.min(1, Math.max(0, k));
 const nearestStop = (k) => Math.round(clamp01(k) * 4) / 4;
@@ -2037,7 +2049,7 @@ function currentGlass() {
   if (typeof data.glassIntensity === 'number') return data.glassIntensity;
   // A profile from before the slider: Solid meant None.
   if (data.surface === 'solid') return 0;
-  return window.AevalGlass ? window.AevalGlass.intensity() : 0.5;
+  return window.AevalGlass ? window.AevalGlass.intensity() : 0.75;
 }
 
 function renderSurface() {

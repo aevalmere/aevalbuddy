@@ -9,6 +9,8 @@ pub mod capture;
 pub mod harness;
 pub mod llm;
 pub mod platform;
+// polish lane
+pub mod polish;
 pub mod settings;
 pub mod sheet;
 // voice lane
@@ -26,12 +28,14 @@ pub type Probe = fn(&mut Cx);
 /// Every lane's probe, in the order they run: the harness first (it checks
 /// the API the others use, then runs the desktop selfcheck), the `v2desktop`
 /// lanes last.
-pub const LANES: [(&str, Probe); 10] = [
+pub const LANES: [(&str, Probe); 11] = [
     ("harness", harness::run),
     ("platform", platform::run),
     ("windows", windows::run),
     ("capture", capture::run),
     ("bar", bar::run),
+    // polish lane: the bar's menus against its real window.
+    ("polish", polish::run),
     ("sheet", sheet::run),
     ("settings", settings::run),
     ("agent", agent::run),
@@ -47,7 +51,7 @@ pub const LANES: [(&str, Probe); 10] = [
 /// Notepad opens before its first lane (`v2NotepadOpen`) and closes after
 /// every lane has run (`v2NotepadClosed`).
 pub const BLOCKS: [(&str, &[&str]); 4] = [
-    ("v2basics", &["platform", "windows", "bar"]),
+    ("v2basics", &["platform", "windows", "bar", "polish"]),
     ("v21basics", &["agent"]),
     ("glassGates", &["capture", "sheet", "settings"]),
     ("v2desktop", NOTEPAD_LANES),
@@ -103,7 +107,7 @@ mod tests {
         let mut sorted = lanes.clone();
         sorted.sort_unstable();
         sorted.dedup();
-        assert_eq!(sorted.len(), 10); // voice lane
+        assert_eq!(sorted.len(), 11); // voice lane, polish lane
         assert_eq!(lanes[0], "harness");
         let grouped: Vec<&str> = BLOCKS.iter().flat_map(|b| b.1.iter().copied()).collect();
         for lane in &lanes[1..] {

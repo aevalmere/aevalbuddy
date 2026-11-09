@@ -13,17 +13,20 @@
 // (--px), and how liquid the glass is (--glass-k, data-glass-level).
 //
 // How liquid: Settings' "Liquid glass" slider, 0 (None: solid frosted
-// panels) to 1 (Very very). It moves blur, refraction, the specular light,
-// saturation and the scrim together, live, in every window: Settings writes
-// it to localStorage, which every page of the app shares, so the others hear
-// it through the storage event; Rust also repeats it in glass:tier and in the
-// glass:hello reply (ARCHITECTURE.md section 10).
+// panels) to 1 (Very liquid), default 0.75 (Liquid). It moves blur,
+// refraction, the specular light, saturation and the scrim together, live,
+// in every window: Settings writes it to localStorage, which every page of
+// the app shares, so the others hear it through the storage event; Rust also
+// repeats it in glass:tier and in the glass:hello reply (ARCHITECTURE.md
+// section 10). The scale widened in v2.2 (glassScale 2 in the store); Rust
+// migrates a stored v2.1 value, and the page key changed with it, so a
+// stale v2.1 value in localStorage is never read as a v2.2 one.
 
 (() => {
   const root = document.documentElement;
   const bridge = window.aeval;
   const S = {
-    k: 0.5,
+    k: 0.75,
     tier: 'live',
     reasons: [],
     display: null,
@@ -59,8 +62,8 @@
 
   // ---------------------------------------------------------- liquidness
 
-  const K_KEY = 'aeval.glassIntensity';
-  const K_DEFAULT = 0.5;
+  const K_KEY = 'aeval.glassLevel2';
+  const K_DEFAULT = 0.75;
   const clampK = (v) => Math.min(1, Math.max(0, Math.round(Number(v) * 100) / 100));
   function storedK() {
     try {
@@ -474,15 +477,19 @@
       const h = Math.round(el.offsetHeight);
       if (!w || !h) return;
       const radius = parseFloat(getComputedStyle(g.gl).borderTopLeftRadius) || 0;
-      // The edge band widens and the bend deepens as the glass gets more
-      // liquid, and again past 0.5 (spec): 9 px / 11 / 14 at Subtle, the
-      // v2.1 14 px / 22 thin / 28 thick at Liquid, 32 px / 56 / 68 at Very
-      // very. None has no refraction at all. The band is also where the
-      // scrim clears (glass.css, .gsc).
-      const spec = Math.max(0, 2 * S.k - 1);
-      const band = Math.round(4 + 20 * S.k + 8 * spec);
+      // The edge band widens and the bend deepens on a k^1.5 curve, so the
+      // low end stays nearly flat and the top end turns molten:
+      //   k      band  thin  thick
+      //   0.25    8     9    11   Frosted
+      //   0.5    17    25    32   Soft (about v2.1's Liquid)
+      //   0.75   27    46    58   Liquid, the default
+      //   1      40    70    90   Very liquid
+      // None has no refraction at all. The band is also where the scrim
+      // clears (glass.css, .gsc).
+      const e = S.k ** 1.5;
+      const band = Math.round(4 + 36 * e);
       const base = el.classList.contains('thick') ? 28 : 22;
-      const scale = Math.round(base * 2 * S.k + 12 * spec);
+      const scale = Math.round(base * 3.2 * e);
       const key = `${w}x${h}r${radius}b${band}s${scale}`;
       if (key === g.mapKey && !force) return;
       g.mapKey = key;
@@ -798,6 +805,56 @@
 
   window.AevalA11y = Object.freeze({ say, speak });
 
+  // ---------------------------------------------------------------- popups
+
+  // Every menu that hangs off a control or a point is placed here, so none
+  // is ever cut by its window's edge (the window is the only canvas a page
+  // has). It opens below its anchor when it fits, above when it fits there
+  // instead, and when neither side fits it takes the roomier one and
+  // scrolls inside. Across, it starts at the anchor's left (or ends at its
+  // right with align: 'end') and is clamped inside the window. Use
+  // position: fixed, so no scrolling ancestor clips it; the result is
+  // measured and corrected, so a transformed ancestor cannot shift it either.
+  // anchor: an element, a DOMRect, or a point {x, y}.
+  const POP_EDGE = 8;
+  function place(el, anchor, opts) {
+    const o = opts || {};
+    const gap = o.gap === undefined ? 4 : o.gap;
+    const edge = o.edge === undefined ? POP_EDGE : o.edge;
+    const a = anchor && typeof anchor.getBoundingClientRect === 'function' ? anchor.getBoundingClientRect() : anchor || {};
+    const ax = Number(a.left !== undefined ? a.left : a.x) || 0;
+    const ay = Number(a.top !== undefined ? a.top : a.y) || 0;
+    const r = { left: ax, top: ay, right: a.right !== undefined ? a.right : ax, bottom: a.bottom !== undefined ? a.bottom : ay };
+    const vw = root.clientWidth || window.innerWidth;
+    const vh = root.clientHeight || window.innerHeight;
+    if (o.width === 'anchor') el.style.width = `${Math.round(r.right - r.left)}px`;
+    el.style.maxHeight = '';
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const below = Math.floor(vh - edge - (r.bottom + gap));
+    const above = Math.floor(r.top - gap - edge);
+    let side = 'below';
+    if (h > below && (h <= above || above > below)) side = 'above';
+    const room = Math.max(0, side === 'below' ? below : above);
+    const tall = Math.min(h, room);
+    if (h > room) {
+      el.style.maxHeight = `${room}px`;
+      el.style.overflowY = 'auto';
+    }
+    const left = Math.round(Math.max(edge, Math.min(o.align === 'end' ? r.right - w : r.left, vw - w - edge)));
+    const top = Math.round(side === 'below' ? r.bottom + gap : r.top - gap - tall);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    const got = el.getBoundingClientRect();
+    if (Math.abs(got.left - left) >= 0.5) el.style.left = `${Math.round(left + (left - got.left))}px`;
+    if (Math.abs(got.top - top) >= 0.5) el.style.top = `${Math.round(top + (top - got.top))}px`;
+    el.dataset.side = side;
+    el.style.setProperty('--drop-from', side === 'below' ? '-4px' : '4px');
+    return side;
+  }
+
   // ----------------------------------------------------------------- boot
 
   syncPx();
@@ -834,6 +891,7 @@
   else boot();
 
   window.AevalGlass = {
+    place,
     adopt,
     track,
     morph,
