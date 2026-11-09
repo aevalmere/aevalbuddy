@@ -1,19 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42585027206,
+  "run_id": 42588345212,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42585027206",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42588345212",
   "event": "push",
-  "sha": "de37306d16f02520be0c5445d2fca849bb908f6d",
+  "sha": "04f491255b8d96f1fb1bf0320767a10f4a64f644",
   "ref": "rust/voice-speed",
   "ref_dir": "rust-voice-speed",
-  "conclusion": "failure",
-  "failed": [
-    "Smoke"
-  ],
-  "finished": "2026-11-09T08:44:17Z",
-  "error_lines": 6,
+  "conclusion": "cancelled",
+  "failed": [],
+  "finished": "2026-11-09T08:46:45Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -57,23 +55,23 @@
     },
     {
       "name": "Clippy",
-      "outcome": "success",
-      "log": "clippy.log"
+      "outcome": "cancelled",
+      "log": ""
     },
     {
       "name": "Unit tests",
-      "outcome": "success",
-      "log": "test.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "success",
-      "log": "nsis.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Save NSIS toolset",
@@ -82,23 +80,23 @@
     },
     {
       "name": "Build installer",
-      "outcome": "success",
-      "log": "build.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Smoke",
-      "outcome": "failure",
-      "log": "smoke.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Capture check",
-      "outcome": "success",
-      "log": "capture.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
-      "log": "desktop.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Upload installer",
