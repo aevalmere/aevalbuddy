@@ -1,13 +1,13 @@
-# ui-shots: cancelled
+# ui-shots: failure
 
 - Workflow: ui-shots
-- Run: [42551308251](https://github.com/aevalmere/aevalbuddy/actions/runs/42551308251), attempt 1, on push
-- Commit: c965f44732a8850adc566d806b8849b200253d9c
+- Run: [42552196207](https://github.com/aevalmere/aevalbuddy/actions/runs/42552196207), attempt 1, on push
+- Commit: 54dab43d476d7f719b99622cbef0d4d4a0a0d89a
 - Ref: rust/polish
-- Conclusion: **cancelled**
+- Conclusion: **failure**
 - Failed: Screenshots and renderer checks
-- Finished: 2026-11-09T02:40:54Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/c965f44732a8850adc566d806b8849b200253d9c (/ in the ref becomes -)
+- Finished: 2026-11-09T02:51:54Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/54dab43d476d7f719b99622cbef0d4d4a0a0d89a (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
