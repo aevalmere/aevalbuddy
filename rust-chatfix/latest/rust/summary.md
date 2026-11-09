@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42571428532](https://github.com/aevalmere/aevalbuddy/actions/runs/42571428532), attempt 1, on push
-- Commit: f2e3444e74cb4e7259b85c9ef657b5286b7cd602
+- Run: [42585046893](https://github.com/aevalmere/aevalbuddy/actions/runs/42585046893), attempt 1, on push
+- Commit: c277cb72bda694a61417ccb3585bbe8c0e34a2c0
 - Ref: rust/chatfix
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-09T06:34:20Z
+- Finished: 2026-11-09T08:42:12Z
 
 | Step | Outcome | Log |
 |---|---|---|
