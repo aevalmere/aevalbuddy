@@ -1,11 +1,11 @@
 # rust: success
 
 - Workflow: rust
-- Run: [42546738757](https://github.com/aevalmere/aevalbuddy/actions/runs/42546738757), attempt 1, on push
-- Commit: a487563be0511cc463c206441f1d17dbd802b4b3
+- Run: [42548766034](https://github.com/aevalmere/aevalbuddy/actions/runs/42548766034), attempt 1, on push
+- Commit: bc372694e8fddfc6eb05dd4691ccbf4486e97e92
 - Ref: rust/function
 - Conclusion: **success**
-- Finished: 2026-11-09T02:02:12Z
+- Finished: 2026-11-09T02:26:20Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -21,7 +21,7 @@
 | Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | success |  |
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
-| Save NSIS toolset | success |  |
+| Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
 | Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
