@@ -4,14 +4,14 @@
 
 :root {
   /* This page's own values; everything shared is in glass.css. */
-  --row-min: 60px;
+  --row-min: 64px;
   --foot-h: 44px;
   --measure: 760px;
   --ring: rgb(255 255 255 / 0.92);
   --field-bg: rgb(8 12 20 / 0.24);
   --field-bg-focus: rgb(8 12 20 / 0.32);
   --field-rim: transparent;
-  --field-rim-focus: rgb(169 198 228 / 0.5);
+  --field-rim-focus: rgb(169 198 228 / 0.3);
   --mark: rgb(94 134 180 / 0.5);
   --danger-fill: rgb(242 160 168 / 0.22);
   --danger-fill-hover: rgb(242 160 168 / 0.32);
@@ -116,7 +116,7 @@ h2 {
 
 #searchbar {
   flex: 0 0 auto;
-  padding: 0 var(--sp-3) var(--sp-2);
+  padding: 0 var(--sp-4) var(--sp-3);
 }
 
 .search-field {
@@ -193,7 +193,7 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 0 var(--sp-2) var(--sp-3) var(--sp-3);
+  padding: 0 var(--sp-2) var(--sp-4) var(--sp-3);
 }
 
 ::-webkit-scrollbar {
@@ -217,9 +217,10 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   background-clip: padding-box;
 }
 
-/* Group heads start where the row text starts. */
+/* Group heads start where the row text starts, with a day's worth of air
+   above each. */
 .group-head {
-  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  padding: var(--sp-5) var(--sp-4) var(--sp-2);
   font-family: var(--font-small);
   font-size: var(--fs-meta);
   font-weight: var(--w-strong);
@@ -227,9 +228,15 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   color: var(--label-2);
 }
 
+.group-head:first-child {
+  padding-top: var(--sp-2);
+}
+
+/* Rows a little apart, so two hovered fills never touch. */
 .rows {
   display: flex;
   flex-direction: column;
+  gap: var(--sp-1);
 }
 
 .item {
@@ -250,8 +257,9 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  gap: 2px; /* optical: the question, its answer and its time read as one */
   min-height: var(--row-min);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4);
+  padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-4);
   border-radius: var(--r-plate);
   text-align: left;
 }
@@ -298,7 +306,8 @@ mark {
   color: var(--label);
 }
 
-/* Delete: always there, quiet until it is pointed at or focused. */
+/* Delete: always there, quieter still until its row is pointed at or
+   focused (it keeps more than 3:1 at rest). */
 .del {
   flex: 0 0 auto;
   width: var(--ctl-s);
@@ -309,12 +318,16 @@ mark {
   justify-content: center;
   border-radius: var(--r-cap);
   color: var(--label-3);
-  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease, opacity var(--d-fast) ease;
 }
 
 .del > .ico {
   width: var(--ico-s);
   height: var(--ico-s);
+}
+
+.item:not(:hover):not(:focus-within) .del {
+  opacity: 0.6;
 }
 
 .del:hover,

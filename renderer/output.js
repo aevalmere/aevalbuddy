@@ -776,6 +776,8 @@ function openRetryMenu(anchor, onRetry) {
     loadNames().then(() => {
       if (menu && menu.el === el) {
         fill();
+        // The names arrived and the list grew: place it again.
+        window.AevalGlass.place(el, anchor);
         focusFirst();
       }
     });

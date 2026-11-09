@@ -745,7 +745,9 @@ html[data-motion="reduced"] #notice.nudge {
   --r: var(--r-sheet);
   /* The reading measure (D-05): about 68 characters at 15/24. */
   --measure: 640px;
-  padding: 0 var(--sp-4) var(--sp-4);
+  /* Words sit 20 px from the glass on every side (v2.2, was 16): the
+     sheet breathes like a page, not a panel. */
+  padding: 0 var(--inset-text) var(--inset-text);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
@@ -764,8 +766,9 @@ body[data-grow="up"] #opanel {
   bottom: var(--stage);
 }
 
-/* The title bar (the shared sheet bar, K-40): 44 px, the title 16 px from
-   the glass, 28 px tools 4 px apart, the last one 8 px from the glass. */
+/* The title bar (the shared sheet bar, K-40): 44 px, the title 20 px from
+   the glass like the words under it, 28 px tools, the last one 12 px from
+   the glass. */
 #sheet-bar {
   position: relative;
   z-index: 2;
@@ -773,8 +776,8 @@ body[data-grow="up"] #opanel {
   align-items: center;
   gap: var(--sp-2);
   height: var(--sheet-bar-h);
-  margin: 0 calc(var(--sp-2) * -1) 0 calc(var(--sp-4) * -1);
-  padding: 0 var(--sp-2) 0 var(--sp-4);
+  margin: 0 calc(var(--sp-3) * -1) 0 calc(var(--inset-text) * -1);
+  padding: 0 var(--sp-1) 0 var(--inset-text);
   cursor: default;
 }
 
@@ -994,10 +997,10 @@ body[data-target="1"] #opanel > .gl::after {
   padding-block: 2px; /* hairline */
   /* The scrollport reaches the sheet's edge, so a mark hung in the 16 px
      gutter (the plan's checks) is not clipped; the text stays where it was. */
-  padding-inline-start: calc(var(--sp-4) + max(0px, calc((100% - var(--measure)) / 2)));
+  padding-inline-start: calc(var(--inset-text) + max(0px, calc((100% - var(--measure)) / 2)));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
-  margin-left: calc(var(--sp-4) * -1);
-  margin-right: -10px;
+  margin-left: calc(var(--inset-text) * -1);
+  margin-right: -14px;
   user-select: text;
 }
 
@@ -1916,13 +1919,13 @@ body[data-fixed-height="1"] #chat {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  margin: 0 -10px 0 -12px;
+  margin: 0 -14px 0 -12px;
   padding-inline-start: max(0px, calc((100% - var(--measure)) / 2));
   padding-inline-end: max(var(--sp-2), calc((100% - var(--measure)) / 2));
 }
 
-/* Concentric with the sheet: a row 4 px inside the glass edge's 16 px
-   inset takes 12. */
+/* A row's fill starts 8 px inside the glass edge, so its words land on the
+   sheet's 20 px text inset. */
 .find-row {
   position: relative;
   display: flex;
@@ -2106,12 +2109,12 @@ body[data-fixed-height="1"] #chat {
   list-style: none;
   display: grid;
   gap: var(--sp-1);
-  margin-left: calc(var(--sp-4) * -1);
+  margin-left: calc(var(--inset-text) * -1);
 }
 
 .trow {
   display: grid;
-  grid-template-columns: var(--sp-4) 1fr auto;
+  grid-template-columns: var(--inset-text) 1fr auto;
   align-items: start;
   column-gap: 0;
   padding: 2px 0; /* optical */
@@ -2140,7 +2143,7 @@ body[data-fixed-height="1"] #chat {
 .trow-mark,
 .plan-item > .plan-mark {
   position: relative;
-  width: var(--sp-4);
+  width: var(--inset-text);
   height: var(--lh-row, 20px);
 }
 
@@ -2148,7 +2151,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item > .plan-mark::before {
   content: "";
   position: absolute;
-  left: 5px;
+  left: 7px;
   top: 7px;
   width: 6px;
   height: 6px;
@@ -2159,7 +2162,7 @@ body[data-fixed-height="1"] #chat {
 /* Running: an arc turning, the rim light's language at row size. */
 .trow.running .trow-mark::before,
 .plan-item.running > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2172,7 +2175,7 @@ body[data-fixed-height="1"] #chat {
 /* Done: a check in a circle. */
 .trow.done .trow-mark::before,
 .plan-item.done > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2184,7 +2187,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item.done > .plan-mark::after {
   content: "";
   position: absolute;
-  left: 7px;
+  left: 9px;
   top: 7px;
   width: 3px;
   height: 5px;
@@ -2196,7 +2199,7 @@ body[data-fixed-height="1"] #chat {
 /* Failed: a cross in a circle, in the danger colour. */
 .trow.failed .trow-mark::before,
 .plan-item.failed > .plan-mark::before {
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   height: 10px;
@@ -2208,7 +2211,7 @@ body[data-fixed-height="1"] #chat {
 .plan-item.failed > .plan-mark::after {
   content: "×";
   position: absolute;
-  left: 3px;
+  left: 5px;
   top: 5px;
   width: 10px;
   text-align: center;
@@ -2220,7 +2223,7 @@ body[data-fixed-height="1"] #chat {
 
 /* Skipped: a dash. */
 .trow.skipped .trow-mark::before {
-  left: 4px;
+  left: 6px;
   top: 9px;
   width: 8px;
   height: 0;
@@ -2280,7 +2283,7 @@ body[data-fixed-height="1"] #chat {
 
 .plan-item {
   display: grid;
-  grid-template-columns: var(--sp-4) 1fr;
+  grid-template-columns: var(--inset-text) 1fr;
   align-items: start;
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
