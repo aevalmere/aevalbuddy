@@ -865,8 +865,16 @@ Folded from the lanes' entries files at the final merges. Each line names the ba
 ### IPC-02
 
 
+### IPC-06
+
+- B-164: status: replaced by `output:glass {top, height}` (K-23); `output:resize` is gone from both allowlists, the route and output.js. The sheet's height still becomes the height a reopened window is placed at (`outputs::set_sheet`). evidence: UNIT `outputs::tests::content_growth_never_sets_bounds` (now reads `set_sheet`); ui-shots `sheetReportsGlassRect`
+
 ### IPC-18
 
+
+### IPC-38
+
+- function lane: status: replies `{ok}` with whether the text reached the clipboard (Electron always said `{ok: true}`); every Copy in the app says "Copied" only on `ok`. evidence: ui-shots `doneOffersNextActions`
 
 ### EVT-03
 

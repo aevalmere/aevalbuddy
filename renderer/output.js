@@ -22,7 +22,6 @@ let mode = 'idle';
 let lastGen = 0;
 let renderQueued = false;
 let resizeQueued = false;
-let lastSentHeight = 0;
 let lastGlass = '';
 let fixedHeight = false;
 // The assistant message currently streaming: { el, body, raw, ... }.
@@ -383,6 +382,13 @@ function addUserMsg(text) {
   scrollToBottom(true);
 }
 
+// clipboard:write's reply: copied, or a failure the page says aloud.
+function copied(r) {
+  if (r && r.ok !== false) return true;
+  say("Couldn't copy. Try again.", 'assertive');
+  return false;
+}
+
 function button(cls, text, label) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -448,7 +454,8 @@ function addAssistantMsg() {
   });
   copy.addEventListener('click', () => {
     if (!entry.raw) return;
-    send('clipboard:write', { text: entry.raw }).then(() => {
+    send('clipboard:write', { text: entry.raw }).then((r) => {
+      if (!copied(r)) return;
       copy.textContent = 'Copied';
       say('Copied the answer');
       setTimeout(() => {
@@ -899,7 +906,8 @@ function addErrorRow(message, question, actions, tone, extra) {
         if (a.channel) send(a.channel, a.payload);
         done();
       } else if (id === 'copy-details') {
-        send('clipboard:write', { text: x.details || [message, x.code, provider, x.model].filter(Boolean).join('\n') }).then(() => {
+        send('clipboard:write', { text: x.details || [message, x.code, provider, x.model].filter(Boolean).join('\n') }).then((r) => {
+          if (!copied(r)) return;
           b.textContent = 'Copied';
           setTimeout(() => {
             b.textContent = label || 'Copy details';
@@ -945,10 +953,8 @@ function renderLive() {
 }
 
 // Rust is told the sheet's glass rect once per frame (output:glass, K-23),
-// so its resize bands follow the visible sheet; and, until the window stops
-// following content on its own (B-027), the height it should be. An 8 px
-// deadband keeps that from twitching, and it never shrinks while an answer
-// streams, so the bottom edge does not chase the text.
+// so its resize bands and click-through follow the visible sheet. The
+// window itself is sized once (B-027); the sheet grows inside it.
 function requestResize() {
   if (opanel.hidden || resizeQueued) return;
   resizeQueued = true;
@@ -964,11 +970,6 @@ function requestResize() {
       lastGlass = glass;
       send('output:glass', { top, height });
     }
-    if (fixedHeight) return;
-    if (height < lastSentHeight && liveMsg) return;
-    if (Math.abs(height - lastSentHeight) < 8) return;
-    lastSentHeight = height;
-    send('output:resize', { height });
   });
 }
 window.requestResize = requestResize;
@@ -1019,8 +1020,8 @@ listen('overlay:state', (next) => {
   if (next.chatMax) {
     document.documentElement.style.setProperty('--chat-max', next.chatMax + 'px');
   }
-  // A dragged height means the window no longer follows the transcript, so
-  // the renderer stops asking it to.
+  // A dragged height means the window no longer follows the transcript;
+  // the sheet fills it and scrolls.
   fixedHeight = !!next.outputFixedHeight;
   document.body.dataset.fixedHeight = fixedHeight ? '1' : '0';
   syncMeta();
@@ -1196,7 +1197,6 @@ listen('chat:reset', (p) => {
   chatEl.innerHTML = '';
   chatEl.removeAttribute('aria-busy');
   liveMsg = null;
-  lastSentHeight = 0;
   titled = false;
   setTitle('Answer', '');
   syncOrbit();
@@ -1306,7 +1306,8 @@ function transcriptText() {
 function copyConversation() {
   const text = transcriptText();
   if (!text) return;
-  send('clipboard:write', { text }).then(() => {
+  send('clipboard:write', { text }).then((r) => {
+    if (!copied(r)) return;
     copyAllBtn.dataset.done = '1';
     say('Copied the conversation');
     setTimeout(() => delete copyAllBtn.dataset.done, 1500);
@@ -1345,7 +1346,8 @@ chatEl.addEventListener('click', (e) => {
   if (!btn) return;
   const code = btn.closest('.md-code') && btn.closest('.md-code').querySelector('pre code');
   if (!code) return;
-  send('clipboard:write', { text: code.textContent }).then(() => {
+  send('clipboard:write', { text: code.textContent }).then((r) => {
+    if (!copied(r)) return;
     btn.dataset.done = '';
     say('Copied the code');
     clearTimeout(btn.__done);

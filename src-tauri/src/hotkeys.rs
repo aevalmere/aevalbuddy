@@ -666,6 +666,12 @@ fn set_now(app: &AppHandle, action: &str, accelerator: &str) -> Value {
             "error": format!("Already used by \"{label}\". Pick a different combo."),
         });
     }
+    if crate::voice::dictation_uses(accelerator) {
+        return json!({
+            "ok": false,
+            "error": "Already used to hold and dictate (Settings, Voice). Pick a different combo.",
+        });
+    }
     // Probe with everything of ours unregistered, so the probe only fails
     // when another application owns the combo.
     Plugin(app).unregister_all();

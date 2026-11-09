@@ -107,6 +107,14 @@ function makeStatus(node) {
   };
 }
 
+// A change that did not save: the control goes back to what is stored
+// (the caller does that) and this says so, on the page and aloud.
+const UNSAVED = "Couldn't save that change. Try again.";
+function unsaved(status) {
+  if (status) status(UNSAVED);
+  if (window.AevalA11y && window.AevalA11y.say) window.AevalA11y.say(UNSAVED, 'assertive');
+}
+
 function setSummary(id, text) {
   const node = $(id);
   if (node) node.textContent = text;
@@ -1629,12 +1637,25 @@ function brainName() {
 }
 
 showPaid.addEventListener('change', () => {
-  call('settings:set-show-paid', { on: showPaid.checked }).then(reloadCombos);
+  const want = showPaid.checked;
+  call('settings:set-show-paid', { on: want }).then((r) => {
+    if (failed(r)) {
+      showPaid.checked = !want;
+      unsaved();
+      return;
+    }
+    reloadCombos();
+  });
 });
 
 brainEnabled.addEventListener('change', () => {
   call('settings:set-brain-enabled', { on: brainEnabled.checked }).then((r) => {
-    const on = !failed(r) && r ? !!r.brainEnabled : brainEnabled.checked;
+    if (failed(r)) {
+      brainEnabled.checked = !!data.brainEnabled;
+      unsaved();
+      return;
+    }
+    const on = r ? !!r.brainEnabled : brainEnabled.checked;
     data.brainEnabled = on;
     showBrainPicker(on);
   });
@@ -1664,6 +1685,7 @@ skillList.addEventListener('click', (e) => {
   const btn = e.target.closest('.skill-option');
   if (!btn) return;
   call('settings:save-skill', { skill: btn.dataset.id }).then((r) => {
+    if (failed(r)) unsaved(skillsStatus);
     if (failed(r) || !r) return;
     checkRadios('.skill-option', (o) => o.dataset.id === r.skill);
     const on = skillList.querySelector(`[data-id="${CSS.escape(r.skill)}"] .skill-name`);
@@ -1707,13 +1729,26 @@ function renderAgentSettings(a) {
   setSummary('agent-summary', `${a.permission === 'every' ? 'Asks before every action' : 'Asks for risky steps'} · up to ${a.maxSteps} steps`);
 }
 
+// Each resolves true once saved; a failed save puts the page back as stored.
 const setFind = (patch) =>
   call('settings:set-find', patch).then((r) => {
-    if (!failed(r) && r && r.find) renderFindSettings(r.find);
+    if (!failed(r)) {
+      if (r && r.find) renderFindSettings(r.find);
+      return true;
+    }
+    if (data.find) renderFindSettings(data.find);
+    unsaved();
+    return false;
   });
 const setAgent = (patch) =>
   call('settings:set-agent', patch).then((r) => {
-    if (!failed(r) && r && r.agent) renderAgentSettings(r.agent);
+    if (!failed(r)) {
+      if (r && r.agent) renderAgentSettings(r.agent);
+      return true;
+    }
+    if (data.agent) renderAgentSettings(data.agent);
+    unsaved(agentStatus);
+    return false;
   });
 
 document.addEventListener('click', (e) => {
@@ -1733,7 +1768,9 @@ agentSteps.addEventListener('change', () => setAgent({ maxSteps: Number(agentSte
 agentShots.addEventListener('change', () => setAgent({ screenshots: agentShots.checked }));
 agentCursor.addEventListener('change', () => setAgent({ returnCursor: agentCursor.checked }));
 $('agent-revoke').addEventListener('click', () => {
-  setAgent({ consent: false }).then(() => agentStatus('A task will ask again before it next starts.'));
+  setAgent({ consent: false }).then((ok) => {
+    if (ok) agentStatus('A task will ask again before it next starts.');
+  });
 });
 
 // ---------------------------------------------------------------- privacy
@@ -1763,7 +1800,12 @@ function renderHistory() {
 
 saveHistory.addEventListener('change', () => {
   call('settings:set-save-history', { on: saveHistory.checked }).then((r) => {
-    if (failed(r) || !r) return;
+    if (failed(r)) {
+      saveHistory.checked = !!data.saveHistory;
+      unsaved(historyStatus);
+      return;
+    }
+    if (!r) return;
     data.saveHistory = r.saveHistory;
     data.historyCount = r.historyCount;
     renderHistory();
@@ -1861,6 +1903,7 @@ function endCapture() {
 
 function applyShortcut(action, accelerator) {
   return call('shortcuts:set', { action, accelerator }).then((r) => {
+    if (failed(r)) setShortcutError("Couldn't change the shortcut. Try again.", true);
     if (failed(r) || !r) return false;
     if (r.ok) {
       data.shortcuts = r.shortcuts;
@@ -1960,6 +2003,7 @@ window.addEventListener(
 
 $('reset-shortcuts').addEventListener('click', () => {
   call('shortcuts:reset').then((r) => {
+    if (failed(r)) setShortcutError("Couldn't reset the shortcuts. Try again.", true);
     if (failed(r) || !r) return;
     data.shortcuts = r.shortcuts;
     data.active = r.active;
@@ -2024,7 +2068,12 @@ function renderStartup() {
 
 launchAtLogin.addEventListener('change', () => {
   call('settings:set-launch-at-login', { on: launchAtLogin.checked }).then((r) => {
-    if (failed(r) || !r) return;
+    if (failed(r)) {
+      launchAtLogin.checked = !!data.launchAtLogin;
+      unsaved();
+      return;
+    }
+    if (!r) return;
     data.launchAtLogin = r.launchAtLogin;
     renderStartup();
   });
@@ -2205,7 +2254,11 @@ updateCheck.addEventListener('click', () => {
     if (!failed(r) && r && r.status) {
       data.update = r;
       renderUpdate(r);
+      return;
     }
+    // Never left at "checking" with the button disabled.
+    renderUpdate(data.update);
+    updateLine.textContent = "Couldn't check for updates. Try again in a moment.";
   });
 });
 

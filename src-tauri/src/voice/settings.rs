@@ -151,6 +151,21 @@ pub fn merge(
     if let Some(d) = patch.get("device").and_then(Value::as_str) {
         next.device = d.into();
     }
+    // Turning dictation on with a chord an app shortcut took since.
+    let turned_on = patch.get("dictation").and_then(Value::as_bool) == Some(true);
+    if turned_on && patch.get("hotkey").is_none() {
+        if let Ok(chord) = ptt::parse(&next.hotkey) {
+            if taken
+                .iter()
+                .any(|t| ptt::parse(t).is_ok_and(|o| o == chord))
+            {
+                return Err(format!(
+                    "{} already opens AevalBuddy. Choose another dictation shortcut.",
+                    ptt::label(&next.hotkey)
+                ));
+            }
+        }
+    }
     Ok(next)
 }
 

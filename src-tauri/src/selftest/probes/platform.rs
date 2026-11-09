@@ -88,7 +88,7 @@ fn open_bar(cx: &Cx) -> bool {
 }
 
 fn close_bar(cx: &Cx) {
-    windows::collapse_panel(&cx.app, false);
+    windows::collapse_panel(&cx.app);
     cx.wait_for(3 * SECOND, || shared(&cx.app).lock().mode == Mode::Pill);
 }
 

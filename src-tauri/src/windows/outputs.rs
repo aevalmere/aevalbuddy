@@ -297,19 +297,20 @@ pub fn show(app: &AppHandle, label: &str) {
     send_meta(app);
 }
 
-/// IPC-06: the transcript's height, kept for the size a new window is
-/// placed at. Only the number changes: the sheet grows in the page and the
-/// window does not move for it (B-027, D-04).
-pub fn resize(app: &AppHandle, label: &str, height: f64) {
-    with(app, label, |o| o.content_height = height);
-}
-
 /// `output:glass {top, height}`: the visible sheet as the page measures it,
 /// `top` from the window's edge. Kept in glass DIPs. The page sends it at
-/// most once a frame.
+/// most once a frame. Its height is also the transcript's (IPC-06, which
+/// `output:resize` carried until B-164), kept for the size a new window is
+/// placed at; the sheet grows in the page and the window does not move for
+/// it (B-027, D-04).
 pub fn set_sheet(app: &AppHandle, label: &str, top: f64, height: f64) {
     let sheet = ((top - stage::MARGIN).max(0.0), height.max(0.0));
-    with(app, label, |o| o.sheet = Some(sheet));
+    with(app, label, |o| {
+        o.sheet = Some(sheet);
+        if sheet.1 > 0.0 {
+            o.content_height = sheet.1;
+        }
+    });
     if let Some(h) = hwnd(app, label) {
         flags::set_meta(h, |m| m.sheet = Some(sheet));
     }
@@ -1059,7 +1060,7 @@ mod tests {
     }
 
     /// B-027: the window's size does not depend on the transcript, and
-    /// `output:resize` stores the number without touching a window.
+    /// `output:glass` stores the number without moving a window.
     #[test]
     fn content_growth_never_sets_bounds() {
         let wa = Rect::new(0.0, 0.0, 1920.0, 1040.0);
@@ -1071,11 +1072,11 @@ mod tests {
         assert_eq!(size_for(&o, wa), short);
         assert_eq!(short.1, layout::output_max_height(wa));
         let src = include_str!("outputs.rs");
-        let from = src.find("pub fn resize(").unwrap();
+        let from = src.find("pub fn set_sheet(").unwrap();
         let end = from + src[from..].find("\n}").unwrap();
         let body = &src[from..end];
         assert!(body.contains("content_height"));
-        assert!(!body.contains("motion::") && !body.contains("flags::"));
+        assert!(!body.contains("motion::") && !body.contains("set_glass"));
     }
 
     fn with_chat(mut o: Output, question: &str) -> Output {

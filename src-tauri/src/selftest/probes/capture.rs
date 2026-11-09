@@ -542,7 +542,7 @@ fn onboarding(cx: &Cx) {
     }
     cx.sleep(300);
     if shared(&cx.app).lock().mode != mode {
-        cx.on_main(|app| windows::collapse_panel(app, false));
+        cx.on_main(windows::collapse_panel);
         let _ = cx.wait_for(Duration::from_secs(2), || {
             shared(&cx.app).lock().mode == mode
         });

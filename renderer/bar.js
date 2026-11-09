@@ -842,6 +842,9 @@ function send(what) {
       renderStatus();
       renderNotice();
       if (r && r.status === 'needs-key') needsKey('do');
+    }, () => {
+      barHint = "Couldn't start the task. Press Enter to try again.";
+      renderStatus();
     });
     return;
   }
@@ -850,10 +853,17 @@ function send(what) {
   // Cleared at once, like a messaging app; the transcript echoes it. With
   // no key the text stays so nothing typed is lost.
   if (state.hasKey) clearField();
+  // A question that never started gives its words back, and says so.
+  const unsent = () => {
+    if (!input.value) input.value = text;
+    barHint = "Couldn't send that. Press Enter to try again.";
+    renderStatus();
+  };
   window.aeval.invoke('query:submit', { question: body, inferred, ...pin }).then((result) => {
     if (result && result.status === 'walkthrough') clearField();
     else if (result && result.status === 'needs-key') needsKey('ask');
-  });
+    else if (result && result.status === 'error') unsent();
+  }, unsent);
 }
 
 // Enter with no provider connected: the notice that says so nudges, the

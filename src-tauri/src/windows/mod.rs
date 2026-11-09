@@ -684,9 +684,8 @@ pub fn expand_panel(app: &AppHandle) {
 
 /// POS-09 with D-01: the bar folds into the orb and the foreground goes
 /// back to the app that had it. Answers keep streaming and output windows
-/// stay where they are (they float on their own since REQUESTS #11), so
-/// `_keep_output`, which used to spare them, changes nothing.
-pub fn collapse_panel(app: &AppHandle, _keep_output: bool) {
+/// stay where they are (they float on their own since REQUESTS #11).
+pub fn collapse_panel(app: &AppHandle) {
     crate::state::refresh(app);
     let Some(w) = window(app, OVERLAY) else {
         return;
@@ -902,7 +901,7 @@ pub fn on_escape(app: &AppHandle) {
         }
     }
     if mode == Mode::Panel {
-        collapse_panel(app, false);
+        collapse_panel(app);
     }
 }
 
@@ -1146,7 +1145,7 @@ pub fn exit_hud(app: &AppHandle) {
         pending.unwrap_or_else(|| layout::pos_from_rect(bar_area(), motion::glass(h)).to_value());
     store::get().set_overlay_pos(&pos);
     apply_input_limits(app);
-    collapse_panel(app, false);
+    collapse_panel(app);
     if let Some(s) = window(app, SETTINGS) {
         let _ = s.set_focus();
     }

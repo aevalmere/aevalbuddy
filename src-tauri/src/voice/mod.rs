@@ -302,6 +302,15 @@ pub fn chord_of(s: &settings::VoiceSettings) -> Option<ptt::Chord> {
     }
 }
 
+/// Whether `accelerator`, an app shortcut, is the dictation chord while
+/// dictation is on (hotkeys::set refuses it; voice refuses the reverse).
+pub fn dictation_uses(accelerator: &str) -> bool {
+    let Some(chord) = chord_of(&settings::get()) else {
+        return false;
+    };
+    ptt::parse(accelerator).is_ok_and(|c| c == chord)
+}
+
 fn chord_has_win() -> bool {
     chord_of(&settings::get()).is_some_and(|c| c.mods.win)
 }

@@ -284,7 +284,7 @@ pub async fn start_run(app: &AppHandle, req: StartReq) -> Value {
     slots().lock().model = Some(choice.model.clone());
     // The bar is not needed while the agent works: back to the pill, with
     // the trail beside it, shown without focus.
-    windows::collapse_panel(app, true);
+    windows::collapse_panel(app);
     if let Some(l) = &label {
         outputs::show(app, l);
     }
