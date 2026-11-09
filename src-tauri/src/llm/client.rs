@@ -453,7 +453,11 @@ impl Llm {
         }
         // A stream sends its headers at once; a whole reply only when done.
         let stream = body["stream"].as_bool().unwrap_or(false);
-        let wait = if stream { self.idle } else { self.overall_for(meta) };
+        let wait = if stream {
+            self.idle
+        } else {
+            self.overall_for(meta)
+        };
         let sent = async {
             match &self.fake {
                 Some(fake) => {

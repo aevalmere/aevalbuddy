@@ -155,7 +155,10 @@ pub fn merge(
     let turned_on = patch.get("dictation").and_then(Value::as_bool) == Some(true);
     if turned_on && patch.get("hotkey").is_none() {
         if let Ok(chord) = ptt::parse(&next.hotkey) {
-            if taken.iter().any(|t| ptt::parse(t).is_ok_and(|o| o == chord)) {
+            if taken
+                .iter()
+                .any(|t| ptt::parse(t).is_ok_and(|o| o == chord))
+            {
                 return Err(format!(
                     "{} already opens AevalBuddy. Choose another dictation shortcut.",
                     ptt::label(&next.hotkey)

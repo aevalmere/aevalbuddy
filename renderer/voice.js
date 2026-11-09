@@ -54,7 +54,12 @@
         note(r.error);
         say(r.error, 'assertive');
       }
-    }, () => set('idle'));
+    }, () => {
+      const why = "Voice input couldn't start. Try again.";
+      set('error');
+      note(why);
+      say(why, 'assertive');
+    });
   }
 
   function stop() {

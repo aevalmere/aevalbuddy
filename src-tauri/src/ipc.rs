@@ -886,8 +886,9 @@ async fn route(
         "update:restart" => return Ok(json!({ "ok": updater::restart(app) })),
         "clipboard:write" => {
             use tauri_plugin_clipboard_manager::ClipboardExt;
-            let _ = app.clipboard().write_text(p_str(&p, "text"));
-            return ok();
+            // The page says "Copied" only when it was.
+            let done = app.clipboard().write_text(p_str(&p, "text")).is_ok();
+            return Ok(json!({ "ok": done }));
         }
         "shortcuts:capture-mode" => hotkeys::set_capture_mode(app, p_bool(&p, "on")),
         "shortcuts:set" => {

@@ -54,7 +54,10 @@ pub struct SubmitOpts {
 /// that provider has a key to send it with.
 fn pin_of(p: &Value) -> Option<(Provider, String)> {
     let model = p.get("model").and_then(Value::as_str).map(str::trim)?;
-    let provider = p.get("provider").and_then(Value::as_str).and_then(Provider::from_id)?;
+    let provider = p
+        .get("provider")
+        .and_then(Value::as_str)
+        .and_then(Provider::from_id)?;
     if model.is_empty() {
         return None;
     }
@@ -866,7 +869,13 @@ pub async fn submit_to(
                 let app: String = e.title.chars().take(60).collect();
                 json!({ "app": app, "chars": e.text.chars().count() })
             });
-            let image = shot.as_ref().map(|s| if s.region.is_some() { "region" } else { "screen" });
+            let image = shot.as_ref().map(|s| {
+                if s.region.is_some() {
+                    "region"
+                } else {
+                    "screen"
+                }
+            });
             let reader = reader_used
                 .as_ref()
                 .filter(|_| report.is_some())
@@ -1128,7 +1137,11 @@ mod tests {
         for id in 1..=4 {
             keep_sent(&map, "output-1", id, format!("img{id}"), |_| true);
         }
-        assert_eq!(sent_image(&map, "output-1", 1), None, "the oldest is dropped");
+        assert_eq!(
+            sent_image(&map, "output-1", 1),
+            None,
+            "the oldest is dropped"
+        );
         let url = sent_image(&map, "output-1", 4).unwrap();
         assert_eq!(url, "data:image/jpeg;base64,img4");
         assert_eq!(sent_image(&map, "output-2", 4), None, "per window");

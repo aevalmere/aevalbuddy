@@ -382,6 +382,13 @@ function addUserMsg(text) {
   scrollToBottom(true);
 }
 
+// clipboard:write's reply: copied, or a failure the page says aloud.
+function copied(r) {
+  if (r && r.ok !== false) return true;
+  say("Couldn't copy. Try again.", 'assertive');
+  return false;
+}
+
 function button(cls, text, label) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -447,7 +454,8 @@ function addAssistantMsg() {
   });
   copy.addEventListener('click', () => {
     if (!entry.raw) return;
-    send('clipboard:write', { text: entry.raw }).then(() => {
+    send('clipboard:write', { text: entry.raw }).then((r) => {
+      if (!copied(r)) return;
       copy.textContent = 'Copied';
       say('Copied the answer');
       setTimeout(() => {
@@ -900,7 +908,8 @@ function addErrorRow(message, question, actions, tone, extra) {
         if (a.channel) send(a.channel, a.payload);
         done();
       } else if (id === 'copy-details') {
-        send('clipboard:write', { text: x.details || [message, x.code, provider, x.model].filter(Boolean).join('\n') }).then(() => {
+        send('clipboard:write', { text: x.details || [message, x.code, provider, x.model].filter(Boolean).join('\n') }).then((r) => {
+          if (!copied(r)) return;
           b.textContent = 'Copied';
           setTimeout(() => {
             b.textContent = label || 'Copy details';
@@ -1299,7 +1308,8 @@ function transcriptText() {
 function copyConversation() {
   const text = transcriptText();
   if (!text) return;
-  send('clipboard:write', { text }).then(() => {
+  send('clipboard:write', { text }).then((r) => {
+    if (!copied(r)) return;
     copyAllBtn.dataset.done = '1';
     say('Copied the conversation');
     setTimeout(() => delete copyAllBtn.dataset.done, 1500);
@@ -1338,7 +1348,8 @@ chatEl.addEventListener('click', (e) => {
   if (!btn) return;
   const code = btn.closest('.md-code') && btn.closest('.md-code').querySelector('pre code');
   if (!code) return;
-  send('clipboard:write', { text: code.textContent }).then(() => {
+  send('clipboard:write', { text: code.textContent }).then((r) => {
+    if (!copied(r)) return;
     btn.dataset.done = '';
     say('Copied the code');
     clearTimeout(btn.__done);

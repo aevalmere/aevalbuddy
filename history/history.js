@@ -373,6 +373,8 @@ confirmYes.addEventListener('click', () => {
 // ---------------------------------------------------------------- search
 
 searchEl.addEventListener('input', () => {
+  // "Delete all N" was counted for the list before this search.
+  closeConfirm(false);
   clearSearchBtn.hidden = !searchEl.value;
   // The filter runs in Rust over every message body; typing fast should not
   // queue one pass per keystroke.
@@ -419,7 +421,12 @@ function rowButtons() {
 
 function openRow(id) {
   commitPending();
-  call('history:open', { id });
+  call('history:open', { id }).then((r) => {
+    if (r === null || (r && r.ok === false)) {
+      say("Couldn't open that conversation. It may have been deleted.");
+      refresh();
+    }
+  });
 }
 
 listEl.addEventListener('click', (e) => {
@@ -539,7 +546,7 @@ menuEl.addEventListener('click', (e) => {
       if (r === null || (r && r.ok === false)) say("Couldn't open the bar.");
     });
   } else if (cmd === 'copy') {
-    call('clipboard:write', { text: questionOf(id) }).then((r) => say(r === null ? "Couldn't copy the question." : 'Question copied.'));
+    call('clipboard:write', { text: questionOf(id) }).then((r) => say(r === null || (r && r.ok === false) ? "Couldn't copy the question." : 'Question copied.'));
   } else if (cmd === 'delete') {
     remove(id);
   }

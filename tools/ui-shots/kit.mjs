@@ -24,6 +24,9 @@ const now = Date.now();
 // `responses` say otherwise.
 export const COMMON = {
   'glass:hello': null,
+  // Rust says whether the text reached the clipboard; pages say "Copied"
+  // only then.
+  'clipboard:write': { ok: true },
   'bar:history': [],
   'bar:history-push': [],
   'settings:get': {

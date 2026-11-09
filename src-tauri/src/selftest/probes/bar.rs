@@ -242,7 +242,7 @@ fn open(cx: &Cx) -> bool {
 }
 
 fn collapse(cx: &Cx) -> bool {
-    cx.on_main(|app| windows::collapse_panel(app));
+    cx.on_main(windows::collapse_panel);
     settled(cx, "pill")
 }
 
