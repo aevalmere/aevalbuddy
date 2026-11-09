@@ -26,5 +26,5 @@ Andy: "transcription and stuff is super slow, how come whimpr flow (open source 
 | Clipboard restored off the critical path | green at a4a6634 |
 | Stage timings (`voice::last_timings`, `[voice] timings` on stderr), before/after probe | green at a4a6634 |
 | whisper.cpp compiled /O2 (it was /Od in every build so far) | green at a4a6634 |
-| Stream thread wakes at once on release; budgets tightened to 900 / 1100 ms | pushed, CI pending |
+| Stream thread wakes at once on release; budgets tightened to 900 / 1100 ms | green at 031917d (e2e 827 ms, wait 0 ms) |
 | Not done: Parakeet engine, Vulkan GPU backend, whisper.cpp's Silero VAD (needs whisper-rs 0.15) | see entries/voice-speed.md, "Left" |

@@ -58,7 +58,9 @@ Thread sweep on tiny: 1 thread 547 ms, 2 296 ms, 4 267 ms; 6 threads on 4 vCPUs 
 
 The gates: `voiceSpeed` (base, fixture, kept loaded) at most 900 ms, `voiceSpeedE2e` at most 1100 ms.
 
-Installer size: no new files or DLLs. The exe changes only by the new Rust code and an optimised whisper.cpp (/O2 code is a little larger than /Od). The first download for the default engine drops from 148 MB to 60 MB (tiny 78 to 32 MB).
+Green at 031917d, a slower runner: earlier parameters 2.05 s, this lane 0.71 s, tiny 0.34 s, release to text 0.83 s with no wait for the stream thread.
+
+Installer size: 4.99 MiB before and after; no new files or DLLs. The exe changes only by the new Rust code and an optimised whisper.cpp (/O2 code is a little larger than /Od). The first download for the default engine drops from 148 MB to 60 MB (tiny 78 to 32 MB).
 
 ## Left
 
