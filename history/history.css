@@ -194,9 +194,8 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   overflow-y: auto;
   scrollbar-gutter: stable;
   padding: 0 var(--sp-2) var(--sp-5) var(--sp-3);
-  /* The last rows fade into the footer instead of meeting it at a cut. */
-  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - var(--sp-5)), transparent);
-  mask-image: linear-gradient(to bottom, black calc(100% - var(--sp-5)), transparent);
+  /* .edge-fade (glass.css): rows fade into the footer while more lies
+     below, and into the search field once scrolled. */
 }
 
 ::-webkit-scrollbar {
