@@ -151,7 +151,10 @@ pub fn run(cx: &mut Cx) {
                 .collect()
         })
         .unwrap_or_default();
-    cx.log("windowsAfter", format!("{} (answer shown at start: {was_shown})", shown.join(",")));
+    cx.log(
+        "windowsAfter",
+        format!("{} (answer shown at start: {was_shown})", shown.join(",")),
+    );
 }
 
 /// The bar moved to that corner and the answer placed afresh beside it, as

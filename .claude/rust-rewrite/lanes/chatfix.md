@@ -25,6 +25,10 @@ Seen with the bar at the bottom left; holding Ctrl+Alt+Space kept it.
   bar in four corners (sheet, clear part, sheet, clear part, outside, then the hotkey path) and require
   the window shown, unmoved and with its glass inside the work area; the clear part passes clicks
   through and the sheet takes them.
+- Side effect found by the fix: an answer window is already shown when the windows probe starts,
+  and capture's `backdropIdle` (which wants only the orb up) passed only because tao hid that
+  window once a probe's pointer crossed it. The windows probe now ends with the answers hidden and
+  logs `windowsAfter`.
 
 ## No way back to the pill
 
