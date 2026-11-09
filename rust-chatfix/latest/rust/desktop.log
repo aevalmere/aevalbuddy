@@ -1,28 +1,28 @@
 [DESKTOP] ownProbeShown=ok
 [DESKTOP] ownHandles=3
 [DESKTOP] desktopReady=ok
-[DESKTOP] desktopReadyMs=431
+[DESKTOP] desktopReadyMs=317
 [DESKTOP] desktopDpi=per-monitor-v2
 [DESKTOP] desktopWindows=ok
-[DESKTOP] desktopWindowCount=1
+[DESKTOP] desktopWindowCount=2
 [DESKTOP] desktopOwnExcluded=ok
 [DESKTOP] ownWindowBlocked=ok
 [DESKTOP] desktopNotepadIncluded=ok
-[DESKTOP] notepadWindow=w40244:notepad:Notepad
+[DESKTOP] notepadWindow=wA0120:notepad:Notepad
 [DESKTOP] focusMethod=already
 [DESKTOP] uiaTree=ok
 [DESKTOP] uiaTreeNodes=20
-[DESKTOP] uiaTreeMs=1124
+[DESKTOP] uiaTreeMs=1109
 [DESKTOP] uiaTreeRoles=window,document,button,edit,menuitem
 [DESKTOP] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
 [DESKTOP] editor=ref_2:document:Text Editor
-[DESKTOP] ocrMs=212
+[DESKTOP] ocrMs=162
 [DESKTOP] ocrWords=ok
-[DESKTOP] ocrDetail=hits=invoice|total|due words=26 inWindow=true lang=en-US
+[DESKTOP] ocrDetail=hits=invoice|total|due words=23 inWindow=true lang=en-US
 [DESKTOP] typeFocus=element
 [DESKTOP] typeReadText="System\nFile\nEdit\nFormat\nView\nHelp\nInvoice total due 42.00\n AevalBuddy smoke 4271\n  Ln 2, Col 23\n 100%\n Windows (CRLF)\n UTF-8\n"
 [DESKTOP] uiaTypeRead=ok
-[DESKTOP] uiaSetValueMs=129
+[DESKTOP] uiaSetValueMs=136
 [DESKTOP] uiaSetValueVia=sendinput
 [DESKTOP] uiaSetValue=ok
 [DESKTOP] getTextSpans=11
@@ -31,8 +31,8 @@
 [DESKTOP] elementAt=document:ref_2
 [DESKTOP] dontSave=button:Don't Save
 [DESKTOP] notepadClosed=ok
-[DESKTOP] desktopStatus={"ready":true,"disabled":false,"deaths":0,"pid":3248,"dpi":"per-monitor-v2","watching":false,"stderr":""}
+[DESKTOP] desktopStatus={"ready":true,"disabled":false,"deaths":0,"pid":9028,"dpi":"per-monitor-v2","watching":false,"stderr":""}
 [DESKTOP] done
 
 --- stderr ---
-[1109/101541.830:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1109/103555.164:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412

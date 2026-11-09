@@ -1,5 +1,0 @@
-== smoke.log ==
-[SMOKE] backdropIdle=FAIL:fast=true slow=false after 6045ms shown=[]
-[SMOKE] failed: backdropIdle
-[GATE] fail backdropIdle=FAIL:fast=true slow=false after 6045ms shown=[]
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: backdropIdle; 1 listed label(s) never printed
