@@ -1,0 +1,2 @@
+== shots.log ==
+[UI] iconsFromSprite=FAIL:history/history.css draws its own masked icons
