@@ -607,6 +607,8 @@ Written by agent (a). Everything below is `pub` in `src-tauri/src` and stable fo
   `motion::{glass, set_glass, animate, stop, is_animating, reduced}`, `flags::{set_click_through,
   set_focusable, show_inactive, show_focused, hide, pin_on_top, protect}`.
 
+- The open bar's window cap is `INPUT_MAX_HEIGHT` (400 DIP) times the text scale, never past the work area (`layout::input_bounds(.., text_scale)`). An `overlay:resize` that arrives while the bar glides is applied when the glide ends (`sync-input` debounce), so a menu opened at once is never left cut.
+
 ### 11.3 Output windows (`windows/outputs.rs`)
 
 - `outputs::target(app) -> Option<label>`: the window a new question goes to. The focused output if it is
