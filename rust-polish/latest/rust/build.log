@@ -1,7 +1,7 @@
         Info Looking up installed tauri packages to check mismatched versions...
         Warn The bundle identifier "com.aevalbuddy.app" set in `"tauri.conf.json" identifier` ends with `.app`. This is not recommended because it conflicts with the application bundle extension on macOS.
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `release` profile [optimized] target(s) in 6m 20s
+    Finished `release` profile [optimized] target(s) in 5m 17s
        Built application at: D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe
         Info Patching D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe with bundle type information: nsis
         Info Target: x64
