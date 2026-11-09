@@ -1,8 +1,62 @@
+   Compiling phf_macros v0.13.1
+   Compiling uuid v1.29.2
+   Compiling windows-core v0.62.2
+   Compiling clang-sys v1.9.1
+   Compiling cfb v0.14.0
+   Compiling schemars v0.8.22
+   Compiling phf v0.13.1
+   Compiling web_atoms v0.2.6
+   Compiling cssparser v0.37.0
+   Compiling infer v0.22.0
+   Compiling markup5ever v0.39.0
+   Compiling selectors v0.38.0
+   Compiling html5ever v0.39.0
+   Compiling windows-numerics v0.3.1
+   Compiling windows-collections v0.3.2
+   Compiling windows-future v0.3.2
+   Compiling dom_query v0.28.0
+   Compiling nom v7.1.3
+   Compiling windows v0.62.2
+   Compiling tauri-utils v2.10.2
+   Compiling libloading v0.8.9
+   Compiling bindgen v0.71.1
+   Compiling cexpr v0.6.0
+   Compiling tauri-build v2.7.4
+   Compiling tauri-plugin v2.7.2
+   Compiling tauri-codegen v2.7.4
+   Compiling windows-core v0.61.2
+   Compiling whisper-rs-sys v0.13.1
+   Compiling serialize-to-javascript v0.1.2
+   Compiling windows-sys v0.59.0
+   Compiling tauri v2.12.5
+   Compiling tauri-macros v2.7.4
+   Compiling tauri-plugin-clipboard-manager v2.5.0
+   Compiling tauri-plugin-global-shortcut v2.4.1
+   Compiling tauri-plugin-opener v2.7.2
+   Compiling windows-result v0.1.2
+   Compiling windows-future v0.2.1
+   Compiling windows-core v0.54.0
+   Compiling windows-numerics v0.2.0
+   Compiling windows-collections v0.2.0
+   Compiling global-hotkey v0.8.0
+   Compiling windows v0.61.3
+   Compiling windows v0.54.0
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 05s
-     Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-a36320e747bfecd0.exe)
+   Compiling dasp_sample v0.11.0
+   Compiling tauri-winrt-notification v0.7.3
+   Compiling winreg v0.55.0
+   Compiling cpal v0.15.3
+   Compiling webview2-com-sys v0.39.1
+   Compiling tao v0.37.2
+   Compiling webview2-com v0.39.1
+   Compiling whisper-rs v0.14.4
+   Compiling wry v0.57.1
+   Compiling tauri-runtime v2.12.2
+   Compiling tauri-runtime-wry v2.12.3
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 45s
+     Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-edb0517acd9cb2f4.exe)
 
-running 466 tests
+running 490 tests
 test agent::describe::tests::passwords_are_dotted_and_errors_named ... ok
 test agent::gate::tests::chords_are_canonical ... ok
 test agent::gate::tests::chord_risks ... ok
@@ -10,67 +64,67 @@ test agent::describe::tests::the_card_value_is_the_whole_text ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
 test agent::gate::tests::explorer_double_click_asks ... ok
 test agent::gate::tests::open_and_plans_and_keys ... ok
-test agent::gate::tests::quotes_are_cut ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
+test agent::gate::tests::quotes_are_cut ... ok
 test agent::gate::tests::space_in_text_field_is_free ... ok
 test agent::gate::tests::typed_space_on_button_asks ... ok
 test agent::gate::tests::space_on_focused_send_button_asks ... ok
-test agent::run::tests::a_claim_turns_away_other_starts ... ok
 test agent::gate::tests::localized_send_asks ... ok
 test agent::gate::tests::unknown_named_button_asks ... ok
-test agent::run::tests::app_label_kelvin_and_dotted_i ... ok
 test agent::gate::tests::web_dialog_text_is_read ... ok
+test agent::run::tests::a_claim_turns_away_other_starts ... ok
+test agent::run::tests::app_label_kelvin_and_dotted_i ... ok
 test agent::run::tests::bad_coordinates_are_rejected ... ok
 test agent::run::tests::concurrent_starts_yield_one_run ... ok
 test agent::run::tests::a_timed_out_step_is_an_unknown_outcome ... ok
 test agent::run::tests::dialect_switch_rewrites_system_prompt ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
-test agent::run::tests::final_text_is_remedy_only_after_failed_step ... ok
-test agent::run::tests::confirm_payload_carries_full_value ... ok
 test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
+test agent::run::tests::confirm_payload_carries_full_value ... ok
+test agent::run::tests::final_text_is_remedy_only_after_failed_step ... ok
 test agent::run::tests::page_text_is_redacted ... ok
+test agent::run::tests::point_outside_the_region_is_refused_before_it_asks ... ok
 test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::retry_after_is_honoured ... ok
-test agent::run::tests::point_outside_the_region_is_refused_before_it_asks ... ok
 test agent::run::tests::space_on_focused_send_asks_before_any_key ... ok
 test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
 test agent::run::tests::step_payload_has_plan_index ... ok
-test agent::run::tests::stop_ends_the_run_at_once ... ok
 test agent::run::tests::stop_while_typing_cancels_the_helper ... ok
+test agent::run::tests::stop_ends_the_run_at_once ... ok
 test agent::run::tests::the_task_is_what_stops ... ok
 test agent::run::tests::trail_text_numbers_the_steps ... ok
 test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::typed_password_in_focused_field_stays_dotted ... ok
 test agent::tools::tests::json_rules_list_every_tool ... ok
 test agent::tools::tests::json_turns_are_found_in_prose ... ok
+test agent::run::tests::pause_during_dodge_drops_the_action ... ok
 test agent::tools::tests::last_object_is_linear ... ok
-test agent::tools::tests::last_object_survives_prose_and_long_text ... ok
 test agent::tools::tests::the_toolset_is_the_browser_one ... ok
 test ask::tests::chat_ids_look_like_electron_ones ... ok
 test ask::tests::fractions_take_grid_or_pixels ... ok
+test agent::tools::tests::last_object_survives_prose_and_long_text ... ok
 test ask::tests::history_never_starts_with_assistant ... ok
-test ask::tests::visual_regex_matches_the_renderer ... ok
 test autostart::tests::value_is_the_quoted_exe ... ok
 test backdrop::contrast::tests::alpha_text_is_blended_and_invisible_text_skipped ... ok
 test backdrop::contrast::tests::black_on_white_passes_grey_fails ... ok
 test backdrop::contrast::tests::colours_parse ... ok
 test backdrop::contrast::tests::large_text_needs_three ... ok
 test backdrop::contrast::tests::probe_is_the_one_from_lib_contrast ... ok
-test agent::run::tests::pause_during_dodge_drops_the_action ... ok
 test backdrop::contrast::tests::wcag_numbers ... ok
-test backdrop::tests::fixture_hides_capture_failures ... ok
 test backdrop::tests::busy_resets_after_panic ... ok
-test backdrop::tests::frames_are_served_by_key_and_never_cached ... ok
+test backdrop::tests::fixture_hides_capture_failures ... ok
 test backdrop::tests::frame_protocol_cors_is_app_only ... ok
+test backdrop::tests::frames_are_served_by_key_and_never_cached ... ok
 test backdrop::tests::intensity_defaults_to_half ... ok
-test backdrop::tests::percentiles ... ok
 test backdrop::tests::missing_display_frame_skips_window ... ok
+test backdrop::tests::percentiles ... ok
 test backdrop::tests::recovery_rebroadcasts_live ... ok
 test backdrop::tests::solid_profile_at_07_is_live ... ok
 test backdrop::tests::transparency_setting_is_not_a_reason ... ok
 test buddy::tests::steps_apply_by_whether_a_key_exists ... ok
-test buddy::tests::watchdog_restores_click_through ... ok
 test buddy::tests::walkthrough_order_and_no_double_spaces ... ok
+test buddy::tests::watchdog_restores_click_through ... ok
+test ask::tests::visual_regex_matches_the_renderer ... ok
 test capture::dxgi::tests::open_failure_backs_off ... ok
 test capture::dxgi::tests::pointer_only_first_frame_is_skipped ... ok
 test capture::dxgi::tests::scrgb_to_srgb_at_sdr_white ... ok
@@ -103,8 +157,8 @@ test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
 test capture::screen::tests::rect_in_old_overlap_maps_to_primary ... ok
 test capture::screen::tests::ties_go_to_the_primary_then_the_centre ... ok
 test capture::dxgi::tests::empty_first_frame_falls_back ... ok
-test agent::smoke::tests::every_smoke_line_holds ... ok
 test capture::tests::area_on_primary_crops_primary ... ok
+test agent::smoke::tests::every_smoke_line_holds ... ok
 test capture::tests::whole_screen_is_the_whole_target ... ok
 test crash::tests::guard_async_catches_and_logs ... ok
 test crash::tests::guard_catches_and_logs ... ok
@@ -148,13 +202,13 @@ test desktop::win::tests::descendants_walks_the_tree_once ... ok
 test desktop::win::tests::our_own_pid_is_always_listed ... ok
 test find::tests::an_unreadable_window_offers_ask ... ok
 test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
-test capture::tests::hung_worker_is_replaced ... ok
 test find::tests::budget_keeps_spans_near_the_hits ... ok
+test capture::tests::area_on_the_scaled_display_crops_its_pixels ... ok
 test find::tests::fold_strips_accents_and_widths ... ok
 test find::tests::line_reader_takes_objects_only ... ok
 test find::tests::literal_matching_stages ... ok
 test find::tests::one_edit_is_a_typo ... ok
-test capture::tests::area_on_the_scaled_display_crops_its_pixels ... ok
+test capture::tests::hung_worker_is_replaced ... ok
 test find::tests::snippets_are_cut_around_the_match ... ok
 test find::tests::sub_rects_follow_lines ... ok
 test find::tests::tokens_split_camel_snake_and_digits ... ok
@@ -214,12 +268,12 @@ test hotkeys::tests::unparseable_is_an_error_not_a_panic ... ok
 test hotkeys::tests::validation_matches_main_js ... ok
 test instance::tests::an_open_during_boot_is_answered_once_ready ... ok
 test instance::tests::lock_is_per_folder_and_case_blind ... ok
-test instance::tests::stalled_client_does_not_block_server ... ok
+test history::tests::trim_result_serializes_under_4mb ... ok
 test ipc::tests::bridge_script_carries_both_allowlists ... ok
 test ipc::tests::clipboard_keys_are_matched_and_masked ... ok
 test ipc::tests::every_invoke_channel_has_a_label_rule ... ok
 test ipc::tests::every_invoke_channel_has_a_route ... ok
-test ipc::tests::every_listen_channel_has_a_sender ... ok
+test instance::tests::stalled_client_does_not_block_server ... ok
 test ipc::tests::first_request_needs_text ... ok
 test ipc::tests::history_list_has_enabled ... ok
 test ipc::tests::history_row_question_is_the_whole_first_message ... ok
@@ -235,8 +289,8 @@ test ipc::tests::split_d_channels_are_allowed ... ok
 test ipc::tests::unknown_channel_is_refused_with_the_electron_wording ... ok
 test lens::tests::hits_land_on_the_display_their_pixels_are_on ... ok
 test lens::tests::payload_is_display_relative_with_a_4px_floor ... ok
+test ipc::tests::every_listen_channel_has_a_sender ... ok
 test llm::auth::tests::callback_parses_code_and_rejects_bad_requests ... ok
-test llm::auth::tests::no_answer_times_out_with_the_paste_hint ... ok
 test llm::auth::tests::pkce_challenge_is_s256_of_verifier ... ok
 test llm::auth::tests::the_approval_url_has_the_documented_parameters ... ok
 test llm::catalogue::tests::curated_table_order_and_tiers ... ok
@@ -248,12 +302,12 @@ test llm::catalogue::tests::model_names_people_read ... ok
 test llm::catalogue::tests::native_retired_id_heals_in_memory ... ok
 test llm::catalogue::tests::retired_ids_heal_to_a_live_free_model ... ok
 test llm::catalogue::tests::stand_in_is_live_and_sees_images ... ok
-test llm::client::tests::builder_uses_native_roots_and_proxy ... ok
+test llm::auth::tests::no_answer_times_out_with_the_paste_hint ... ok
 test llm::client::tests::catalogue_is_cached ... ok
 test llm::client::tests::data_policy_probe_reports_blocked ... ok
 test llm::client::tests::empty_streams_and_http_errors ... ok
 test llm::client::tests::error_in_200_body_is_an_error ... ok
-test history::tests::trim_result_serializes_under_4mb ... ok
+test llm::client::tests::builder_uses_native_roots_and_proxy ... ok
 test llm::client::tests::native_list_parsing ... ok
 test llm::client::tests::native_turns_go_to_the_native_api ... ok
 test llm::client::tests::offline_refuses_everything ... ok
@@ -280,19 +334,19 @@ test llm::failover::tests::bad_model_set_is_skipped ... ok
 test llm::failover::tests::daily_cap_stays_in_account ... ok
 test llm::failover::tests::rate_limits_move_to_the_next_free_model_at_most_three_times ... ok
 test llm::failover::tests::short_names ... ok
-test llm::client::tests::idle_stream_times_out_as_408 ... ok
+test llm::fake::tests::a_stall_holds_the_body_back ... ok
 test llm::fake::tests::agent_turns_follow_the_assistant_count_and_fill_vars ... ok
 test llm::fake::tests::correlate_answers_with_the_span_holding_the_match ... ok
 test llm::fake::tests::embedded_fixtures_load ... ok
 test llm::fake::tests::pushed_fixtures_script_status_provider_and_times ... ok
 test llm::fake::tests::statuses_delays_and_streams ... ok
-test llm::fake::tests::a_stall_holds_the_body_back ... ok
+test llm::client::tests::idle_stream_times_out_as_408 ... ok
 test llm::payloads::tests::a_pin_needs_both_fields ... ok
 test llm::payloads::tests::wire_names_are_camel_case ... ok
 test llm::fake::tests::the_log_is_capped ... ok
 test llm::points::tests::coordinate_directives_are_taken_out_across_deltas ... ok
-test llm::points::tests::malformed_directive_is_swallowed ... ok
 test llm::points::tests::loose_shapes_and_names ... ok
+test llm::points::tests::malformed_directive_is_swallowed ... ok
 test llm::points::tests::unclosed_directive_is_released_after_the_hold ... ok
 test llm::points::tests::other_brackets_are_kept ... ok
 test llm::prompt::tests::reader_prompt_shape ... ok
@@ -303,8 +357,8 @@ test llm::provider::tests::every_default_is_in_its_own_list ... ok
 test llm::provider::tests::keys_are_recognised_by_prefix ... ok
 test llm::settings::tests::a_native_key_alone_is_used ... ok
 test llm::prompt::tests::reports_are_checked_and_unfenced ... ok
-test llm::settings::tests::legacy_provider_migrates_to_top ... ok
 test llm::settings::tests::cooldowns ... ok
+test llm::settings::tests::legacy_provider_migrates_to_top ... ok
 test llm::settings::tests::mismatched_key_is_skipped ... ok
 test llm::settings::tests::no_key_is_needs_key ... ok
 test llm::settings::tests::openrouter_stays_the_default_path ... ok
@@ -366,15 +420,15 @@ test store::crypto::tests::local_state_is_created_then_reused ... ok
 test store::crypto::tests::wrong_key_or_garbage_is_none_not_a_panic ... ok
 test store::crypto::tests::unreadable_local_state_is_left_alone ... ok
 test store::durable::tests::replaces_a_target_another_handle_has_open ... ok
-test store::durable::tests::replaces_and_leaves_no_temp ... ok
 test store::durable::tests::sweep_removes_only_our_temps ... ok
-test history::tests::steady_saves_still_write_within_400ms ... ok
+test store::durable::tests::replaces_and_leaves_no_temp ... ok
 test history::tests::flush_now_and_timer_never_overlap ... ok
-test store::tests::electron_key_is_migrated ... ok
+test history::tests::steady_saves_still_write_within_400ms ... ok
 test store::tests::corrupt_file_is_kept_aside ... ok
+test store::tests::electron_key_is_migrated ... ok
 test store::tests::fresh_file_gets_every_default_in_order ... ok
-test store::tests::fresh_store_set_lands_on_disk_while_file_is_open ... ok
 test store::tests::chosen_flag_rules ... ok
+test store::tests::fresh_store_set_lands_on_disk_while_file_is_open ... ok
 test store::tests::invalid_utf8_is_read_lossy_not_reset ... ok
 test store::tests::js_helpers ... ok
 test store::tests::key_storage_reports_plain_without_os_key ... ok
@@ -403,16 +457,40 @@ test tray::tests::second_check_keeps_its_ten_seconds ... ok
 test tray::tests::tooltips ... ok
 test updater::tests::atom_and_tag ... ok
 test updater::tests::backoff_table ... ok
-test updater::tests::classify_matches_lib_updater ... ok
+test store::tests::v1_fields_win_after_rollback ... ok
 test updater::tests::empty_offline_env_is_online ... ok
 test updater::tests::feed_override_rules ... ok
-test updater::tests::identical_failures_both_reschedule ... ok
+test updater::tests::classify_matches_lib_updater ... ok
 test updater::tests::in_flight_clears_on_panic ... ok
 test updater::tests::latest_yml ... ok
+test updater::tests::identical_failures_both_reschedule ... ok
 test updater::tests::missing_sha512_refuses ... ok
-test updater::tests::notes_prefer_list_items ... ok
 test updater::tests::problem_texts_are_plain ... ok
 test updater::tests::versions_and_hashes ... ok
+test updater::tests::notes_prefer_list_items ... ok
+test voice::capture::tests::microphone_errors_read_as_sentences ... ok
+test voice::cleanup::tests::a_free_model_cleans_the_words ... ok
+test voice::cleanup::tests::replies_that_add_or_chat_are_refused ... ok
+test voice::cleanup::tests::the_local_tidy_only_takes_out_hesitations ... ok
+test voice::cleanup::tests::the_raw_words_go_in_when_cleanup_cannot_help ... ok
+test voice::gemini::tests::the_prompt_and_the_reply ... ok
+test voice::insert::tests::handle_formats_are_not_copied ... ok
+test voice::insert::tests::typing_sends_each_unit_down_and_up_and_lines_as_enter ... ok
+test voice::model::tests::english_gets_the_english_model ... ok
+test voice::model::tests::only_a_whole_checked_file_is_ready ... ok
+test voice::pill::tests::it_sits_at_the_bottom_centre ... ok
+test voice::ptt::tests::a_chord_with_a_key_swallows_it_and_pausing_only_masks ... ok
+test voice::ptt::tests::a_key_let_go_out_of_sight_does_not_stick ... ok
+test voice::ptt::tests::accelerators_parse_and_print ... ok
+test voice::ptt::tests::hold_then_release_dictates_and_a_shortcut_does_not ... ok
+test voice::ptt::tests::space_keeps_listening_until_the_chord_comes_again_and_esc_cancels ... ok
+test voice::settings::tests::a_patch_is_checked_before_it_is_kept ... ok
+test voice::settings::tests::missing_or_bad_fields_read_as_defaults ... ok
+test voice::tests::a_state_carries_its_origin_and_extras ... ok
+test voice::wav::tests::encode_then_read_gives_the_samples_back ... ok
+test voice::wav::tests::levels_span_quiet_to_loud ... ok
+test voice::wav::tests::stereo_float_at_48k_becomes_mono_at_16k ... ok
+test voice::wav::tests::the_fixture_reads_as_speech_at_16k ... ok
 test windows::flags::tests::bands_follow_the_sheet ... ok
 test windows::flags::tests::bar_resizes_sideways_only ... ok
 test windows::flags::tests::edges_and_corners_on_the_margin ... ok
@@ -466,13 +544,13 @@ test windows::tests::overlay_state_has_target_and_count ... ok
 test windows::tests::overlay_state_lock_scope ... ok
 test windows::tests::settings_history_have_no_max ... ok
 test windows::tests::text_scale_clamps_and_multiplies ... ok
-test store::tests::v1_fields_win_after_rollback ... ok
+test voice::capture::tests::a_fixture_records_like_a_microphone ... ok
 test store::tests::input_history ... ok
 test store::tests::concurrent_sets_never_lose_or_corrupt ... ok
 
-test result: ok. 466 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 16.85s
+test result: ok. 490 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.48s
 
-     Running unittests src\main.rs (target\debug\deps\aevalbuddy-c5ff1b45c07570af.exe)
+     Running unittests src\main.rs (target\debug\deps\aevalbuddy-104914c52278e344.exe)
 
 running 0 tests
 
@@ -483,5 +561,5 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 1 test
 test src\selftest\mod.rs - selftest (line 54) ... ignored
 
-test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
