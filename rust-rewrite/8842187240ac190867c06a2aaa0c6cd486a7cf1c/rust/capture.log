@@ -1,0 +1,50 @@
+[CAPTURE] windowsBuild=26100
+[CAPTURE] canHideFromCapture=ok
+[CAPTURE] displays=1
+[CAPTURE] display=1024x768 phys, 1024x768 dip, scale 1
+[CAPTURE] fixtureShown=ok
+[CAPTURE] probeShown=ok
+[CAPTURE] dxgiFirstFrameMs=24
+[CAPTURE] dxgiFirstFrame=ok
+[CAPTURE] hdr=off
+[CAPTURE] dxgiOpensPerTick=1
+[CAPTURE] dxgiOpensPerTick=ok
+[CAPTURE] dxgi.frame=1024x768 in 9ms
+[CAPTURE] dxgi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
+[CAPTURE] dxgiExcludesOwnWithoutBlanking=ok
+[CAPTURE] gdi.frame=1024x768 in 22ms
+[CAPTURE] gdi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
+[CAPTURE] gdiExcludesOwnWithoutBlanking=ok
+[CAPTURE] captureExcludesOwn=ok
+[CAPTURE] capture=1024x768 bytes=277665 q=88 backend=dxgi ms=30
+[CAPTURE] captureSize=ok
+[CAPTURE] captureJpeg=ok
+[CAPTURE] wholeScreenShowsFixture=ok
+[CAPTURE] captureBudget=ok
+[CAPTURE] captureBase64=ok
+[CAPTURE] captureDisplay=ok
+[CAPTURE] captureShape=ok
+[CAPTURE] regionCapture=600x300 bytes=91474 q=88
+[CAPTURE] regionNative=ok
+[CAPTURE] regionEchoed=ok
+[CAPTURE] regionJpeg=ok
+[CAPTURE] regionLoadMs=151
+[CAPTURE] regionDragReturnsTheBox=ok
+[CAPTURE] fidelity=1024x768 -> 640x480 lanczosEdge=9.12 boxEdge=10.49
+[CAPTURE] fidelityStripes=lanczosRmse=0.58 boxRmse=23.73
+[CAPTURE] fidelityLanczos=ok
+[CAPTURE] glassFrame=Some((171, 128)) wall=0.1ms encode=1.9ms
+[CAPTURE] glassFrameSize=ok
+[CAPTURE] snapCost={"n":10,"wallP50":0.0392,"wallP95":0.053,"encodeP95":0.0012,"blockP95":0.1351}
+[CAPTURE] snapCost=ok
+[CAPTURE] glassTier=live
+[CAPTURE] glassLive=ok
+[CAPTURE] tickMs=3.9
+[CAPTURE] tickMs=ok
+[CAPTURE] tickReusesFrame=ok
+[CAPTURE] glassFixture=ok
+[CAPTURE] glassFixtureUrl=ok
+[CAPTURE] done
+
+--- stderr ---
+[1109/051806.693:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412

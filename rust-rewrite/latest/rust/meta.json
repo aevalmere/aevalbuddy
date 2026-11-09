@@ -1,17 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42563943406,
+  "run_id": 42565372815,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42563943406",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42565372815",
   "event": "push",
-  "sha": "96584d719e0e55c4b039409076bde43236d87a38",
+  "sha": "8842187240ac190867c06a2aaa0c6cd486a7cf1c",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
-  "conclusion": "success",
-  "failed": [],
-  "finished": "2026-11-09T05:05:22Z",
-  "error_lines": 0,
+  "conclusion": "failure",
+  "failed": [
+    "Smoke"
+  ],
+  "finished": "2026-11-09T05:18:15Z",
+  "error_lines": 4,
   "steps": [
     {
       "name": "Checkout",
@@ -85,7 +87,7 @@
     },
     {
       "name": "Smoke",
-      "outcome": "success",
+      "outcome": "failure",
       "log": "smoke.log"
     },
     {
@@ -100,7 +102,7 @@
     },
     {
       "name": "Upload installer",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     }
   ]

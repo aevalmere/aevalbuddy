@@ -26,19 +26,19 @@
     Checking serde_json v1.0.154
     Checking serde_urlencoded v0.7.1
    Compiling cssparser v0.37.0
-    Checking jsonptr v0.7.1
    Compiling selectors v0.38.0
-   Compiling cargo_metadata v0.19.2
+   Compiling jsonptr v0.7.1
    Compiling schemars v0.8.22
+   Compiling cargo_metadata v0.19.2
    Compiling json-patch v4.2.0
    Compiling dom_query v0.28.0
-    Checking tauri-utils v2.10.2
     Checking http-body v1.1.0
     Checking wry v0.57.1
     Checking serialize-to-javascript v0.1.2
+    Checking tauri-utils v2.10.2
     Checking hyper v1.12.0
-    Checking tower-http v0.6.11
     Checking http-body-util v0.1.5
+    Checking tower-http v0.6.11
     Checking hyper-util v0.1.21
     Checking hyper-rustls v0.27.10
     Checking reqwest v0.12.28
@@ -53,4 +53,4 @@
    Compiling tauri-plugin-opener v2.7.2
    Compiling tauri-plugin-global-shortcut v2.4.1
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 59.72s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 43.16s

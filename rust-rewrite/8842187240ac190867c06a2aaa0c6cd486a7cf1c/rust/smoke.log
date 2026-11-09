@@ -1,0 +1,340 @@
+[GATE] self-test passes=ok
+[GATE] self-test a FAIL line=ok
+[GATE] self-test a bare FAIL=ok
+[GATE] self-test no done=ok
+[GATE] self-test failed line=ok
+[GATE] self-test error line=ok
+[GATE] self-test a missing label=ok
+[GATE] self-test a FAIL value is not a FAIL label=ok
+[SMOKE] version=1.1.1
+[SMOKE] userData=D:\a\_temp\aeval-smoke
+[SMOKE] webviewData=D:\a\_temp\aeval-smoke\WebView2
+[SMOKE] scaffold.pages=output-1,overlay
+[SMOKE] scaffold.bridge=ok
+[SMOKE] selftest.eval=ok
+[SMOKE] selftest.input=ok
+[SMOKE] pillCentre=Some((986, 38))
+[SMOKE] desktopReady=ok
+[SMOKE] desktopReadyMs=839
+[SMOKE] desktopDpi=per-monitor-v2
+[SMOKE] desktopWindows=ok
+[SMOKE] desktopWindowCount=2
+[SMOKE] desktopOwnExcluded=ok
+[SMOKE] ownWindowBlocked=ok
+[SMOKE] desktopNotepadIncluded=ok
+[SMOKE] notepadWindow=w10244:notepad:Notepad
+[SMOKE] focusMethod=already
+[SMOKE] uiaTree=ok
+[SMOKE] uiaTreeNodes=20
+[SMOKE] uiaTreeMs=2147
+[SMOKE] uiaTreeRoles=window,document,button,edit,menuitem
+[SMOKE] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
+[SMOKE] editor=ref_2:document:Text Editor
+[SMOKE] ocrMs=843
+[SMOKE] ocrWords=ok
+[SMOKE] ocrDetail=hits=invoice|total|due words=23 inWindow=true lang=en-US
+[SMOKE] typeFocus=element
+[SMOKE] typeReadText="System\nFile\nEdit\nFormat\nView\nHelp\nInvoice total due 42.00\n AevalBuddy smoke 4271\n  Ln 2, Col 23\n 100%\n Windows (CRLF)\n UTF-8\n"
+[SMOKE] uiaTypeRead=ok
+[SMOKE] uiaSetValueMs=108
+[SMOKE] uiaSetValueVia=sendinput
+[SMOKE] uiaSetValue=ok
+[SMOKE] getTextSpans=11
+[SMOKE] findEditor=ok
+[SMOKE] findTop=document:Text Editor:100
+[SMOKE] elementAt=document:ref_2
+[SMOKE] dontSave=button:Don't Save
+[SMOKE] notepadClosed=ok
+[SMOKE] probe.harness=ok
+[SMOKE] singleInstance=ok
+[SMOKE] tray=ok
+[SMOKE] aumid=ok
+[SMOKE] shortcut.captureQuery=true
+[SMOKE] shortcut.captureRegion=null
+[SMOKE] shortcut.toggleVisibility=null
+[SMOKE] shortcuts=captureQuery:true,captureRegion:null,findOnScreen:null,agentTask:null,toggleVisibility:null
+[SMOKE] shortcutsOneChord=ok
+[SMOKE] noGlobalEnter=ok
+[SMOKE] noGlobalEscWithBar=ok
+[SMOKE] escapeSuspend=ok
+[SMOKE] captureMode=ok
+[SMOKE] shortcutSet=ok
+[SMOKE] shortcutReset=ok
+[SMOKE] trayOrder=ok
+[SMOKE] trayAccel=ok
+[SMOKE] trayCheckStates=ok
+[SMOKE] trayTooltip=ok
+[SMOKE] trayClick=ok
+[SMOKE] historySaved=2:3
+[SMOKE] historyTitle=ok
+[SMOKE] historySearch=1:0
+[SMOKE] historyRemove=1
+[SMOKE] historyRespectsSwitch=1:skipped
+[SMOKE] historyCleared=0
+[SMOKE] historyFlushOnQuit=ok
+[SMOKE] crashLogged=ok
+[SMOKE] crashMainThread=ok
+[SMOKE] contextMenus=ok
+[SMOKE] contextMenuEditable=ok
+[SMOKE] launchAtLogin=ok
+[SMOKE] navigationBlocked=ok
+[SMOKE] updateConfig=ok
+[SMOKE] updateClassify=ok
+[SMOKE] updateNotes=ok
+[SMOKE] feedOverrideStrict=ok
+[SMOKE] update.retry1=[2026-11-09T05:16:07.871Z] warn server (attempt 1): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[SMOKE] update.retry2=[2026-11-09T05:16:17.978Z] warn server (attempt 2): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[SMOKE] update.attempts=retrying,retrying,retrying
+[SMOKE] update.status=retrying
+[SMOKE] update.version=-
+[SMOKE] update.problem=The update server did not answer. Trying again at 5:33 AM.
+[SMOKE] updateFeed=FAIL:retrying: The update server did not answer. Trying again at 5:33 AM.
+[SMOKE] updateQuiet=ok
+[SMOKE] update.cause=[2026-11-09T05:16:59.148Z] warn server (attempt 3): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[SMOKE] quitOnLastClose=ok
+[SMOKE] probe.platform=ok
+[SMOKE] probe.windows=ok
+[SMOKE] helperNotAtBoot=ok
+[SMOKE] capture=ok:314041bytes:1024x768
+[SMOKE] captureActiveDisplay=0,0 1024x768
+[SMOKE] regionCapture=320x200:tagged
+[SMOKE] regionSharper=1.00x->1.00x
+[SMOKE] regionPointTarget={"x":200,"y":140}
+[SMOKE] regionSelectorCancels=true
+[SMOKE] regionEscape=cancelled:panel-kept
+[SMOKE] captureFailNull=null in 3001ms, then a shot
+[SMOKE] dpiRoundTrip=ok:5 rects within 1px
+[SMOKE] glassTier=live reasons=none canHide=true
+[SMOKE] glassLoaded=ok
+[SMOKE] snapCost=n=50 wallP50=15.3ms wallP95=46.6ms encodeP95=1.9ms blockP95=0.3ms
+[SMOKE] snapCost=ok
+[SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
+[SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
+[SMOKE] lensFirstDraw=ok
+[SMOKE] lensReady=said=true ready=true
+[SMOKE] lensWhyClear=covers=0 at=243,197
+[SMOKE] lensWhyClear=ok
+[SMOKE] backdropIdle=fast=true slow=true after 2ms
+[SMOKE] pointResolved=true
+[SMOKE] buddyPoints=true
+[SMOKE] buddyPointsDone=true
+[SMOKE] walkthrough=true
+[SMOKE] onboardingSteps=0>1>2>3
+[SMOKE] buddyReuse=points in 20ms, agent waited 13ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 405ms (clickThrough=true ready=true freshPage=true cursor=(200, 200))
+[SMOKE] probe.capture=ok
+[SMOKE] intentTable=42/42
+[SMOKE] intentTable=ok
+[SMOKE] intentPrefixes=ok
+[SMOKE] intentWorstMs=0.10
+[SMOKE] intentFast=ok
+[SMOKE] intentDoNeedsMargin=ok
+[SMOKE] keySwallow=ok
+[SMOKE] styleSamples=pill/overlay:0x14cc0000/0x80801b8 bar/overlay:0x14cc0000/0x198 pill-again/overlay:0x14cc0000/0x80801b8 bar-again/overlay:0x14cc0000/0x198
+[SMOKE] styleStable=ok
+[SMOKE] barKeys=tab=false:find!:invoice:do!:ask!:ask
+[SMOKE] barKeys=ok
+[SMOKE] tokenReply=ok
+[SMOKE] earlyKeys=ok
+[SMOKE] barMultiline=ok
+[SMOKE] suggestionsOnce=ok
+[SMOKE] probe.bar=ok
+[SMOKE] barMenuInside=ok
+[SMOKE] probe.polish=ok
+[SMOKE] noOutputInput=ok
+[SMOKE] markdown=ok
+[SMOKE] markdownStructure=ok
+[SMOKE] transcriptScroll=ok
+[SMOKE] transcriptWheel=ok
+[SMOKE] chatCeiling=ok
+[SMOKE] scrollThumb=ok
+[SMOKE] moreIndicator=ok
+[SMOKE] readingMeasure=ok
+[SMOKE] globMorphMs=ok
+[SMOKE] probe.sheet=ok
+[SMOKE] probe.settings=ok
+[SMOKE] gateBypasses=37/37
+[SMOKE] gateBypasses=ok
+[SMOKE] gatePassesPlainInput=ok
+[SMOKE] gateFailsClosed=ok
+[SMOKE] gatePlanFirst=ok
+[SMOKE] gateChords=ok
+[SMOKE] gateKeyActivation=ok
+[SMOKE] confirmFullText=ok
+[SMOKE] takeoverStopsStep=ok
+[SMOKE] agentNativeModel=ok
+[SMOKE] dontSave=button:Don't Save
+[SMOKE] agentNotepadClosed=true
+[SMOKE] agentRun=ok
+[SMOKE] agentFocusKept=ok
+[SMOKE] agentJsonMode=ok
+[SMOKE] agentStopMs=ok
+[SMOKE] agentTakeover=ok
+[SMOKE] agentMaxSteps=ok
+[SMOKE] agentConfirmGate=ok
+[SMOKE] passwordRedacted=ok
+[SMOKE] clickExact=ok
+[SMOKE] cancelStopsTyping=ok
+[SMOKE] helperTimeoutNoLateInput=ok
+[SMOKE] probe.agent=ok
+[SMOKE] v2NotepadOpen=ok
+[SMOKE] probe.llm=ok
+[SMOKE] voiceNoCppRuntime=ok
+[SMOKE] voiceModel=ok
+[SMOKE] voiceHeard=Ok("Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget.")
+[SMOKE] voiceTranscribe=ok
+[SMOKE] voiceBarField=ok
+[SMOKE] voicePill=ok
+[SMOKE] voiceDictation=ok
+[SMOKE] voiceClipboard=ok
+[SMOKE] probe.voice=ok
+[SMOKE] dontSave=button:Don't Save
+[SMOKE] v2NotepadClosed=true
+[SMOKE] v2basics=ok
+[SMOKE] v21basics=ok
+[SMOKE] glassGates=ok
+[SMOKE] v2desktop=ok
+[SMOKE] failed: updateFeed
+--- stderr ---
+[aevalbuddy] panic: smoke: deliberate task panic
+    at src\selftest\probes\platform.rs:580
+    thread tokio-rt-worker, guarded false
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::force_capture
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\backtrace.rs:312
+   4: main
+   5: std::panicking::panic_with_hook
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:823
+   6: std::panicking::panic_handler::closure$0
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:688
+   7: std::sys::backtrace::__rust_end_short_backtrace<std::panicking::panic_handler::closure_env$0,never$>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\sys\backtrace.rs:182
+   8: std::panicking::panic_handler
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:679
+   9: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\core\src\panicking.rs:80
+  10: main
+  11: main
+  12: core::core_arch::x86::xsave::_xgetbv
+  13: core::core_arch::x86::xsave::_xgetbv
+  14: core::core_arch::x86::xsave::_xgetbv
+  15: core::core_arch::x86::xsave::_xgetbv
+  16: core::core_arch::x86::xsave::_xgetbv
+  17: std::sys::thread::windows::impl$0::new::thread_start
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\sys\thread\windows.rs:58
+  18: BaseThreadInitThunk
+  19: RtlUserThreadStart
+
+[aevalbuddy] panic: smoke: deliberate main-thread panic
+    at src\selftest\probes\platform.rs:580
+    thread main, guarded true
+   0: std::backtrace_rs::backtrace::win64::trace
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\..\..\backtrace\src\backtrace\win64.rs:85
+   1: std::backtrace_rs::backtrace::trace_unsynchronized
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\..\..\backtrace\src\backtrace\mod.rs:66
+   2: std::backtrace::Backtrace::create
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\backtrace.rs:331
+   3: std::backtrace::Backtrace::force_capture
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\backtrace.rs:312
+   4: main
+   5: std::panicking::panic_with_hook
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:823
+   6: std::panicking::panic_handler::closure$0
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:688
+   7: std::sys::backtrace::__rust_end_short_backtrace<std::panicking::panic_handler::closure_env$0,never$>
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\sys\backtrace.rs:182
+   8: std::panicking::panic_handler
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\std\src\panicking.rs:679
+   9: core::panicking::panic_fmt
+             at /rustc/58cf8f9c35b355199727627d07ae34a4e2846d67/library\core\src\panicking.rs:80
+  10: memchr
+  11: memchr
+  12: memchr
+  13: memchr
+  14: core::core_arch::x86::xsave::_xgetbv
+  15: core::core_arch::x86::xsave::_xgetbv
+  16: main
+  17: core::core_arch::x86::xsave::_xgetbv
+  18: core::core_arch::x86::xsave::_xgetbv
+  19: main
+  20: CallWindowProcW
+  21: IsWindowUnicode
+  22: main
+  23: main
+  24: main
+  25: main
+  26: __ImageBase
+  27: __ImageBase
+  28: main
+  29: invoke_main
+             at D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:78
+  30: __scrt_common_main_seh
+             at D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+  31: BaseThreadInitThunk
+  32: RtlUserThreadStart
+
+[aevalbuddy] guard: smoke panicked and was stopped; the app keeps running: smoke: deliberate main-thread panic
+[aevalbuddy] update warn: server (attempt 1): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[aevalbuddy] update warn: server (attempt 2): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[aevalbuddy] update warn: server (attempt 3): 504 504 Gateway Timeout for https://github.com/aevalmere/aevalbuddy/releases/latest
+[aevalbuddy] renderer: buddy render-process-exited crashed
+whisper_init_from_file_with_params_no_state: loading model from 'D:\a\_temp\aeval-smoke\voice\ggml-tiny.en.bin'
+whisper_init_with_params_no_state: use gpu    = 0
+whisper_init_with_params_no_state: flash attn = 0
+whisper_init_with_params_no_state: gpu_device = 0
+whisper_init_with_params_no_state: dtw        = 0
+register_backend: registered backend CPU (1 devices)
+register_device: registered device CPU (AMD EPYC 9V45 96-Core Processor                )
+whisper_init_with_params_no_state: devices    = 1
+whisper_init_with_params_no_state: backends   = 1
+whisper_model_load: loading model
+whisper_model_load: n_vocab       = 51864
+whisper_model_load: n_audio_ctx   = 1500
+whisper_model_load: n_audio_state = 384
+whisper_model_load: n_audio_head  = 6
+whisper_model_load: n_audio_layer = 4
+whisper_model_load: n_text_ctx    = 448
+whisper_model_load: n_text_state  = 384
+whisper_model_load: n_text_head   = 6
+whisper_model_load: n_text_layer  = 4
+whisper_model_load: n_mels        = 80
+whisper_model_load: ftype         = 1
+whisper_model_load: qntvr         = 0
+whisper_model_load: type          = 1 (tiny)
+whisper_model_load: adding 1607 extra tokens
+whisper_model_load: n_langs       = 99
+whisper_model_load:      CPU total size =    77.11 MB
+whisper_model_load: model size    =   77.11 MB
+whisper_init_state: kv self size  =    3.15 MB
+whisper_init_state: kv cross size =    9.44 MB
+whisper_init_state: kv pad  size  =    2.36 MB
+whisper_init_state: compute buffer (conv)   =   13.19 MB
+whisper_init_state: compute buffer (encode) =   64.79 MB
+whisper_init_state: compute buffer (cross)  =    3.88 MB
+whisper_init_state: compute buffer (decode) =   95.89 MB
+whisper_init_state: kv self size  =    3.15 MB
+whisper_init_state: kv cross size =    9.44 MB
+whisper_init_state: kv pad  size  =    2.36 MB
+whisper_init_state: compute buffer (conv)   =   13.19 MB
+whisper_init_state: compute buffer (encode) =   64.79 MB
+whisper_init_state: compute buffer (cross)  =    3.88 MB
+whisper_init_state: compute buffer (decode) =   95.89 MB
+whisper_init_state: kv self size  =    3.15 MB
+whisper_init_state: kv cross size =    9.44 MB
+whisper_init_state: kv pad  size  =    2.36 MB
+whisper_init_state: compute buffer (conv)   =   13.19 MB
+whisper_init_state: compute buffer (encode) =   64.79 MB
+whisper_init_state: compute buffer (cross)  =    3.88 MB
+whisper_init_state: compute buffer (decode) =   95.89 MB
+[1109/051759.928:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 1
+[GATE] SMOKE lines=189 listed=139
+[GATE] fail updateFeed=FAIL:retrying: The update server did not answer. Trying again at 5:33 AM.
+[GATE] missing harness:done
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: updateFeed; 1 listed label(s) never printed
+smoke failed: exit code 1, gate exit code 1
