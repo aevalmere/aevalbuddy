@@ -33,4 +33,5 @@ CSS: `renderer/glass.css`, `renderer/overlay.css` (colours, rims, menus), `rende
 - Palette, quiet edges, glass curve, menu placement, migration, checks: first push.
 - Fix (64a5661): the new popup placer was declared `place` inside glass.js and shadowed the pane placer, so every refracting pane was moved like a menu (it broke readingMeasure640 and made the first shots wrong). It is `placePopup` now, exported as `AevalGlass.place`. Glass default test updated to 0.75; slider thumb centred with `translate` to stay on the 4 px grid.
 - Spacing pass (8d6ee5d): sheet words 20 px from the glass in every kind (textInsetIs20InEveryKind), title shares the inset; History search inset 16, day heads 16 px above, rows 64 px and 4 px apart, delete at 60% at rest. Retry menu re-placed once model names arrive. Merged the function lane.
+- d74aee3 (rust and ui-shots green): popups placed from a probe of their containing block. Then the menu focus ring moved to `--accent-text`.
 - 54dab43: popups capped at their own max height and at the window when the anchor is past it; build fixed for the function lane's `collapse_panel(app)`; find mark centred in its padding.
