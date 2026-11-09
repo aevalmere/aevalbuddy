@@ -1126,14 +1126,17 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   padding: 0;
 }
 
-/* The answer's row: its actions, then the usage line, on one line. The
-   usage line gives way first: it ellipsizes, and below 360 px it goes. */
+/* The answer's row: its actions, then the usage line. The usage line gives
+   way first: it takes only the room left (flex-basis 0, so it never wraps
+   the row), ellipsizes, and below 360 px it goes. Actions that still do not
+   fit wrap to a second line instead of running past the column. */
 .msg-meta {
   align-self: stretch;
   container-type: inline-size;
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  /* A narrow window wraps the actions rather than running past the column. */
+  flex-wrap: wrap;
   gap: var(--sp-2);
   min-height: var(--ctl);
   margin-top: var(--sp-2);
@@ -1150,6 +1153,17 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
 
 .msg.assistant.busy .msg-meta {
   opacity: 1;
+}
+
+/* An earlier answer's actions take no room: invisible, they still held a
+   40 px row, so each turn after the first opened on a dead gap. The row is
+   reached by Tab (it opens while it has focus) and the answer's right-click
+   menu; pointing does not open it, so nothing under the pointer moves. */
+.msg.assistant:not(:last-child):not(.busy):not(.sent-open) .msg-meta:not(:focus-within) {
+  height: 0;
+  min-height: 0;
+  margin-top: 0;
+  overflow: hidden;
 }
 
 .msg.assistant.busy .copy-msg,
@@ -2525,8 +2539,10 @@ html[data-motion="reduced"] .confirm-actions > button[aria-disabled="true"]::bef
 }
 
 .usage {
+  flex: 1 1 0;
   min-width: 0;
   margin-left: auto;
+  text-align: right;
   font: var(--w-body, 450) var(--t-meta, 12px) / var(--lh-meta, 16px) var(--font-small, var(--font-text));
   color: var(--label-3);
   white-space: nowrap;

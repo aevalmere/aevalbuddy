@@ -9,10 +9,12 @@
 //!   resize grab would fall through to the app underneath), and
 //!   WM_GETMINMAXINFO from size limits kept here, so limits and bounds
 //!   changes never race through the event loop.
-//! - Click-through with forwarding: Tauri's `set_ignore_cursor_events` has no
-//!   `forward`, so a 60 Hz cursor poll runs while any window is click-through
-//!   and hands the page the `mousemove` / `mouseleave` it used to get. It
-//!   sleeps at 10 Hz when nothing is click-through.
+//! - Click-through with forwarding: WS_EX_TRANSPARENT and WS_EX_LAYERED set
+//!   here, not through Tauri's `set_ignore_cursor_events` (which has no
+//!   `forward`, and hides a window shown with `show_inactive`, below). A
+//!   60 Hz cursor poll runs while any window is click-through and hands the
+//!   page the `mousemove` / `mouseleave` it used to get. It sleeps at
+//!   10 Hz when nothing is click-through.
 //!
 //! Never SetLayeredWindowAttributes or opacity (WIN-15).
 
@@ -35,7 +37,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SetWindowPos, ShowWindow, GWL_EXSTYLE, GW_HWNDNEXT, HWND_TOPMOST, MINMAXINFO, SWP_FRAMECHANGED,
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SW_HIDE,
     SW_SHOWNOACTIVATE, WM_GETMINMAXINFO, WM_NCDESTROY, WM_NCHITTEST, WM_POWERBROADCAST,
-    WS_EX_APPWINDOW, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+    WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 use crate::state::Rect;
@@ -153,6 +155,7 @@ pub fn forget_hwnd(hwnd: isize) {
     let gone = drop_handle(&mut labels().lock(), hwnd);
     metas().lock().remove(&hwnd);
     no_activate().lock().remove(&hwnd);
+    ignoring().lock().remove(&hwnd);
     {
         let mut c = clicks().lock();
         for label in gone {
@@ -230,6 +233,44 @@ fn kept_ex_style(new: u32, no_activate: bool) -> u32 {
         tool | WS_EX_NOACTIVATE
     } else {
         tool
+    }
+}
+
+/// What click-through sets: the mouse passes through (TRANSPARENT needs
+/// LAYERED to do so). tao's own click-through sets the same two bits.
+const CLICK_BITS: u32 = WS_EX_TRANSPARENT | WS_EX_LAYERED;
+
+/// Windows that let the mouse through right now.
+fn ignoring() -> &'static Mutex<HashSet<isize>> {
+    static I: OnceLock<Mutex<HashSet<isize>>> = OnceLock::new();
+    I.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// The extended style with click-through on or off.
+fn click_style(style: u32, ignore: bool) -> u32 {
+    if ignore {
+        style | CLICK_BITS
+    } else {
+        style & !CLICK_BITS
+    }
+}
+
+/// Click-through on or off, straight on the window. Not through tao's
+/// `set_ignore_cursor_events`: tao rebuilds the whole window style from its
+/// own flags on any change, and its visibility flag never learns about a
+/// window shown with `show_inactive` (a raw ShowWindow), so it hid every
+/// such window: an answer window vanished the moment the pointer crossed
+/// its clear margin. The subclass keeps these bits through tao's rewrites.
+fn apply_ignore(hwnd: isize, ignore: bool) {
+    if ignore {
+        ignoring().lock().insert(hwnd);
+    } else {
+        ignoring().lock().remove(&hwnd);
+    }
+    let s = ex_style(hwnd);
+    let want = click_style(s as u32, ignore) as isize;
+    if want != s {
+        set_ex_style(hwnd, want);
     }
 }
 
@@ -632,8 +673,12 @@ unsafe fn on_message(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> Op
         WM_NCLBUTTONDOWN if (10..=17).contains(&wparam) => fit_to_sheet(key),
         WM_STYLECHANGING if wparam as i32 == GWL_EXSTYLE => {
             let keep = no_activate().lock().contains(&key);
+            let through = ignoring().lock().contains(&key);
             let change = &mut *(lparam as *mut StyleStruct);
             change.style_new = kept_ex_style(change.style_new, keep);
+            if through {
+                change.style_new = click_style(change.style_new, true);
+            }
         }
         WM_NCDESTROY => {
             RemoveWindowSubclass(hwnd, Some(subclass), SUBCLASS_ID);
@@ -678,7 +723,9 @@ pub fn set_click_through(w: &WebviewWindow, ignore: bool) {
         changed
     };
     if changed || !ignore {
-        let _ = w.set_ignore_cursor_events(effective);
+        if let Some(hw) = hwnd_of(w) {
+            apply_ignore(hw, effective);
+        }
     }
 }
 
@@ -754,11 +801,11 @@ fn poll_once(app: &AppHandle) -> bool {
                 c.effective = effective;
                 // Applied on the main thread after a fresh look at the
                 // request, so a stale snapshot never turns it back on.
-                let (a, l) = (app.clone(), label.clone());
+                let l = label.clone();
                 let _ = app.run_on_main_thread(move || {
                     let apply = poll_apply(&mut clicks().lock(), &l, effective);
-                    if let (Some(v), Some(w)) = (apply, a.get_webview_window(&l)) {
-                        let _ = w.set_ignore_cursor_events(v);
+                    if let (Some(v), Some(hw)) = (apply, hwnd_for(&l)) {
+                        apply_ignore(hw, v);
                     }
                 });
             }
@@ -852,6 +899,28 @@ mod tests {
         // Whatever else the rewrite changes, it changes.
         let opaque = kept_ex_style(0xc0138, true) & !0x0008_0020;
         assert_eq!(opaque, kept_ex_style(0x40118, true));
+    }
+
+    #[test]
+    fn click_through_sets_and_clears_both_bits() {
+        // tao's styles for the same window opaque and click-through
+        // (style_rewrite_keeps_our_bits): the two differ by exactly these.
+        assert_eq!(click_style(0x40118, true), 0xc0138);
+        assert_eq!(click_style(0xc0138, false), 0x40118);
+        assert_eq!(click_style(0xc0138, true), 0xc0138);
+    }
+
+    /// The answer window that vanished under the pointer: nothing in
+    /// windows/ may hand click-through to tao again.
+    #[test]
+    fn click_through_never_goes_through_tao() {
+        let src = include_str!("flags.rs");
+        let call = ["set_ignore", "_cursor_events("].concat();
+        let code: String = src
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect();
+        assert!(!code.contains(&call));
     }
 
     #[test]
