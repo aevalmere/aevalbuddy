@@ -441,7 +441,17 @@ fn backdrop_idle(cx: &Cx) {
     let t = Instant::now();
     let slow = cx.wait_for(Duration::from_secs(6), backdrop::slow_paced);
     let ms = t.elapsed().as_millis();
-    let value = format!("fast={fast} slow={slow} after {ms}ms");
+    // What holds the fast pace: every window still shown but the orb's.
+    let shown: Vec<String> = cx
+        .on_main(|app| {
+            app.webview_windows()
+                .into_iter()
+                .filter(|(l, w)| l != "overlay" && w.is_visible().unwrap_or(false))
+                .map(|(l, _)| l)
+                .collect()
+        })
+        .unwrap_or_default();
+    let value = format!("fast={fast} slow={slow} after {ms}ms shown=[{}]", shown.join(","));
     check(cx, "backdropIdle", fast && slow, value);
 }
 
