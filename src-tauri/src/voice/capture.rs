@@ -256,11 +256,8 @@ fn start_fixture(path: PathBuf) -> Result<Recorder, String> {
         .spawn(move || {
             let began = Instant::now();
             let step = (wav::RATE / 20) as usize;
-            loop {
-                match stop_rx.recv_timeout(Duration::from_millis(50)) {
-                    Err(mpsc::RecvTimeoutError::Timeout) => {}
-                    _ => break,
-                }
+            let tick = Duration::from_millis(50);
+            while let Err(mpsc::RecvTimeoutError::Timeout) = stop_rx.recv_timeout(tick) {
                 let at = (began.elapsed().as_secs_f32() * wav::RATE as f32) as usize;
                 let now = samples.get(at..(at + step).min(samples.len()));
                 let l = now.map(|s| wav::level(wav::rms(s))).unwrap_or(0.0);
@@ -292,8 +289,13 @@ mod tests {
             "/src/voice/fixtures/dictation.wav"
         ));
         let rec = start_fixture(path).unwrap();
-        thread::sleep(Duration::from_millis(600));
-        assert!(rec.level() > 0.0, "the meter never moved");
+        // The file starts with a little silence: wait for the first word.
+        let mut moved = false;
+        for _ in 0..60 {
+            thread::sleep(Duration::from_millis(50));
+            moved |= rec.level() > 0.0;
+        }
+        assert!(moved, "the meter never moved");
         let audio = rec.finish().unwrap();
         assert!(audio.seconds() > 5.0);
         assert!(audio.peak_level() > 0.5);

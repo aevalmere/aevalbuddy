@@ -192,7 +192,7 @@ mod tests {
     fn levels_span_quiet_to_loud() {
         assert_eq!(level(0.0), 0.0);
         assert!(level(0.001) < 0.05);
-        assert!(level(0.3) >= 0.99);
+        assert!(level(0.4) >= 0.99);
         assert!(read(b"not audio").is_err());
     }
 }

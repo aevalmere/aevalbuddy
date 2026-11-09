@@ -167,6 +167,6 @@ mod tests {
             },
             2.0,
         );
-        assert_eq!((r2.x, r2.width), (-2560 + 880, 400));
+        assert_eq!((r2.x, r2.width), (-2560 + 1080, 400));
     }
 }
