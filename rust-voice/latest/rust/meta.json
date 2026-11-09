@@ -1,23 +1,22 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42525770478,
+  "run_id": 42539737644,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42525770478",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42539737644",
   "event": "push",
-  "sha": "b66d255bbbe54719e203eeee81df3d32a6faa5a1",
+  "sha": "e855069f0d910330c0ddab7f083c60acf5df4d80",
   "ref": "rust/voice",
   "ref_dir": "rust-voice",
   "conclusion": "failure",
   "failed": [
-    "Format",
     "Clippy",
     "Unit tests",
     "Capture check",
     "Desktop selfcheck"
   ],
-  "finished": "2026-11-08T21:39:45Z",
-  "error_lines": 416,
+  "finished": "2026-11-09T00:28:52Z",
+  "error_lines": 30,
   "steps": [
     {
       "name": "Checkout",
@@ -51,13 +50,13 @@
     },
     {
       "name": "Format",
-      "outcome": "failure",
-      "log": "fmt.log"
+      "outcome": "success",
+      "log": ""
     },
     {
       "name": "Format patch",
-      "outcome": "success",
-      "log": "fmt.patch"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Clippy",
