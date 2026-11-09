@@ -11,7 +11,7 @@
   --field-bg: rgb(8 12 20 / 0.24);
   --field-bg-focus: rgb(8 12 20 / 0.32);
   --field-rim: transparent;
-  --field-rim-focus: rgb(169 198 228 / 0.3);
+  --field-rim-focus: rgb(169 198 228 / 0.22);
   --mark: rgb(94 134 180 / 0.5);
   --danger-fill: rgb(242 160 168 / 0.22);
   --danger-fill-hover: rgb(242 160 168 / 0.32);
@@ -220,7 +220,7 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
 /* Group heads start where the row text starts, with a day's worth of air
    above each. */
 .group-head {
-  padding: var(--sp-5) var(--sp-4) var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
   font-family: var(--font-small);
   font-size: var(--fs-meta);
   font-weight: var(--w-strong);

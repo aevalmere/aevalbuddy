@@ -824,11 +824,14 @@
     const a = anchor && typeof anchor.getBoundingClientRect === 'function' ? anchor.getBoundingClientRect() : anchor || {};
     const ax = Number(a.left !== undefined ? a.left : a.x) || 0;
     const ay = Number(a.top !== undefined ? a.top : a.y) || 0;
-    const r = { left: ax, top: ay, right: a.right !== undefined ? a.right : ax, bottom: a.bottom !== undefined ? a.bottom : ay };
     const vw = root.clientWidth || window.innerWidth;
     const vh = root.clientHeight || window.innerHeight;
+    // An anchor scrolled past the window's edge counts as at the edge.
+    const inV = (v) => Math.min(vh, Math.max(0, v));
+    const r = { left: ax, top: inV(ay), right: a.right !== undefined ? a.right : ax, bottom: inV(a.bottom !== undefined ? a.bottom : ay) };
     if (o.width === 'anchor') el.style.width = `${Math.round(r.right - r.left)}px`;
     el.style.maxHeight = '';
+    const own = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     const below = Math.floor(vh - edge - (r.bottom + gap));
@@ -838,7 +841,7 @@
     const room = Math.max(0, side === 'below' ? below : above);
     // Capped at the room on its side even when it fits now: a list that
     // fills in later (names arriving) scrolls instead of passing the edge.
-    el.style.maxHeight = `${room}px`;
+    el.style.maxHeight = `${Math.min(room, own)}px`;
     el.style.overflowY = 'auto';
     const left = Math.round(Math.max(edge, Math.min(o.align === 'end' ? r.right - w : r.left, vw - w - edge)));
     el.style.left = `${left}px`;
