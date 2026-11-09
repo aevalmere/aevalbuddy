@@ -165,7 +165,7 @@
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=504 frames=31 longestFrameMs=16.8
+[UI] globOpen ms=505 frames=31 longestFrameMs=16.8
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -263,7 +263,7 @@
 [UI] targetWearsRim=ok
 [UI] scene sheet/sheet-maximized
 [UI] shot sheet-maximized-1600.png
-[UI] readingMeasure640=FAIL:{"widest":644,"left":460,"sheet":1560}
+[UI] readingMeasure640=ok
 [UI] scene sheet/find-empty
 [UI] shot find-empty.png
 [UI] findEmptyOffersNextSteps=ok
@@ -519,12 +519,13 @@
 [UI] menuInsideWindow.barModel=ok
 [UI] shot menu-bounds-bar-model.png
 [UI] scene polish/menu-bounds-retry
-[UI] menuInsideWindow.retry=FAIL:.retry-menu at 134,161 to 374,441 in a 520x360 window
+[UI] menuInsideWindow.retry=FAIL:.retry-menu at 134,68 to 374,448 in a 520x360 window
 [UI] shot menu-bounds-retry.png
 [UI] scene polish/menu-bounds-window
 [UI] menuInsideWindow.windowMenu=ok
 [UI] scene polish/menu-bounds-combo
-[UI] scene.menu-bounds-combo=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#sec-model > .row-head > .edit')
+[UI] menuInsideWindow.combo=ok
+[UI] shot menu-bounds-combo.png
 [UI] scene polish/menu-bounds-history
 [UI] menuInsideWindow.historyRow=ok
 [UI] scene harness/backdrop-dark-editor-150
@@ -683,7 +684,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=515 frames=31 longestFrameMs=16.8
+[UI] globOpen-150 ms=512 frames=31 longestFrameMs=16.7
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -780,7 +781,7 @@
 [UI] targetWearsRim-150=ok
 [UI] scene sheet/sheet-maximized-150
 [UI] shot sheet-maximized-1600-150.png
-[UI] readingMeasure640-150=FAIL:{"widest":644,"left":460,"sheet":1560}
+[UI] readingMeasure640-150=ok
 [UI] scene sheet/find-empty-150
 [UI] shot find-empty-150.png
 [UI] findEmptyOffersNextSteps-150=ok
@@ -1025,12 +1026,13 @@
 [UI] menuInsideWindow.barModel-150=ok
 [UI] shot menu-bounds-bar-model-150.png
 [UI] scene polish/menu-bounds-retry-150
-[UI] menuInsideWindow.retry-150=FAIL:.retry-menu at 134,161 to 374,441 in a 520x360 window
+[UI] menuInsideWindow.retry-150=FAIL:.retry-menu at 134,68 to 374,448 in a 520x360 window
 [UI] shot menu-bounds-retry-150.png
 [UI] scene polish/menu-bounds-window-150
 [UI] menuInsideWindow.windowMenu-150=ok
 [UI] scene polish/menu-bounds-combo-150
-[UI] scene.menu-bounds-combo-150=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#sec-model > .row-head > .edit')
+[UI] menuInsideWindow.combo-150=ok
+[UI] shot menu-bounds-combo-150.png
 [UI] scene polish/menu-bounds-history-150
 [UI] menuInsideWindow.historyRow-150=ok
 [UI] lane harness sceneRuns=8
@@ -1052,4 +1054,4 @@
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
 [UI] noPageErrors=ok
-[UI] done failed=6 shots=370
+[UI] done failed=2 shots=372
