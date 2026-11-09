@@ -160,13 +160,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.017
+[UI] globShapeMs=0.015
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=511 frames=24 longestFrameMs=33.4
+[UI] globOpen ms=508 frames=26 longestFrameMs=33.3
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -317,11 +317,11 @@
 [UI] scene sheet/sheet-continued
 [UI] shot sheet-continued.png
 [UI] shot sheet-continued-done.png
-[UI] continuedTurnsRead=FAIL:{"overlaps":0,"gaps":[68,68],"rights":[372,372],"wide":[27,27],"metas":[32,32,32]}
+[UI] continuedTurnsRead=ok
 [UI] scene sheet/sheet-continued-ts200
 [UI] shot sheet-continued-ts200.png
 [UI] shot sheet-continued-done-ts200.png
-[UI] continuedTurnsRead-ts200=FAIL:{"overlaps":0,"gaps":[100,100],"rights":[372,372],"wide":[297,297],"metas":[64,64,64]}
+[UI] continuedTurnsRead-ts200=ok
 [UI] scene sheet/sheet-stopped
 [UI] shot sheet-stopped.png
 [UI] stoppedKeepsWhatArrived=ok
@@ -694,7 +694,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=543 frames=23 longestFrameMs=33.4
+[UI] globOpen-150 ms=512 frames=25 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -835,11 +835,11 @@
 [UI] scene sheet/sheet-continued-150
 [UI] shot sheet-continued-150.png
 [UI] shot sheet-continued-done-150.png
-[UI] continuedTurnsRead-150=FAIL:{"overlaps":0,"gaps":[68,68],"rights":[372,372],"wide":[27,27],"metas":[32,32,32]}
+[UI] continuedTurnsRead-150=ok
 [UI] scene sheet/sheet-continued-150-ts200
 [UI] shot sheet-continued-150-ts200.png
 [UI] shot sheet-continued-done-150-ts200.png
-[UI] continuedTurnsRead-150-ts200=FAIL:{"overlaps":0,"gaps":[100,100],"rights":[372,372],"wide":[297,297],"metas":[64,64,64]}
+[UI] continuedTurnsRead-150-ts200=ok
 [UI] scene sheet/sheet-stopped-150
 [UI] shot sheet-stopped-150.png
 [UI] stoppedKeepsWhatArrived-150=ok
@@ -1073,4 +1073,4 @@
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
 [UI] noPageErrors=ok
-[UI] done failed=4 shots=380
+[UI] done failed=0 shots=380
