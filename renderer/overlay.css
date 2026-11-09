@@ -985,7 +985,7 @@ body[data-target="1"] #opanel > .gl::after {
 #chat {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   max-height: var(--chat-max, 520px);
   min-height: 0;
   overflow-y: auto;
