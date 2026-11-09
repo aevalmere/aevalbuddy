@@ -246,6 +246,22 @@ fn fixture_16k() -> Result<Vec<f32>, String> {
         .map(|(s, rate)| wav::resample(&s, rate, wav::RATE))
 }
 
+/// A fixed piece of arithmetic on one core (about 0.1 s on an idle modern
+/// core): how much of the processor the probe gets right now, so a slow
+/// Whisper time can be told apart from a busy runner.
+fn calibrate() -> u64 {
+    let t = Instant::now();
+    let mut acc = [1.0f32; 8];
+    for i in 0..40_000_000u32 {
+        let x = std::hint::black_box(i as f32 * 1e-9);
+        for a in acc.iter_mut() {
+            *a = *a * 0.999_999 + x;
+        }
+    }
+    std::hint::black_box(acc);
+    ms(t)
+}
+
 fn ms(since: Instant) -> u64 {
     since.elapsed().as_millis() as u64
 }
@@ -334,6 +350,7 @@ fn speed(cx: &Cx) {
         }
         whisper::preload(&path);
     }
+    cx.log("voiceCalibrate", format!("{}ms", calibrate()));
     cx.log(
         "voiceSystem",
         format!(
