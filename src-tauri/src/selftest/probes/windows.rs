@@ -101,7 +101,12 @@ pub fn run(cx: &mut Cx) {
     let mut kept = true;
     let mut through = true;
     let mut whys = Vec::new();
-    for (h, v) in [("left", "bottom"), ("right", "bottom"), ("left", "top"), ("center", "top")] {
+    for (h, v) in [
+        ("left", "bottom"),
+        ("right", "bottom"),
+        ("left", "top"),
+        ("center", "top"),
+    ] {
         place(cx, &label, h, v);
         let (k, t, why) = hover(cx, &label);
         kept &= k;
@@ -110,7 +115,7 @@ pub fn run(cx: &mut Cx) {
     }
     let why = whys.join(" ");
     cx.must("hoverKeepsAnswer", kept, &why);
-    cx.must("marginClickThrough", through, &why);
+    cx.must("marginClickThrough", through, why);
 
     minimize(cx, &label);
     store::get().set_overlay_pos(&pos);
@@ -226,7 +231,11 @@ fn hover(cx: &Cx, label: &str) -> (bool, bool, String) {
 
     let mut steps = vec![("sheet", (x, on_sheet))];
     if let Some(y) = in_margin {
-        steps.extend([("margin", (x, y)), ("sheet", (x, on_sheet)), ("margin", (x, y))]);
+        steps.extend([
+            ("margin", (x, y)),
+            ("sheet", (x, on_sheet)),
+            ("margin", (x, y)),
+        ]);
     }
     steps.push(("outside", outside));
 
