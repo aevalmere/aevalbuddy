@@ -1,8 +1,10 @@
 //! Turning what was said into what was meant: punctuation, capitals,
 //! grammar, filler words and self-corrections, the way Wispr Flow does it.
-//! A free model on OpenRouter does the work, through the llm module. When no
-//! free model is ready, when the call fails, or when it takes longer than
-//! [`BUDGET`], the words go in as heard, after a light local tidy. Only the
+//! It is off unless the person turns it on (Settings, Voice, Cleanup): the
+//! words then go in as heard, after a light local tidy ([`tidy`]), with no
+//! wait. On, a free model on OpenRouter does the work, through the llm
+//! module; when no free model is ready, when the call fails, or when it
+//! takes longer than [`BUDGET`], the tidied words go in instead. Only the
 //! text is sent, never the audio. A reply that adds words, or starts talking
 //! to the person, is thrown away.
 
@@ -17,8 +19,10 @@ use crate::llm::client::{Llm, Meta};
 use crate::llm::provider::Provider;
 use crate::llm::settings::{self as llm_settings, Candidate, LlmSettings};
 
-/// How long dictation waits for the cleanup before it types the raw words.
-pub const BUDGET: Duration = Duration::from_millis(2000);
+/// How long dictation waits for the cleanup before it types the tidied
+/// words. Free models queue; one that has not answered in this time usually
+/// takes seconds more.
+pub const BUDGET: Duration = Duration::from_millis(800);
 
 pub const PURPOSE: &str = "voice-cleanup";
 

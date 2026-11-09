@@ -100,9 +100,19 @@
 
     v.cleanup.checked = s.cleanup;
     $('voice-cleanup-summary').textContent = s.cleanup ? 'On' : 'Off';
+    const budget = `${((snap.cleanupBudgetMs || 800) / 1000).toFixed(1)} s`;
+    const cost = s.cleanup
+      ? `Each dictation waits up to ${budget} longer for it.`
+      : `Off, your words go in the moment they are heard, with "um" and "uh" taken out. On, each dictation waits up to ${budget} longer.`;
     v.cleanupNote.textContent = snap.cleanupModel
-      ? `Uses ${snap.cleanupModel}, a free model, and never adds words. If it takes longer than two seconds, you get the words as heard.`
-      : 'Needs a free OpenRouter model, set up under Providers. Until then you get the words as heard, with filler words dropped.';
+      ? `${cost} Uses ${snap.cleanupModel}, a free model, and never adds words. If it is slower than that, you get the words as heard.`
+      : `${cost} Needs a free OpenRouter model, set up under Providers. Until then you get the words as heard.`;
+    const t = snap.lastTimings;
+    const last = $('voice-last-timing');
+    if (last) {
+      last.hidden = !t;
+      if (t) last.textContent = `Your last dictation: text in ${(t.totalMs / 1000).toFixed(1)} s after you let go.`;
+    }
   }
 
   function load() {

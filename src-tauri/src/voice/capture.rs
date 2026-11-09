@@ -53,9 +53,52 @@ pub struct Recorder {
     stop: Option<mpsc::Sender<()>>,
     done: Option<JoinHandle<Result<Audio, String>>>,
     level: Arc<AtomicU32>,
+    tap: Tap,
+}
+
+/// A look at a recording while it is still going, for transcribing the
+/// first part of an utterance before the key is let go.
+#[derive(Clone)]
+pub enum Tap {
+    /// The microphone's samples so far, mono at `rate`.
+    Mic { buf: Shared, rate: u32 },
+    /// A fixture "spoken" since `began`.
+    File {
+        samples: Arc<Vec<f32>>,
+        began: Instant,
+    },
+}
+
+impl Tap {
+    /// What was heard from `from` (a 16 kHz sample index) on, at 16 kHz.
+    pub fn since(&self, from: usize) -> Vec<f32> {
+        match self {
+            Tap::Mic { buf, rate } => {
+                let ratio = *rate as f64 / wav::RATE as f64;
+                let start = (from as f64 * ratio).floor() as usize;
+                let raw = {
+                    let b = buf.lock();
+                    b.get(start..).map(<[f32]>::to_vec).unwrap_or_default()
+                };
+                wav::resample(&raw, *rate, wav::RATE)
+            }
+            Tap::File { samples, began } => {
+                let at = (began.elapsed().as_secs_f32() * wav::RATE as f32) as usize;
+                let at = at.min(samples.len());
+                samples
+                    .get(from..at)
+                    .map(<[f32]>::to_vec)
+                    .unwrap_or_default()
+            }
+        }
+    }
 }
 
 impl Recorder {
+    pub fn tap(&self) -> Tap {
+        self.tap.clone()
+    }
+
     /// The current loudness, 0..1.
     pub fn level(&self) -> f32 {
         f32::from_bits(self.level.load(Ordering::Relaxed))
@@ -129,7 +172,7 @@ fn mic_error(e: impl std::fmt::Display) -> String {
     }
 }
 
-type Shared = Arc<Mutex<Vec<f32>>>;
+pub type Shared = Arc<Mutex<Vec<f32>>>;
 
 /// Appends one callback's frames as mono and updates the level.
 fn push(buf: &Shared, level: &AtomicU32, frames: impl Iterator<Item = f32>, channels: usize) {
@@ -208,7 +251,7 @@ fn open(device: &str, buf: Shared, level: Arc<AtomicU32>) -> Result<(cpal::Strea
 }
 
 fn start_mic(device: String) -> Result<Recorder, String> {
-    let (ready_tx, ready_rx) = mpsc::sync_channel::<Result<(), String>>(1);
+    let (ready_tx, ready_rx) = mpsc::sync_channel::<Result<(Shared, u32), String>>(1);
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let level = Arc::new(AtomicU32::new(0));
     let lv = level.clone();
@@ -223,7 +266,7 @@ fn start_mic(device: String) -> Result<Recorder, String> {
                     return Err(e);
                 }
             };
-            let _ = ready_tx.send(Ok(()));
+            let _ = ready_tx.send(Ok((buf.clone(), rate)));
             // Ends on stop, on the Recorder being dropped, or at the cap.
             let _ = stop_rx.recv_timeout(Duration::from_secs(MAX_SECONDS));
             drop(stream);
@@ -234,10 +277,11 @@ fn start_mic(device: String) -> Result<Recorder, String> {
         })
         .map_err(|e| format!("The microphone did not start ({e})."))?;
     match ready_rx.recv_timeout(Duration::from_secs(5)) {
-        Ok(Ok(())) => Ok(Recorder {
+        Ok(Ok((buf, rate))) => Ok(Recorder {
             stop: Some(stop_tx),
             done: Some(done),
             level,
+            tap: Tap::Mic { buf, rate },
         }),
         Ok(Err(e)) => Err(e),
         Err(_) => Err("The microphone did not start in time.".into()),
@@ -247,14 +291,18 @@ fn start_mic(device: String) -> Result<Recorder, String> {
 fn start_fixture(path: PathBuf) -> Result<Recorder, String> {
     let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
     let (mono, rate) = wav::read(&bytes)?;
-    let samples = wav::resample(&mono, rate, wav::RATE);
+    let samples = Arc::new(wav::resample(&mono, rate, wav::RATE));
+    let began = Instant::now();
+    let tap = Tap::File {
+        samples: samples.clone(),
+        began,
+    };
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let level = Arc::new(AtomicU32::new(0));
     let lv = level.clone();
     let done = thread::Builder::new()
         .name("voice-fixture".into())
         .spawn(move || {
-            let began = Instant::now();
             let step = (wav::RATE / 20) as usize;
             let tick = Duration::from_millis(50);
             while let Err(mpsc::RecvTimeoutError::Timeout) = stop_rx.recv_timeout(tick) {
@@ -268,13 +316,16 @@ fn start_fixture(path: PathBuf) -> Result<Recorder, String> {
             }
             // The whole file, however long the hold: the probe's hold is
             // timed loosely.
-            Ok(Audio { samples })
+            Ok(Audio {
+                samples: samples.to_vec(),
+            })
         })
         .map_err(|e| e.to_string())?;
     Ok(Recorder {
         stop: Some(stop_tx),
         done: Some(done),
         level,
+        tap,
     })
 }
 

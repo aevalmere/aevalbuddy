@@ -9,3 +9,5 @@ voiceBarField
 voicePill
 voiceDictation
 voiceClipboard
+voiceSpeed
+voiceSpeedE2e

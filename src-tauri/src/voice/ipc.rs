@@ -86,6 +86,8 @@ async fn snapshot() -> Value {
         "languages": languages,
         "download": model::progress().map(|(id, got, total)| json!({ "id": id, "got": got, "total": total })),
         "cleanupModel": cleanup::model_now(),
+        "cleanupBudgetMs": cleanup::BUDGET.as_millis() as u64,
+        "lastTimings": super::last_timings(),
         "gemini": gemini::available(),
         "cpuOk": whisper::cpu_ok(),
     })
@@ -97,6 +99,7 @@ fn set(p: &Value) -> Value {
         Ok(next) => {
             settings::save(&next);
             ptt::set_chord(super::chord_of(&next));
+            super::refresh(&next);
             json!({
                 "ok": true,
                 "settings": next.to_json(),

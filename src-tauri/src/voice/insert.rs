@@ -148,14 +148,20 @@ fn paste(text: &str) -> Result<(), String> {
     ctrl_v.push(key(VK_V, sv, km::KEYEVENTF_KEYUP));
     ctrl_v.push(key(VK_CONTROL, sc, km::KEYEVENTF_KEYUP));
     let sent = send(&ctrl_v);
-    thread::sleep(PASTE_SETTLE);
-    // Put the old contents back unless something else has written since.
-    // SAFETY: a plain query.
-    if unsafe { dx::GetClipboardSequenceNumber() } == ours {
-        if let Ok(c) = Clipboard::open(owner.0) {
-            let _ = c.replace(&saved);
+    drop(owner);
+    // The text is in once Ctrl+V is sent; the old contents go back a moment
+    // later, off the dictation's path, unless something else has written
+    // since.
+    thread::spawn(move || {
+        thread::sleep(PASTE_SETTLE);
+        // SAFETY: a plain query.
+        if unsafe { dx::GetClipboardSequenceNumber() } == ours {
+            let owner = Owner::new();
+            if let Ok(c) = Clipboard::open(owner.0) {
+                let _ = c.replace(&saved);
+            }
         }
-    }
+    });
     sent
 }
 

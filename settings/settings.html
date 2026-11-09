@@ -360,16 +360,17 @@
             <section class="row" id="sec-voice-cleanup">
               <div class="row-head">
                 <h2 id="voice-cleanup-heading">Cleanup</h2>
-                <span id="voice-cleanup-summary" class="summary">On</span>
+                <span id="voice-cleanup-summary" class="summary">Off</span>
                 <button class="edit" type="button" aria-expanded="false" aria-controls="sec-voice-cleanup-body" aria-labelledby="voice-cleanup-heading voice-cleanup-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
               </div>
               <div class="body" id="sec-voice-cleanup-body">
                 <div class="body-in">
                   <label class="switch">
-                    <span>Fix punctuation, drop filler words, and keep only the correction when I correct myself</span>
+                    <span>AI cleanup: fix grammar and keep only the correction when I correct myself</span>
                     <input id="voice-cleanup" type="checkbox" role="switch" />
                   </label>
-                  <p id="voice-cleanup-note" class="note">Uses a free OpenRouter model when one is set up, and never adds words. Without one, or when it takes longer than two seconds, you get the words as heard.</p>
+                  <p id="voice-cleanup-note" class="note">Off, your words go in the moment they are heard, with "um" and "uh" taken out. On, each dictation waits up to 0.8 s longer while a free OpenRouter model tidies it.</p>
+                  <p id="voice-last-timing" class="note" hidden></p>
                 </div>
               </div>
             </section>

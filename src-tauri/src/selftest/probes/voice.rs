@@ -4,13 +4,13 @@
 //! should meet at three, no, four pm tomorrow, to go over the budget."
 
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
 use crate::desktop;
 use crate::selftest::{notepad, Cx, Input};
-use crate::voice::{self, capture, insert, model, pill, settings, wav, whisper};
+use crate::voice::{self, capture, engine, insert, model, pill, settings, wav, whisper, Origin};
 
 const FIXTURE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -31,6 +31,7 @@ pub fn run(cx: &mut Cx) {
     if transcribes(cx) {
         bar_field(cx);
         dictation(cx);
+        speed(cx);
     }
 
     capture::set_fixture(None);
@@ -230,4 +231,141 @@ fn dictation(cx: &mut Cx) {
     let _ = cx.input(Input::Key("Ctrl+V"));
     cx.sleep(300);
     let _ = cx.on_main(|app| voice::cancel(app, true));
+}
+
+/// What the speed gate allows on the runner (4 vCPUs, no GPU), in ms:
+/// Whisper on the fixture (7.9 s of speech) with the default model kept
+/// loaded, and the whole release-to-text of a 17 s utterance with a pause.
+const SPEED_BUDGET_MS: u64 = 1500;
+const E2E_BUDGET_MS: u64 = 1500;
+
+fn fixture_16k() -> Result<Vec<f32>, String> {
+    std::fs::read(FIXTURE)
+        .map_err(|e| e.to_string())
+        .and_then(|b| wav::read(&b))
+        .map(|(s, rate)| wav::resample(&s, rate, wav::RATE))
+}
+
+fn ms(since: Instant) -> u64 {
+    since.elapsed().as_millis() as u64
+}
+
+/// Before and after on the same clip: earlier builds' path (the f16
+/// base.en model loaded cold, Whisper's full 30 s window, no trimming) and
+/// this build's (the q5_1 model kept loaded, silence cut, the window fitted
+/// to the clip). Then the release-to-text time of a long utterance through
+/// the real pipeline, which transcribes its first half while it is held.
+fn speed(cx: &Cx) {
+    let Ok(clip) = fixture_16k() else {
+        cx.must("voiceSpeed", false, "the fixture did not read");
+        return;
+    };
+    let lower =
+        |r: &Result<String, String>| r.as_ref().map(|t| t.to_lowercase()).unwrap_or_default();
+
+    // Before.
+    let old = model::by_id("base.en").expect("the f16 base.en spec");
+    let got = cx.block_on(model::ensure(old, &|_, _| {}));
+    if let Ok(path) = got {
+        let t0 = Instant::now();
+        let ctx = whisper::cold(&path, false);
+        let load_ms = ms(t0);
+        if let Ok(ctx) = ctx {
+            let t1 = Instant::now();
+            let text = whisper::run(&ctx, &clip, "en", "", false);
+            cx.log(
+                "voiceSpeedBefore",
+                format!("load={load_ms}ms transcribe={}ms text={text:?}", ms(t1)),
+            );
+        }
+    }
+
+    // After: base.en q5_1, loaded once (at app start, in the app).
+    let new = model::spec_for("base", "en");
+    let path = match cx.block_on(model::ensure(new, &|_, _| {})) {
+        Ok(p) => p,
+        Err(e) => {
+            cx.must("voiceSpeed", false, e);
+            return;
+        }
+    };
+    let t0 = Instant::now();
+    whisper::preload(&path);
+    let load_ms = ms(t0);
+    let t1 = Instant::now();
+    let speech = engine::trim(&clip).unwrap_or(&clip);
+    let trim_ms = ms(t1);
+    let t2 = Instant::now();
+    let text = whisper::transcribe(&path, speech, "en");
+    let run_ms = ms(t2);
+    let total = trim_ms + run_ms;
+    cx.log(
+        "voiceSpeedAfter",
+        format!(
+            "load={load_ms}ms (once) trim={trim_ms}ms ({:.1}s of {:.1}s kept) transcribe={run_ms}ms text={text:?}",
+            speech.len() as f32 / wav::RATE as f32,
+            clip.len() as f32 / wav::RATE as f32
+        ),
+    );
+    let tiny = model::usable(model::spec_for("tiny", "en"));
+    if let Some(tp) = tiny {
+        whisper::preload(&tp);
+        let t = Instant::now();
+        let tt = whisper::transcribe(&tp, speech, "en");
+        cx.log(
+            "voiceSpeedTiny",
+            format!("transcribe={}ms text={tt:?}", ms(t)),
+        );
+        whisper::preload(&path);
+    }
+    cx.must(
+        "voiceSpeed",
+        lower(&text).contains("tomorrow") && total <= SPEED_BUDGET_MS,
+        format!("{total}ms of {SPEED_BUDGET_MS}ms"),
+    );
+
+    e2e(cx, &clip);
+}
+
+/// The fixture, a second of silence and the fixture again, recorded through
+/// the bar's mic path with the default engine.
+fn e2e(cx: &Cx, clip: &[f32]) {
+    let mut long = clip.to_vec();
+    long.resize(long.len() + wav::RATE as usize, 0.0);
+    long.extend_from_slice(clip);
+    let file = std::env::temp_dir().join(format!("aeval-voice-long-{}.wav", std::process::id()));
+    if std::fs::write(&file, wav::encode(&long, wav::RATE)).is_err() {
+        cx.must("voiceSpeedE2e", false, "the long clip did not write");
+        return;
+    }
+    let mut s = settings::get();
+    let was = s.clone();
+    s.engine = "whisper-base".into();
+    s.cleanup = false;
+    settings::save(&s);
+    capture::set_fixture(Some(file.clone()));
+    let _ = voice::take_timings();
+    let started = cx.on_main(|app| voice::start(app, Origin::Bar));
+    let held = long.len() as u64 * 1000 / wav::RATE as u64 + 300;
+    cx.sleep(held);
+    let _ = cx.on_main(|app| voice::finish(app, Origin::Bar));
+    let mut timings = None;
+    let _ = cx.wait_for(Duration::from_secs(30), || {
+        timings = voice::take_timings();
+        timings.is_some()
+    });
+    capture::set_fixture(Some(PathBuf::from(FIXTURE)));
+    settings::save(&was);
+    let _ = std::fs::remove_file(&file);
+    let json = serde_json::to_string(&timings).unwrap_or_default();
+    cx.log("voiceSpeedTimings", &json);
+    let ok = matches!(started, Some(Ok(())))
+        && timings
+            .as_ref()
+            .is_some_and(|t| t.total_ms <= E2E_BUDGET_MS);
+    cx.must(
+        "voiceSpeedE2e",
+        ok,
+        format!("started={started:?} {json} budget={E2E_BUDGET_MS}ms"),
+    );
 }
