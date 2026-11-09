@@ -159,13 +159,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.019
+[UI] globShapeMs=0.021
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=531 frames=27 longestFrameMs=33.4
+[UI] globOpen ms=499 frames=25 longestFrameMs=33.3
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -515,6 +515,7 @@
 [UI] voiceSettingsSaves-ts200=ok
 [UI] scene polish/menu-bounds-bar
 [UI] menuInsideWindow.barIntent=ok
+[UI] pointerMenuNoRing=ok
 [UI] shot menu-bounds-bar-intent.png
 [UI] menuInsideWindow.barModel=ok
 [UI] shot menu-bounds-bar-model.png
@@ -684,7 +685,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=531 frames=26 longestFrameMs=33.4
+[UI] globOpen-150 ms=519 frames=24 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -1022,6 +1023,7 @@
 [UI] voiceSettingsSaves-150-ts200=ok
 [UI] scene polish/menu-bounds-bar-150
 [UI] menuInsideWindow.barIntent-150=ok
+[UI] pointerMenuNoRing-150=ok
 [UI] shot menu-bounds-bar-intent-150.png
 [UI] menuInsideWindow.barModel-150=ok
 [UI] shot menu-bounds-bar-model-150.png
