@@ -165,7 +165,7 @@
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=504 frames=30 longestFrameMs=16.7
+[UI] globOpen ms=504 frames=31 longestFrameMs=16.8
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -263,7 +263,7 @@
 [UI] targetWearsRim=ok
 [UI] scene sheet/sheet-maximized
 [UI] shot sheet-maximized-1600.png
-[UI] readingMeasure640=ok
+[UI] readingMeasure640=FAIL:{"widest":644,"left":460,"sheet":1560}
 [UI] scene sheet/find-empty
 [UI] shot find-empty.png
 [UI] findEmptyOffersNextSteps=ok
@@ -299,7 +299,7 @@
 [UI] scene sheet/sheet-kinds
 [UI] doItOnlyForSteps=ok
 [UI] shot sheet-kinds.png
-[UI] textInsetIs16InEveryKind=ok
+[UI] textInsetIs20InEveryKind=ok
 [UI] scene sheet/sheet-thinking
 [UI] shot sheet-thinking.png
 [UI] shot sheet-long-wait.png
@@ -519,7 +519,7 @@
 [UI] menuInsideWindow.barModel=ok
 [UI] shot menu-bounds-bar-model.png
 [UI] scene polish/menu-bounds-retry
-[UI] menuInsideWindow.retry=FAIL:.retry-menu at 130,161 to 370,441 in a 520x360 window
+[UI] menuInsideWindow.retry=FAIL:.retry-menu at 134,161 to 374,441 in a 520x360 window
 [UI] shot menu-bounds-retry.png
 [UI] scene polish/menu-bounds-window
 [UI] menuInsideWindow.windowMenu=ok
@@ -683,7 +683,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=511 frames=30 longestFrameMs=16.7
+[UI] globOpen-150 ms=515 frames=31 longestFrameMs=16.8
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -780,7 +780,7 @@
 [UI] targetWearsRim-150=ok
 [UI] scene sheet/sheet-maximized-150
 [UI] shot sheet-maximized-1600-150.png
-[UI] readingMeasure640-150=ok
+[UI] readingMeasure640-150=FAIL:{"widest":644,"left":460,"sheet":1560}
 [UI] scene sheet/find-empty-150
 [UI] shot find-empty-150.png
 [UI] findEmptyOffersNextSteps-150=ok
@@ -1025,7 +1025,7 @@
 [UI] menuInsideWindow.barModel-150=ok
 [UI] shot menu-bounds-bar-model-150.png
 [UI] scene polish/menu-bounds-retry-150
-[UI] menuInsideWindow.retry-150=FAIL:.retry-menu at 130,161 to 370,441 in a 520x360 window
+[UI] menuInsideWindow.retry-150=FAIL:.retry-menu at 134,161 to 374,441 in a 520x360 window
 [UI] shot menu-bounds-retry-150.png
 [UI] scene polish/menu-bounds-window-150
 [UI] menuInsideWindow.windowMenu-150=ok
@@ -1052,4 +1052,4 @@
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
 [UI] noPageErrors=ok
-[UI] done failed=4 shots=370
+[UI] done failed=6 shots=370

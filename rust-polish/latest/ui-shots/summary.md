@@ -1,13 +1,13 @@
 # ui-shots: failure
 
 - Workflow: ui-shots
-- Run: [42547836963](https://github.com/aevalmere/aevalbuddy/actions/runs/42547836963), attempt 1, on push
-- Commit: 64a5661ddecdf7b727844852af07dcf53bc0e89e
+- Run: [42549174172](https://github.com/aevalmere/aevalbuddy/actions/runs/42549174172), attempt 1, on push
+- Commit: 1a8114df2d6e5a44dd49764efa8cbf8be105f1de
 - Ref: rust/polish
 - Conclusion: **failure**
 - Failed: Screenshots and renderer checks
-- Finished: 2026-11-09T02:03:04Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/64a5661ddecdf7b727844852af07dcf53bc0e89e (/ in the ref becomes -)
+- Finished: 2026-11-09T02:17:43Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/1a8114df2d6e5a44dd49764efa8cbf8be105f1de (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,4 +19,4 @@
 | Upload screenshots | success |  |
 | Publish to the shots branch | success |  |
 
-errors.txt: 4 error and warning lines from the logs.
+errors.txt: 6 error and warning lines from the logs.
