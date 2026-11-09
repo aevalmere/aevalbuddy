@@ -159,13 +159,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.010
+[UI] globShapeMs=0.014
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=502 frames=30 longestFrameMs=16.7
+[UI] globOpen ms=507 frames=28 longestFrameMs=33.3
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -489,6 +489,30 @@
 [UI] scene settings/history-deleted-undo
 [UI] shot history-deleted-undo.png
 [UI] deleteIsUndoable=ok
+[UI] scene voice/voice-bar
+[UI] shot voice-01-bar-idle.png
+[UI] voiceMicStarts=ok
+[UI] voiceMicListening=ok
+[UI] shot voice-02-bar-listening.png
+[UI] voiceMicStops=ok
+[UI] voiceMicFillsField=ok
+[UI] shot voice-03-bar-done.png
+[UI] voiceMicError=ok
+[UI] shot voice-04-bar-error.png
+[UI] voiceEscCancels=ok
+[UI] scene voice/voice-pill
+[UI] shot voice-05-pill-listening.png
+[UI] shot voice-06-pill-writing.png
+[UI] voicePillSaysWhy=ok
+[UI] shot voice-07-pill-error.png
+[UI] scene voice/voice-settings
+[UI] shot voice-08-settings-engine.png
+[UI] voiceSettingsPage=ok
+[UI] voiceSettingsSaves=ok
+[UI] scene voice/voice-settings-ts200
+[UI] shot voice-08-settings-engine-ts200.png
+[UI] voiceSettingsPage-ts200=ok
+[UI] voiceSettingsSaves-ts200=ok
 [UI] scene harness/backdrop-dark-editor-150
 [UI] shot 11-dark-editor-bar-output-150.png
 [UI] scene harness/backdrop-photo-busy-150
@@ -645,7 +669,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=502 frames=30 longestFrameMs=16.8
+[UI] globOpen-150 ms=506 frames=28 longestFrameMs=33.3
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -957,6 +981,30 @@
 [UI] scene settings/history-deleted-undo-150
 [UI] shot history-deleted-undo-150.png
 [UI] deleteIsUndoable-150=ok
+[UI] scene voice/voice-bar-150
+[UI] shot voice-01-bar-idle-150.png
+[UI] voiceMicStarts-150=ok
+[UI] voiceMicListening-150=ok
+[UI] shot voice-02-bar-listening-150.png
+[UI] voiceMicStops-150=ok
+[UI] voiceMicFillsField-150=ok
+[UI] shot voice-03-bar-done-150.png
+[UI] voiceMicError-150=ok
+[UI] shot voice-04-bar-error-150.png
+[UI] voiceEscCancels-150=ok
+[UI] scene voice/voice-pill-150
+[UI] shot voice-05-pill-listening-150.png
+[UI] shot voice-06-pill-writing-150.png
+[UI] voicePillSaysWhy-150=ok
+[UI] shot voice-07-pill-error-150.png
+[UI] scene voice/voice-settings-150
+[UI] shot voice-08-settings-engine-150.png
+[UI] voiceSettingsPage-150=ok
+[UI] voiceSettingsSaves-150=ok
+[UI] scene voice/voice-settings-150-ts200
+[UI] shot voice-08-settings-engine-150-ts200.png
+[UI] voiceSettingsPage-150-ts200=ok
+[UI] voiceSettingsSaves-150-ts200=ok
 [UI] lane harness sceneRuns=8
 [UI] lane platform sceneRuns=0
 [UI] lane windows sceneRuns=0
@@ -966,11 +1014,13 @@
 [UI] lane bar sceneRuns=45
 [UI] lane sheet sceneRuns=88
 [UI] lane settings sceneRuns=68
+[UI] lane voice sceneRuns=8
 [UI] sheetCssLint=ok
 [UI] markdownNeverInjects=ok
 [UI] cssOnSystem.settings=ok
 [UI] cssOnSystem.history=ok
 [UI] oneCssLayer=ok
 [UI] iconsFromSprite=ok
+[UI] voicePillOnlyListens=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=346
+[UI] done failed=0 shots=364
