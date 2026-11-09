@@ -1,6 +1,5 @@
 == shots.log ==
-[UI] readingMeasure640=FAIL:{"widest":640,"left":169,"sheet":978}
-[UI] scene.menu-bounds-combo=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#model-combo-btn')
-[UI] readingMeasure640-150=FAIL:{"widest":640,"left":169,"sheet":978}
-[UI] scene.menu-bounds-combo-150=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#model-combo-btn')
-[UI] cssOnSystem.settings=FAIL:settings/settings.css: line 831: margin-top: -9px;
+[UI] menuInsideWindow.retry=FAIL:.retry-menu at 130,161 to 370,441 in a 520x360 window
+[UI] scene.menu-bounds-combo=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#sec-model > .row-head > .edit')
+[UI] menuInsideWindow.retry-150=FAIL:.retry-menu at 130,161 to 370,441 in a 520x360 window
+[UI] scene.menu-bounds-combo-150=FAIL:frame.click: Timeout 30000ms exceeded. Call log: - waiting for locator('#sec-model > .row-head > .edit')
