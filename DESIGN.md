@@ -1150,6 +1150,8 @@ Reason: power users had to reach for the mouse for everything past Enter (design
 
 Alt+Space, or a right-click on a title bar, opens a window menu on outputs, Settings and History: Move, Size, Maximize or Restore (where the title bar maximizes on double-click, so Settings and History), and Close. In Move and Size the arrows go 16 px at a time, 64 with Shift; Enter keeps the result and Esc puts the window back. Reason: everything a drag does has to be reachable without a pointer (design-ux U30), and these windows draw their own title bars, so Windows does not supply the menu. The bar has no title bar and has the layout editor instead.
 
+An app shortcut equal to the dictation chord is refused while dictation is on ("Already used to hold and dictate"), and turning dictation on is refused while an app shortcut holds its chord.
+
 ### Accessibility
 
 Text follows the Windows text size (Settings, Accessibility, Text size) times the person's own 100 to 200% setting, at most 250%. Pages scale their type by `--text-scale` from `ui:text-scale {scale}`.

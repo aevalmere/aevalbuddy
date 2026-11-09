@@ -768,3 +768,13 @@ A window's first tree read registers its structure-changed handler outside `genL
 Cleanup (`voice/cleanup.rs`) sends the raw transcript, never the audio, to the first OpenRouter candidate whose text model ends in `:free`; a native provider is never used, so a paid key is never spent on it. The system prompt fixes punctuation, capitals and small grammar slips, drops filler words and keeps only the correction where the speaker corrects themselves, and forbids adding, answering, summarising or translating. The reply is refused when it is empty, chatty, or much longer than what was said. No free model, an error, a refusal or two seconds without a reply all give the raw text with um, uh and the like dropped. Off in Settings, the words come as heard.
 
 Dictation's chord is a low-level keyboard hook (`voice/ptt.rs`), not a RegisterHotKey shortcut: it must see the release, and the default Ctrl+Win has no key. The hook swallows only the chord's own key (if any) and Space or Esc while held; modifiers pass through, and a Win chord taps an unassigned key (0xE8) so the Start menu stays shut. Another key joining the chord means it was some other shortcut: the recording is dropped quietly. Holds under 250 ms are taps. Space while holding latches hands-free; the chord again finishes. The text goes in by pasting: every clipboard format is saved, the text put in with the "not for history or cloud clipboard" marks, Ctrl+V sent, and the old clipboard put back unless something else wrote to it meanwhile. When the clipboard cannot be opened it is typed as Unicode keystrokes. Our own keystrokes carry `OWN_INPUT` so the hook ignores them.
+
+### Ask
+
+`query:done` carries `sent {provider, providerName, model, modelName, free, image: "screen"|"region"|null, imageSize, windowText: {app, chars}|null, history, reader: {modelName}|null, msgId}` and `msgId` (the turn's `gen`). The pictures of the last three answers in each output window stay in memory only (`host::ask::sent_images`, pruned when a window is gone); `output:sent-image {msgId}` returns a `data:image/jpeg;base64,` URL or null once dropped (D-38).
+
+`models:list` with neither `kind` nor `provider` (the bar's `@` menu, an answer's "Retry with") also returns `providers: [{id, name, groups, current, ready}]`, every provider with a usable key in the person's order. `query:submit` and `query:retry` take `{provider, model}`; a pinned model answers by itself: no reading step by another model, no 404 healing and no failover.
+
+### LLM
+
+`llm::client::Meta.overall` lets one non-streamed call ask for a longer whole-call cap than `OVERALL_TIMEOUT` (90 s); the agent sets it to its own turn limit (180 s on a native provider, 60 s otherwise).
