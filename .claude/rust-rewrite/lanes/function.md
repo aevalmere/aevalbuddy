@@ -41,4 +41,4 @@ None needed by these fixes. The new failure lines reuse existing status nodes an
 |---|---|
 | Lane gaps 1-5 from the brief (B-132, sent-image/B-121, B-164, voice chord, B-018) and B-122 | ca3547d (unit tests green there; fmt and clippy fixed in ad1d094) |
 | Audit fixes 4-10 | ad1d094 |
-| Green sha | see the last line |
+| Green sha | a487563: rust fully green (Build installer and Smoke included, run 42546738757) and ui-shots green (run 42546738738). Commits after it change only this file. |
