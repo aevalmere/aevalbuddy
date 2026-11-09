@@ -1,7 +1,7 @@
 == smoke.log ==
-[SMOKE] voiceSpeed=FAIL:6638ms of 1500ms
-[SMOKE] voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6801,"stopMs":1,"waitMs":161,"transcribeMs":7296,"cleanupMs":0,"insertMs":0,"totalMs":7458} budget=1500ms
+[SMOKE] voiceSpeed=FAIL:5326ms of 1500ms
+[SMOKE] voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":5109,"stopMs":0,"waitMs":220,"transcribeMs":5690,"cleanupMs":0,"insertMs":0,"totalMs":5911} budget=1500ms
 [SMOKE] failed: voiceSpeed, voiceSpeedE2e
-[GATE] fail voiceSpeed=FAIL:6638ms of 1500ms
-[GATE] fail voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":6801,"stopMs":1,"waitMs":161,"transcribeMs":7296,"cleanupMs":0,"insertMs":0,"totalMs":7458} budget=1500ms
+[GATE] fail voiceSpeed=FAIL:5326ms of 1500ms
+[GATE] fail voiceSpeedE2e=FAIL:started=Some(Ok(())) {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":5109,"stopMs":0,"waitMs":220,"transcribeMs":5690,"cleanupMs":0,"insertMs":0,"totalMs":5911} budget=1500ms
 [GATE] verdict=FAIL:2 FAIL line(s); no "done" line; failed: voiceSpeed, voiceSpeedE2e; 1 listed label(s) never printed

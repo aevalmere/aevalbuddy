@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42568145512](https://github.com/aevalmere/aevalbuddy/actions/runs/42568145512), attempt 1, on push
-- Commit: ef9c9df9f7bec9b4bd571099cc103130c86a3eed
+- Run: [42570767165](https://github.com/aevalmere/aevalbuddy/actions/runs/42570767165), attempt 1, on push
+- Commit: d4a1b729efd2d496072bd1716e83276083674607
 - Ref: rust/voice-speed
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-09T06:00:13Z
+- Finished: 2026-11-09T06:24:13Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -22,7 +22,7 @@
 | Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | success |  |
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
-| Save NSIS toolset | success |  |
+| Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
 | Smoke | failure | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |

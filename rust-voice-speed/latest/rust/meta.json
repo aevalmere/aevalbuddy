@@ -1,18 +1,18 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42568145512,
+  "run_id": 42570767165,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42568145512",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42570767165",
   "event": "push",
-  "sha": "ef9c9df9f7bec9b4bd571099cc103130c86a3eed",
+  "sha": "d4a1b729efd2d496072bd1716e83276083674607",
   "ref": "rust/voice-speed",
   "ref_dir": "rust-voice-speed",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-09T06:00:13Z",
+  "finished": "2026-11-09T06:24:13Z",
   "error_lines": 6,
   "steps": [
     {
@@ -77,7 +77,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
