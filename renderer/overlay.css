@@ -1643,7 +1643,7 @@ body[data-fixed-height="1"] #chat {
   font-family: var(--font-mono);
   font-weight: 400;
   font-size: 0.875em;
-  padding: 0.1em 0.35em;
+  padding: 0.05em 0.25em;
   border-radius: var(--r-key);
   background: var(--tint-k-28);
   -webkit-box-decoration-break: clone;

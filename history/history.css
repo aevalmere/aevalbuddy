@@ -11,7 +11,7 @@
   --field-bg: rgb(8 12 20 / 0.24);
   --field-bg-focus: rgb(8 12 20 / 0.32);
   --field-rim: transparent;
-  --field-rim-focus: rgb(169 198 228 / 0.22);
+  --field-rim-focus: transparent;
   --mark: rgb(94 134 180 / 0.5);
   --danger-fill: rgb(242 160 168 / 0.22);
   --danger-fill-hover: rgb(242 160 168 / 0.32);
@@ -22,7 +22,7 @@
   /* The light tone's values (html[data-tone="light"], below). */
   --field-bg-light: rgb(22 32 45 / 0.06);
   --field-bg-focus-light: rgb(22 32 45 / 0.1);
-  --field-rim-focus-light: rgb(46 78 117 / 0.5);
+  --field-rim-focus-light: transparent;
   --mark-light: rgb(169 198 228 / 0.7);
   --selection-light: rgb(169 198 228 / 0.7);
   --scroll-thumb-light: rgb(22 32 45 / 0.2);
@@ -193,7 +193,10 @@ html.quiet-focus .search-field:has(#search:focus-visible) {
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 0 var(--sp-2) var(--sp-4) var(--sp-3);
+  padding: 0 var(--sp-2) var(--sp-5) var(--sp-3);
+  /* The last rows fade into the footer instead of meeting it at a cut. */
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - var(--sp-5)), transparent);
+  mask-image: linear-gradient(to bottom, black calc(100% - var(--sp-5)), transparent);
 }
 
 ::-webkit-scrollbar {

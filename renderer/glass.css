@@ -54,6 +54,8 @@
      scrim (DESIGN.md Palette). --accent-bright (pastel) stays for fills,
      rims and the lens ring. */
   --accent-text: #CFE0F1;
+  /* A menu row's keyboard focus: pastel, soft but past 3:1 on the menu. */
+  --menu-ring: rgb(169 198 228 / 0.6);
   --blush: #F9E7E0;
   --danger: #F2A0A8;
   --danger-edge: #6B2E38;
@@ -85,7 +87,7 @@
 
   /* The glass body: deep ink, so the material reads as the site's dark
      ground with the desktop showing through it. */
-  --tint: 18 26 38;
+  --tint: 16 26 42;
   --solid: linear-gradient(#2A3545, #1A2331);
 
   /* Fills for controls that sit on glass: cream washes, never glass on
@@ -127,7 +129,7 @@
   --sp-8: 48px;
   --inset-text: 20px;
   --inset-row: 12px;
-  --inset-menu: 4px;
+  --inset-menu: 6px;
   /* The names the surfaces were built with, kept: the same sizes. */
   --fs-meta: var(--t-meta);
   --fs-small: var(--t-caption);
@@ -238,13 +240,13 @@
    14 / 28 px, the v2.1 blur. The scrim before the first frame follows k
    too; once a frame arrives glass.js measures it. */
 .glass.thin {
-  --gf: blur(calc(24px - 16px * var(--glass-k))) saturate(calc(1 + 1.05 * var(--glass-k))) brightness(0.95);
-  --scrim: calc(0.66 - 0.12 * var(--glass-k));
+  --gf: blur(calc(24px - 16px * var(--glass-k))) saturate(calc(1 + 0.4 * var(--glass-k))) brightness(0.95);
+  --scrim: calc(0.7 - 0.12 * var(--glass-k));
 }
 
 .glass.thick {
-  --gf: blur(calc(36px - 14px * var(--glass-k))) saturate(calc(1 + 0.95 * var(--glass-k))) brightness(0.92);
-  --scrim: calc(0.86 - 0.12 * var(--glass-k));
+  --gf: blur(calc(36px - 14px * var(--glass-k))) saturate(calc(1 + 0.35 * var(--glass-k))) brightness(0.92);
+  --scrim: calc(0.88 - 0.12 * var(--glass-k));
 }
 
 /* The scrim, in two parts. The whole layer gets the edge value, up to 0.26
@@ -434,6 +436,7 @@ html[data-tone="light"] {
   --hairline: rgb(22 32 45 / 0.08);
   --chip-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.6);
   --accent-text: #2E4E75;
+  --menu-ring: rgb(46 78 117 / 0.62);
   --accent-glass: rgb(169 198 228 / 0.62);
   --accent-glass-hover: rgb(169 198 228 / 0.78);
   --accent-glass-press: rgb(169 198 228 / 0.92);
@@ -648,8 +651,7 @@ kbd,
   font-size: var(--t-meta);
   font-weight: var(--w-body);
   color: var(--label-2);
-  background: var(--fill-1);
-  box-shadow: var(--chip-rim);
+  background: var(--fill-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -806,7 +808,7 @@ body[data-scrolled="1"] .sheet-bar::after,
   background: var(--fill-1);
   /* In the accent's text tone (mist on the dark, link-deep on the light):
      past 3:1 on the menu either way, and quieter than white. */
-  outline: 2px solid var(--accent-text);
+  outline: 2px solid var(--menu-ring);
   outline-offset: -2px;
   box-shadow: none;
 }
