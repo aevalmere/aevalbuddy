@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42569041773,
+  "run_id": 42571428532,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42569041773",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42571428532",
   "event": "push",
-  "sha": "74e88e834b0649c8fe38db0d25ed239d70bfaadb",
+  "sha": "f2e3444e74cb4e7259b85c9ef657b5286b7cd602",
   "ref": "rust/chatfix",
   "ref_dir": "rust-chatfix",
   "conclusion": "failure",
   "failed": [
     "Smoke"
   ],
-  "finished": "2026-11-09T06:09:40Z",
-  "error_lines": 8,
+  "finished": "2026-11-09T06:34:20Z",
+  "error_lines": 4,
   "steps": [
     {
       "name": "Checkout",
@@ -77,7 +77,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {
