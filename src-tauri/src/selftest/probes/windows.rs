@@ -74,11 +74,22 @@ pub fn run(cx: &mut Cx) {
     // What the later probes start from, put back at the end.
     let l = label.clone();
     let before = cx.on_main(move |app| {
-        let o = shared(app).lock().outputs.get(&l).cloned();
+        let st = shared(app);
+        let s = st.lock();
+        // Every answer's "active" too: opening the bar shows each one with
+        // a conversation, and an active answer holds the backdrop's fast
+        // pace (capture's backdropIdle).
+        let actives: Vec<(String, bool)> = s
+            .outputs
+            .values()
+            .map(|o| (o.label.clone(), o.active))
+            .collect();
         let shown = flags::hwnd_for(&l).is_some_and(flags::is_visible);
-        o.map(|o| (o.chat.messages, o.active, shown))
+        s.outputs
+            .get(&l)
+            .map(|o| (o.chat.messages.clone(), actives, shown))
     });
-    let Some(Some((messages, active, was_shown))) = before else {
+    let Some(Some((messages, actives, was_shown))) = before else {
         for l in LABELS {
             cx.must(l, false, "the output has no state");
         }
@@ -125,7 +136,6 @@ pub fn run(cx: &mut Cx) {
     cx.on_main(move |app| {
         let payload = outputs::with(app, &l, |o| {
             o.chat.messages = messages;
-            o.active = active;
             outputs::chat_payload(o)
         });
         if let Some(p) = payload {
@@ -138,22 +148,41 @@ pub fn run(cx: &mut Cx) {
         if let Some(w) = windows::window(app, &l) {
             flags::hide(&w);
         }
+        for (label, active) in actives {
+            outputs::with(app, &label, |o| o.active = active);
+        }
         windows::collapse_panel(app);
     });
     cx.sleep(400);
     // The later probes expect only the orb (capture's backdropIdle).
-    let shown: Vec<String> = cx
-        .on_main(|app| {
-            app.webview_windows()
-                .into_iter()
-                .filter(|(_, w)| w.is_visible().unwrap_or(false))
-                .map(|(l, _)| l)
-                .collect()
-        })
-        .unwrap_or_default();
+    let after = cx.on_main(|app| {
+        let shown: Vec<String> = app
+            .webview_windows()
+            .into_iter()
+            .filter(|(_, w)| w.is_visible().unwrap_or(false))
+            .map(|(l, _)| l)
+            .collect();
+        let st = shared(app);
+        let s = st.lock();
+        let active: Vec<String> = s
+            .outputs
+            .values()
+            .filter(|o| o.active)
+            .map(|o| o.label.clone())
+            .collect();
+        format!(
+            "shown={} active={} mode={:?}",
+            shown.join(","),
+            active.join(","),
+            s.mode
+        )
+    });
     cx.log(
         "windowsAfter",
-        format!("{} (answer shown at start: {was_shown})", shown.join(",")),
+        format!(
+            "{} (answer shown at start: {was_shown})",
+            after.unwrap_or_default()
+        ),
     );
 }
 
@@ -205,7 +234,10 @@ fn same(a: Rect, b: Rect) -> bool {
 
 /// One stop of the pointer: moved there, given time, then looked at.
 fn stop(cx: &Cx, label: &str, hwnd: isize, at: (i32, i32)) -> (bool, Rect, bool, bool) {
-    let moved = cx.input(Input::Move(at.0, at.1)).is_ok();
+    // Two moves, as a hand makes: the page decides on a mousemove.
+    let moved = cx.input(Input::Move(at.0 + 2, at.1)).is_ok();
+    cx.sleep(60);
+    let moved = moved && cx.input(Input::Move(at.0, at.1)).is_ok();
     cx.sleep(450);
     let page = cx.eval(label, SHEET_JS).unwrap_or(Value::Null);
     let shown = page.get("shown") == Some(&json!(true));
