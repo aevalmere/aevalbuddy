@@ -1,0 +1,1076 @@
+[UI] laneFiles=ok
+[UI] scene harness/backdrop-dark-editor
+[UI] shot 11-dark-editor-bar-output.png
+[UI] scene harness/backdrop-photo-busy
+[UI] shot 11-photo-busy-bar-output.png
+[UI] scene harness/bar-default-width
+[UI] barDefaultWidth=ok
+[UI] shot 12-bar-default-600.png
+[UI] scene harness/glob-clock
+[UI] shot 13-glob-clock-120.png
+[UI] shot 13-glob-clock-240.png
+[UI] shot 13-glob-clock-360.png
+[UI] globOnClock=ok
+[UI] scene capture/lens-hits-white
+[UI] lens-hits-white.ready=ok
+[UI] lens-hits-white.drawn=ok
+[UI] shot lens-hits-white.png
+[UI] lens-hits-white.whyCapsule=ok
+[UI] scene capture/lens-hits-dark-editor
+[UI] lens-hits-dark-editor.ready=ok
+[UI] lens-hits-dark-editor.drawn=ok
+[UI] shot lens-hits-dark-editor.png
+[UI] lens-hits-dark-editor.whyCapsule=ok
+[UI] scene capture/region-idle-white
+[UI] regionHint=ok
+[UI] regionRole=ok
+[UI] shot region-idle-white.png
+[UI] regionAnnouncesSize=ok
+[UI] scene capture/region-idle-dark
+[UI] shot region-idle-dark.png
+[UI] scene capture/region-dragging
+[UI] regionDragSize=ok
+[UI] shot region-dragging.png
+[UI] scene capture/region-too-small
+[UI] regionTooSmall=ok
+[UI] shot region-too-small.png
+[UI] scene bar/bar
+[UI] shot 01-bar-first-run.png
+[UI] suggestionsBeforeFirst=ok
+[UI] noLegend=ok
+[UI] hintOnLeftButton=ok
+[UI] suggestionsGoneAfterFirst=ok
+[UI] barSends=ok
+[UI] suggestionsNeverAgain=ok
+[UI] shot 02-bar-after-first.png
+[UI] scene bar/bar-focus
+[UI] tokensPresent=ok
+[UI] shot bar-focus-ring.png
+[UI] tokenMenuIsGMenu=ok
+[UI] shot bar-menu.png
+[UI] scene bar/bar-focus-ts200
+[UI] tokensPresent-ts200=ok
+[UI] shot bar-focus-ring-ts200.png
+[UI] tokenMenuIsGMenu-ts200=ok
+[UI] shot bar-menu-ts200.png
+[UI] scene bar/glass-levels
+[UI] shot glass-level-0.png
+[UI] shot glass-level-25.png
+[UI] shot glass-level-50.png
+[UI] shot glass-level-75.png
+[UI] shot glass-level-100.png
+[UI] glassStopsDiffer=ok
+[UI] scene bar/glass-levels-white
+[UI] shot glass-level-0-white.png
+[UI] shot glass-level-25-white.png
+[UI] shot glass-level-50-white.png
+[UI] shot glass-level-75-white.png
+[UI] shot glass-level-100-white.png
+[UI] accentTextContrast=ok
+[UI] scene bar/bar-multiline
+[UI] shiftEnterAddsRows=ok
+[UI] shot bar-multiline.png
+[UI] multilineSends=ok
+[UI] scene bar/bar-multiline-ts200
+[UI] shiftEnterAddsRows-ts200=ok
+[UI] shot bar-multiline-ts200.png
+[UI] multilineSends-ts200=ok
+[UI] scene bar/bar-target-chip
+[UI] targetChipOnlyWithTwoWindows=ok
+[UI] targetChipCutsTitle=ok
+[UI] targetChipDescribesField=ok
+[UI] shot bar-target-chip.png
+[UI] ctrlTabCycles=ok
+[UI] targetChipStartsOver=ok
+[UI] scene bar/bar-keys
+[UI] escClearsThenCloses=ok
+[UI] closeButtonNamed=ok
+[UI] minimizeButtonFolds=ok
+[UI] barShortcutsInvoke=ok
+[UI] chordsNameTheTarget=ok
+[UI] zoomKeysInvokeTextScale=ok
+[UI] dirtyFlagSentAndClearHonoured=ok
+[UI] sayRoutesByFocus=ok
+[UI] scene bar/bar-token
+[UI] tokenRestsAsGlyph=ok
+[UI] shot bar-token-rest.png
+[UI] tokenShowsChoice=ok
+[UI] shot bar-token-find.png
+[UI] shot bar-token-reply.png
+[UI] tokenSaysReplyWhileAsking=ok
+[UI] tokenSaysStartOnPlan=ok
+[UI] shot bar-token-start.png
+[UI] scene bar/bar-token-ts200
+[UI] tokenRestsAsGlyph-ts200=ok
+[UI] shot bar-token-rest-ts200.png
+[UI] tokenShowsChoice-ts200=ok
+[UI] shot bar-token-find-ts200.png
+[UI] shot bar-token-reply-ts200.png
+[UI] tokenSaysReplyWhileAsking-ts200=ok
+[UI] tokenSaysStartOnPlan-ts200=ok
+[UI] shot bar-token-start-ts200.png
+[UI] scene bar/bar-notices
+[UI] shot bar-notice-nokey.png
+[UI] noOpenRouterInBarCopy=ok
+[UI] noticeNamesTheNeed=ok
+[UI] needsKeyNudgesAndAnnounces=ok
+[UI] shot bar-notice-hotkey-taken.png
+[UI] noticeHotkeyTaken=ok
+[UI] scene bar/forced-colors-bar
+[UI] forcedColorsPillDashed=ok
+[UI] shot forced-colors-bar-working.png
+[UI] scene bar/forced-colors-answer
+[UI] forcedColorsAnswerOutlined=ok
+[UI] shot forced-colors-answer-streaming.png
+[UI] scene bar/bar-model
+[UI] modelMenuGrouped=ok
+[UI] shot bar-model-menu.png
+[UI] modelMenuFilters=ok
+[UI] shot bar-model-chip.png
+[UI] modelPinSentWithSubmit=ok
+[UI] modelChipUnderFind=ok
+[UI] scene bar/window-menu
+[UI] windowMenuOpens=ok
+[UI] shot window-menu-open.png
+[UI] windowMenuNudges=ok
+[UI] windowMenuOnRightClick=ok
+[UI] scene bar/window-menu-history
+[UI] windowMenuMaximizes=ok
+[UI] scene bar/light-tone-bar
+[UI] toneFlipsWithHysteresis=ok
+[UI] lightToneDarkLabels=ok
+[UI] shot light-tone-bar.png
+[UI] scene bar/light-tone-answer
+[UI] shot light-tone-answer.png
+[UI] scene bar/light-tone-settings
+[UI] shot light-tone-settings.png
+[UI] scene bar/light-tone-history
+[UI] shot light-tone-history.png
+[UI] scene bar/reduced-motion-bar-morph
+[UI] reducedFoldHasNoBlur=ok
+[UI] shot reduced-motion-bar-morph.png
+[UI] scene bar/reduced-motion-token-lock
+[UI] reducedTokenLockFades=ok
+[UI] shot reduced-motion-token-lock.png
+[UI] scene sheet/output
+[UI] shot 03-output-answer.png
+[UI] noOutputInput=ok
+[UI] outputTitleBar=ok
+[UI] outputControls=ok
+[UI] noDockUi=ok
+[UI] resizeZones=ok
+[UI] globFrameCost=ok
+[UI] globShapeMs=0.019
+[UI] shot 04a-glob-08.png
+[UI] shot 04b-glob-30.png
+[UI] shot 04c-glob-52.png
+[UI] shot 04d-glob-70.png
+[UI] shot 04e-glob-90.png
+[UI] globOpen ms=522 frames=22 longestFrameMs=33.4
+[UI] globOpens=ok
+[UI] globSmooth=ok
+[UI] globReducedMotion=ok
+[UI] scene sheet/multi
+[UI] shot 05-outputs-multi.png
+[UI] barAnswersTask=ok
+[UI] askUserRoutedFromBar=ok
+[UI] noInputInAnyOutput=ok
+[UI] scene sheet/white
+[UI] shot 10-white-bar-output.png
+[UI] scene sheet/glob-open
+[UI] globBudArea=ok
+[UI] shot glob-open-0.png
+[UI] shot glob-open-4.png
+[UI] shot glob-open-10.png
+[UI] shot glob-open-18.png
+[UI] shot glob-open-30.png
+[UI] shot glob-open-45.png
+[UI] shot glob-open-62.png
+[UI] shot glob-open-72.png
+[UI] shot glob-open-82.png
+[UI] shot glob-open-90.png
+[UI] shot glob-open-100.png
+[UI] globWordsNeverOutsideShape=ok
+[UI] globOpenOnClock=ok
+[UI] scene sheet/glob-close
+[UI] shot glob-close-0.png
+[UI] shot glob-close-25.png
+[UI] shot glob-close-50.png
+[UI] shot glob-close-75.png
+[UI] shot glob-close-100.png
+[UI] globCloseEndsInBar=ok
+[UI] scene sheet/glob-above-bar
+[UI] shot glob-above-bar.png
+[UI] globGrowsUpFromBar=ok
+[UI] scene sheet/glob-side
+[UI] shot glob-side.png
+[UI] globFromBarSide=ok
+[UI] scene sheet/glob-cascaded
+[UI] shot glob-cascaded.png
+[UI] globFallsBackToScale=ok
+[UI] scene sheet/sheet-markdown-fixture
+[UI] shot sheet-markdown-fixture.png
+[UI] looseListIsOneOl=ok
+[UI] tableRenders=ok
+[UI] headingsAreHeadings=ok
+[UI] linksShowHost=ok
+[UI] linkOpensThroughRust=ok
+[UI] codeCopyButtonCopies=ok
+[UI] scene sheet/sheet-markdown-inert
+[UI] answerHtmlIsInert=ok
+[UI] scene sheet/sheet-mid-stream
+[UI] shot sheet-mid-stream.png
+[UI] streamingKeepsEarlierNodes=ok
+[UI] selectionSurvivesStream=ok
+[UI] streamTailDotGoesOnDone=ok
+[UI] scene sheet/sheet-first-answer
+[UI] shot sheet-first-answer.png
+[UI] questionNotShownTwice=ok
+[UI] answerAnnounceIsShort=ok
+[UI] sheetReportsGlassRect=ok
+[UI] copyAllWaitsForTwoAnswers=ok
+[UI] scene sheet/sheet-done
+[UI] shot sheet-done.png
+[UI] usageLineIsShort=ok
+[UI] shot sheet-sent-panel.png
+[UI] sentPanelSaysWhatWasSent=ok
+[UI] scene sheet/sheet-error-short
+[UI] shot sheet-error-short.png
+[UI] errorActionsInvoke=ok
+[UI] scene sheet/sheet-error-long
+[UI] shot sheet-error-long.png
+[UI] longErrorFixesWrap=ok
+[UI] scene sheet/sheet-busy-countdown
+[UI] shot sheet-busy-countdown.png
+[UI] busyCountsDown=ok
+[UI] scene sheet/sheet-paid-hop
+[UI] shot sheet-paid-hop.png
+[UI] paidHopAsksFirst=ok
+[UI] scene sheet/sheet-retry-menu
+[UI] shot sheet-retry-menu.png
+[UI] retryWithModelInvokes=ok
+[UI] scene sheet/sheet-started-over
+[UI] shot sheet-started-over.png
+[UI] startOverOffersUndo=ok
+[UI] scene sheet/sheet-title
+[UI] shot sheet-title-rest.png
+[UI] shot sheet-title-hover.png
+[UI] titleToolsWhenWanted=ok
+[UI] outputTitleBarIsSheetBar=ok
+[UI] scene sheet/sheet-front-back
+[UI] shot sheet-front-back.png
+[UI] frontBackDiffer=ok
+[UI] shot sheet-target-rim.png
+[UI] targetWearsRim=ok
+[UI] scene sheet/sheet-maximized
+[UI] shot sheet-maximized-1600.png
+[UI] readingMeasure640=ok
+[UI] scene sheet/find-empty
+[UI] shot find-empty.png
+[UI] findEmptyOffersNextSteps=ok
+[UI] scene sheet/find-results
+[UI] shot find-results.png
+[UI] findListboxArrows=ok
+[UI] scene sheet/sheet-task-running
+[UI] shot sheet-task-running.png
+[UI] planChecksOff=ok
+[UI] trailRowsHaveSrPrefixes=ok
+[UI] scene sheet/sheet-task-done-expanded
+[UI] shot sheet-task-done-collapsed.png
+[UI] shot sheet-task-done-expanded.png
+[UI] planChecksOffByCount=ok
+[UI] scene sheet/sheet-task-asking
+[UI] shot sheet-task-asking.png
+[UI] taskAskSaysItOnce=ok
+[UI] scene sheet/sheet-task-failed
+[UI] shot sheet-task-failed.png
+[UI] failureShownOnce=ok
+[UI] scene sheet/sheet-task-heard
+[UI] stepAnnouncesThrottled=ok
+[UI] scene sheet/sheet-confirm-long-text
+[UI] shot sheet-confirm-long-text.png
+[UI] confirmAllowWaitsForFullText=ok
+[UI] confirmSweepThenEnable=ok
+[UI] scene sheet/sheet-consent
+[UI] shot sheet-consent.png
+[UI] consentNamesProvider=ok
+[UI] scene sheet/sheet-keys
+[UI] outputEscNeverCollapses=ok
+[UI] outputShortcutsInvoke=ok
+[UI] scene sheet/sheet-kinds
+[UI] doItOnlyForSteps=ok
+[UI] shot sheet-kinds.png
+[UI] textInsetIs20InEveryKind=ok
+[UI] scene sheet/sheet-thinking
+[UI] shot sheet-thinking.png
+[UI] shot sheet-long-wait.png
+[UI] longWaitNamesTheModel=ok
+[UI] scene sheet/sheet-mid-stream-fence
+[UI] shot sheet-mid-stream-fence.png
+[UI] openFenceIsCode=ok
+[UI] scene sheet/sheet-done-actions
+[UI] shot sheet-done-copied.png
+[UI] doneOffersNextActions=ok
+[UI] scene sheet/sheet-two-turn-scrolled
+[UI] shot sheet-two-turn-scrolled.png
+[UI] scrolledShowsBothEdges=ok
+[UI] scene sheet/sheet-continued
+[UI] shot sheet-continued.png
+[UI] shot sheet-continued-done.png
+[UI] continuedTurnsRead=ok
+[UI] scene sheet/sheet-continued-ts200
+[UI] shot sheet-continued-ts200.png
+[UI] shot sheet-continued-done-ts200.png
+[UI] continuedTurnsRead-ts200=ok
+[UI] scene sheet/sheet-stopped
+[UI] shot sheet-stopped.png
+[UI] stoppedKeepsWhatArrived=ok
+[UI] scene sheet/sheet-fixed-height
+[UI] shot sheet-fixed-height.png
+[UI] fixedHeightStopsFollowing=ok
+[UI] scene sheet/find-reading
+[UI] shot find-reading.png
+[UI] findReadingOffersNothingYet=ok
+[UI] scene sheet/find-results-related
+[UI] shot find-results-related.png
+[UI] findMarksOffscreenRows=ok
+[UI] scene sheet/find-offline
+[UI] shot find-offline.png
+[UI] findOfflineOffersNoAsk=ok
+[UI] scene sheet/sheet-task-states
+[UI] shot sheet-task-planning.png
+[UI] shot sheet-task-plan-approval.png
+[UI] shot sheet-task-paused.png
+[UI] shot sheet-task-stopped.png
+[UI] taskStatesSayWhatIsNext=ok
+[UI] scene sheet/sheet-confirm-url
+[UI] shot sheet-confirm-url.png
+[UI] confirmShowsTheWholeUrl=ok
+[UI] scene sheet/glob-reduced
+[UI] shot glob-reduced-fade.png
+[UI] reducedMotionDrawsNoShape=ok
+[UI] scene sheet/one-title-bar
+[UI] oneTitleBarSystem=ok
+[UI] scene settings/settings
+[UI] shot 08-settings-account.png
+[UI] glassLive.0=ok
+[UI] glassTier.0=ok
+[UI] shot 06-settings-glass-000.png
+[UI] glassLive.0.5=ok
+[UI] glassTier.0.5=ok
+[UI] shot 06-settings-glass-050.png
+[UI] glassLive.1=ok
+[UI] glassTier.1=ok
+[UI] shot 06-settings-glass-100.png
+[UI] glassSaved=ok
+[UI] noDuplicateHintInSettings=ok
+[UI] settingsResizeZones=ok
+[UI] settingsDrag=ok
+[UI] scene settings/desktop
+[UI] shot 07-settings-fullscreen.png
+[UI] scene settings/history
+[UI] shot 09-history.png
+[UI] scene settings/settings-providers-none
+[UI] providerRowsHaveExpandedState.none=ok
+[UI] shot settings-providers-none.png
+[UI] scene settings/settings-providers-ready-two
+[UI] reorderInvokesOrder=ok
+[UI] reorderIsAnnounced=ok
+[UI] reorderKeepsFocus=ok
+[UI] providerRowName=ok
+[UI] providerRowsHaveExpandedState.ready-two=ok
+[UI] shot settings-providers-ready-two.png
+[UI] scene settings/settings-providers-rejected
+[UI] providerRowsHaveExpandedState.rejected=ok
+[UI] shot settings-providers-rejected.png
+[UI] scene settings/settings-providers-no-credit
+[UI] providerRowsHaveExpandedState.no-credit=ok
+[UI] shot settings-providers-no-credit.png
+[UI] scene settings/settings-providers-busy
+[UI] providerRowsHaveExpandedState.busy=ok
+[UI] shot settings-providers-busy.png
+[UI] scene settings/settings-providers-blocked
+[UI] providerRowsHaveExpandedState.blocked=ok
+[UI] shot settings-providers-blocked.png
+[UI] scene settings/settings-providers-testing
+[UI] providerRowsHaveExpandedState.testing=ok
+[UI] shot settings-providers-testing.png
+[UI] scene settings/settings-providers-removing
+[UI] removeFocusesKeep=ok
+[UI] shot settings-providers-removing-confirm.png
+[UI] removeSendsProvider=ok
+[UI] removeReturnsFocus=ok
+[UI] providerRowsHaveExpandedState.removing=ok
+[UI] shot settings-providers-removing.png
+[UI] scene settings/settings-providers-wrong-provider
+[UI] wrongProviderSaysWhose=ok
+[UI] wrongProviderSavesNothing=ok
+[UI] oneProminentAction=ok
+[UI] shot settings-providers-wrong-provider-found.png
+[UI] wrongProviderSavesUnderItsOwn=ok
+[UI] keyNeverEchoed=ok
+[UI] providerRowsHaveExpandedState.wrong-provider=ok
+[UI] shot settings-providers-wrong-provider.png
+[UI] scene settings/settings-pages
+[UI] shot settings-page-providers.png
+[UI] shot settings-page-models.png
+[UI] shot settings-page-answers.png
+[UI] shot settings-page-find.png
+[UI] shot settings-page-agent.png
+[UI] shot settings-page-privacy.png
+[UI] shot settings-page-shortcuts.png
+[UI] shot settings-page-general.png
+[UI] everyDisclosureHasExpanded=ok
+[UI] noButtonNamedEdit=ok
+[UI] noNestedButtonsSettings=ok
+[UI] privacyNamesRecipients=ok
+[UI] tasksSayWhatStopsThem=ok
+[UI] scene settings/settings-row-hover-disclosing
+[UI] shot settings-row-hover-disclosing.png
+[UI] openRowSaysExpanded=ok
+[UI] scene settings/settings-glass
+[UI] shot settings-glass-0.png
+[UI] shot settings-glass-25.png
+[UI] shot settings-glass-50.png
+[UI] shot settings-glass-75.png
+[UI] shot settings-glass-100.png
+[UI] sliderLabelsCentredOnStops=ok
+[UI] sliderSnapsToStop=ok
+[UI] scene settings/settings-maximized
+[UI] shot settings-maximized.png
+[UI] settingsFullBleed=ok
+[UI] scene settings/history-maximized
+[UI] shot history-maximized.png
+[UI] historyFullBleed=ok
+[UI] scene settings/settings-history-bars
+[UI] oneTitleBarSystem=ok
+[UI] shot settings-history-bars.png
+[UI] scene settings/settings-text-size
+[UI] textSizeRowInvokes=ok
+[UI] shot settings-text-size.png
+[UI] scene settings/settings-models-automatic
+[UI] shot settings-models-automatic.png
+[UI] scene settings/settings-models-anthropic
+[UI] modelListPerProvider=ok
+[UI] shot settings-models-anthropic.png
+[UI] shot settings-models-combo-open.png
+[UI] modelSaveSendsProvider=ok
+[UI] scene settings/settings-combo-open
+[UI] menuIsTheSharedMenu=ok
+[UI] shot settings-combo-open.png
+[UI] scene settings/settings-find-choices
+[UI] radiosRoveWithArrows=ok
+[UI] radiosOneTabStop=ok
+[UI] shot settings-find-choices.png
+[UI] scene settings/settings-delete-all
+[UI] deleteAllConfirmsInline=ok
+[UI] shot settings-delete-all.png
+[UI] scene settings/settings-shortcuts
+[UI] shot settings-shortcuts-capturing.png
+[UI] freeChordsOnOneLine=ok
+[UI] shot settings-shortcuts-conflict.png
+[UI] shortcutConflictOffersFree=ok
+[UI] f1OpensShortcuts=ok
+[UI] scene settings/settings-general
+[UI] shot settings-general.png
+[UI] barPositionSummary=ok
+[UI] scene settings/settings-general-ts200
+[UI] shot settings-general-ts200.png
+[UI] barPositionSummary-ts200=ok
+[UI] scene settings/history-list
+[UI] shot history-list.png
+[UI] noNestedButtons=ok
+[UI] searchQuietAtRest=ok
+[UI] historyArrowsMove=ok
+[UI] scene settings/history-row-hover
+[UI] shot history-row-hover.png
+[UI] scene settings/history-search-results
+[UI] historySearchAsksRust=ok
+[UI] shot history-search-results.png
+[UI] scene settings/history-empty
+[UI] shot history-empty.png
+[UI] scene settings/history-off
+[UI] historyOffSaysOff=ok
+[UI] shot history-off.png
+[UI] scene settings/history-delete-all
+[UI] historyDeleteAllInline=ok
+[UI] shot history-delete-all.png
+[UI] scene settings/history-deleted-undo
+[UI] shot history-deleted-undo.png
+[UI] deleteIsUndoable=ok
+[UI] scene voice/voice-bar
+[UI] shot voice-01-bar-idle.png
+[UI] voiceMicStarts=ok
+[UI] voiceMicListening=ok
+[UI] shot voice-02-bar-listening.png
+[UI] voiceMicStops=ok
+[UI] voiceMicFillsField=ok
+[UI] shot voice-03-bar-done.png
+[UI] voiceMicError=ok
+[UI] shot voice-04-bar-error.png
+[UI] voiceEscCancels=ok
+[UI] scene voice/voice-pill
+[UI] shot voice-05-pill-listening.png
+[UI] shot voice-06-pill-writing.png
+[UI] voicePillSaysWhy=ok
+[UI] shot voice-07-pill-error.png
+[UI] scene voice/voice-settings
+[UI] shot voice-08-settings-engine.png
+[UI] voiceSettingsPage=ok
+[UI] voiceSettingsSaves=ok
+[UI] scene voice/voice-settings-ts200
+[UI] shot voice-08-settings-engine-ts200.png
+[UI] voiceSettingsPage-ts200=ok
+[UI] voiceSettingsSaves-ts200=ok
+[UI] scene polish/menu-bounds-bar
+[UI] menuInsideWindow.barIntent=ok
+[UI] pointerMenuNoRing=ok
+[UI] shot menu-bounds-bar-intent.png
+[UI] menuInsideWindow.barModel=ok
+[UI] shot menu-bounds-bar-model.png
+[UI] scene polish/menu-bounds-retry
+[UI] menuInsideWindow.retry=ok
+[UI] shot menu-bounds-retry.png
+[UI] scene polish/menu-bounds-window
+[UI] menuInsideWindow.windowMenu=ok
+[UI] scene polish/menu-bounds-combo
+[UI] menuInsideWindow.combo=ok
+[UI] shot menu-bounds-combo.png
+[UI] scene polish/menu-bounds-history
+[UI] menuInsideWindow.historyRow=ok
+[UI] scene harness/backdrop-dark-editor-150
+[UI] shot 11-dark-editor-bar-output-150.png
+[UI] scene harness/backdrop-photo-busy-150
+[UI] shot 11-photo-busy-bar-output-150.png
+[UI] scene harness/bar-default-width-150
+[UI] barDefaultWidth-150=ok
+[UI] shot 12-bar-default-600-150.png
+[UI] scene harness/glob-clock-150
+[UI] shot 13-glob-clock-120-150.png
+[UI] shot 13-glob-clock-240-150.png
+[UI] shot 13-glob-clock-360-150.png
+[UI] globOnClock-150=ok
+[UI] scene capture/lens-hits-white-150
+[UI] lens-hits-white.ready-150=ok
+[UI] lens-hits-white.drawn-150=ok
+[UI] shot lens-hits-white-150.png
+[UI] lens-hits-white.whyCapsule-150=ok
+[UI] scene capture/lens-hits-dark-editor-150
+[UI] lens-hits-dark-editor.ready-150=ok
+[UI] lens-hits-dark-editor.drawn-150=ok
+[UI] shot lens-hits-dark-editor-150.png
+[UI] lens-hits-dark-editor.whyCapsule-150=ok
+[UI] scene capture/region-idle-white-150
+[UI] regionHint-150=ok
+[UI] regionRole-150=ok
+[UI] shot region-idle-white-150.png
+[UI] regionAnnouncesSize-150=ok
+[UI] scene capture/region-idle-dark-150
+[UI] shot region-idle-dark-150.png
+[UI] scene capture/region-dragging-150
+[UI] regionDragSize-150=ok
+[UI] shot region-dragging-150.png
+[UI] scene capture/region-too-small-150
+[UI] regionTooSmall-150=ok
+[UI] shot region-too-small-150.png
+[UI] scene bar/bar-150
+[UI] shot 01-bar-first-run-150.png
+[UI] suggestionsBeforeFirst-150=ok
+[UI] noLegend-150=ok
+[UI] hintOnLeftButton-150=ok
+[UI] suggestionsGoneAfterFirst-150=ok
+[UI] barSends-150=ok
+[UI] suggestionsNeverAgain-150=ok
+[UI] shot 02-bar-after-first-150.png
+[UI] scene bar/bar-focus-150
+[UI] tokensPresent-150=ok
+[UI] shot bar-focus-ring-150.png
+[UI] tokenMenuIsGMenu-150=ok
+[UI] shot bar-menu-150.png
+[UI] scene bar/bar-focus-150-ts200
+[UI] tokensPresent-150-ts200=ok
+[UI] shot bar-focus-ring-150-ts200.png
+[UI] tokenMenuIsGMenu-150-ts200=ok
+[UI] shot bar-menu-150-ts200.png
+[UI] scene bar/glass-levels-150
+[UI] shot glass-level-0-150.png
+[UI] shot glass-level-25-150.png
+[UI] shot glass-level-50-150.png
+[UI] shot glass-level-75-150.png
+[UI] shot glass-level-100-150.png
+[UI] glassStopsDiffer-150=ok
+[UI] scene bar/glass-levels-white-150
+[UI] shot glass-level-0-white-150.png
+[UI] shot glass-level-25-white-150.png
+[UI] shot glass-level-50-white-150.png
+[UI] shot glass-level-75-white-150.png
+[UI] shot glass-level-100-white-150.png
+[UI] accentTextContrast-150=ok
+[UI] scene bar/bar-multiline-150
+[UI] shiftEnterAddsRows-150=ok
+[UI] shot bar-multiline-150.png
+[UI] multilineSends-150=ok
+[UI] scene bar/bar-multiline-150-ts200
+[UI] shiftEnterAddsRows-150-ts200=ok
+[UI] shot bar-multiline-150-ts200.png
+[UI] multilineSends-150-ts200=ok
+[UI] scene bar/bar-target-chip-150
+[UI] targetChipOnlyWithTwoWindows-150=ok
+[UI] targetChipCutsTitle-150=ok
+[UI] targetChipDescribesField-150=ok
+[UI] shot bar-target-chip-150.png
+[UI] ctrlTabCycles-150=ok
+[UI] targetChipStartsOver-150=ok
+[UI] scene bar/bar-token-150
+[UI] tokenRestsAsGlyph-150=ok
+[UI] shot bar-token-rest-150.png
+[UI] tokenShowsChoice-150=ok
+[UI] shot bar-token-find-150.png
+[UI] shot bar-token-reply-150.png
+[UI] tokenSaysReplyWhileAsking-150=ok
+[UI] tokenSaysStartOnPlan-150=ok
+[UI] shot bar-token-start-150.png
+[UI] scene bar/bar-token-150-ts200
+[UI] tokenRestsAsGlyph-150-ts200=ok
+[UI] shot bar-token-rest-150-ts200.png
+[UI] tokenShowsChoice-150-ts200=ok
+[UI] shot bar-token-find-150-ts200.png
+[UI] shot bar-token-reply-150-ts200.png
+[UI] tokenSaysReplyWhileAsking-150-ts200=ok
+[UI] tokenSaysStartOnPlan-150-ts200=ok
+[UI] shot bar-token-start-150-ts200.png
+[UI] scene bar/bar-notices-150
+[UI] shot bar-notice-nokey-150.png
+[UI] noOpenRouterInBarCopy-150=ok
+[UI] noticeNamesTheNeed-150=ok
+[UI] needsKeyNudgesAndAnnounces-150=ok
+[UI] shot bar-notice-hotkey-taken-150.png
+[UI] noticeHotkeyTaken-150=ok
+[UI] scene bar/forced-colors-bar-150
+[UI] forcedColorsPillDashed-150=ok
+[UI] shot forced-colors-bar-working-150.png
+[UI] scene bar/forced-colors-answer-150
+[UI] forcedColorsAnswerOutlined-150=ok
+[UI] shot forced-colors-answer-streaming-150.png
+[UI] scene bar/bar-model-150
+[UI] modelMenuGrouped-150=ok
+[UI] shot bar-model-menu-150.png
+[UI] modelMenuFilters-150=ok
+[UI] shot bar-model-chip-150.png
+[UI] modelPinSentWithSubmit-150=ok
+[UI] modelChipUnderFind-150=ok
+[UI] scene bar/window-menu-150
+[UI] windowMenuOpens-150=ok
+[UI] shot window-menu-open-150.png
+[UI] windowMenuNudges-150=ok
+[UI] windowMenuOnRightClick-150=ok
+[UI] scene bar/window-menu-history-150
+[UI] windowMenuMaximizes-150=ok
+[UI] scene bar/light-tone-bar-150
+[UI] toneFlipsWithHysteresis-150=ok
+[UI] lightToneDarkLabels-150=ok
+[UI] shot light-tone-bar-150.png
+[UI] scene bar/light-tone-answer-150
+[UI] shot light-tone-answer-150.png
+[UI] scene bar/light-tone-settings-150
+[UI] shot light-tone-settings-150.png
+[UI] scene bar/light-tone-history-150
+[UI] shot light-tone-history-150.png
+[UI] scene bar/reduced-motion-bar-morph-150
+[UI] reducedFoldHasNoBlur-150=ok
+[UI] shot reduced-motion-bar-morph-150.png
+[UI] scene bar/reduced-motion-token-lock-150
+[UI] reducedTokenLockFades-150=ok
+[UI] shot reduced-motion-token-lock-150.png
+[UI] scene sheet/output-150
+[UI] shot 03-output-answer-150.png
+[UI] noOutputInput-150=ok
+[UI] outputTitleBar-150=ok
+[UI] outputControls-150=ok
+[UI] noDockUi-150=ok
+[UI] resizeZones-150=ok
+[UI] shot 04a-glob-08-150.png
+[UI] shot 04b-glob-30-150.png
+[UI] shot 04c-glob-52-150.png
+[UI] shot 04d-glob-70-150.png
+[UI] shot 04e-glob-90-150.png
+[UI] globOpen-150 ms=528 frames=19 longestFrameMs=50.1
+[UI] globOpens-150=ok
+[UI] globReducedMotion-150=ok
+[UI] scene sheet/multi-150
+[UI] shot 05-outputs-multi-150.png
+[UI] barAnswersTask-150=ok
+[UI] askUserRoutedFromBar-150=ok
+[UI] noInputInAnyOutput-150=ok
+[UI] scene sheet/white-150
+[UI] shot 10-white-bar-output-150.png
+[UI] scene sheet/glob-open-150
+[UI] globBudArea-150=ok
+[UI] shot glob-open-0-150.png
+[UI] shot glob-open-4-150.png
+[UI] shot glob-open-10-150.png
+[UI] shot glob-open-18-150.png
+[UI] shot glob-open-30-150.png
+[UI] shot glob-open-45-150.png
+[UI] shot glob-open-62-150.png
+[UI] shot glob-open-72-150.png
+[UI] shot glob-open-82-150.png
+[UI] shot glob-open-90-150.png
+[UI] shot glob-open-100-150.png
+[UI] globWordsNeverOutsideShape-150=ok
+[UI] globOpenOnClock-150=ok
+[UI] scene sheet/glob-close-150
+[UI] shot glob-close-0-150.png
+[UI] shot glob-close-25-150.png
+[UI] shot glob-close-50-150.png
+[UI] shot glob-close-75-150.png
+[UI] shot glob-close-100-150.png
+[UI] globCloseEndsInBar-150=ok
+[UI] scene sheet/glob-above-bar-150
+[UI] shot glob-above-bar-150.png
+[UI] globGrowsUpFromBar-150=ok
+[UI] scene sheet/glob-side-150
+[UI] shot glob-side-150.png
+[UI] globFromBarSide-150=ok
+[UI] scene sheet/glob-cascaded-150
+[UI] shot glob-cascaded-150.png
+[UI] globFallsBackToScale-150=ok
+[UI] scene sheet/glob-seam-150
+[UI] shot glob-seam-150.png
+[UI] scene sheet/sheet-markdown-fixture-150
+[UI] shot sheet-markdown-fixture-150.png
+[UI] looseListIsOneOl-150=ok
+[UI] tableRenders-150=ok
+[UI] headingsAreHeadings-150=ok
+[UI] linksShowHost-150=ok
+[UI] linkOpensThroughRust-150=ok
+[UI] codeCopyButtonCopies-150=ok
+[UI] scene sheet/sheet-mid-stream-150
+[UI] shot sheet-mid-stream-150.png
+[UI] streamingKeepsEarlierNodes-150=ok
+[UI] selectionSurvivesStream-150=ok
+[UI] streamTailDotGoesOnDone-150=ok
+[UI] scene sheet/sheet-first-answer-150
+[UI] shot sheet-first-answer-150.png
+[UI] questionNotShownTwice-150=ok
+[UI] answerAnnounceIsShort-150=ok
+[UI] sheetReportsGlassRect-150=ok
+[UI] copyAllWaitsForTwoAnswers-150=ok
+[UI] scene sheet/sheet-done-150
+[UI] shot sheet-done-150.png
+[UI] usageLineIsShort-150=ok
+[UI] shot sheet-sent-panel-150.png
+[UI] sentPanelSaysWhatWasSent-150=ok
+[UI] scene sheet/sheet-error-short-150
+[UI] shot sheet-error-short-150.png
+[UI] errorActionsInvoke-150=ok
+[UI] scene sheet/sheet-error-long-150
+[UI] shot sheet-error-long-150.png
+[UI] longErrorFixesWrap-150=ok
+[UI] scene sheet/sheet-busy-countdown-150
+[UI] shot sheet-busy-countdown-150.png
+[UI] busyCountsDown-150=ok
+[UI] scene sheet/sheet-paid-hop-150
+[UI] shot sheet-paid-hop-150.png
+[UI] paidHopAsksFirst-150=ok
+[UI] scene sheet/sheet-retry-menu-150
+[UI] shot sheet-retry-menu-150.png
+[UI] retryWithModelInvokes-150=ok
+[UI] scene sheet/sheet-started-over-150
+[UI] shot sheet-started-over-150.png
+[UI] startOverOffersUndo-150=ok
+[UI] scene sheet/sheet-title-150
+[UI] shot sheet-title-rest-150.png
+[UI] shot sheet-title-hover-150.png
+[UI] titleToolsWhenWanted-150=ok
+[UI] outputTitleBarIsSheetBar-150=ok
+[UI] scene sheet/sheet-front-back-150
+[UI] shot sheet-front-back-150.png
+[UI] frontBackDiffer-150=ok
+[UI] shot sheet-target-rim-150.png
+[UI] targetWearsRim-150=ok
+[UI] scene sheet/sheet-maximized-150
+[UI] shot sheet-maximized-1600-150.png
+[UI] readingMeasure640-150=ok
+[UI] scene sheet/find-empty-150
+[UI] shot find-empty-150.png
+[UI] findEmptyOffersNextSteps-150=ok
+[UI] scene sheet/find-results-150
+[UI] shot find-results-150.png
+[UI] findListboxArrows-150=ok
+[UI] scene sheet/sheet-task-running-150
+[UI] shot sheet-task-running-150.png
+[UI] planChecksOff-150=ok
+[UI] trailRowsHaveSrPrefixes-150=ok
+[UI] scene sheet/sheet-task-done-expanded-150
+[UI] shot sheet-task-done-collapsed-150.png
+[UI] shot sheet-task-done-expanded-150.png
+[UI] planChecksOffByCount-150=ok
+[UI] scene sheet/sheet-task-asking-150
+[UI] shot sheet-task-asking-150.png
+[UI] taskAskSaysItOnce-150=ok
+[UI] scene sheet/sheet-task-failed-150
+[UI] shot sheet-task-failed-150.png
+[UI] failureShownOnce-150=ok
+[UI] scene sheet/sheet-confirm-long-text-150
+[UI] shot sheet-confirm-long-text-150.png
+[UI] confirmAllowWaitsForFullText-150=ok
+[UI] confirmSweepThenEnable-150=ok
+[UI] scene sheet/sheet-consent-150
+[UI] shot sheet-consent-150.png
+[UI] consentNamesProvider-150=ok
+[UI] scene sheet/sheet-thinking-150
+[UI] shot sheet-thinking-150.png
+[UI] shot sheet-long-wait-150.png
+[UI] longWaitNamesTheModel-150=ok
+[UI] scene sheet/sheet-mid-stream-fence-150
+[UI] shot sheet-mid-stream-fence-150.png
+[UI] openFenceIsCode-150=ok
+[UI] scene sheet/sheet-done-actions-150
+[UI] shot sheet-done-copied-150.png
+[UI] doneOffersNextActions-150=ok
+[UI] scene sheet/sheet-two-turn-scrolled-150
+[UI] shot sheet-two-turn-scrolled-150.png
+[UI] scrolledShowsBothEdges-150=ok
+[UI] scene sheet/sheet-continued-150
+[UI] shot sheet-continued-150.png
+[UI] shot sheet-continued-done-150.png
+[UI] continuedTurnsRead-150=ok
+[UI] scene sheet/sheet-continued-150-ts200
+[UI] shot sheet-continued-150-ts200.png
+[UI] shot sheet-continued-done-150-ts200.png
+[UI] continuedTurnsRead-150-ts200=ok
+[UI] scene sheet/sheet-stopped-150
+[UI] shot sheet-stopped-150.png
+[UI] stoppedKeepsWhatArrived-150=ok
+[UI] scene sheet/sheet-fixed-height-150
+[UI] shot sheet-fixed-height-150.png
+[UI] fixedHeightStopsFollowing-150=ok
+[UI] scene sheet/find-reading-150
+[UI] shot find-reading-150.png
+[UI] findReadingOffersNothingYet-150=ok
+[UI] scene sheet/find-results-related-150
+[UI] shot find-results-related-150.png
+[UI] findMarksOffscreenRows-150=ok
+[UI] scene sheet/find-offline-150
+[UI] shot find-offline-150.png
+[UI] findOfflineOffersNoAsk-150=ok
+[UI] scene sheet/sheet-task-states-150
+[UI] shot sheet-task-planning-150.png
+[UI] shot sheet-task-plan-approval-150.png
+[UI] shot sheet-task-paused-150.png
+[UI] shot sheet-task-stopped-150.png
+[UI] taskStatesSayWhatIsNext-150=ok
+[UI] scene sheet/sheet-confirm-url-150
+[UI] shot sheet-confirm-url-150.png
+[UI] confirmShowsTheWholeUrl-150=ok
+[UI] scene sheet/glob-reduced-150
+[UI] shot glob-reduced-fade-150.png
+[UI] reducedMotionDrawsNoShape-150=ok
+[UI] scene settings/settings-150
+[UI] shot 08-settings-account-150.png
+[UI] glassLive.0-150=ok
+[UI] glassTier.0-150=ok
+[UI] shot 06-settings-glass-000-150.png
+[UI] glassLive.0.5-150=ok
+[UI] glassTier.0.5-150=ok
+[UI] shot 06-settings-glass-050-150.png
+[UI] glassLive.1-150=ok
+[UI] glassTier.1-150=ok
+[UI] shot 06-settings-glass-100-150.png
+[UI] glassSaved-150=ok
+[UI] noDuplicateHintInSettings-150=ok
+[UI] settingsResizeZones-150=ok
+[UI] settingsDrag-150=ok
+[UI] scene settings/desktop-150
+[UI] shot 07-settings-fullscreen-150.png
+[UI] scene settings/history-150
+[UI] shot 09-history-150.png
+[UI] scene settings/settings-providers-none-150
+[UI] providerRowsHaveExpandedState.none-150=ok
+[UI] shot settings-providers-none-150.png
+[UI] scene settings/settings-providers-ready-two-150
+[UI] reorderInvokesOrder-150=ok
+[UI] reorderIsAnnounced-150=ok
+[UI] reorderKeepsFocus-150=ok
+[UI] providerRowName-150=ok
+[UI] providerRowsHaveExpandedState.ready-two-150=ok
+[UI] shot settings-providers-ready-two-150.png
+[UI] scene settings/settings-providers-rejected-150
+[UI] providerRowsHaveExpandedState.rejected-150=ok
+[UI] shot settings-providers-rejected-150.png
+[UI] scene settings/settings-providers-no-credit-150
+[UI] providerRowsHaveExpandedState.no-credit-150=ok
+[UI] shot settings-providers-no-credit-150.png
+[UI] scene settings/settings-providers-busy-150
+[UI] providerRowsHaveExpandedState.busy-150=ok
+[UI] shot settings-providers-busy-150.png
+[UI] scene settings/settings-providers-blocked-150
+[UI] providerRowsHaveExpandedState.blocked-150=ok
+[UI] shot settings-providers-blocked-150.png
+[UI] scene settings/settings-providers-testing-150
+[UI] providerRowsHaveExpandedState.testing-150=ok
+[UI] shot settings-providers-testing-150.png
+[UI] scene settings/settings-providers-removing-150
+[UI] removeFocusesKeep-150=ok
+[UI] shot settings-providers-removing-confirm-150.png
+[UI] removeSendsProvider-150=ok
+[UI] removeReturnsFocus-150=ok
+[UI] providerRowsHaveExpandedState.removing-150=ok
+[UI] shot settings-providers-removing-150.png
+[UI] scene settings/settings-providers-wrong-provider-150
+[UI] wrongProviderSaysWhose-150=ok
+[UI] wrongProviderSavesNothing-150=ok
+[UI] oneProminentAction-150=ok
+[UI] shot settings-providers-wrong-provider-found-150.png
+[UI] wrongProviderSavesUnderItsOwn-150=ok
+[UI] keyNeverEchoed-150=ok
+[UI] providerRowsHaveExpandedState.wrong-provider-150=ok
+[UI] shot settings-providers-wrong-provider-150.png
+[UI] scene settings/settings-pages-150
+[UI] shot settings-page-providers-150.png
+[UI] shot settings-page-models-150.png
+[UI] shot settings-page-answers-150.png
+[UI] shot settings-page-find-150.png
+[UI] shot settings-page-agent-150.png
+[UI] shot settings-page-privacy-150.png
+[UI] shot settings-page-shortcuts-150.png
+[UI] shot settings-page-general-150.png
+[UI] everyDisclosureHasExpanded-150=ok
+[UI] noButtonNamedEdit-150=ok
+[UI] noNestedButtonsSettings-150=ok
+[UI] privacyNamesRecipients-150=ok
+[UI] tasksSayWhatStopsThem-150=ok
+[UI] scene settings/settings-row-hover-disclosing-150
+[UI] shot settings-row-hover-disclosing-150.png
+[UI] openRowSaysExpanded-150=ok
+[UI] scene settings/settings-glass-150
+[UI] shot settings-glass-0-150.png
+[UI] shot settings-glass-25-150.png
+[UI] shot settings-glass-50-150.png
+[UI] shot settings-glass-75-150.png
+[UI] shot settings-glass-100-150.png
+[UI] sliderLabelsCentredOnStops-150=ok
+[UI] sliderSnapsToStop-150=ok
+[UI] scene settings/settings-maximized-150
+[UI] shot settings-maximized-150.png
+[UI] settingsFullBleed-150=ok
+[UI] scene settings/history-maximized-150
+[UI] shot history-maximized-150.png
+[UI] historyFullBleed-150=ok
+[UI] scene settings/settings-history-bars-150
+[UI] oneTitleBarSystem-150=ok
+[UI] shot settings-history-bars-150.png
+[UI] scene settings/settings-text-size-150
+[UI] textSizeRowInvokes-150=ok
+[UI] shot settings-text-size-150.png
+[UI] scene settings/settings-models-automatic-150
+[UI] shot settings-models-automatic-150.png
+[UI] scene settings/settings-models-anthropic-150
+[UI] modelListPerProvider-150=ok
+[UI] shot settings-models-anthropic-150.png
+[UI] shot settings-models-combo-open-150.png
+[UI] modelSaveSendsProvider-150=ok
+[UI] scene settings/settings-combo-open-150
+[UI] menuIsTheSharedMenu-150=ok
+[UI] shot settings-combo-open-150.png
+[UI] scene settings/settings-find-choices-150
+[UI] radiosRoveWithArrows-150=ok
+[UI] radiosOneTabStop-150=ok
+[UI] shot settings-find-choices-150.png
+[UI] scene settings/settings-delete-all-150
+[UI] deleteAllConfirmsInline-150=ok
+[UI] shot settings-delete-all-150.png
+[UI] scene settings/settings-shortcuts-150
+[UI] shot settings-shortcuts-capturing-150.png
+[UI] freeChordsOnOneLine-150=ok
+[UI] shot settings-shortcuts-conflict-150.png
+[UI] shortcutConflictOffersFree-150=ok
+[UI] f1OpensShortcuts-150=ok
+[UI] scene settings/settings-general-150
+[UI] shot settings-general-150.png
+[UI] barPositionSummary-150=ok
+[UI] scene settings/settings-general-150-ts200
+[UI] shot settings-general-150-ts200.png
+[UI] barPositionSummary-150-ts200=ok
+[UI] scene settings/history-list-150
+[UI] shot history-list-150.png
+[UI] noNestedButtons-150=ok
+[UI] searchQuietAtRest-150=ok
+[UI] historyArrowsMove-150=ok
+[UI] scene settings/history-row-hover-150
+[UI] shot history-row-hover-150.png
+[UI] scene settings/history-search-results-150
+[UI] historySearchAsksRust-150=ok
+[UI] shot history-search-results-150.png
+[UI] scene settings/history-empty-150
+[UI] shot history-empty-150.png
+[UI] scene settings/history-off-150
+[UI] historyOffSaysOff-150=ok
+[UI] shot history-off-150.png
+[UI] scene settings/history-delete-all-150
+[UI] historyDeleteAllInline-150=ok
+[UI] shot history-delete-all-150.png
+[UI] scene settings/history-deleted-undo-150
+[UI] shot history-deleted-undo-150.png
+[UI] deleteIsUndoable-150=ok
+[UI] scene voice/voice-bar-150
+[UI] shot voice-01-bar-idle-150.png
+[UI] voiceMicStarts-150=ok
+[UI] voiceMicListening-150=ok
+[UI] shot voice-02-bar-listening-150.png
+[UI] voiceMicStops-150=ok
+[UI] voiceMicFillsField-150=ok
+[UI] shot voice-03-bar-done-150.png
+[UI] voiceMicError-150=ok
+[UI] shot voice-04-bar-error-150.png
+[UI] voiceEscCancels-150=ok
+[UI] scene voice/voice-pill-150
+[UI] shot voice-05-pill-listening-150.png
+[UI] shot voice-06-pill-writing-150.png
+[UI] voicePillSaysWhy-150=ok
+[UI] shot voice-07-pill-error-150.png
+[UI] scene voice/voice-settings-150
+[UI] shot voice-08-settings-engine-150.png
+[UI] voiceSettingsPage-150=ok
+[UI] voiceSettingsSaves-150=ok
+[UI] scene voice/voice-settings-150-ts200
+[UI] shot voice-08-settings-engine-150-ts200.png
+[UI] voiceSettingsPage-150-ts200=ok
+[UI] voiceSettingsSaves-150-ts200=ok
+[UI] scene polish/menu-bounds-bar-150
+[UI] menuInsideWindow.barIntent-150=ok
+[UI] pointerMenuNoRing-150=ok
+[UI] shot menu-bounds-bar-intent-150.png
+[UI] menuInsideWindow.barModel-150=ok
+[UI] shot menu-bounds-bar-model-150.png
+[UI] scene polish/menu-bounds-retry-150
+[UI] menuInsideWindow.retry-150=ok
+[UI] shot menu-bounds-retry-150.png
+[UI] scene polish/menu-bounds-window-150
+[UI] menuInsideWindow.windowMenu-150=ok
+[UI] scene polish/menu-bounds-combo-150
+[UI] menuInsideWindow.combo-150=ok
+[UI] shot menu-bounds-combo-150.png
+[UI] scene polish/menu-bounds-history-150
+[UI] menuInsideWindow.historyRow-150=ok
+[UI] lane harness sceneRuns=8
+[UI] lane platform sceneRuns=0
+[UI] lane windows sceneRuns=0
+[UI] lane capture sceneRuns=12
+[UI] lane llm sceneRuns=0
+[UI] lane agent sceneRuns=0
+[UI] lane bar sceneRuns=45
+[UI] lane sheet sceneRuns=92
+[UI] lane settings sceneRuns=68
+[UI] lane voice sceneRuns=8
+[UI] lane polish sceneRuns=10
+[UI] sheetCssLint=ok
+[UI] markdownNeverInjects=ok
+[UI] cssOnSystem.settings=ok
+[UI] cssOnSystem.history=ok
+[UI] oneCssLayer=ok
+[UI] iconsFromSprite=ok
+[UI] voicePillOnlyListens=ok
+[UI] noPageErrors=ok
+[UI] done failed=0 shots=380
