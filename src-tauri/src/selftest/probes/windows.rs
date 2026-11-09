@@ -78,7 +78,7 @@ pub fn run(cx: &mut Cx) {
         let shown = flags::hwnd_for(&l).is_some_and(flags::is_visible);
         o.map(|o| (o.chat.messages, o.active, shown))
     });
-    let Some(Some((messages, active, shown))) = before else {
+    let Some(Some((messages, active, was_shown))) = before else {
         for l in LABELS {
             cx.must(l, false, "the output has no state");
         }
@@ -131,10 +131,12 @@ pub fn run(cx: &mut Cx) {
         if let Some(p) = payload {
             windows::emit(app, &l, "chat:sync", p);
         }
-        if !shown {
-            if let Some(w) = windows::window(app, &l) {
-                flags::hide(&w);
-            }
+        // Only the orb, as the later probes expect (capture's backdropIdle).
+        // The answer may have been up when this probe started: before the
+        // fix, tao hid it the first time a probe's pointer crossed it.
+        outputs::hide_windows(app);
+        if let Some(w) = windows::window(app, &l) {
+            flags::hide(&w);
         }
         windows::collapse_panel(app);
     });
@@ -149,7 +151,7 @@ pub fn run(cx: &mut Cx) {
                 .collect()
         })
         .unwrap_or_default();
-    cx.log("windowsAfter", shown.join(","));
+    cx.log("windowsAfter", format!("{} (answer shown at start: {was_shown})", shown.join(",")));
 }
 
 /// The bar moved to that corner and the answer placed afresh beside it, as
