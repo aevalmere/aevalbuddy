@@ -844,24 +844,27 @@
     el.style.maxHeight = `${Math.min(room, own)}px`;
     el.style.overflowY = 'auto';
     const left = Math.round(Math.max(edge, Math.min(o.align === 'end' ? r.right - w : r.left, vw - w - edge)));
-    el.style.left = `${left}px`;
+    // A transformed ancestor moves what position: fixed is measured from; a
+    // probe finds where its edges really are (the menu's own entrance
+    // transform is left out of the sum).
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none';
+    (el.parentNode || document.body).appendChild(probe);
+    const o0 = probe.getBoundingClientRect();
+    probe.style.top = 'auto';
+    probe.style.bottom = '0';
+    const o1 = probe.getBoundingClientRect();
+    probe.remove();
+    el.style.left = `${Math.round(left - o0.left)}px`;
     el.style.right = 'auto';
     // Pinned by the edge next to the anchor, so growing moves away from it.
     if (side === 'below') {
-      const top = Math.round(r.bottom + gap);
-      el.style.top = `${top}px`;
+      el.style.top = `${Math.round(r.bottom + gap - o0.top)}px`;
       el.style.bottom = 'auto';
-      const got = el.getBoundingClientRect();
-      if (Math.abs(got.top - top) >= 0.5) el.style.top = `${Math.round(top + (top - got.top))}px`;
     } else {
-      const bottom = Math.round(r.top - gap);
-      el.style.bottom = `${vh - bottom}px`;
+      el.style.bottom = `${Math.round(o1.bottom - (r.top - gap))}px`;
       el.style.top = 'auto';
-      const got = el.getBoundingClientRect();
-      if (Math.abs(got.bottom - bottom) >= 0.5) el.style.bottom = `${Math.round(vh - bottom - (bottom - got.bottom))}px`;
     }
-    const got = el.getBoundingClientRect();
-    if (Math.abs(got.left - left) >= 0.5) el.style.left = `${Math.round(left + (left - got.left))}px`;
     el.dataset.side = side;
     el.style.setProperty('--drop-from', side === 'below' ? '-4px' : '4px');
     return side;
