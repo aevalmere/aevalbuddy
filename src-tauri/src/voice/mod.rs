@@ -1,10 +1,13 @@
 //! Voice input (entries/voice.md): the bar's mic and dictation in any app.
 //!
 //! One utterance at a time. The bar's mic and the dictation chord both
-//! start a recording here; on release it is transcribed (Whisper on this
-//! PC by default), cleaned up by a free model when one is ready (raw text
-//! otherwise), and handed to the bar's field or typed into the app that has
-//! the focus. Nothing is written to disk and nothing outlives the utterance.
+//! start a recording here. While it records, the part before each pause is
+//! transcribed already (`stream`); on release the rest is (Whisper on this
+//! PC by default), hesitations are taken out, AI cleanup runs when the
+//! person turned it on, and the text is handed to the bar's field or typed
+//! into the app that has the focus. Every utterance's stage timings are
+//! kept for the speed probe ([`last_timings`]). Nothing is written to disk
+//! and nothing outlives the utterance.
 
 pub mod capture;
 pub mod cleanup;
@@ -16,6 +19,8 @@ pub mod model;
 pub mod pill;
 pub mod ptt;
 pub mod settings;
+pub mod stream;
+pub mod vad;
 pub mod wav;
 pub mod whisper;
 
@@ -62,6 +67,45 @@ struct Live {
     recorder: capture::Recorder,
     started: Instant,
     handsfree: bool,
+    streamer: Option<stream::Streamer>,
+}
+
+/// Where the time went in one utterance, from the release to the text being
+/// in, in milliseconds.
+#[derive(Clone, Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Timings {
+    /// Seconds recorded.
+    pub audio_s: f32,
+    /// Seconds transcribed while the key was held, in `pieces` pieces.
+    pub early_s: f32,
+    pub pieces: usize,
+    /// Whisper time spent on those pieces before the release (not part of
+    /// the total).
+    pub early_ms: u64,
+    /// Stopping the microphone and resampling.
+    pub stop_ms: u64,
+    /// Waiting for a piece that was being transcribed at the release.
+    pub wait_ms: u64,
+    /// Transcribing what was left (and downloading the model, the first
+    /// time).
+    pub transcribe_ms: u64,
+    pub cleanup_ms: u64,
+    pub insert_ms: u64,
+    pub total_ms: u64,
+}
+
+static LAST_TIMINGS: Mutex<Option<Timings>> = Mutex::new(None);
+
+/// The last utterance's timings.
+pub fn last_timings() -> Option<Timings> {
+    LAST_TIMINGS.lock().clone()
+}
+
+/// The last utterance's timings, cleared (the speed probe waits for the
+/// next).
+pub fn take_timings() -> Option<Timings> {
+    LAST_TIMINGS.lock().take()
 }
 
 static LIVE: Mutex<Option<Live>> = Mutex::new(None);
@@ -126,12 +170,18 @@ pub fn start(app: &AppHandle, origin: Origin) -> Result<(), String> {
     };
     let id = NEXT.fetch_add(1, Ordering::SeqCst);
     GENERATION.fetch_add(1, Ordering::SeqCst);
+    // Pieces are transcribed early only with a model already on disk and a
+    // processor that runs it; Gemini takes the whole clip.
+    let streamer = engine::usable(&s)
+        .filter(|_| whisper::cpu_ok())
+        .and_then(|path| stream::Streamer::start(recorder.tap(), path, s.language.clone()));
     *live = Some(Live {
         id,
         origin,
         recorder,
         started: Instant::now(),
         handsfree: false,
+        streamer,
     });
     drop(live);
     let listening = state(origin, "listening", json!({}));
@@ -209,18 +259,36 @@ pub fn finish(app: &AppHandle, origin: Origin) {
         return;
     }
     let since = generation();
+    let released = Instant::now();
     emit_state(app, origin, "working", json!({}));
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let audio = tauri::async_runtime::spawn_blocking(move || live.recorder.finish()).await;
+        let Live {
+            recorder, streamer, ..
+        } = live;
+        let mut t = Timings::default();
+        let audio = tauri::async_runtime::spawn_blocking(move || recorder.finish()).await;
         let audio = match audio {
             Ok(Ok(a)) => a,
             Ok(Err(e)) => return fail(&app, origin, &e, since),
             Err(_) => return fail(&app, origin, "The recording stopped unexpectedly.", since),
         };
-        let got = pipeline(&app, origin, audio, since).await;
+        t.stop_ms = released.elapsed().as_millis() as u64;
+        let waited = Instant::now();
+        let early = match streamer {
+            Some(st) => tauri::async_runtime::spawn_blocking(move || st.finish())
+                .await
+                .unwrap_or_default(),
+            None => stream::Done::default(),
+        };
+        t.wait_ms = waited.elapsed().as_millis() as u64;
+        t.audio_s = audio.seconds();
+        t.early_s = stream::seconds(early.upto);
+        t.pieces = early.pieces;
+        t.early_ms = early.busy_ms;
+        let got = pipeline(&app, origin, audio, early, since, &mut t).await;
         match got {
-            Ok(text) => deliver(&app, origin, text, since).await,
+            Ok(text) => deliver(&app, origin, text, since, released, t).await,
             Err(e) => fail(&app, origin, &e, since),
         }
     });
@@ -230,7 +298,9 @@ async fn pipeline(
     app: &AppHandle,
     origin: Origin,
     audio: capture::Audio,
+    early: stream::Done,
     since: u64,
+    t: &mut Timings,
 ) -> Result<String, String> {
     if audio.seconds() < 0.3 || audio.peak_level() < QUIET {
         return Err(NOTHING_HEARD.into());
@@ -246,7 +316,9 @@ async fn pipeline(
         let v = json!({ "origin": origin.name(), "progress": pct });
         crate::windows::emit(&a, origin.label(), "voice:progress", v);
     };
-    let heard = engine::transcribe(&s, audio.samples, &on_progress).await?;
+    let began = Instant::now();
+    let heard = engine::transcribe(&s, audio.samples, early, &on_progress).await?;
+    t.transcribe_ms = began.elapsed().as_millis() as u64;
     if moved(since) {
         // Cancelled meanwhile: nothing to say.
         return Err(String::new());
@@ -255,24 +327,52 @@ async fn pipeline(
     if raw.is_empty() {
         return Err(NOTHING_HEARD.into());
     }
-    if heard.cleaned || !s.cleanup {
+    if heard.cleaned {
         return Ok(raw);
     }
+    if !s.cleanup {
+        return Ok(cleanup::tidy(&raw));
+    }
     emit_state(app, origin, "cleaning", json!({}));
-    Ok(cleanup::clean(&raw).await.0)
+    let began = Instant::now();
+    let cleaned = cleanup::clean(&raw).await.0;
+    t.cleanup_ms = began.elapsed().as_millis() as u64;
+    Ok(cleaned)
 }
 
-async fn deliver(app: &AppHandle, origin: Origin, text: String, since: u64) {
+fn record(t: &mut Timings, released: Instant) {
+    t.total_ms = released.elapsed().as_millis() as u64;
+    eprintln!(
+        "[voice] timings {}",
+        serde_json::to_string(&t).unwrap_or_default()
+    );
+    *LAST_TIMINGS.lock() = Some(t.clone());
+}
+
+async fn deliver(
+    app: &AppHandle,
+    origin: Origin,
+    text: String,
+    since: u64,
+    released: Instant,
+    mut timing: Timings,
+) {
     if moved(since) {
         return;
     }
     match origin {
-        Origin::Bar => emit_state(app, origin, "done", json!({ "text": text })),
+        Origin::Bar => {
+            record(&mut timing, released);
+            emit_state(app, origin, "done", json!({ "text": text }));
+        }
         Origin::Dictation => {
             let t = text.clone();
+            let began = Instant::now();
             let put = tauri::async_runtime::spawn_blocking(move || insert::insert(&t)).await;
+            timing.insert_ms = began.elapsed().as_millis() as u64;
             match put {
                 Ok(Ok(_)) => {
+                    record(&mut timing, released);
                     emit_state(app, origin, "done", json!({ "text": text }));
                     pill::hide(app, Duration::from_millis(700), since);
                 }
@@ -339,7 +439,19 @@ fn on_ptt(app: &AppHandle, e: ptt::Event) {
     }
 }
 
-/// Called once from the app's setup: the dictation hook and the pill.
+/// Keeps the model ready for the settings `s`: loaded and kept while
+/// dictation is on, so the first words after a quiet spell are as quick as
+/// any; the quantized model fetched in place of an earlier build's.
+pub fn refresh(s: &settings::VoiceSettings) {
+    whisper::pin(s.dictation);
+    if s.dictation {
+        engine::warm(s);
+    }
+    engine::upgrade(s);
+}
+
+/// Called once from the app's setup: the dictation hook, the pill and the
+/// model.
 pub fn setup(app: &AppHandle) {
     let s = settings::get();
     let a = app.clone();
@@ -349,6 +461,7 @@ pub fn setup(app: &AppHandle) {
     if s.dictation {
         pill::prepare(app);
     }
+    refresh(&s);
 }
 
 #[cfg(test)]

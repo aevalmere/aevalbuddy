@@ -1,7 +1,7 @@
 //! Whisper's weights: downloaded once, on first use, from the whisper.cpp
 //! repository on Hugging Face into `<userData>\voice\`, checked against the
 //! SHA-256 below before they are used. A `<file>.sha256` beside the model
-//! records the check, so a later start does not hash 142 MB again; a file of
+//! records the check, so a later start does not hash the file again; a file of
 //! the wrong size, or without that record, is fetched again.
 
 use std::io::Write;
@@ -22,32 +22,37 @@ pub struct Spec {
 }
 
 /// English-only models are a little better at English; the others take any
-/// language. Sizes and hashes from huggingface.co/ggerganov/whisper.cpp
-/// (the LFS object ids), checked 2026-11-08.
-pub const MODELS: [Spec; 6] = [
+/// language. The quantized (q5_1) files are the ones in use: a third of the
+/// size of the f16 ones, so they download and load about three times faster
+/// and run at least as fast on a laptop CPU, at the same accuracy within a
+/// word or two in a hundred. The f16 files are what earlier builds fetched;
+/// one already on disk is used until its replacement has arrived
+/// ([`legacy_for`]). Sizes and hashes from huggingface.co/ggerganov/whisper.cpp
+/// (the LFS object ids), checked 2026-11-09.
+pub const MODELS: [Spec; 8] = [
     Spec {
-        id: "tiny.en",
-        file: "ggml-tiny.en.bin",
-        bytes: 77_704_715,
-        sha256: "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f",
+        id: "tiny.en-q5_1",
+        file: "ggml-tiny.en-q5_1.bin",
+        bytes: 32_166_155,
+        sha256: "c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b",
     },
     Spec {
-        id: "tiny",
-        file: "ggml-tiny.bin",
-        bytes: 77_691_713,
-        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+        id: "tiny-q5_1",
+        file: "ggml-tiny-q5_1.bin",
+        bytes: 32_152_673,
+        sha256: "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
     },
     Spec {
-        id: "base.en",
-        file: "ggml-base.en.bin",
-        bytes: 147_964_211,
-        sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+        id: "base.en-q5_1",
+        file: "ggml-base.en-q5_1.bin",
+        bytes: 59_721_011,
+        sha256: "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f",
     },
     Spec {
-        id: "base",
-        file: "ggml-base.bin",
-        bytes: 147_951_465,
-        sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        id: "base-q5_1",
+        file: "ggml-base-q5_1.bin",
+        bytes: 59_707_625,
+        sha256: "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
     },
     Spec {
         id: "small.en-q5_1",
@@ -61,6 +66,35 @@ pub const MODELS: [Spec; 6] = [
         bytes: 190_085_487,
         sha256: "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
     },
+    // What earlier builds downloaded, still used while it is on disk.
+    Spec {
+        id: "base.en",
+        file: "ggml-base.en.bin",
+        bytes: 147_964_211,
+        sha256: "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+    },
+    Spec {
+        id: "base",
+        file: "ggml-base.bin",
+        bytes: 147_951_465,
+        sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+    },
+];
+
+/// The f16 tiny models earlier builds fetched, for [`legacy_for`] only.
+const LEGACY_TINY: [Spec; 2] = [
+    Spec {
+        id: "tiny.en",
+        file: "ggml-tiny.en.bin",
+        bytes: 77_704_715,
+        sha256: "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f",
+    },
+    Spec {
+        id: "tiny",
+        file: "ggml-tiny.bin",
+        bytes: 77_691_713,
+        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+    },
 ];
 
 const SOURCE: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/";
@@ -73,14 +107,41 @@ pub const DAMAGED: &str = "The voice model arrived damaged. Try again.";
 pub fn spec_for(size: &str, language: &str) -> &'static Spec {
     let english = language == "en";
     let id = match (size, english) {
-        ("tiny", true) => "tiny.en",
-        ("tiny", false) => "tiny",
+        ("tiny", true) => "tiny.en-q5_1",
+        ("tiny", false) => "tiny-q5_1",
         ("small", true) => "small.en-q5_1",
         ("small", false) => "small-q5_1",
-        (_, true) => "base.en",
-        (_, false) => "base",
+        (_, true) => "base.en-q5_1",
+        (_, false) => "base-q5_1",
     };
-    MODELS.iter().find(|m| m.id == id).unwrap_or(&MODELS[2])
+    by_id(id).unwrap_or(&MODELS[2])
+}
+
+pub fn by_id(id: &str) -> Option<&'static Spec> {
+    MODELS.iter().chain(LEGACY_TINY.iter()).find(|m| m.id == id)
+}
+
+/// The f16 file an earlier build fetched in place of `spec`, if any.
+pub fn legacy_for(spec: &Spec) -> Option<&'static Spec> {
+    by_id(spec.id.strip_suffix("-q5_1")?).filter(|l| l.id != spec.id)
+}
+
+/// The file to run for `spec` now: its own, or the earlier build's while the
+/// new one has not arrived.
+pub fn usable(spec: &'static Spec) -> Option<PathBuf> {
+    if ready(spec) {
+        return Some(path(spec));
+    }
+    legacy_for(spec).filter(|l| ready(l)).map(path)
+}
+
+/// Once `spec` is on disk, the f16 file it replaces is deleted.
+pub fn drop_legacy(spec: &Spec) {
+    if let Some(l) = legacy_for(spec).filter(|_| ready(spec)) {
+        let p = path(l);
+        let _ = std::fs::remove_file(marker(&p));
+        let _ = std::fs::remove_file(p);
+    }
 }
 
 pub fn dir() -> PathBuf {
@@ -226,14 +287,24 @@ mod tests {
 
     #[test]
     fn english_gets_the_english_model() {
-        assert_eq!(spec_for("base", "en").id, "base.en");
-        assert_eq!(spec_for("base", "auto").id, "base");
-        assert_eq!(spec_for("tiny", "en").id, "tiny.en");
+        assert_eq!(spec_for("base", "en").id, "base.en-q5_1");
+        assert_eq!(spec_for("base", "auto").id, "base-q5_1");
+        assert_eq!(spec_for("tiny", "en").id, "tiny.en-q5_1");
         assert_eq!(spec_for("small", "fr").id, "small-q5_1");
-        assert_eq!(spec_for("huge", "en").id, "base.en");
+        assert_eq!(spec_for("huge", "en").id, "base.en-q5_1");
         assert!(MODELS
             .iter()
+            .chain(LEGACY_TINY.iter())
             .all(|m| m.sha256.len() == 64 && m.file.ends_with(".bin")));
+        assert_eq!(
+            legacy_for(spec_for("base", "en")).map(|l| l.id),
+            Some("base.en")
+        );
+        assert_eq!(
+            legacy_for(spec_for("tiny", "fr")).map(|l| l.id),
+            Some("tiny")
+        );
+        assert_eq!(legacy_for(spec_for("small", "en")), None);
     }
 
     #[test]

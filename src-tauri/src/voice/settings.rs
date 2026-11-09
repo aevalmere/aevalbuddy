@@ -1,11 +1,14 @@
 //! Voice settings, kept under `voice` in aevalbuddy.json:
 //!
 //! ```json
-//! "voice": { "dictation": true, "hotkey": "Ctrl+Super", "cleanup": true,
+//! "voice": { "dictation": true, "hotkey": "Ctrl+Super", "aiCleanup": false,
 //!            "language": "en", "engine": "whisper-base", "device": "" }
 //! ```
 //!
-//! Anything missing or unreadable reads as its default.
+//! Anything missing or unreadable reads as its default. Settings and the
+//! IPC call AI cleanup `cleanup`; it is stored as `aiCleanup` because the
+//! `cleanup` earlier builds stored was their default (on), never a choice,
+//! and cleanup is now off unless asked for (entries/voice-speed.md).
 
 use serde_json::{json, Value};
 
@@ -40,6 +43,8 @@ pub struct VoiceSettings {
     /// The hold-to-talk chord works in every app.
     pub dictation: bool,
     pub hotkey: String,
+    /// AI cleanup by a free model, which waits for the network. Off, the
+    /// words go in as heard with hesitations taken out.
     pub cleanup: bool,
     pub language: String,
     pub engine: String,
@@ -52,7 +57,7 @@ impl Default for VoiceSettings {
         VoiceSettings {
             dictation: true,
             hotkey: ptt::DEFAULT.into(),
-            cleanup: true,
+            cleanup: false,
             language: "en".into(),
             engine: ENGINES[0].into(),
             device: String::new(),
@@ -61,6 +66,17 @@ impl Default for VoiceSettings {
 }
 
 impl VoiceSettings {
+    /// What is kept in the store (see the module comment).
+    pub fn stored(&self) -> Value {
+        let mut v = self.to_json();
+        if let Some(o) = v.as_object_mut() {
+            o.remove("cleanup");
+            o.insert("aiCleanup".into(), json!(self.cleanup));
+        }
+        v
+    }
+
+    /// What Settings is sent.
     pub fn to_json(&self) -> Value {
         json!({
             "dictation": self.dictation,
@@ -98,7 +114,7 @@ pub fn from_value(v: Option<&Value>) -> VoiceSettings {
     VoiceSettings {
         dictation: flag("dictation", d.dictation),
         hotkey,
-        cleanup: flag("cleanup", d.cleanup),
+        cleanup: flag("aiCleanup", d.cleanup),
         language,
         engine,
         device: text("device").unwrap_or_default(),
@@ -170,7 +186,7 @@ pub fn merge(
 }
 
 pub fn save(s: &VoiceSettings) {
-    crate::store::get().set_raw(KEY, s.to_json());
+    crate::store::get().set_raw(KEY, s.stored());
 }
 
 #[cfg(test)]
@@ -182,13 +198,21 @@ mod tests {
         assert_eq!(from_value(None), VoiceSettings::default());
         assert_eq!(from_value(Some(&json!("x"))), VoiceSettings::default());
         let s = from_value(Some(
-            &json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "cleanup": 0 }),
+            &json!({ "hotkey": "win+ctrl", "engine": "nope", "language": "fr", "aiCleanup": 1 }),
         ));
         assert_eq!(s.hotkey, "Ctrl+Super");
         assert_eq!(s.engine, "whisper-base");
         assert_eq!(s.language, "fr");
-        assert!(s.cleanup, "a number is not a switch");
-        assert_eq!(from_value(Some(&s.to_json())), s);
+        assert!(!s.cleanup, "a number is not a switch");
+        assert_eq!(from_value(Some(&s.stored())), s);
+        // An earlier build's stored default is not a choice to clean up.
+        assert!(!from_value(Some(&json!({ "cleanup": true }))).cleanup);
+        let on = VoiceSettings {
+            cleanup: true,
+            ..VoiceSettings::default()
+        };
+        assert!(from_value(Some(&on.stored())).cleanup);
+        assert_eq!(on.to_json()["cleanup"], json!(true));
         assert_eq!(s.whisper_size(), Some("base"));
     }
 

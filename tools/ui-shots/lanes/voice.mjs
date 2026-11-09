@@ -5,12 +5,12 @@
 import { BAR, openBar } from '../kit.mjs';
 
 const SNAPSHOT = {
-  settings: { dictation: true, hotkey: 'Ctrl+Super', cleanup: true, language: 'en', engine: 'whisper-base', device: '' },
+  settings: { dictation: true, hotkey: 'Ctrl+Super', cleanup: false, language: 'en', engine: 'whisper-base', device: '' },
   hotkeyLabel: 'Ctrl+Win',
   devices: ['Microphone (Realtek Audio)', 'Headset (USB Audio)'],
   engines: [
-    { id: 'whisper-base', local: true, bytes: 147964211, ready: false, available: true },
-    { id: 'whisper-tiny', local: true, bytes: 77704715, ready: true, available: true },
+    { id: 'whisper-base', local: true, bytes: 59721011, ready: false, available: true },
+    { id: 'whisper-tiny', local: true, bytes: 32166155, ready: true, available: true },
     { id: 'whisper-small', local: true, bytes: 190098681, ready: false, available: true },
     { id: 'gemini', local: false, bytes: null, ready: false, available: false },
   ],
@@ -21,6 +21,8 @@ const SNAPSHOT = {
   ],
   download: null,
   cleanupModel: 'meta-llama/llama-3.3-70b-instruct:free',
+  cleanupBudgetMs: 800,
+  lastTimings: { audioS: 7.9, earlyS: 4.1, pieces: 1, earlyMs: 310, stopMs: 4, waitMs: 0, transcribeMs: 290, cleanupMs: 0, insertMs: 6, totalMs: 300 },
   gemini: false,
   cpuOk: true,
 };
