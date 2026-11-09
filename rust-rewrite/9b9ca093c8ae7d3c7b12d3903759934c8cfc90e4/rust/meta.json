@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42447500993,
+  "run_id": 42599223417,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42447500993",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42599223417",
   "event": "push",
-  "sha": "709fedf132cda482e08e794c7a7682b2cbd0d205",
+  "sha": "9b9ca093c8ae7d3c7b12d3903759934c8cfc90e4",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
   "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-08T04:45:46Z",
+  "finished": "2026-11-09T10:36:13Z",
   "error_lines": 0,
   "steps": [
     {
@@ -64,12 +64,27 @@
       "log": "test.log"
     },
     {
+      "name": "Restore NSIS toolset",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Seed NSIS toolset",
+      "outcome": "success",
+      "log": "nsis.log"
+    },
+    {
+      "name": "Save NSIS toolset",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
       "name": "Build installer",
       "outcome": "success",
       "log": "build.log"
     },
     {
-      "name": "Scaffold smoke",
+      "name": "Smoke",
       "outcome": "success",
       "log": "smoke.log"
     },
