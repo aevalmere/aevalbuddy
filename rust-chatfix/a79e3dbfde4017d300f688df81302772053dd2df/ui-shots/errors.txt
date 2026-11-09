@@ -1,0 +1,5 @@
+== shots.log ==
+[UI] continuedTurnsRead=FAIL:{"overlaps":0,"gaps":[68,68],"rights":[372,372],"wide":[27,27],"metas":[32,32,32]}
+[UI] continuedTurnsRead-ts200=FAIL:{"overlaps":0,"gaps":[100,100],"rights":[372,372],"wide":[297,297],"metas":[64,64,64]}
+[UI] continuedTurnsRead-150=FAIL:{"overlaps":0,"gaps":[68,68],"rights":[372,372],"wide":[27,27],"metas":[32,32,32]}
+[UI] continuedTurnsRead-150-ts200=FAIL:{"overlaps":0,"gaps":[100,100],"rights":[372,372],"wide":[297,297],"metas":[64,64,64]}
