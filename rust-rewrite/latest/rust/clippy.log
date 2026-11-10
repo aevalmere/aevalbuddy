@@ -36,7 +36,7 @@
     Checking arboard v3.7.0
    Compiling tauri-macros v2.7.4
     Checking tauri v2.12.5
-    Checking tauri-plugin-global-shortcut v2.4.1
     Checking tauri-plugin-clipboard-manager v2.5.0
     Checking tauri-plugin-opener v2.7.2
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 33.45s
+    Checking tauri-plugin-global-shortcut v2.4.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.96s
