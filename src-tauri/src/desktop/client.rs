@@ -1169,6 +1169,25 @@ impl Desktop {
         self.op("scrollToText", args).await
     }
 
+    /// The full text of the window's documents and editors, in view or
+    /// scrolled away, up to `max_chars` across the window: `{docs: [{ref,
+    /// text, seen, truncated}], total, truncated, readMs}`. `seen` is the
+    /// start of what the application reports as visible. The helper stops
+    /// starting new documents after `budget_ms`.
+    pub async fn doc_text(
+        self: &Arc<Self>,
+        window_handle: Option<&Value>,
+        max_chars: u64,
+        budget_ms: u64,
+    ) -> DResult<Value> {
+        let args = json!({
+            "windowHandle": arg_window(window_handle),
+            "maxChars": max_chars,
+            "budgetMs": budget_ms,
+        });
+        self.op("docText", args).await
+    }
+
     pub async fn scroll_to(self: &Arc<Self>, r#ref: &str) -> DResult<Value> {
         let r = self.op("scrollTo", json!({ "ref": r#ref })).await?;
         Ok(json!({ "ok": r["ok"], "node": p::node_shape(&r["node"]) }))

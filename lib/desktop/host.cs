@@ -472,6 +472,7 @@ namespace AevalDesktop
                 case "scrollTo": return ScrollTo(a);
                 case "findText": return FindTextCmd(a);
                 case "scrollToText": return ScrollToText(a);
+                case "docText": return DocTextCmd(a);
                 case "invoke": return InvokeCmd(a);
                 case "setValue": return SetValueCmd(a);
                 case "restoreCursor": return RestoreCursor();
@@ -1757,6 +1758,67 @@ namespace AevalDesktop
             res["total"] = total;
             res["truncated"] = truncated;
             res["findMs"] = sw.ElapsedMilliseconds;
+            return res;
+        }
+
+        // Ask's whole-document read. getText returns the lines that are in
+        // view; this returns each document's or editor's full text, in view
+        // or scrolled away, up to maxChars across the window. "seen" is the
+        // start of the first range the application reports as visible, so
+        // the caller can tell which part of a long document is on screen.
+        // Password fields are skipped, as everywhere else.
+        static object DocTextCmd(Dictionary<string, object> a)
+        {
+            int maxChars = Math.Max(100, Int(a, "maxChars", 60000));
+            int budget = Math.Max(50, Int(a, "budgetMs", 700));
+            var sw = Stopwatch.StartNew();
+            var docs = new List<object>();
+            int total = 0;
+            bool truncated = false;
+            a["depth"] = Int(a, "depth", 60);
+            int gen;
+            Walk w = RunWalk(a, "visible", delegate (AutomationElement el, Info i, int r, string parentName)
+            {
+                if (truncated) return false;
+                if (total >= maxChars || sw.ElapsedMilliseconds > budget) { truncated = true; return false; }
+                if (!i.Text || i.Password || r <= 0) return true;
+                if (i.ControlTypeId != ControlType.Document.Id && i.ControlTypeId != ControlType.Edit.Id) return true;
+                string text = null;
+                string seen = "";
+                try
+                {
+                    TextPattern tp = el.GetCurrentPattern(TextPattern.Pattern) as TextPattern;
+                    if (tp == null) return true;
+                    // One character more than fits shows that there was more.
+                    text = tp.DocumentRange.GetText(maxChars - total + 1);
+                    try
+                    {
+                        TextPatternRange[] vis = tp.GetVisibleRanges();
+                        if (vis != null && vis.Length > 0) seen = vis[0].GetText(400) ?? "";
+                    }
+                    catch (Exception) { seen = ""; }
+                }
+                catch (Exception) { text = null; }
+                if (text == null) return true;
+                if (text.Trim().Length == 0) return false;
+                bool cut = text.Length > maxChars - total;
+                if (cut) { text = text.Substring(0, maxChars - total); truncated = true; }
+                var d = new Dictionary<string, object>();
+                d["ref"] = RefStr(r);
+                d["text"] = text;
+                d["seen"] = seen;
+                d["truncated"] = cut;
+                docs.Add(d);
+                total += text.Length;
+                // The document's own text covers its children.
+                return false;
+            }, out gen);
+            var res = new Dictionary<string, object>();
+            res["windowHandle"] = HandleStr(w.Top);
+            res["docs"] = docs;
+            res["total"] = total;
+            res["truncated"] = truncated;
+            res["readMs"] = sw.ElapsedMilliseconds;
             return res;
         }
 

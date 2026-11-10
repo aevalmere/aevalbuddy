@@ -786,7 +786,7 @@ Dictation's chord is a low-level keyboard hook (`voice/ptt.rs`), not a RegisterH
 
 ### Ask
 
-`query:done` carries `sent {provider, providerName, model, modelName, free, image: "screen"|"region"|null, imageSize, windowText: {app, chars}|null, history, reader: {modelName}|null, msgId}` and `msgId` (the turn's `gen`). The pictures of the last three answers in each output window stay in memory only (`host::ask::sent_images`, pruned when a window is gone); `output:sent-image {msgId}` returns a `data:image/jpeg;base64,` URL or null once dropped (D-38).
+`query:done` carries `sent {provider, providerName, model, modelName, free, image: "screen"|"region"|null, imageSize, windowText: {app, chars, document?: "whole"|"part"}|null, history, reader: {modelName}|null, msgId}` and `msgId` (the turn's `gen`). Without a picked area Ask also reads the full text of the front window's document (helper op `docText`, UI Automation TextPattern) and sends up to 60,000 characters of it after the visible text; `chars` counts both, and `document` says whether all of it went. The pictures of the last three answers in each output window stay in memory only (`host::ask::sent_images`, pruned when a window is gone); `output:sent-image {msgId}` returns a `data:image/jpeg;base64,` URL or null once dropped (D-38).
 
 `models:list` with neither `kind` nor `provider` (the bar's `@` menu, an answer's "Retry with") also returns `providers: [{id, name, groups, current, ready}]`, every provider with a usable key in the person's order. `query:submit` and `query:retry` take `{provider, model}`; a pinned model answers by itself: no reading step by another model, no 404 healing and no failover.
 

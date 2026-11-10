@@ -25,7 +25,7 @@ use crate::llm::errors::{busy_note, code_of, codes, details, explain, paid_hop, 
 use crate::llm::failover::{short_model, with_failover};
 use crate::llm::payloads::{FailoverPrefs, QueryError, Usage};
 use crate::llm::points::{Point, PointExtractor};
-use crate::llm::prompt::{extract_task, ExactText};
+use crate::llm::prompt::{extract_task, ExactText, DOC_TEXT_LIMIT};
 use crate::llm::provider::Provider;
 use crate::llm::settings::{
     self as llm_settings, active, candidates_for, model_for, Active, LlmSettings,
@@ -397,15 +397,172 @@ fn text_of(v: &Value) -> String {
     }
 }
 
+/// How much of a document the helper is asked for. It is more than is sent,
+/// so that the part in view can be found in a document longer than the
+/// limit.
+const DOC_READ_CHARS: u64 = 240_000;
+
+/// The document is not asked for with less time than this left.
+const DOC_MIN_MS: u64 = 200;
+
+/// A line shorter than this is not used to find the part in view: a short
+/// line such as a menu name can occur anywhere in a document.
+const ANCHOR_MIN_CHARS: usize = 12;
+
+fn unix_lines(s: &str) -> String {
+    s.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+/// The longest document in a `docText` reply: its text, the start of what
+/// the application reports as in view, and whether the helper stopped
+/// before the document's end. A window's other editors (an address bar, a
+/// search field) are short and already in the visible text.
+fn longest_doc(r: &Value) -> Option<(String, String, bool)> {
+    let docs = r["docs"].as_array()?;
+    let best = docs
+        .iter()
+        .max_by_key(|d| d["text"].as_str().map(str::len).unwrap_or(0))?;
+    let text = unix_lines(best["text"].as_str()?);
+    if text.trim().is_empty() {
+        return None;
+    }
+    let seen = unix_lines(best["seen"].as_str().unwrap_or(""));
+    let more = best["truncated"].as_bool().unwrap_or(false);
+    Some((text, seen, more))
+}
+
+/// Cuts a document to `limit` characters and says whether it was cut. A
+/// document that fits is returned whole. A longer one keeps the part
+/// around what is in view, found by the first long enough line of `seen`
+/// (what the application reports as visible) or of `visible` (the window's
+/// visible text) that occurs in it; when none does, it keeps the start.
+/// Each end that was cut gets a `[cut: ...]` line, so the model knows the
+/// text goes on. `more` means the helper itself stopped before the end.
+fn fit_document(doc: &str, seen: &str, visible: &str, more: bool, limit: usize) -> (String, bool) {
+    const GOES_ON: &str = "[cut: the document goes on after this, and the rest is not included]";
+    let chars: Vec<char> = doc.chars().collect();
+    let n = chars.len();
+    if n <= limit {
+        if more {
+            return (format!("{doc}\n{GOES_ON}"), true);
+        }
+        return (doc.to_string(), false);
+    }
+    let at = seen
+        .lines()
+        .chain(visible.lines())
+        .map(str::trim)
+        .filter(|l| l.chars().count() >= ANCHOR_MIN_CHARS)
+        .find_map(|l| doc.find(l))
+        .map(|bytes| doc[..bytes].chars().count())
+        .unwrap_or(0);
+    // A quarter of the room goes to what is above the part in view.
+    let mut start = at.saturating_sub(limit / 4);
+    if start + limit > n {
+        start = n - limit;
+    }
+    let mut end = start + limit;
+    // Begin and end on a line break when one is near.
+    let near = (limit / 50).max(1);
+    if start > 0 {
+        let to = (start + near).min(end);
+        if let Some(k) = chars[start..to].iter().position(|c| *c == '\n') {
+            start += k + 1;
+        }
+    }
+    if end < n {
+        let from = end.saturating_sub(near).max(start);
+        if let Some(k) = chars[from..end].iter().rposition(|c| *c == '\n') {
+            end = from + k;
+        }
+    }
+    let mut parts: Vec<String> = Vec::new();
+    if start > 0 {
+        parts.push(format!(
+            "[cut: {start} characters before this are not included]"
+        ));
+    }
+    parts.push(chars[start..end].iter().collect());
+    let after = n - end;
+    if after > 0 {
+        let least = if more { "at least " } else { "" };
+        parts.push(format!(
+            "[cut: {least}{after} characters after this are not included]"
+        ));
+    } else if more {
+        parts.push(GOES_ON.to_string());
+    }
+    (parts.join("\n"), true)
+}
+
+/// The document to send with `visible`, from a `docText` reply: the text
+/// and whether it was cut. None when the window has no document, or when
+/// the document holds no more than what is already in view.
+fn document_for(r: &Value, visible: &str, limit: usize) -> Option<(String, bool)> {
+    let (doc, seen, more) = longest_doc(r)?;
+    if doc.chars().count() <= visible.chars().count() {
+        return None;
+    }
+    Some(fit_document(&doc, &seen, visible, more, limit))
+}
+
+/// `query:done.sent.windowText`: how much of the window's text went with
+/// the question. `document` is "whole" or "part" when the document's text
+/// went too, and absent when only the visible text did.
+fn sent_window_text(e: &ExactText) -> Option<Value> {
+    let chars = e.text.chars().count() + e.document.chars().count();
+    if chars == 0 {
+        return None;
+    }
+    let app: String = e.title.chars().take(60).collect();
+    let mut v = json!({ "app": app, "chars": chars });
+    if !e.document.is_empty() {
+        v["document"] = json!(if e.document_cut { "part" } else { "whole" });
+    }
+    Some(v)
+}
+
 /// The window in front's own text, through UI Automation. Never waits
 /// long: the first use starts the desktop helper, and an answer is worth more
 /// than a perfect context.
+///
+/// Without a picked area it then asks for the whole text of the window's
+/// document, in whatever is left of the same time limit. When that read
+/// fails, runs out of time or finds nothing, the visible text goes alone.
+/// With a picked area only that area's text is read: the person chose it.
 pub async fn read_exact_text(region: Option<crate::state::Rect>) -> Option<ExactText> {
     if no_uia() {
         return None;
     }
     let d = services().desktop.inner().clone();
-    let limit = if d.is_ready() { 1500 } else { 4000 };
+    let limit: u64 = if d.is_ready() { 1500 } else { 4000 };
+    let began = Instant::now();
+    let (mut exact, handle) = read_visible_text(d.clone(), region, limit).await?;
+    if region.is_some() {
+        return Some(exact);
+    }
+    let left = limit.saturating_sub(began.elapsed().as_millis() as u64);
+    if left < DOC_MIN_MS {
+        return Some(exact);
+    }
+    // The helper stops a little early so its reply arrives inside the limit.
+    let read = d.doc_text(Some(&handle), DOC_READ_CHARS, left - 100);
+    if let Ok(Ok(r)) = tokio::time::timeout(Duration::from_millis(left), read).await {
+        if let Some((document, cut)) = document_for(&r, &exact.text, DOC_TEXT_LIMIT) {
+            exact.document = document;
+            exact.document_cut = cut;
+        }
+    }
+    Some(exact)
+}
+
+/// What is in view in the window in front (or in `region` of it), and the
+/// window's handle as the helper gave it.
+async fn read_visible_text(
+    d: Arc<crate::desktop::client::Desktop>,
+    region: Option<crate::state::Rect>,
+    limit: u64,
+) -> Option<(ExactText, Value)> {
     let work = async move {
         let fg = d.foreground_window().await.ok()?;
         if !fg.is_object() {
@@ -426,11 +583,13 @@ pub async fn read_exact_text(region: Option<crate::state::Rect>) -> Option<Exact
         } else {
             text
         };
-        Some(ExactText {
+        let exact = ExactText {
             handle: text_of(&handle),
             title,
             text,
-        })
+            ..ExactText::default()
+        };
+        Some((exact, handle))
     };
     tokio::time::timeout(Duration::from_millis(limit), work)
         .await
@@ -1144,10 +1303,9 @@ pub async fn submit_to(
                 hop_reason: hop_reason.clone(),
             };
             // What left this PC for this answer (B-121, K-19).
-            let window_text = exact.as_ref().filter(|e| !e.text.is_empty()).map(|e| {
-                let app: String = e.title.chars().take(60).collect();
-                json!({ "app": app, "chars": e.text.chars().count() })
-            });
+            // The count covers the visible text and the document, since both
+            // went to the model that answered.
+            let window_text = exact.as_ref().and_then(sent_window_text);
             let image = shot.as_ref().map(|s| {
                 if s.region.is_some() {
                     "region"
@@ -1578,6 +1736,102 @@ mod tests {
         assert_eq!(stage, "OpenRouter is busy. Asking Anthropic\u{2026}");
         assert_eq!(hop_reason_text(codes::FREE_BUSY, or), "OpenRouter was busy");
         assert!(hop_stage(codes::SERVER, an, or).starts_with("Anthropic didn't answer."));
+    }
+
+    fn numbered(lines: usize) -> String {
+        (1..=lines)
+            .map(|i| format!("this is line number {i:04}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn a_document_that_fits_goes_whole() {
+        let doc = numbered(10);
+        let (text, cut) = fit_document(&doc, "", "", false, 1000);
+        assert_eq!(text, doc);
+        assert!(!cut);
+        let (text, cut) = fit_document(&doc, "", "", true, 1000);
+        assert!(cut, "the helper stopped before the end");
+        assert!(text.starts_with(&doc));
+        assert!(text.ends_with("the rest is not included]"));
+    }
+
+    #[test]
+    fn a_long_document_keeps_the_part_in_view() {
+        // 400 lines of 24 characters and a line break: 9999 characters.
+        let doc = numbered(400);
+        let (text, cut) = fit_document(&doc, "this is line number 0200\n", "", false, 1000);
+        assert!(cut);
+        assert!(text.starts_with("[cut: "));
+        assert!(text.contains("characters before this are not included]\n"));
+        assert!(text.contains("this is line number 0200"));
+        assert!(
+            text.contains("this is line number 0195"),
+            "some of what is above"
+        );
+        assert!(
+            text.contains("this is line number 0220"),
+            "more of what is below"
+        );
+        assert!(!text.contains("this is line number 0001"));
+        assert!(text.ends_with("characters after this are not included]"));
+        // Whole lines only: every kept line is a full one.
+        for l in text.lines().filter(|l| !l.starts_with("[cut: ")) {
+            assert_eq!(l.len(), 24, "{l}");
+        }
+        let kept = text.lines().filter(|l| !l.starts_with("[cut: ")).count();
+        assert!((36..=40).contains(&kept), "{kept}");
+    }
+
+    #[test]
+    fn a_long_document_without_a_known_place_keeps_its_start() {
+        let doc = numbered(400);
+        // "File" is too short to say where the window is scrolled to.
+        let (text, cut) = fit_document(&doc, "", "File\nno such line here", false, 1000);
+        assert!(cut);
+        assert!(text.starts_with("this is line number 0001\n"));
+        assert!(text.ends_with("characters after this are not included]"));
+        // The window's visible text is the fallback when the helper gave no
+        // visible range.
+        let (text, _) = fit_document(&doc, "", "File\n  this is line number 0390", true, 1000);
+        assert!(text.starts_with("[cut: "));
+        assert!(text.contains("this is line number 0400"));
+        assert!(text.ends_with("the rest is not included]"), "{text}");
+    }
+
+    #[test]
+    fn the_document_goes_only_when_it_adds_to_what_is_in_view() {
+        let doc = numbered(30);
+        let reply = json!({ "docs": [
+            { "ref": "e1", "text": "example.com", "seen": "example.com", "truncated": false },
+            { "ref": "e2", "text": doc.replace('\n', "\r\n"), "seen": "", "truncated": false },
+        ] });
+        let (text, cut) = document_for(&reply, "File\nthis is line number 0001", 60000).unwrap();
+        assert_eq!(text, doc, "the longest document, with plain line breaks");
+        assert!(!cut);
+        let all = format!("File\n{doc}");
+        assert_eq!(document_for(&reply, &all, 60000), None);
+        assert_eq!(document_for(&json!({ "docs": [] }), "x", 60000), None);
+        assert_eq!(document_for(&json!({}), "x", 60000), None);
+    }
+
+    #[test]
+    fn what_was_sent_counts_the_document() {
+        let mut e = ExactText {
+            title: "Notes".into(),
+            text: "abc".into(),
+            ..ExactText::default()
+        };
+        let seen = json!({ "app": "Notes", "chars": 3 });
+        assert_eq!(sent_window_text(&e), Some(seen));
+        e.document = "abcdefg".into();
+        let whole = json!({ "app": "Notes", "chars": 10, "document": "whole" });
+        assert_eq!(sent_window_text(&e), Some(whole));
+        e.document_cut = true;
+        let part = sent_window_text(&e).unwrap();
+        assert_eq!(part["document"], json!("part"));
+        assert_eq!(sent_window_text(&ExactText::default()), None);
     }
 
     #[test]

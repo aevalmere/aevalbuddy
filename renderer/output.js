@@ -591,7 +591,9 @@ function sentPanel(sent, msgId) {
   }
   if (sent.windowText && sent.windowText.chars) {
     const app = sent.windowText.app ? `the ${sent.windowText.app} window` : 'the window';
-    item(`The text of ${app}, ${Number(sent.windowText.chars).toLocaleString('en-US')} characters`);
+    // The count covers the document too when it went, not only what was in view.
+    const doc = { whole: ' and the whole document in it', part: ' and part of the document in it' }[sent.windowText.document] || '';
+    item(`The text of ${app}${doc}, ${Number(sent.windowText.chars).toLocaleString('en-US')} characters`);
   }
   if (sent.history > 0) item(`${sent.history} earlier message${sent.history === 1 ? '' : 's'} from this conversation`);
   if (sent.reader && sent.reader.modelName) item(`${sent.reader.modelName} read the screen first`);

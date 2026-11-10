@@ -595,7 +595,9 @@ impl Llm {
         o: ReaderOpts<'_>,
         cancel: &CancellationToken,
     ) -> Result<String, ApiError> {
-        let exact = prompt::exact_text_block(o.exact_text);
+        // The reader reports the screen, so it gets what is in view and not
+        // the rest of the document.
+        let exact = prompt::exact_text_block(o.exact_text, false);
         let system = if o.region {
             format!("{}{}", prompt::reader_prompt(), prompt::REGION_NOTE)
         } else {
@@ -636,7 +638,7 @@ impl Llm {
     /// The `messages` array of one answer turn: system prompt, up to the
     /// caller's history as text, then the newest message with the screen.
     pub fn query_messages(o: &QueryOpts<'_>) -> Vec<Value> {
-        let exact = prompt::exact_text_block(o.exact_text);
+        let exact = prompt::exact_text_block(o.exact_text, true);
         let mut content = Vec::new();
         if !exact.is_empty() {
             content.push(json!({ "type": "text", "text": exact }));

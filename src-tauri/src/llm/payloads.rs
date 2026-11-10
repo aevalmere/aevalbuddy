@@ -88,8 +88,12 @@ pub struct QueryError {
 pub struct WindowText {
     /// The window's title.
     pub app: String,
-    /// Characters of its text that were sent.
+    /// Characters of its text that were sent: what was in view, plus the
+    /// document when that went too.
     pub chars: usize,
+    /// `"whole"` or `"part"` when the window's document went too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<String>,
 }
 
 /// `query:done.sent.reader`: the model that read the screen for the answer.

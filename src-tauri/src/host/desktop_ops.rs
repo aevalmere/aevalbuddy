@@ -169,6 +169,11 @@ impl DesktopAdapter {
                 let query = str_of(&a, "query").unwrap_or("");
                 d.scroll_to_text(r, query, uint(&a["n"], 0)).await
             }
+            "docText" => {
+                let max = uint(&a["maxChars"], 60000);
+                let budget = uint(&a["budgetMs"], 700);
+                d.doc_text(opt(&a, "windowHandle"), max, budget).await
+            }
             "setValue" => {
                 let value = a.get("value").cloned().unwrap_or(Value::Null);
                 d.set_value(str_of(&a, "ref").unwrap_or(""), value).await
