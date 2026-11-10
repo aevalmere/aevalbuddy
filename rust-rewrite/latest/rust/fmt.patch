@@ -1,0 +1,17 @@
+diff --git a/src-tauri/src/agents/mod.rs b/src-tauri/src/agents/mod.rs
+index 203aa4e..2f53eb5 100644
+--- a/src-tauri/src/agents/mod.rs
++++ b/src-tauri/src/agents/mod.rs
+@@ -877,7 +877,11 @@ fn snapshot() -> Value {
+     // Aevalsistant does the same job from the tray; with both running, each
+     // shows its own card.
+     let other = std::env::var_os("LOCALAPPDATA")
+-        .map(|d| PathBuf::from(d).join("Aevalsistant").join("Aevalsistant.exe"))
++        .map(|d| {
++            PathBuf::from(d)
++                .join("Aevalsistant")
++                .join("Aevalsistant.exe")
++        })
+         .is_some_and(|exe| exe.is_file());
+     json!({
+         "prefs": p,
