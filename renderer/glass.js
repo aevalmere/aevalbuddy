@@ -652,6 +652,8 @@
 
   // Pages that ask for it (html[data-passthrough]) get the click-through
   // handled here; the bar does its own, since its pill mode predates this.
+  // `ignoring` is what Rust was last told. Rust keeps that across a hide, so
+  // this does too: nothing resets it.
   let ignoring = false;
   function passthrough() {
     if (!bridge || root.dataset.passthrough === undefined) return;
@@ -662,10 +664,6 @@
       ignoring = ignore;
       bridge.invoke('glass:passthrough', { ignore });
     });
-  }
-
-  function resetPassthrough() {
-    ignoring = false;
   }
 
   // Listening on a channel Rust does not send yet throws in the bridge
@@ -996,7 +994,6 @@
     menuOut,
     menuIn,
     solidAt,
-    resetPassthrough,
     scrimFor,
     icon,
     textScale: () => Number(getComputedStyle(root).getPropertyValue('--text-scale')) || 1,

@@ -701,6 +701,24 @@ export const scenes = [
       const kept = await look();
       const saidAfter = (await t.calls('out1', 'output:gone')).length;
       t.check('sheetCaughtMidFadeStays', !kept.away && !kept.fading && kept.opacity === 1 && saidAfter === 1, JSON.stringify([kept, saidAfter]));
+      // Clicks after a hide. Rust still has the window passing clicks
+      // through, as it was told when the pointer left; the page must not
+      // forget that, or it never asks for them back and the sheet cannot be
+      // scrolled or pressed (the smoke run's transcriptWheel caught this).
+      const onSheet = { x: OUT1.x + OUT1.w / 2, y: OUT1.y + 140 };
+      await t.page.mouse.move(onSheet.x, onSheet.y);
+      await t.settle(100);
+      await t.page.mouse.move(OUT1.x + 6, OUT1.y + 6);
+      await t.settle(100);
+      const told = (await t.calls('out1', 'glass:passthrough')).map((c) => c.payload.ignore);
+      await t.emit('out1', 'output:away', { away: true });
+      await t.settle(300);
+      await t.emit('out1', 'output:away', { away: false });
+      await t.settle(900);
+      await t.page.mouse.move(onSheet.x, onSheet.y);
+      await t.settle(100);
+      const after = (await t.calls('out1', 'glass:passthrough')).map((c) => c.payload.ignore);
+      t.check('sheetTakesClicksAfterAHide', told[told.length - 1] === true && after.length === told.length + 1 && after[after.length - 1] === false, JSON.stringify({ told, after }));
     },
   },
 

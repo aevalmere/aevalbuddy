@@ -1001,7 +1001,10 @@ function goAway() {
       if (seq !== awaySeq) return;
       opanel.classList.add('away');
       opanel.classList.remove('fading-out');
-      if (window.AevalGlass) window.AevalGlass.resetPassthrough();
+      // What Rust was last told about clicks (glass:passthrough) still
+      // holds while the window is hidden, so glass.js keeps its record of
+      // it: forgetting it here left the window passing clicks through
+      // after it came back, with the pointer on the sheet.
       window.AevalGlass.painted(() => {
         if (seq === awaySeq) send('output:gone');
       });
@@ -1030,7 +1033,6 @@ window.aeval.on('output:away', (m) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     opanel.classList.add('away');
-    if (window.AevalGlass) window.AevalGlass.resetPassthrough();
   } else {
     comeBack();
   }
