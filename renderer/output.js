@@ -995,6 +995,8 @@ const AWAY_MS = 120;
 let awaySeq = 0;
 function goAway() {
   const seq = ++awaySeq;
+  // A model list left open would still be open when the sheet comes back.
+  closeRetryMenu(false);
   opanel.classList.add('fading-out');
   setTimeout(
     () => {
