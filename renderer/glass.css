@@ -21,12 +21,6 @@
   initial-value: 0.5;
 }
 
-@property --rim-a {
-  syntax: '<angle>';
-  inherits: true;
-  initial-value: 0deg;
-}
-
 :root {
   /* Type. Segoe UI Variable is Windows 11's own face, with optical sizes:
      Small at 12px, Display from 18px up, Text between. */
@@ -97,7 +91,7 @@
   --fill-2: rgb(247 243 234 / 0.12);
   --fill-3: rgb(247 243 234 / 0.18);
   --hairline: rgb(247 243 234 / 0.07);
-  --chip-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.06);
+  --chip-rim: inset var(--px) var(--px) 0 rgb(255 255 255 / 0.07);
 
   /* One device pixel, so hairlines are crisp at 125% and 150% (glass.js). */
   --px: 1px;
@@ -161,24 +155,73 @@
      sheets (outputs, Settings, History; it fits the 20 px stage) and menus.
      Plates inside glass have none: tone is enough. */
   --shade: 8 12 20;
+  /* Each is three shadows: a contact line of shade right under the edge, a
+     key shadow thrown down by the light, and a wide ambient one. Together
+     they read as height; none is a ring. They fit the stage: 16 px for
+     controls and menus (the agents card has 16), 20 px for sheets. */
   --shadow-control:
-    0 1px 2px rgb(var(--shade) / 0.14),
-    0 6px 16px -6px rgb(var(--shade) / 0.42);
+    0 1px 1px rgb(var(--shade) / 0.16),
+    0 3px 7px -2px rgb(var(--shade) / 0.22),
+    0 8px 16px -8px rgb(var(--shade) / 0.4);
   --shadow-sheet:
-    0 2px 6px rgb(var(--shade) / 0.12),
-    0 10px 22px -10px rgb(var(--shade) / 0.48);
+    0 1px 2px rgb(var(--shade) / 0.14),
+    0 5px 12px -4px rgb(var(--shade) / 0.22),
+    0 12px 20px -12px rgb(var(--shade) / 0.46);
   --shadow-menu:
-    0 2px 4px rgb(var(--shade) / 0.12),
-    0 10px 20px -8px rgb(var(--shade) / 0.44);
+    0 1px 2px rgb(var(--shade) / 0.14),
+    0 4px 10px -3px rgb(var(--shade) / 0.24),
+    0 10px 16px -10px rgb(var(--shade) / 0.42);
   --shadow:
     0 1px 2px rgb(var(--shade) / 0.16),
     0 6px 18px -4px rgb(var(--shade) / 0.38);
+
+  /* The light. One key light from the top left and its bounce at the bottom
+     right, on every surface, so they read as one material lit by one lamp.
+     --rim-light is the specular edge of a glass layer (.gl::after, a ring
+     one device pixel wide): brightest where the edge faces the light, gone
+     where it turns away, a weaker catch on the far corner. The ellipses are
+     sized in percentages, so a 600 px bar and a 44 px orb are lit alike. */
+  --rim-key: calc(0.46 + 0.38 * var(--spec));
+  --rim-bounce: calc(0.12 + 0.2 * var(--spec));
+  --rim-base: 0.05;
+  --rim-light:
+    radial-gradient(ellipse 90% 135% at 0% 0%,
+      rgb(255 255 255 / var(--rim-key)) 0%,
+      rgb(255 255 255 / calc(var(--rim-key) * 0.42)) 46%,
+      rgb(255 255 255 / 0) 100%),
+    radial-gradient(ellipse 70% 120% at 100% 100%,
+      rgb(255 255 255 / var(--rim-bounce)) 0%,
+      rgb(255 255 255 / 0) 100%),
+    linear-gradient(rgb(255 255 255 / var(--rim-base)), rgb(255 255 255 / var(--rim-base)));
+  /* The thickness of a glass layer (.gl::before): light entering just
+     inside the lit edge, a faint shade inside the far one, the edge band
+     brighter than the reading interior, and from Liquid up a shade along
+     the bottom. All inset, all still. */
+  --glass-depth:
+    inset var(--px) calc(var(--px) * 2) 2px -1px rgb(255 255 255 / calc(0.04 + 0.12 * var(--glass-k))),
+    inset calc(var(--px) * -1) calc(var(--px) * -2) 3px -1px rgb(var(--shade) / calc(0.1 + 0.14 * var(--glass-k))),
+    inset 0 0 calc(8px + 28px * var(--glass-k)) rgb(255 255 255 / calc(0.07 * var(--glass-k))),
+    inset 0 -14px 28px -18px rgb(var(--shade) / calc(0.4 * var(--spec)));
+  /* The same light on what is not a glass layer: solid menus, the dictation
+     pill, a dragged row. A bevel one device pixel deep, lit on the top and
+     left, shaded on the bottom and right; it thins to nothing where the
+     edge turns away from the light, as the rim does. */
+  --edge:
+    inset var(--px) var(--px) 0 rgb(255 255 255 / 0.1),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 rgb(var(--shade) / 0.16);
 
   /* Motion: the site's two curves, soft and unhurried, never past the
      target. */
   --ease-glide: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-morph: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Glass leaving glass (a card or a menu swelling out of the bar): a real
+     spring, damping 0.74, so it runs 3% past its size and comes back, the
+     way a drop does. For transform only, and never for a window's own
+     bounds. --ease-liquid-soft is the same spring at damping 0.86, half a
+     percent past: for small things and for the axis that follows. */
+  --ease-liquid: linear(0, 0.002 0.8%, 0.018 2.5%, 0.059 4.8%, 0.132 7.6%, 0.236 10.9%, 0.363 14.6%, 0.502 18.6%, 0.64 23.1%, 0.764 27.9%, 0.866 33%, 0.942 38.4%, 0.992 44.2%, 1.02 50.2%, 1.031 56.5%, 1.03 63.1%, 1.025 70%, 1.017 77.1%, 1.01 84.5%, 1.004 92.1%, 1);
+  --ease-liquid-soft: linear(0, 0.001 0.7%, 0.011 2.2%, 0.037 4.1%, 0.085 6.5%, 0.155 9.3%, 0.244 12.5%, 0.346 16%, 0.454 19.8%, 0.562 23.9%, 0.663 28.3%, 0.752 33%, 0.826 37.9%, 0.886 43.1%, 0.93 48.5%, 0.961 54.2%, 0.982 60.1%, 0.995 66.2%, 1.001 72.5%, 1.004 79.1%, 1.005 85.9%, 1.004 92.8%, 1);
   /* The glob's body: a spring with a response near 0.42 s and damping 0.88,
      no overshoot. */
   --ease-spring: cubic-bezier(0.2, 0.9, 0.25, 1);
@@ -272,9 +315,10 @@
   filter: blur(calc(var(--band, 0px) * 0.5));
 }
 
-/* The glass body catching the light at its top edge, the pointer's light on
-   interactive glass, and at Very and Very very a sheen and a thickness: a
-   shade along the bottom and a faint inner edge. */
+/* The body of the glass: the pointer's light on interactive glass, from
+   Liquid up a sheen falling from the lit corner, and its thickness
+   (--glass-depth). Painted once; only the pointer's light ever repaints it,
+   and only while the pointer moves over it. */
 .glass > .gl::before {
   content: "";
   position: absolute;
@@ -284,16 +328,15 @@
   background:
     radial-gradient(120px circle at var(--mx, -400px) var(--my, -400px), rgb(255 255 255 / var(--lit, 0.07)), transparent 70%),
     linear-gradient(162deg, rgb(255 255 255 / calc(0.14 * var(--spec))) 0%, rgb(255 255 255 / 0) 30%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / calc(0.06 + 0.16 * var(--glass-k))),
-    inset 0 -1px 1px rgb(var(--shade) / 0.14),
-    inset 0 0 calc(8px + 28px * var(--glass-k)) rgb(255 255 255 / calc(0.07 * var(--glass-k))),
-    inset 0 -14px 28px -18px rgb(var(--shade) / calc(0.4 * var(--spec)));
+  box-shadow: var(--glass-depth);
 }
 
-/* The specular rim: lit from the top left, a weaker bounce at the bottom
-   right, almost nothing on the sides. A masked ring, so it is one crisp
-   device pixel and not a blurred border. */
+/* The specular rim (--rim-light): a masked ring, so it is one crisp device
+   pixel and not a blurred border. It is light, not a line: full where the
+   edge faces the lamp at the top left, a weaker catch at the bottom right,
+   and almost nothing on the two corners between, so it never closes into an
+   outline. Faint at Frosted, full from Liquid up, and up to a second pixel
+   wide at the top of the scale. */
 .glass > .gl::after {
   content: "";
   position: absolute;
@@ -301,21 +344,10 @@
   border-radius: inherit;
   padding: var(--px);
   z-index: 2;
-  background: conic-gradient(from var(--rim-a) at 50% 50%,
-    rgb(255 255 255 / 0.1) 0deg,
-    rgb(255 255 255 / 0.02) 70deg,
-    rgb(255 255 255 / calc(0.1 + 0.14 * var(--spec))) 130deg,
-    rgb(255 255 255 / 0.03) 200deg,
-    rgb(255 255 255 / 0.02) 270deg,
-    rgb(255 255 255 / calc(0.36 + 0.34 * var(--spec))) 318deg,
-    rgb(255 255 255 / 0.1) 360deg);
+  background: var(--rim-light);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  /* The specular rim: a light catch at the top left and a faint bounce at
-     the bottom right, almost nothing on the sides, so it never reads as a
-     drawn border. Faint at Frosted, full from Liquid up, and up to a second
-     pixel wide at the top of the scale. */
   opacity: clamp(0.45, calc(0.3 + var(--glass-k)), 1);
 }
 
@@ -324,21 +356,56 @@ html[data-glass-level="high"] .glass > .gl::after {
 }
 
 /* Working: one light travels the edge, one turn per 2.4 s. It replaces the
-   three thinking dots and is the only continuous animation in the product. */
-.glass.orbit > .gl::after {
-  background: conic-gradient(from var(--rim-a) at 50% 50%,
-    rgb(255 255 255 / 0.06) 0deg,
-    rgb(255 255 255 / 0.06) 250deg,
+   three thinking dots and is the only continuous animation in the product.
+   The light is a layer of its own (.go, from glass.js): a ring-shaped mask
+   that never changes, and inside it a conic gradient that only turns. A
+   turning layer is moved by the compositor, so nothing is painted per frame
+   and the light keeps its pace while the page is busy writing an answer.
+   The square is as wide as the layer's diagonal, so its corners never show
+   inside the ring. */
+.glass > .gl > .go {
+  display: none;
+}
+
+.glass.orbit > .gl > .go {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: calc(var(--px) * 1.5);
+  z-index: 3;
+  container-type: size;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.glass.orbit > .gl > .go > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(max(100cqw, 100cqh) * 1.42 + 8px);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg at 50% 50%,
+    rgb(255 255 255 / 0) 0deg,
+    rgb(255 255 255 / 0) 250deg,
     rgb(169 198 228 / 0.6) 320deg,
     rgb(255 255 255 / 0.92) 352deg,
-    rgb(255 255 255 / 0.06) 360deg);
-  padding: calc(var(--px) * 1.5);
+    rgb(255 255 255 / 0) 360deg);
   animation: rim-orbit 2.4s linear infinite;
+}
+
+/* The still rim steps back to an even, quiet line under the travelling
+   light. */
+.glass.orbit > .gl::after {
+  background: linear-gradient(rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.06));
+  padding: calc(var(--px) * 1.5);
 }
 
 @keyframes rim-orbit {
   to {
-    --rim-a: 360deg;
+    rotate: 360deg;
   }
 }
 
@@ -379,8 +446,15 @@ html[data-glass-level="none"] .glass > .gl::after {
   opacity: 0.55;
 }
 
-html[data-motion="reduced"] .glass.orbit > .gl::after {
+/* Reduced motion: the light rests at the top left and does not travel. */
+html[data-motion="reduced"] .glass.orbit > .gl > .go > i {
   animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass.orbit > .gl > .go > i {
+    animation: none;
+  }
 }
 
 @media (prefers-contrast: more) {
@@ -409,6 +483,7 @@ html[data-motion="reduced"] .glass.orbit > .gl::after {
   }
   .glass > .gl > .gs,
   .glass > .gl > .gsc,
+  .glass > .gl > .go,
   .glass > .gl::after,
   .glass > .gl::before {
     display: none;
@@ -434,7 +509,13 @@ html[data-tone="light"] {
   --fill-2: rgb(22 32 45 / 0.08);
   --fill-3: rgb(22 32 45 / 0.12);
   --hairline: rgb(22 32 45 / 0.08);
-  --chip-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.6);
+  --chip-rim: inset var(--px) var(--px) 0 rgb(255 255 255 / 0.6);
+  --edge:
+    inset var(--px) var(--px) 0 rgb(255 255 255 / 0.7),
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 rgb(22 32 45 / 0.06);
+  /* What holds light glass on a light page: a breath of ink right at the
+     edge, soft, where a ring would be a drawn line. */
+  --tone-edge: 0 0 2px rgb(22 32 45 / 0.12);
   --accent-text: #2E4E75;
   --menu-ring: rgb(46 78 117 / 0.62);
   --accent-glass: rgb(169 198 228 / 0.62);
@@ -448,14 +529,14 @@ html[data-motion="reduced"] {
   --tone-fade: var(--d-reduced);
 }
 
-/* Light glass on a light page has no dark ring: the ink shadow and a
-   faint ink edge hold it. */
+/* Light glass on a light page has no ring: the ink shadow and a soft ink
+   edge (--tone-edge) hold it. */
 html[data-tone="light"] .glass > .gl {
-  box-shadow: var(--shadow-control), 0 0 0 var(--px) rgb(22 32 45 / 0.05);
+  box-shadow: var(--shadow-control), var(--tone-edge);
 }
 
 html[data-tone="light"] .glass.thick > .gl {
-  box-shadow: var(--shadow-sheet), 0 0 0 var(--px) rgb(22 32 45 / 0.05);
+  box-shadow: var(--shadow-sheet), var(--tone-edge);
 }
 
 html[data-tone="light"] .glass.thin {
@@ -733,7 +814,25 @@ body[data-scrolled="1"] .sheet-bar::after,
   font-size: var(--t-row);
   line-height: var(--lh-row);
   color: var(--label);
-  animation: g-drop-in 200ms var(--ease-out);
+  /* It swells out of the control it hangs from: from the edge next to its
+     anchor (glass.js sets data-side), on the soft spring. Transform and
+     opacity only. */
+  transform-origin: 50% 0;
+  animation: g-drop-in 260ms var(--ease-liquid-soft);
+}
+
+.g-menu[data-side="above"] {
+  transform-origin: 50% 100%;
+}
+
+html[data-motion="reduced"] .g-menu:not(.closing) {
+  animation: g-fade-in var(--d-reduced) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-menu {
+    animation: g-fade-in var(--d-reduced) ease;
+  }
 }
 
 .g-menu > .gl {
@@ -887,7 +986,13 @@ html[data-input="pointer"] .g-menu [role^="menuitem"]:focus {
 @keyframes g-drop-in {
   from {
     opacity: 0;
-    transform: translateY(var(--drop-from, -4px)) scale(0.98);
+    transform: translateY(var(--drop-from, -4px)) scale(0.94, 0.9);
+  }
+}
+
+@keyframes g-fade-in {
+  from {
+    opacity: 0;
   }
 }
 

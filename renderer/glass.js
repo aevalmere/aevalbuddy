@@ -176,8 +176,14 @@
     const gsc = document.createElement('span');
     gsc.className = 'gsc';
     gl.appendChild(gsc);
+    // The travelling light of a working surface (glass.css, .orbit): a ring
+    // and the gradient that turns inside it. Not displayed until then.
+    const go = document.createElement('span');
+    go.className = 'go';
+    go.appendChild(document.createElement('i'));
+    gl.appendChild(go);
     el.prepend(gl);
-    el.__gl = { gl, gs, mapKey: '', fid: '', y: -1 };
+    el.__gl = { gl, gs, mapKey: '', fid: '', y: -1, at: '' };
     S.layers.add(el);
     ro.observe(el);
     if (el.classList.contains('interactive')) {
@@ -223,10 +229,17 @@
     if (!g || !S.display) return;
     const r = g.gl.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    const sx = window.screenX + r.left - S.display.x - 24;
-    const sy = window.screenY + r.top - S.display.y - 24;
-    g.gs.style.setProperty('--bx', `${-Math.round(sx)}px`);
-    g.gs.style.setProperty('--by', `${-Math.round(sy)}px`);
+    const sx = Math.round(window.screenX + r.left - S.display.x - 24);
+    const sy = Math.round(window.screenY + r.top - S.display.y - 24);
+    // A layer that has not moved or changed size, over a frame it was
+    // already measured against (y is put back to -1 when the frame, the
+    // tone or the slider changes), has nothing to do. While something else
+    // in the page animates this is every layer on every frame.
+    const at = `${sx},${sy},${Math.round(r.width)},${Math.round(r.height)}`;
+    if (at === g.at && g.y !== -1) return;
+    g.at = at;
+    g.gs.style.setProperty('--bx', `${-sx}px`);
+    g.gs.style.setProperty('--by', `${-sy}px`);
     measure(el, r);
   }
 
@@ -274,7 +287,13 @@
     gl.style.setProperty('--lit', '0.06');
   }, { passive: true });
 
-  document.addEventListener('transitionrun', () => track(450), true);
+  // Only what can move a layer is followed. A hover is a change of colour:
+  // it starts a transition, moves nothing, and used to cost 450 ms of
+  // frames here each time the pointer crossed a button.
+  const PAINT_ONLY = /^(--|color$|background|opacity$|box-shadow$|text-shadow$|fill|stroke|outline|border-.*color$|filter$|visibility$|caret-color$|text-decoration)/;
+  document.addEventListener('transitionrun', (e) => {
+    if (!PAINT_ONLY.test(e.propertyName || '')) track(450);
+  }, true);
   document.addEventListener('animationstart', () => track(450), true);
 
   // The window itself moved (a title-bar drag, the layout editor, a dock):
