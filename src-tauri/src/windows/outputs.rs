@@ -14,7 +14,7 @@
 //! (`AppState::queries`, K-03). ARCHITECTURE.md sections 9 and 10.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -48,6 +48,13 @@ const LEAVE_WAIT_MS: u64 = 300;
 fn leaving() -> &'static Mutex<HashMap<String, u64>> {
     static L: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
     L.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// The windows among `leaving` that close for good, not hide, when their
+/// page answers (`close_shown`).
+fn going() -> &'static Mutex<HashSet<String>> {
+    static G: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    G.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
 /// Takes `label`'s pending hide: any for the page (`ticket` None), only
@@ -411,7 +418,12 @@ fn hide_window(app: &AppHandle, label: &str) {
     });
     if !shown {
         leaving().lock().remove(label);
-        flags::hide(&w);
+        let for_good = going().lock().remove(label);
+        if for_good {
+            destroy(app, label);
+        } else {
+            flags::hide(&w);
+        }
         return;
     }
     static TICKET: AtomicU64 = AtomicU64::new(0);
@@ -434,7 +446,12 @@ fn finish_leave(app: &AppHandle, label: &str, ticket: Option<u64>) {
     if !claim_leave(label, ticket) {
         return;
     }
-    if let Some(w) = window(app, label) {
+    // Read before the window goes: destroying it comes back here through
+    // `on_destroyed`.
+    let for_good = going().lock().remove(label);
+    if for_good {
+        destroy(app, label);
+    } else if let Some(w) = window(app, label) {
         flags::hide(&w);
     }
 }
@@ -520,30 +537,53 @@ fn abort_in(app: &AppHandle, label: &str) {
 /// has it). Only its own Ask stops; follow-ups go to the most recently
 /// focused output still open.
 pub fn close(app: &AppHandle, label: &str) {
+    forget(app, label);
+    destroy(app, label);
+    send_overlay_state(app);
+}
+
+/// Closes a window from outside it: the bar's Ctrl+W, Close all, the cap on
+/// open windows. Its page has not played its exit, so the sheet fades first
+/// (`output:away`) and the window goes when the page says it has
+/// (`output:gone`). The conversation is dropped at once.
+pub fn close_shown(app: &AppHandle, label: &str) {
+    if !hwnd(app, label).is_some_and(flags::is_visible) {
+        close(app, label);
+        return;
+    }
+    forget(app, label);
+    going().lock().insert(label.to_string());
+    hide_window(app, label);
+    send_overlay_state(app);
+}
+
+/// The state half of a close: the window's own Ask stops, its conversation
+/// goes, and follow-ups move to the most recently focused output left.
+fn forget(app: &AppHandle, label: &str) {
     if running_in(app, label) {
         abort_in(app, label);
     }
-    {
-        let st = shared(app);
-        let mut s = st.lock();
-        s.outputs.remove(label);
-        s.query_forget(label);
-        if s.focused_output.as_deref() == Some(label) {
-            s.focused_output = s
-                .outputs
-                .values()
-                .filter(|o| o.active)
-                .max_by_key(|o| o.touched)
-                .map(|o| o.label.clone());
-        }
+    let st = shared(app);
+    let mut s = st.lock();
+    s.outputs.remove(label);
+    s.query_forget(label);
+    if s.focused_output.as_deref() == Some(label) {
+        s.focused_output = s
+            .outputs
+            .values()
+            .filter(|o| o.active)
+            .max_by_key(|o| o.touched)
+            .map(|o| o.label.clone());
     }
+}
+
+fn destroy(app: &AppHandle, label: &str) {
     if let Some(w) = window(app, label) {
         if let Some(h) = flags::hwnd_of(&w) {
             motion::stop(h);
         }
         let _ = w.destroy();
     }
-    send_overlay_state(app);
 }
 
 /// K-04: every window with a conversation closes (the tray's "Close all
@@ -558,7 +598,7 @@ pub fn close_all(app: &AppHandle) {
         .map(|o| o.label.clone())
         .collect();
     for l in labels {
-        close(app, &l);
+        close_shown(app, &l);
     }
 }
 
@@ -889,7 +929,7 @@ fn enforce_cap(app: &AppHandle, keep: &str) {
     let Some((label, title)) = victim else {
         return;
     };
-    close(app, &label);
+    close_shown(app, &label);
     let text = if store::get().get_save_history() {
         format!("Closed \"{title}\". It is in History.")
     } else {
@@ -1104,6 +1144,7 @@ pub fn on_destroyed(app: &AppHandle, label: &str) {
     }
     sent_meta().lock().remove(label);
     leaving().lock().remove(label);
+    going().lock().remove(label);
     let a = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = create_spare(&a);

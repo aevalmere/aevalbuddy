@@ -724,7 +724,10 @@ async fn route(
         // `{label?}`: that window, else the calling output, else the bar's
         // target. With no window at all the bar folds, as before.
         "output:close" => match output_for(app, &label, &p) {
-            Some(l) => outputs::close(app, &l),
+            // Its own page has played the close; any other window fades
+            // first.
+            Some(l) if l == label => outputs::close(app, &l),
+            Some(l) => outputs::close_shown(app, &l),
             None => windows::collapse_panel(app),
         },
         "output:close-all" => outputs::close_all(app),
