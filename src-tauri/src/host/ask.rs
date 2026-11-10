@@ -21,9 +21,7 @@ use crate::capture::{self, Shot};
 use crate::llm::catalogue::{self, Kind};
 use crate::llm::client::{ChatTurn, QueryOpts, ReaderOpts};
 use crate::llm::elements::{match_element, parse_elements, View};
-use crate::llm::errors::{
-    busy_note, code_of, codes, details, explain, paid_hop, About, ApiError,
-};
+use crate::llm::errors::{busy_note, code_of, codes, details, explain, paid_hop, About, ApiError};
 use crate::llm::failover::{short_model, with_failover};
 use crate::llm::payloads::{FailoverPrefs, QueryError, Usage};
 use crate::llm::points::{Point, PointExtractor};
@@ -1432,12 +1430,13 @@ mod tests {
             assert!(early.is_err(), "the third did not wait");
             assert_eq!(told.get(), 1);
             drop(first);
-            assert!(third.await.is_some());
+            let third = third.await;
+            assert!(third.is_some());
             // A question stopped while it waits never starts.
             let stopped = CancellationToken::new();
             stopped.cancel();
             assert!(wait_for_slot(&slots, &stopped, || ()).await.is_none());
-            drop(second);
+            drop((second, third));
         });
     }
 
@@ -1471,7 +1470,11 @@ mod tests {
             codes::DAILY_CAP,
             codes::OFFLINE,
         ] {
-            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Hop, "{code}");
+            assert_eq!(
+                after_failure(&Failed { code, ..ready }),
+                Next::Hop,
+                "{code}"
+            );
         }
         // Not after text started, not with a pinned model, not when the
         // person turned hopping off, and not for a failure that would be
@@ -1495,7 +1498,11 @@ mod tests {
             codes::DATA_POLICY,
             codes::UNKNOWN,
         ] {
-            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Stop, "{code}");
+            assert_eq!(
+                after_failure(&Failed { code, ..ready }),
+                Next::Stop,
+                "{code}"
+            );
         }
         let offline = Failed {
             code: codes::OFFLINE,
