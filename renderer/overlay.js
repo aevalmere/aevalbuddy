@@ -78,7 +78,8 @@ function render(prevMode) {
   renderRegion();
   syncBarFromState();
   const folding = state.mode === 'pill' && prevMode === 'panel' && foldIntoOrb();
-  pill.hidden = state.mode !== 'pill';
+  // With no button (the default) the closed bar is not on screen at all.
+  pill.hidden = state.mode !== 'pill' || !state.button;
   panel.hidden = state.mode !== 'panel' && !folding;
   hud.hidden = state.mode !== 'hud';
   if (state.mode === 'pill' && prevMode !== 'pill') {
@@ -189,11 +190,21 @@ function motionOn() {
   return document.documentElement.dataset.motion !== 'reduced' && !state.reducedMotion;
 }
 
+// With no button the bar swells out of a drop in its own middle, and folds
+// back into it.
+const DROP = { w: 96, h: 28 };
+
 function orbInsets() {
   const g = barEl.querySelector(':scope > .gl');
-  const o = state.orbAt;
-  if (!g || !o) return null;
+  if (!g) return null;
   const br = barEl.getBoundingClientRect();
+  if (!state.button) {
+    const x = Math.max(0, (br.width - DROP.w) / 2);
+    const y = Math.max(0, (br.height - DROP.h) / 2);
+    return { g, t: y, l: x, r: x, b: y, drop: true };
+  }
+  const o = state.orbAt;
+  if (!o) return null;
   // The orb's rect inside this window: the window's origin is the bar's
   // glass rect minus the stage margin, and the panel sits in that margin.
   const pr = panel.getBoundingClientRect();
@@ -235,10 +246,12 @@ function growFromOrb() {
   const g = v.g;
   g.style.transition = 'none';
   setInsets(g, v, '22px');
+  if (v.drop) g.style.opacity = '0';
   void g.offsetWidth;
   if (window.AevalGlass) window.AevalGlass.morph(320);
-  g.style.transition = 'inset 320ms var(--ease-morph), border-radius 320ms var(--ease-morph)';
+  g.style.transition = 'inset 320ms var(--ease-morph), border-radius 320ms var(--ease-morph), opacity 120ms ease';
   setInsets(g, null, null);
+  g.style.opacity = '';
   panel.dataset.morph = 'in';
   morphTimer = setTimeout(() => {
     g.style.transition = '';
@@ -258,8 +271,10 @@ function foldIntoOrb() {
   panel.dataset.morph = 'out';
   const g = v.g;
   if (window.AevalGlass) window.AevalGlass.morph(200);
-  g.style.transition = 'inset 200ms var(--ease-glide), border-radius 200ms var(--ease-glide)';
+  g.style.transition = 'inset 200ms var(--ease-glide), border-radius 200ms var(--ease-glide), opacity 140ms ease 60ms';
   setInsets(g, v, '22px');
+  // The drop is gone before the window is: nothing is left to blink out.
+  if (v.drop) g.style.opacity = '0';
   morphTimer = setTimeout(endFold, 200);
   return true;
 }
@@ -272,6 +287,7 @@ function endFold() {
   if (g) {
     g.style.transition = 'none';
     setInsets(g, null, null);
+    g.style.opacity = '';
     void g.offsetWidth;
     g.style.transition = '';
   }

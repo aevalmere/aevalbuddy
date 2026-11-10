@@ -295,7 +295,8 @@ function sideOf(r) {
 }
 
 function noteOf(r) {
-  return r.error || (r.state === 'skipped' && r.why ? `Not done: ${r.why}` : '');
+  // Automatic mode ran a flagged step without a card: the row says so.
+  return r.error || (r.state === 'skipped' && r.why ? `Not done: ${r.why}` : '') || (r.checked ? `Allowed by the safety check: ${r.checked}` : '');
 }
 
 function rowMenu(target, text) {

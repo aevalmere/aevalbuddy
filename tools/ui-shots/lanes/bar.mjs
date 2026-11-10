@@ -597,7 +597,7 @@ export const scenes = [
     async run(t) {
       const f = t.frame('overlay');
       await seenBefore(f);
-      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', pillState: 'busy', orbAt: { x: 300, y: 20, width: 48, height: 48 } }));
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', button: true, pillState: 'busy', orbAt: { x: 300, y: 20, width: 48, height: 48 } }));
       await t.settle();
       const pill = await f.evaluate(() => {
         const p = document.getElementById('pill');
@@ -606,6 +606,36 @@ export const scenes = [
       });
       t.check('forcedColorsPillDashed', pill.orbit && pill.style === 'dashed' && pill.width === '2px', JSON.stringify(pill));
       await t.shot('forced-colors-bar-working');
+    },
+  },
+  // The default: no button. The closed bar leaves nothing on screen, and it
+  // opens out of a drop in its own middle.
+  {
+    name: 'bar-no-button',
+    backdrop: 'wallpaper',
+    windows: [overlay],
+    async run(t) {
+      const f = t.frame('overlay');
+      await seenBefore(f);
+      const mid = { h: 'center', v: 'center' };
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid }));
+      await t.settle();
+      const closed = await f.evaluate(() => ({ pill: document.getElementById('pill').hidden, panel: document.getElementById('panel').hidden }));
+      t.check('noButtonNothingOnScreen', closed.pill && closed.panel, JSON.stringify(closed));
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'panel', inputAnchor: mid }));
+      await t.settle(80);
+      const growing = await f.evaluate(() => document.getElementById('panel').dataset.morph || '');
+      await t.settle(700);
+      const open = await f.evaluate(() => {
+        const g = document.querySelector('#bar > .gl');
+        return { panel: !document.getElementById('panel').hidden, opacity: getComputedStyle(g).opacity, inset: getComputedStyle(g).left, morph: document.getElementById('panel').dataset.morph || '' };
+      });
+      t.check('noButtonBarOpensFromItsMiddle', growing === 'in' && open.panel && open.opacity === '1' && open.morph === '', JSON.stringify([growing, open]));
+      await t.shot('bar-no-button-open', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: 140 });
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid }));
+      await t.settle(500);
+      const folded = await f.evaluate(() => ({ pill: document.getElementById('pill').hidden, panel: document.getElementById('panel').hidden, opacity: document.querySelector('#bar > .gl').style.opacity }));
+      t.check('noButtonBarFoldsAway', folded.pill && folded.panel && folded.opacity === '', JSON.stringify(folded));
     },
   },
   {

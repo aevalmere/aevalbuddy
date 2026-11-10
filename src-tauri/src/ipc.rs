@@ -56,6 +56,7 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "settings:set-save-history",
     "settings:clear-history",
     "settings:set-launch-at-login",
+    "settings:set-show-button",
     "settings:test-key",
     "update:check",
     "update:restart",
@@ -633,6 +634,7 @@ pub fn settings_data(app: &AppHandle) -> Value {
     v["textScale"] = json!(windows::text_scale::user_factor());
     v["osTextScale"] = json!(windows::text_scale::os_factor());
     v["overlayPos"] = s.get_overlay_pos();
+    v["showButton"] = json!(s.get_show_button());
     let extra = shared(app).call_value(app, |h| h.settings_extra.as_ref());
     if let (Some(Value::Object(extra)), Value::Object(base)) = (extra, &mut v) {
         for (k, val) in extra {
@@ -897,6 +899,11 @@ async fn route(
             autostart::apply();
             return Ok(json!({ "ok": true, "launchAtLogin": s.get_launch_at_login() }));
         }
+        "settings:set-show-button" => {
+            let on = s.set_show_button(p_bool(&p, "on"));
+            windows::button_changed(app);
+            return Ok(json!({ "ok": true, "showButton": on, "overlayPos": s.get_overlay_pos() }));
+        }
         "settings:set-surface" => {
             let v = s.set_surface(&p_str(&p, "surface"));
             crate::backdrop::broadcast_tier();
@@ -1127,13 +1134,14 @@ mod tests {
             "glass",
             "launchAtLoginLive",
         ];
-        const TAURI: [&str; 6] = [
+        const TAURI: [&str; 7] = [
             "keys",
             "glassIntensity",
             "hasSentFirstRequest",
             "textScale",
             "osTextScale",
             "overlayPos",
+            "showButton",
         ];
         const HOOKED: [&str; 5] = [
             "providers",

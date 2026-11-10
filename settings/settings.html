@@ -258,9 +258,11 @@
               <div class="body" id="sec-agent-body">
                 <div class="body-in">
                   <div class="choice" role="radiogroup" aria-label="When a task asks first">
+                    <button type="button" class="choice-option" role="radio" data-permission="auto">Automatic</button>
                     <button type="button" class="choice-option" role="radio" data-permission="risky">Ask for risky steps</button>
                     <button type="button" class="choice-option" role="radio" data-permission="every">Ask before every action</button>
                   </div>
+                  <p id="agent-permission-note" class="note"></p>
                   <label class="slider-row">
                     <span>Most steps for one task</span>
                     <input id="agent-steps" type="range" min="10" max="50" step="5" />
@@ -648,6 +650,23 @@
                     <input id="launch-at-login" type="checkbox" role="switch" />
                   </label>
                   <p id="startup-note" class="note"></p>
+                </div>
+              </div>
+            </section>
+
+            <section class="row" id="sec-button">
+              <div class="row-head">
+                <h2 id="button-heading">Button on screen</h2>
+                <span id="button-summary" class="summary">Off</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-button-body" aria-labelledby="button-heading button-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-button-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Keep a small round button on screen that opens the bar</span>
+                    <input id="show-button" type="checkbox" role="switch" />
+                  </label>
+                  <p id="button-note" class="note"></p>
                 </div>
               </div>
             </section>

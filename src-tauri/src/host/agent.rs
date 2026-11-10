@@ -438,6 +438,7 @@ impl AgentHost for Host {
         let v = store::get().get_agent_settings();
         AgentSettings {
             every: v["permission"] == "every",
+            auto: v["permission"] == "auto",
             max_steps: v["maxSteps"].as_u64().unwrap_or(0) as u32,
             screenshots: v["screenshots"].as_bool().unwrap_or(true),
             return_cursor: v["returnCursor"].as_bool().unwrap_or(true),

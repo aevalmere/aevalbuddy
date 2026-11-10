@@ -321,7 +321,14 @@ pub fn input_bounds(wa: Rect, anchor: &Anchor, width: f64, height: f64, text_sca
     };
     let max = (INPUT_MAX_HEIGHT * s).min(wa.height.max(INPUT_MIN_HEIGHT));
     let h = clamp(round(height), INPUT_MIN_HEIGHT, max);
-    bounds_for_size(wa, (width, h), anchor)
+    let mut r = bounds_for_size(wa, (width, h), anchor);
+    if anchor.v == "center" {
+        // A bar in the middle is centred as it opens and grows downward
+        // from there: its field stays under the eye while it gets taller.
+        let rest = bounds_for_size(wa, (width, DEFAULT_INPUT_HEIGHT), anchor);
+        r.y = clamp(rest.y, wa.y, wa.y + wa.height - h);
+    }
+    r
 }
 
 /// POS-23: the side of the display an output dodges to.
@@ -526,6 +533,13 @@ mod tests {
         let r = input_bounds(wa(), &a("left", "top", 0.0, 0.0), 600.0, 5000.0, 3.0);
         assert_eq!(r.height, 1040.0);
         assert_eq!(DEFAULT_INPUT_HEIGHT, 76.0);
+        // In the middle the bar keeps its top edge as it grows.
+        let mid = a("center", "center", 16.0, 16.0);
+        let rest = input_bounds(wa(), &mid, 600.0, 76.0, 1.0);
+        let tall = input_bounds(wa(), &mid, 600.0, 300.0, 1.0);
+        assert_eq!(rest.y + rest.height / 2.0, wa().y + wa().height / 2.0);
+        assert_eq!(rest.x + rest.width / 2.0, wa().x + wa().width / 2.0);
+        assert_eq!((tall.y, tall.height), (rest.y, 300.0));
         assert_eq!((OUTPUT_MAX_FRACTION, OUTPUT_MAX_FLOOR), (0.66, 380.0));
         assert_eq!(DEFAULT_OUTPUT_HEIGHT, 120.0);
         assert_eq!(HUD_INPUT_HEIGHT, 140.0);

@@ -35,6 +35,7 @@ use crate::llm::provider::Provider;
 use crate::llm::settings::Active;
 use crate::llm::wire::{self, Turn};
 
+use super::auto::{self, Decision, Review};
 use super::describe::{describe, friendly, full_value, redact, seconds, Seen};
 use super::gate::{chord_label, focused_in, gate, js_string, presses_focus, quote};
 use super::gate::{Class, DragEnd, GateEnv, Touches};
@@ -57,6 +58,8 @@ const PAUSED: &str = "Paused: you took over. Enter to continue, Esc to stop.";
 const STOPPED: &str = "Stopped. Nothing else was done.";
 const WALL_LIMIT: &str = "Stopped: the six-minute limit for one task was reached.";
 const FAILURES: &str = "Stopped after three failed actions in a row.";
+const AUTO_OFF: &str = "The safety check blocked several steps, so the rest of this task asks \
+you first.";
 const SKIPPED: &str = "The user skipped this step. Do not retry it; choose another way or finish.";
 const PLAN_READ: &str = "Read the plan, then press Start. Esc stops.";
 const NO_ANSWER: &str = "The user did not answer. Do not guess; stop if you need it.";
@@ -89,6 +92,9 @@ const RESTARTING: &str = "Desktop control stopped responding. Restarting it\u{20
 pub struct AgentSettings {
     /// `permission: 'every'`.
     pub every: bool,
+    /// `permission: 'auto'`: a second check decides the flagged steps
+    /// (auto.rs).
+    pub auto: bool,
     /// 0 is unset (25).
     pub max_steps: u32,
     pub screenshots: bool,
@@ -229,6 +235,13 @@ struct St {
     /// What the person can do about the last failed step, whose row already
     /// says why it failed (B-143).
     remedy: Option<String>,
+    /// What the person answered when the task asked them something, for
+    /// automatic mode's check: their words, like the task itself.
+    said: Vec<String>,
+    /// Steps automatic mode blocked: one after another, and in all.
+    auto_blocks: (u32, u32),
+    /// Automatic mode blocked too much: the rest of the task asks.
+    auto_off: bool,
     nudged: bool,
     usage: UsageTotals,
     target: Value,
@@ -851,6 +864,9 @@ impl Agent {
             acts_done: 0,
             taken_over: false,
             remedy: None,
+            said: Vec::new(),
+            auto_blocks: (0, 0),
+            auto_off: false,
             nudged: false,
             usage: UsageTotals::default(),
             target: Value::Null,
@@ -1288,6 +1304,54 @@ impl Ctx {
             .filter(|n| n.is_finite() && *n >= 0.0);
         let i = given.map_or(done, |n| n as usize);
         json!(i.min(len - 1))
+    }
+
+    /// Automatic mode's answer for one flagged step (auto.rs): what the
+    /// person always decides asks at once; the rest goes to the reviewer,
+    /// which sees the person's words and the step, never the screen.
+    async fn auto_review(&self, call: &Call, info: &Info, label: &str, why: &str) -> Review {
+        let value = full_value(&call.name, &call.args, &seen(info)).map(|(v, _)| v);
+        if let Some(reason) = auto::always_ask(why, label, value.as_deref()) {
+            return Review::ask(reason);
+        }
+        let (task, said, active, model) = self.st(|s| {
+            let said = s.said.clone();
+            (s.task.clone(), said, s.active.clone(), s.model.clone())
+        });
+        let user = auto::review_prompt(&task, &said, label, &info.t.app, why, value.as_deref());
+        let messages = [
+            json!({ "role": "system", "content": auto::SYSTEM }),
+            json!({ "role": "user", "content": user }),
+        ];
+        let meta = Meta {
+            purpose: "agent-review".into(),
+            task: Some(task),
+            ..Meta::default()
+        };
+        let cancel = self.r.cancel.child_token();
+        let llm = &self.a.llm;
+        let asked = llm.chat_turn(&active, &model, &messages, None, &cancel, &meta);
+        let limit = Duration::from_millis(auto::REVIEW_TIMEOUT_MS);
+        let turn = match tokio::time::timeout(limit, asked).await {
+            Ok(Ok(turn)) => turn,
+            Ok(Err(_)) => return Review::no_reply(),
+            Err(_) => {
+                cancel.cancel();
+                return Review::no_reply();
+            }
+        };
+        self.st(|s| {
+            s.usage.calls += 1;
+            if let Some(usage) = &turn.usage {
+                s.usage.prompt += usage.prompt;
+                s.usage.completion += usage.completion;
+                if let Some(cost) = usage.cost.filter(|c| c.is_finite()) {
+                    s.usage.cost += cost;
+                    s.usage.cost_known = true;
+                }
+            }
+        });
+        auto::parse_review(&turn.content)
     }
 
     async fn ask_confirm(&self, call: &Call, info: &Info, why: &str) -> bool {
@@ -1904,6 +1968,7 @@ impl Ctx {
         if answer.is_empty() {
             return Outcome::text(NO_ANSWER);
         }
+        self.st(|s| s.said.push(answer.clone()));
         Outcome::text(format!("The user answered: {answer}"))
     }
 
@@ -1954,7 +2019,7 @@ impl Ctx {
             plan_gate,
             plan_approved,
         };
-        let verdict = gate(&call.name, a, &info.t, &env).await;
+        let mut verdict = gate(&call.name, a, &info.t, &env).await;
         if self.ended() {
             return Outcome::text("Stopped.");
         }
@@ -1978,7 +2043,47 @@ impl Ctx {
             return Outcome::failed(format!("Refused by the app: {}.", verdict.why));
         }
 
-        if verdict.cls == Class::Consequential {
+        // Automatic mode: a second check reads the flagged step against what
+        // the person asked for. It runs, is blocked, or asks as it would
+        // have.
+        let mut checked = None;
+        if verdict.cls == Class::Consequential && settings.auto && !self.st(|s| s.auto_off) {
+            let review = self.auto_review(call, &info, &label, &verdict.why).await;
+            if self.ended() {
+                return Outcome::text("Stopped.");
+            }
+            match review.decision {
+                Decision::Allow => {
+                    self.st(|s| s.auto_blocks.0 = 0);
+                    checked = Some(review.reason);
+                }
+                Decision::Ask => {
+                    verdict.why = format!("{}; {}", verdict.why, review.reason);
+                }
+                Decision::Block => {
+                    let error = format!("Blocked by the safety check: {}.", review.reason);
+                    let row = json!({
+                        "kind": "action",
+                        "text": label,
+                        "state": "failed",
+                        "error": error,
+                        "planIndex": plan_index,
+                    });
+                    self.row(row);
+                    let (row_count, total) = self.st(|s| {
+                        s.auto_blocks = (s.auto_blocks.0 + 1, s.auto_blocks.1 + 1);
+                        s.auto_blocks
+                    });
+                    if auto::gives_up(row_count, total) {
+                        self.st(|s| s.auto_off = true);
+                        self.row(json!({ "kind": "note", "text": AUTO_OFF }));
+                    }
+                    return Outcome::failed(auto::blocked_text(&review.reason));
+                }
+            }
+        }
+
+        if verdict.cls == Class::Consequential && checked.is_none() {
             let mut allowed = false;
             for _ in 0..3 {
                 let before = info.point;
@@ -2056,6 +2161,9 @@ impl Ctx {
         });
         if verdict.cls == Class::Consequential {
             row["why"] = json!(verdict.why);
+        }
+        if let Some(reason) = &checked {
+            row["checked"] = json!(reason);
         }
         let rw = self.row(row);
         let t0 = Instant::now();
@@ -2708,6 +2816,8 @@ mod tests {
         /// Runs as the answer window moves aside, just before a pointer
         /// step acts.
         on_dodge: Mutex<Option<Hook>>,
+        /// `permission: 'auto'`.
+        auto: AtomicBool,
     }
 
     impl Emitter for Host {
@@ -2719,7 +2829,10 @@ mod tests {
     #[async_trait]
     impl AgentHost for Host {
         fn settings(&self) -> AgentSettings {
-            AgentSettings::default()
+            AgentSettings {
+                auto: self.auto.load(Ordering::Relaxed),
+                ..AgentSettings::default()
+            }
         }
         fn active(&self) -> Option<Active> {
             None
@@ -2845,6 +2958,73 @@ mod tests {
         assert_eq!(done["text"], "Left it unsent.");
         let req = host.events.last("agent:confirm-request").expect("asked");
         assert!(req["text"].as_str().unwrap_or_default().contains("Send"));
+        assert!(!d.methods().contains(&"click".to_string()));
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        assert!(rows.iter().any(|r| r["state"] == "skipped"));
+    }
+
+    /// `agent`, in automatic mode, whose safety check answers `review`
+    /// (`None` leaves it the fake's stock answer, which is not a decision).
+    fn auto_agent(d: Arc<FakeDesktop>, review: Option<&str>) -> (Agent, Arc<Host>) {
+        let fake = Arc::new(Fake::load());
+        fake.set_var("sendRef", json!("ref_9"));
+        if let Some(text) = review {
+            fake.push_fixture(json!({ "purpose": "agent-review", "text": text }));
+        }
+        let mut llm = Llm::new(Arc::new(NoNet), Some(fake));
+        llm.set_offline(false);
+        let host = Arc::new(Host::default());
+        host.auto.store(true, Ordering::Relaxed);
+        let agent = Agent::new(d, Arc::new(llm), host.clone(), Handle::current());
+        (agent, host)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn automatic_mode_runs_a_step_its_check_allows() {
+        let d = notepad_desktop();
+        let allow = r#"{"decision":"allow","reason":"You asked to press Send."}"#;
+        let (agent, host) = auto_agent(d.clone(), Some(allow));
+        agent.start(opts("smoke confirm gate"));
+        let done = finished(&agent, &host, false).await;
+        assert!(host.events.last("agent:confirm-request").is_none());
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let checked = rows.iter().find(|r| !r["checked"].is_null());
+        let checked = checked.expect("a row the check allowed");
+        assert_eq!(checked["checked"], "You asked to press Send");
+        assert!(checked["why"].as_str().unwrap_or_default().contains("Send"));
+        assert!(!rows.iter().any(|r| r["state"] == "skipped"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn automatic_mode_blocks_without_asking_or_acting() {
+        let d = notepad_desktop();
+        let block = r#"{"decision":"block","reason":"Nobody asked for this to be sent"}"#;
+        let (agent, host) = auto_agent(d.clone(), Some(block));
+        agent.start(opts("smoke confirm gate"));
+        let done = finished(&agent, &host, true).await;
+        assert!(host.events.last("agent:confirm-request").is_none());
+        assert!(!d.methods().contains(&"click".to_string()));
+        let rows = done["rows"].as_array().cloned().unwrap_or_default();
+        let blocked = rows.iter().find(|r| r["state"] == "failed");
+        let error = blocked.map(|r| r["error"].as_str().unwrap_or_default().to_string());
+        let want = "Blocked by the safety check: Nobody asked for this to be sent.";
+        assert_eq!(error.as_deref(), Some(want));
+    }
+
+    /// Anything but a clear decision asks the person, as the gate alone
+    /// would have.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn automatic_mode_asks_when_its_check_is_unclear() {
+        let d = notepad_desktop();
+        let (agent, host) = auto_agent(d.clone(), None);
+        agent.start(opts("smoke confirm gate"));
+        let done = finished(&agent, &host, false).await;
+        let req = host.events.last("agent:confirm-request").expect("asked");
+        let why = req["why"].as_str().unwrap_or_default();
+        assert!(
+            why.contains("Send") && why.contains("gave no clear answer"),
+            "{why}"
+        );
         assert!(!d.methods().contains(&"click".to_string()));
         let rows = done["rows"].as_array().cloned().unwrap_or_default();
         assert!(rows.iter().any(|r| r["state"] == "skipped"));

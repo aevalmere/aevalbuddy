@@ -569,9 +569,20 @@ fn refresh_card(p: &Prefs) {
 /// Where a card `height` tall goes: under the bar, centred on it, or above
 /// it when there is no room below. Also which edge it grows out of.
 fn spot(app: &AppHandle, height: f64) -> (&'static str, Rect) {
-    let bar = crate::windows::bar_rect(app);
     let area = crate::windows::bar_area();
+    if !crate::windows::bar_on_screen(app) {
+        return ("top", place_alone(area, height));
+    }
+    let bar = crate::windows::bar_rect(app);
     place_card(bar, area, height)
+}
+
+/// With no bar on screen (the button is off and the bar is closed) the card
+/// hangs from the top of the screen, in the middle.
+fn place_alone(area: Rect, height: f64) -> Rect {
+    let width = CARD_WIDTH.min(area.width);
+    let x = area.x + ((area.width - width) / 2.0).round();
+    Rect::new(x, area.y, width, height.min(area.height))
 }
 
 fn place_card(bar: Rect, area: Rect, height: f64) -> (&'static str, Rect) {
@@ -1057,6 +1068,9 @@ mod tests {
         // Never off the side of the work area.
         let edge = Rect::new(0.0, 20.0, 56.0, 56.0);
         assert_eq!(place_card(edge, area, 120.0).1.x, 0.0);
+        let alone = place_alone(area, 120.0);
+        assert_eq!(alone.y, area.y);
+        assert_eq!(alone.x + alone.width / 2.0, area.x + area.width / 2.0);
     }
 
     #[test]

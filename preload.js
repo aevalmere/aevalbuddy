@@ -38,6 +38,7 @@ const INVOKE_CHANNELS = new Set([
   'settings:set-save-history',
   'settings:clear-history',
   'settings:set-launch-at-login',
+  'settings:set-show-button',
   'settings:test-key',
   'update:check',
   'update:restart',

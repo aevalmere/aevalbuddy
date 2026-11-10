@@ -116,6 +116,8 @@ pub fn defaults() -> Map<String, Value> {
         "skill": "auto",
         "shortcuts": default_shortcuts(),
         "overlayPos": { "h": "right", "v": "top", "offX": 16, "offY": 16 },
+        "barPos": { "h": "center", "v": "center", "offX": 16, "offY": 16 },
+        "showButton": false,
         "outputPos": { "docked": true, "h": "right", "v": "top", "offX": 16, "offY": 240 },
         "inputWidth": DEFAULT_INPUT_WIDTH,
         "outputWidth": 420,
@@ -214,6 +216,16 @@ fn js_string(v: Option<&Value>) -> String {
 
 fn clamp_i(n: i64, lo: i64, hi: i64) -> i64 {
     n.max(lo).min(hi)
+}
+
+/// When a task asks first: "risky" (the gate's flagged steps), "every"
+/// (each action) or "auto" (a second check decides the flagged ones).
+fn permission_of(stored: &str) -> &'static str {
+    match stored {
+        "every" => "every",
+        "auto" => "auto",
+        _ => "risky",
+    }
 }
 
 /// sanitizeOverlayPos.
@@ -852,13 +864,42 @@ impl Store {
 
     // ------------------------------------------------------------- layout
 
+    /// Whether the round button that opens the bar floats on screen. Off
+    /// is the default: the bar comes with its shortcut or from the tray.
+    pub fn get_show_button(&self) -> bool {
+        self.flag("showButton")
+    }
+
+    pub fn set_show_button(&self, on: bool) -> bool {
+        self.set("showButton", json!(on));
+        self.get_show_button()
+    }
+
+    /// The bar has two places, one for each way of opening it: with the
+    /// button it grows out of the button's corner (`overlayPos`), without
+    /// it the bar comes up on its own (`barPos`, the middle of the screen
+    /// unless moved).
+    fn pos_key(&self) -> &'static str {
+        if self.get_show_button() {
+            "overlayPos"
+        } else {
+            "barPos"
+        }
+    }
+
     pub fn get_overlay_pos(&self) -> Value {
-        sanitize_pos(self.raw("overlayPos").as_ref())
+        let key = self.pos_key();
+        match self.raw(key) {
+            None if key == "barPos" => {
+                json!({ "h": "center", "v": "center", "offX": 16, "offY": 16 })
+            }
+            p => sanitize_pos(p.as_ref()),
+        }
     }
 
     pub fn set_overlay_pos(&self, pos: &Value) -> Value {
         let v = sanitize_pos(Some(pos));
-        self.set("overlayPos", v.clone());
+        self.set(self.pos_key(), v.clone());
         v
     }
 
@@ -1129,7 +1170,7 @@ impl Store {
             25
         };
         json!({
-            "permission": if self.str_of("agentPermission") == "every" { "every" } else { "risky" },
+            "permission": permission_of(&self.str_of("agentPermission")),
             "maxSteps": steps,
             "screenshots": self.raw("agentScreenshots") != Some(Value::Bool(false)),
             "returnCursor": self.raw("agentReturnCursor") != Some(Value::Bool(false)),
@@ -1141,11 +1182,8 @@ impl Store {
         {
             let mut d = self.data.lock();
             if let Some(v) = p.get("permission") {
-                let every = v.as_str() == Some("every");
-                d.insert(
-                    "agentPermission".into(),
-                    json!(if every { "every" } else { "risky" }),
-                );
+                let permission = permission_of(v.as_str().unwrap_or_default());
+                d.insert("agentPermission".into(), json!(permission));
             }
             if let Some(v) = p.get("maxSteps") {
                 d.insert(
@@ -1250,6 +1288,31 @@ mod tests {
         assert_eq!(file(&dir)["hasSentFirstRequest"], true);
     }
 
+    /// The bar keeps one place for each way of opening it: the middle of
+    /// the screen without the button (the default), the button's corner
+    /// with it.
+    #[test]
+    fn the_bar_has_a_place_for_each_way_of_opening_it() {
+        let dir = temp("bar-pos");
+        let s = open(&dir);
+        assert!(!s.get_show_button());
+        let mid = s.get_overlay_pos();
+        assert_eq!(
+            (mid["h"].as_str(), mid["v"].as_str()),
+            (Some("center"), Some("center"))
+        );
+        s.set_overlay_pos(&json!({ "h": "left", "v": "bottom", "offX": 16, "offY": 16 }));
+        assert!(s.set_show_button(true));
+        let corner = s.get_overlay_pos();
+        assert_eq!(
+            (corner["h"].as_str(), corner["v"].as_str()),
+            (Some("right"), Some("top"))
+        );
+        assert!(!s.set_show_button(false));
+        assert_eq!(s.get_overlay_pos()["v"], "bottom");
+        assert_eq!(file(&dir)["barPos"]["h"], "left");
+    }
+
     #[test]
     fn unknown_keys_survive_and_values_win_over_defaults() {
         let dir = temp("unknown");
@@ -1346,6 +1409,14 @@ mod tests {
         assert_eq!(
             s.set_agent_settings(&json!({"maxSteps": "x"}))["maxSteps"],
             25
+        );
+        assert_eq!(
+            s.set_agent_settings(&json!({"permission": "auto"}))["permission"],
+            "auto"
+        );
+        assert_eq!(
+            s.set_agent_settings(&json!({"permission": "always"}))["permission"],
+            "risky"
         );
         assert_eq!(
             s.set_agent_settings(&json!({"permission": "every"}))["permission"],

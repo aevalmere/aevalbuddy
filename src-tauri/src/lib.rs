@@ -218,6 +218,9 @@ pub fn run() {
             let handle = app.handle().clone();
             if quiet_run() {
                 handle.add_capability(TEST_CAPABILITY)?;
+                // The checks work the round button: its window is what they
+                // sample, click and measure while the bar is closed.
+                store::get().set_show_button(true);
             }
             windows::boot(&handle)?;
             // Desktop helper client, glass backdrop, CI checks (split c).

@@ -262,7 +262,7 @@ pub fn on_page_loaded(app: &AppHandle, label: &str) {
                     false
                 }
             };
-            if first || rebuild::overlay_loaded() {
+            if (first || rebuild::overlay_loaded()) && button() {
                 if let Some(h) = hwnd(&app, OVERLAY) {
                     flags::show_inactive(h);
                 }
@@ -326,6 +326,43 @@ fn anchor() -> Anchor {
     Anchor::from_value(&store::get().get_overlay_pos())
 }
 
+/// Whether the round button floats on screen while the bar is closed. Off
+/// by default: the closed bar is not on screen at all, and the shortcut or
+/// the tray brings it.
+fn button() -> bool {
+    store::get().get_show_button()
+}
+
+/// Settings turned the button on or off: the closed bar shows or goes, at
+/// the place that belongs to that way of opening it.
+pub fn button_changed(app: &AppHandle) {
+    let Some(w) = window(app, OVERLAY) else {
+        return;
+    };
+    let (mode, hidden) = {
+        let st = shared(app);
+        let s = st.lock();
+        (s.mode, s.hidden)
+    };
+    if mode == Mode::Hud {
+        return;
+    }
+    if let Some(h) = flags::hwnd_of(&w) {
+        motion::stop(h);
+    }
+    set_input_bounds(app, bar_home(app));
+    if mode == Mode::Pill {
+        if !button() {
+            flags::hide(&w);
+        } else if !hidden {
+            if let Some(h) = flags::hwnd_of(&w) {
+                flags::show_inactive(h);
+            }
+        }
+    }
+    send_overlay_state(app);
+}
+
 /// B-025: where the bar and new windows go: the work area of the display
 /// the person was on when they last called the bar up.
 pub fn bar_area() -> Rect {
@@ -339,6 +376,11 @@ fn pill_rect() -> Rect {
 fn input_rect(height: f64) -> Rect {
     let w = store::get().get_input_width() as f64;
     layout::input_bounds(bar_area(), &anchor(), w, height, text_scale::scale())
+}
+
+/// Whether the bar's window (the open bar or its button) is on screen.
+pub fn bar_on_screen(app: &AppHandle) -> bool {
+    hwnd(app, OVERLAY).is_some_and(flags::is_visible)
 }
 
 /// The bar's glass rect as it is now, or where it would be.
@@ -378,6 +420,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
     let glass = store.get_glass_intensity();
     let first_sent = store.get_has_sent_first_request();
     let keys = store.provider_keys_present();
+    let button = store.get_show_button();
     let height = shared(app).lock().input_height;
     let pb = pill_rect();
     let ib = input_rect(height);
@@ -442,6 +485,7 @@ pub fn overlay_state(app: &AppHandle, for_label: Option<&str>) -> Value {
         "hasSentFirstRequest": first_sent,
         "keys": keys,
         "outputs": s.outputs.values().filter(|o| o.active).count(),
+        "button": button,
     });
     drop(s);
     v["target"] = target;
@@ -709,7 +753,10 @@ pub fn collapse_panel(app: &AppHandle) {
     flags::set_focusable(h, false);
     flags::pin_on_top(h);
     flags::set_click_through(&w, true);
-    flags::show_inactive(h);
+    let button = button();
+    if button {
+        flags::show_inactive(h);
+    }
     motion::stop(h);
     if was_panel {
         // The bar folds into the orb inside the page first; the window
@@ -732,14 +779,23 @@ pub fn collapse_panel(app: &AppHandle) {
             if *collapse_gen().lock() != gen || shared(&app2).lock().mode != Mode::Pill {
                 return;
             }
-            set_input_bounds(&app2, pill_rect());
-            send_overlay_state(&app2);
+            fold_done(&app2, button);
         });
     } else {
-        set_input_bounds(app, pill_rect());
-        send_overlay_state(app);
+        fold_done(app, button);
     }
     hotkeys::apply(app);
+}
+
+/// The bar has folded: the window shrinks to the button, or with no button
+/// leaves the screen.
+fn fold_done(app: &AppHandle, button: bool) {
+    if button {
+        set_input_bounds(app, pill_rect());
+    } else if let Some(w) = window(app, OVERLAY) {
+        flags::hide(&w);
+    }
+    send_overlay_state(app);
 }
 
 /// The way back to the pill: the bar folds and every answer window goes
@@ -849,8 +905,10 @@ pub fn toggle_visibility(app: &AppHandle) {
         latch_display(app);
         if mode == Mode::Panel {
             flags::show_focused(&w);
-        } else if let Some(h) = flags::hwnd_of(&w) {
-            flags::show_inactive(h);
+        } else if button() {
+            if let Some(h) = flags::hwnd_of(&w) {
+                flags::show_inactive(h);
+            }
         }
         outputs::show_active_windows(app);
     }
@@ -1724,13 +1782,14 @@ mod tests {
             "shortcuts",
             "hotkeyFailed",
         ];
-        const TAURI: [&str; 6] = [
+        const TAURI: [&str; 7] = [
             "glassIntensity",
             "hasSentFirstRequest",
             "keys",
             "outputs",
             "target",
             "visibleOutputs",
+            "button",
         ];
         const OUTPUT_ONLY: [&str; 2] = ["label", "focused"];
         let src = include_str!("mod.rs");

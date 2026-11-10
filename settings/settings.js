@@ -1726,8 +1726,26 @@ function renderAgentSettings(a) {
   agentShots.checked = !!a.screenshots;
   agentCursor.checked = !!a.returnCursor;
   $('agent-revoke').hidden = !a.consent;
-  setSummary('agent-summary', `${a.permission === 'every' ? 'Asks before every action' : 'Asks for risky steps'} · up to ${a.maxSteps} steps`);
+  const says = PERMISSION[a.permission] || PERMISSION.risky;
+  $('agent-permission-note').textContent = says.note;
+  setSummary('agent-summary', `${says.summary} · up to ${a.maxSteps} steps`);
 }
+
+// What each way of asking does, in the row's summary and under the choice.
+const PERMISSION = {
+  auto: {
+    summary: 'Automatic',
+    note: 'A safety check reads each risky step against what you asked for. It runs the step when it is clearly part of your request, blocks it when it works against you, and asks you when it is not sure. Money, passwords, sign-ins, installs and command lines always ask you.',
+  },
+  risky: {
+    summary: 'Asks for risky steps',
+    note: 'Anything that could send, delete, buy or run something waits for you to allow it.',
+  },
+  every: {
+    summary: 'Asks before every action',
+    note: 'Every click and every key waits for you to allow it.',
+  },
+};
 
 // Each resolves true once saved; a failed save puts the page back as stored.
 const setFind = (patch) =>
@@ -2280,11 +2298,36 @@ function renderBarPosition() {
   const pos = data.overlayPos || data.inputAnchor;
   let text = '';
   if (pos && pos.v && pos.h) {
-    const v = pos.v === 'bottom' ? 'Bottom' : 'Top';
-    text = `${v} ${H_NAME[pos.h] || pos.h}`;
+    if (pos.v === 'center') text = pos.h === 'center' ? 'Middle of the screen' : `Middle ${H_NAME[pos.h] || pos.h}`;
+    else text = `${pos.v === 'bottom' ? 'Bottom' : 'Top'} ${H_NAME[pos.h] || pos.h}`;
   }
   setSummary('layout-summary', text);
 }
+
+// The round button: off, the bar is on screen only while it is open, and
+// the shortcut or the tray icon opens it. The bar has a place of its own
+// for each, so the switch answers with where it is now.
+const showButton = $('show-button');
+function renderButton() {
+  const chord = (data.shortcuts && data.shortcuts.captureQuery) || '';
+  setSummary('button-summary', data.showButton ? 'On' : 'Off');
+  $('button-note').textContent = data.showButton
+    ? 'The bar opens out of the button. Move it with Bar position.'
+    : `Nothing is on screen until you press ${chord || 'the shortcut'}. The tray icon opens the bar too.`;
+}
+
+showButton.addEventListener('change', () => {
+  call('settings:set-show-button', { on: showButton.checked }).then((r) => {
+    if (failed(r)) {
+      showButton.checked = !!data.showButton;
+      return;
+    }
+    data.showButton = r.showButton;
+    if (r.overlayPos) data.overlayPos = r.overlayPos;
+    renderButton();
+    renderBarPosition();
+  });
+});
 
 $('edit-position').addEventListener('click', () => call('hud:enter'));
 $('replay-tour').addEventListener('click', () => call('tour:replay'));
@@ -2456,6 +2499,8 @@ function renderAll(d) {
   brainEnabled.checked = !!d.brainEnabled;
   saveHistory.checked = d.saveHistory !== false;
   launchAtLogin.checked = !!d.launchAtLogin;
+  showButton.checked = !!d.showButton;
+  renderButton();
   renderHistory();
   renderStartup();
   renderSurface();
