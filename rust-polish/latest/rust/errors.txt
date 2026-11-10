@@ -1,5 +1,0 @@
-== smoke.log ==
-[SMOKE] transcriptWheel=FAIL:at (417, 370) moved Ok(()) sent Ok(())
-[SMOKE] failed: transcriptWheel
-[GATE] fail transcriptWheel=FAIL:at (417, 370) moved Ok(()) sent Ok(())
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: transcriptWheel; 1 listed label(s) never printed
