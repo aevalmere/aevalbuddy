@@ -1667,12 +1667,18 @@ body[data-fixed-height="1"] #chat {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   color: var(--label);
-  white-space: nowrap;
 }
 
-.md-body code.md-long {
-  white-space: normal;
+/* A short span is one piece: it moves to the next line whole, so a flag or a
+   file name never splits at its hyphen, and breaks inside only when it is
+   wider than the whole line (a narrow window at a large text size). A long
+   one wraps in the text like any words. */
+.md-body :not(pre) > code:not(.md-long) {
+  display: inline-block;
+  max-width: 100%;
+  margin-block: -0.05em;
   overflow-wrap: anywhere;
+  vertical-align: baseline;
 }
 
 /* A code block is a plate: its language, a Copy button at the top right
@@ -1713,7 +1719,6 @@ body[data-fixed-height="1"] #chat {
 
 .md-body pre code {
   font-size: inherit;
-  white-space: inherit;
   background: none;
   padding: 0;
   border-radius: 0;

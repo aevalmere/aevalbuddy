@@ -238,8 +238,11 @@ body[data-kind="agent"] #callout-close {
   display: none;
 }
 
-/* The message arrives whole, with one short fade. */
+/* The message arrives whole, with one short fade. It is a block of its own
+   beside the close button, so the card grows to keep a short message on one
+   line instead of wrapping it under the button's width. */
 #callout-message {
+  display: flow-root;
   min-height: var(--lh-row);
   color: var(--label);
   /* No one-word last line: the tour's last card ended on "it." alone. */
