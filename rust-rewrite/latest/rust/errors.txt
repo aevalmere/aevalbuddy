@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] updateFeed=FAIL:retrying: The update server did not answer. Trying again at 2:12 PM.
+[SMOKE] failed: updateFeed
+[GATE] fail updateFeed=FAIL:retrying: The update server did not answer. Trying again at 2:12 PM.
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: updateFeed; 1 listed label(s) never printed
