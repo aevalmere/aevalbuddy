@@ -40,11 +40,9 @@
 [CSSLINT] self-test keyframes colours fail=ok
 [CSSLINT] self-test a local custom property colour fails=ok
 [BRIDGE] cssLintSelfTest=ok
-[BRIDGE] css-lint: 3 files enforced, 0 violations
+[BRIDGE] css-lint: 8 files enforced, 0 violations
 [BRIDGE] cssLint=ok
-[BRIDGE] css-lint report renderer/cursor-buddy.css: 32 violations (not enforced yet)
-[BRIDGE] css-lint report renderer/glass.css: 17 violations (not enforced yet)
-[BRIDGE] css-lint report renderer/lens.css: 20 violations (not enforced yet)
-[BRIDGE] css-lint report renderer/overlay.css: 47 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/glass.css: 32 violations (not enforced yet)
+[BRIDGE] css-lint report renderer/overlay.css: 9 violations (not enforced yet)
 [BRIDGE] css-lint report renderer/region.css: 6 violations (not enforced yet)
 [BRIDGE] done failed=0
