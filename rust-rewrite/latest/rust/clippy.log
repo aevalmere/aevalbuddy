@@ -21,8 +21,8 @@
       Adding winreg v0.55.0 (available: v0.56.0)
  Downloading crates ...
   Downloaded crc32fast v1.5.5
-  Downloaded wry v0.57.2
   Downloaded jiff v0.2.42
+  Downloaded wry v0.57.2
    Compiling crc32fast v1.5.5
    Compiling wry v0.57.2
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
@@ -39,4 +39,4 @@
     Checking tauri-plugin-opener v2.7.2
     Checking tauri-plugin-global-shortcut v2.4.1
     Checking tauri-plugin-clipboard-manager v2.5.0
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.97s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 40.20s
