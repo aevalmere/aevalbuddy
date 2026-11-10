@@ -22,4 +22,4 @@
  Downloading crates ...
   Downloaded jiff v0.2.42
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.98s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 22.32s

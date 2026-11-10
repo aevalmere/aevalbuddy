@@ -1,0 +1,37 @@
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\ask.rs:21:
+ use crate::llm::catalogue::{self, Kind};
+ use crate::llm::client::{ChatTurn, QueryOpts, ReaderOpts};
+ use crate::llm::elements::{match_element, parse_elements, View};
+-use crate::llm::errors::{
+-    busy_note, code_of, codes, details, explain, paid_hop, About, ApiError,
+-};
++use crate::llm::errors::{busy_note, code_of, codes, details, explain, paid_hop, About, ApiError};
+ use crate::llm::failover::{short_model, with_failover};
+ use crate::llm::payloads::{FailoverPrefs, QueryError, Usage};
+ use crate::llm::points::{Point, PointExtractor};
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\ask.rs:1471:
+             codes::DAILY_CAP,
+             codes::OFFLINE,
+         ] {
+-            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Hop, "{code}");
++            assert_eq!(
++                after_failure(&Failed { code, ..ready }),
++                Next::Hop,
++                "{code}"
++            );
+         }
+         // Not after text started, not with a pinned model, not when the
+         // person turned hopping off, and not for a failure that would be
+Diff in \\?\D:\a\aevalbuddy\aevalbuddy\src-tauri\src\host\ask.rs:1495:
+             codes::DATA_POLICY,
+             codes::UNKNOWN,
+         ] {
+-            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Stop, "{code}");
++            assert_eq!(
++                after_failure(&Failed { code, ..ready }),
++                Next::Stop,
++                "{code}"
++            );
+         }
+         let offline = Failed {
+             code: codes::OFFLINE,
