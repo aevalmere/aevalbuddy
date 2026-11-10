@@ -1,12 +1,13 @@
-# ui-shots: success
+# ui-shots: failure
 
 - Workflow: ui-shots
-- Run: [42770659902](https://github.com/aevalmere/aevalbuddy/actions/runs/42770659902), attempt 1, on push
-- Commit: e991a05fce859932435fcc19e224602a7eb48080
+- Run: [42786394311](https://github.com/aevalmere/aevalbuddy/actions/runs/42786394311), attempt 1, on push
+- Commit: fbce49a73b7788aa0314a9bfcedb032c00fe1dfd
 - Ref: rust-rewrite
-- Conclusion: **success**
-- Finished: 2026-11-10T06:56:37Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust-rewrite/e991a05fce859932435fcc19e224602a7eb48080 (/ in the ref becomes -)
+- Conclusion: **failure**
+- Failed: Screenshots and renderer checks
+- Finished: 2026-11-10T09:09:24Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust-rewrite/fbce49a73b7788aa0314a9bfcedb032c00fe1dfd (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -14,8 +15,8 @@
 | Node | success |  |
 | Bridge unit checks | success | [bridge.log](bridge.log) |
 | Install Playwright | success | [playwright.log](playwright.log) |
-| Screenshots and renderer checks | success | [shots.log](shots.log) |
+| Screenshots and renderer checks | failure | [shots.log](shots.log) |
 | Upload screenshots | success |  |
 | Publish to the shots branch | success |  |
 
-errors.txt: 0 error and warning lines from the logs.
+errors.txt: 1 error and warning lines from the logs.

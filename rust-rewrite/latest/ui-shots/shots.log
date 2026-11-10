@@ -88,11 +88,13 @@
 [UI] shot bar-focus-ring.png
 [UI] tokenMenuIsGMenu=ok
 [UI] shot bar-menu.png
+[UI] reopenedBarHasNoMenu=ok
 [UI] scene bar/bar-focus-ts200
 [UI] tokensPresent-ts200=ok
 [UI] shot bar-focus-ring-ts200.png
 [UI] tokenMenuIsGMenu-ts200=ok
 [UI] shot bar-menu-ts200.png
+[UI] reopenedBarHasNoMenu-ts200=ok
 [UI] scene bar/glass-levels
 [UI] shot glass-level-0.png
 [UI] shot glass-level-25.png
@@ -163,7 +165,11 @@
 [UI] noButtonNothingOnScreen=ok
 [UI] noButtonBarOpensFromItsMiddle=ok
 [UI] shot bar-no-button-open.png
+[UI] foldSurvivesASecondState=ok
 [UI] noButtonBarFoldsAway=ok
+[UI] foldedSaidOnceAfterTheFold=ok
+[UI] reopenedBarSaysNothing=ok
+[UI] editorAndButtonSayFolded=ok
 [UI] scene bar/forced-colors-answer
 [UI] forcedColorsAnswerOutlined=ok
 [UI] shot forced-colors-answer-streaming.png
@@ -171,6 +177,7 @@
 [UI] modelMenuGrouped=ok
 [UI] shot bar-model-menu.png
 [UI] modelMenuFilters=ok
+[UI] menuFadesThenHides=ok
 [UI] shot bar-model-chip.png
 [UI] modelPinSentWithSubmit=ok
 [UI] modelChipUnderFind=ok
@@ -193,6 +200,7 @@
 [UI] shot light-tone-history.png
 [UI] scene bar/reduced-motion-bar-morph
 [UI] reducedFoldHasNoBlur=ok
+[UI] reducedFoldSaysFolded=ok
 [UI] shot reduced-motion-bar-morph.png
 [UI] scene bar/reduced-motion-token-lock
 [UI] reducedTokenLockFades=ok
@@ -205,15 +213,15 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.013
+[UI] globShapeMs=0.020
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=507 frames=30 longestFrameMs=33.2
+[UI] globOpen ms=508 frames=20 longestFrameMs=50.1
 [UI] globOpens=ok
-[UI] globSmooth=ok
+[UI] globSmooth=FAIL:longest frame 50.1 ms
 [UI] globReducedMotion=ok
 [UI] scene sheet/multi
 [UI] shot 05-outputs-multi.png
@@ -250,6 +258,11 @@
 [UI] scene sheet/glob-side
 [UI] shot glob-side.png
 [UI] globFromBarSide=ok
+[UI] scene sheet/sheet-away
+[UI] sheetBlankBeforeItSaysGone=ok
+[UI] sheetDrawsAgainWhenShown=ok
+[UI] sheetCaughtMidFadeStays=ok
+[UI] sheetTakesClicksAfterAHide=ok
 [UI] scene sheet/glob-cascaded
 [UI] shot glob-cascaded.png
 [UI] globFallsBackToScale=ok
@@ -320,6 +333,12 @@
 [UI] shot sheet-task-running.png
 [UI] planChecksOff=ok
 [UI] trailRowsHaveSrPrefixes=ok
+[UI] stepGlyphOnFirstLine=ok
+[UI] scene sheet/sheet-task-running-ts200
+[UI] shot sheet-task-running-ts200.png
+[UI] planChecksOff-ts200=ok
+[UI] trailRowsHaveSrPrefixes-ts200=ok
+[UI] stepGlyphOnFirstLine-ts200=ok
 [UI] scene sheet/sheet-task-done-expanded
 [UI] shot sheet-task-done-collapsed.png
 [UI] shot sheet-task-done-expanded.png
@@ -573,16 +592,58 @@
 [UI] shot menu-bounds-bar-intent.png
 [UI] menuInsideWindow.barModel=ok
 [UI] shot menu-bounds-bar-model.png
+[UI] scene polish/menu-bounds-bar-ts200
+[UI] menuInsideWindow.barIntent-ts200=ok
+[UI] pointerMenuNoRing-ts200=ok
+[UI] shot menu-bounds-bar-intent-ts200.png
+[UI] menuInsideWindow.barModel-ts200=ok
+[UI] shot menu-bounds-bar-model-ts200.png
+[UI] scene polish/menu-bounds-bar-middle
+[UI] menuInsideWindow.barIntent.middle=ok
+[UI] pointerMenuNoRing.middle=ok
+[UI] shot menu-bounds-bar-middle-intent.png
+[UI] menuInsideWindow.barModel.middle=ok
+[UI] shot menu-bounds-bar-middle-model.png
+[UI] scene polish/menu-bounds-bar-middle-ts200
+[UI] menuInsideWindow.barIntent.middle-ts200=ok
+[UI] pointerMenuNoRing.middle-ts200=ok
+[UI] shot menu-bounds-bar-middle-intent-ts200.png
+[UI] menuInsideWindow.barModel.middle-ts200=ok
+[UI] shot menu-bounds-bar-middle-model-ts200.png
+[UI] scene polish/menu-bounds-bar-bottom
+[UI] menuInsideWindow.barIntent.bottom=ok
+[UI] pointerMenuNoRing.bottom=ok
+[UI] shot menu-bounds-bar-bottom-intent.png
+[UI] menuInsideWindow.barModel.bottom=ok
+[UI] shot menu-bounds-bar-bottom-model.png
+[UI] scene polish/menu-bounds-bar-bottom-ts200
+[UI] menuInsideWindow.barIntent.bottom-ts200=ok
+[UI] pointerMenuNoRing.bottom-ts200=ok
+[UI] shot menu-bounds-bar-bottom-intent-ts200.png
+[UI] menuInsideWindow.barModel.bottom-ts200=ok
+[UI] shot menu-bounds-bar-bottom-model-ts200.png
 [UI] scene polish/menu-bounds-retry
 [UI] menuInsideWindow.retry=ok
 [UI] shot menu-bounds-retry.png
+[UI] scene polish/menu-bounds-retry-ts200
+[UI] menuInsideWindow.retry-ts200=ok
+[UI] shot menu-bounds-retry-ts200.png
 [UI] scene polish/menu-bounds-window
 [UI] menuInsideWindow.windowMenu=ok
+[UI] scene polish/menu-bounds-window-ts200
+[UI] menuInsideWindow.windowMenu-ts200=ok
 [UI] scene polish/menu-bounds-combo
 [UI] menuInsideWindow.combo=ok
+[UI] comboNameCentred=ok
 [UI] shot menu-bounds-combo.png
+[UI] scene polish/menu-bounds-combo-ts200
+[UI] menuInsideWindow.combo-ts200=ok
+[UI] comboNameCentred-ts200=ok
+[UI] shot menu-bounds-combo-ts200.png
 [UI] scene polish/menu-bounds-history
 [UI] menuInsideWindow.historyRow=ok
+[UI] scene polish/menu-bounds-history-ts200
+[UI] menuInsideWindow.historyRow-ts200=ok
 [UI] scene watch/watch-card-done
 [UI] watch-card-done.ready=ok
 [UI] watch-card-done.sized=ok
@@ -595,6 +656,7 @@
 [UI] shot watch-card-open.png
 [UI] watchRowOpensItsSession=ok
 [UI] watchCardFoldsAway=ok
+[UI] watchCardSaysHidden=ok
 [UI] scene watch/watch-card-needs-you
 [UI] watch-card-needs-you.ready=ok
 [UI] watch-card-needs-you.sized=ok
@@ -718,11 +780,13 @@
 [UI] shot bar-focus-ring-150.png
 [UI] tokenMenuIsGMenu-150=ok
 [UI] shot bar-menu-150.png
+[UI] reopenedBarHasNoMenu-150=ok
 [UI] scene bar/bar-focus-150-ts200
 [UI] tokensPresent-150-ts200=ok
 [UI] shot bar-focus-ring-150-ts200.png
 [UI] tokenMenuIsGMenu-150-ts200=ok
 [UI] shot bar-menu-150-ts200.png
+[UI] reopenedBarHasNoMenu-150-ts200=ok
 [UI] scene bar/glass-levels-150
 [UI] shot glass-level-0-150.png
 [UI] shot glass-level-25-150.png
@@ -784,7 +848,11 @@
 [UI] noButtonNothingOnScreen-150=ok
 [UI] noButtonBarOpensFromItsMiddle-150=ok
 [UI] shot bar-no-button-open-150.png
+[UI] foldSurvivesASecondState-150=ok
 [UI] noButtonBarFoldsAway-150=ok
+[UI] foldedSaidOnceAfterTheFold-150=ok
+[UI] reopenedBarSaysNothing-150=ok
+[UI] editorAndButtonSayFolded-150=ok
 [UI] scene bar/forced-colors-answer-150
 [UI] forcedColorsAnswerOutlined-150=ok
 [UI] shot forced-colors-answer-streaming-150.png
@@ -792,6 +860,7 @@
 [UI] modelMenuGrouped-150=ok
 [UI] shot bar-model-menu-150.png
 [UI] modelMenuFilters-150=ok
+[UI] menuFadesThenHides-150=ok
 [UI] shot bar-model-chip-150.png
 [UI] modelPinSentWithSubmit-150=ok
 [UI] modelChipUnderFind-150=ok
@@ -814,6 +883,7 @@
 [UI] shot light-tone-history-150.png
 [UI] scene bar/reduced-motion-bar-morph-150
 [UI] reducedFoldHasNoBlur-150=ok
+[UI] reducedFoldSaysFolded-150=ok
 [UI] shot reduced-motion-bar-morph-150.png
 [UI] scene bar/reduced-motion-token-lock-150
 [UI] reducedTokenLockFades-150=ok
@@ -830,7 +900,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=496 frames=28 longestFrameMs=33.3
+[UI] globOpen-150 ms=499 frames=23 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -938,6 +1008,12 @@
 [UI] shot sheet-task-running-150.png
 [UI] planChecksOff-150=ok
 [UI] trailRowsHaveSrPrefixes-150=ok
+[UI] stepGlyphOnFirstLine-150=ok
+[UI] scene sheet/sheet-task-running-150-ts200
+[UI] shot sheet-task-running-150-ts200.png
+[UI] planChecksOff-150-ts200=ok
+[UI] trailRowsHaveSrPrefixes-150-ts200=ok
+[UI] stepGlyphOnFirstLine-150-ts200=ok
 [UI] scene sheet/sheet-task-done-expanded-150
 [UI] shot sheet-task-done-collapsed-150.png
 [UI] shot sheet-task-done-expanded-150.png
@@ -1180,16 +1256,58 @@
 [UI] shot menu-bounds-bar-intent-150.png
 [UI] menuInsideWindow.barModel-150=ok
 [UI] shot menu-bounds-bar-model-150.png
+[UI] scene polish/menu-bounds-bar-150-ts200
+[UI] menuInsideWindow.barIntent-150-ts200=ok
+[UI] pointerMenuNoRing-150-ts200=ok
+[UI] shot menu-bounds-bar-intent-150-ts200.png
+[UI] menuInsideWindow.barModel-150-ts200=ok
+[UI] shot menu-bounds-bar-model-150-ts200.png
+[UI] scene polish/menu-bounds-bar-middle-150
+[UI] menuInsideWindow.barIntent.middle-150=ok
+[UI] pointerMenuNoRing.middle-150=ok
+[UI] shot menu-bounds-bar-middle-intent-150.png
+[UI] menuInsideWindow.barModel.middle-150=ok
+[UI] shot menu-bounds-bar-middle-model-150.png
+[UI] scene polish/menu-bounds-bar-middle-150-ts200
+[UI] menuInsideWindow.barIntent.middle-150-ts200=ok
+[UI] pointerMenuNoRing.middle-150-ts200=ok
+[UI] shot menu-bounds-bar-middle-intent-150-ts200.png
+[UI] menuInsideWindow.barModel.middle-150-ts200=ok
+[UI] shot menu-bounds-bar-middle-model-150-ts200.png
+[UI] scene polish/menu-bounds-bar-bottom-150
+[UI] menuInsideWindow.barIntent.bottom-150=ok
+[UI] pointerMenuNoRing.bottom-150=ok
+[UI] shot menu-bounds-bar-bottom-intent-150.png
+[UI] menuInsideWindow.barModel.bottom-150=ok
+[UI] shot menu-bounds-bar-bottom-model-150.png
+[UI] scene polish/menu-bounds-bar-bottom-150-ts200
+[UI] menuInsideWindow.barIntent.bottom-150-ts200=ok
+[UI] pointerMenuNoRing.bottom-150-ts200=ok
+[UI] shot menu-bounds-bar-bottom-intent-150-ts200.png
+[UI] menuInsideWindow.barModel.bottom-150-ts200=ok
+[UI] shot menu-bounds-bar-bottom-model-150-ts200.png
 [UI] scene polish/menu-bounds-retry-150
 [UI] menuInsideWindow.retry-150=ok
 [UI] shot menu-bounds-retry-150.png
+[UI] scene polish/menu-bounds-retry-150-ts200
+[UI] menuInsideWindow.retry-150-ts200=ok
+[UI] shot menu-bounds-retry-150-ts200.png
 [UI] scene polish/menu-bounds-window-150
 [UI] menuInsideWindow.windowMenu-150=ok
+[UI] scene polish/menu-bounds-window-150-ts200
+[UI] menuInsideWindow.windowMenu-150-ts200=ok
 [UI] scene polish/menu-bounds-combo-150
 [UI] menuInsideWindow.combo-150=ok
+[UI] comboNameCentred-150=ok
 [UI] shot menu-bounds-combo-150.png
+[UI] scene polish/menu-bounds-combo-150-ts200
+[UI] menuInsideWindow.combo-150-ts200=ok
+[UI] comboNameCentred-150-ts200=ok
+[UI] shot menu-bounds-combo-150-ts200.png
 [UI] scene polish/menu-bounds-history-150
 [UI] menuInsideWindow.historyRow-150=ok
+[UI] scene polish/menu-bounds-history-150-ts200
+[UI] menuInsideWindow.historyRow-150-ts200=ok
 [UI] scene watch/watch-card-done-150
 [UI] watch-card-done.ready-150=ok
 [UI] watch-card-done.sized-150=ok
@@ -1202,6 +1320,7 @@
 [UI] shot watch-card-open-150.png
 [UI] watchRowOpensItsSession-150=ok
 [UI] watchCardFoldsAway-150=ok
+[UI] watchCardSaysHidden-150=ok
 [UI] scene watch/watch-card-needs-you-150
 [UI] watch-card-needs-you.ready-150=ok
 [UI] watch-card-needs-you.sized-150=ok
@@ -1243,10 +1362,10 @@
 [UI] lane llm sceneRuns=0
 [UI] lane agent sceneRuns=0
 [UI] lane bar sceneRuns=47
-[UI] lane sheet sceneRuns=92
+[UI] lane sheet sceneRuns=95
 [UI] lane settings sceneRuns=68
 [UI] lane voice sceneRuns=8
-[UI] lane polish sceneRuns=10
+[UI] lane polish sceneRuns=28
 [UI] lane watch sceneRuns=10
 [UI] sheetCssLint=ok
 [UI] markdownNeverInjects=ok
@@ -1257,4 +1376,4 @@
 [UI] voicePillOnlyListens=ok
 [UI] watchCardNeedsNoFocus=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=412
+[UI] done failed=1 shots=438
