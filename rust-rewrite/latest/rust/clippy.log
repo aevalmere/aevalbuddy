@@ -30,4 +30,4 @@
     Checking tokio-rustls v0.26.6
     Checking hyper-rustls v0.27.10
     Checking reqwest v0.12.28
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 04s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.74s
