@@ -1,20 +1,17 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42753961676,
+  "run_id": 42754534487,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42753961676",
+  "run_url": "https://github.com/aevalmere/aevalbuddy/actions/runs/42754534487",
   "event": "push",
-  "sha": "45c315b1cf89f11b31cb1028871e25f49dfc5af8",
+  "sha": "e3ecd494ce7a28593ea05427ff33f0c216728165",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
-  "conclusion": "failure",
-  "failed": [
-    "Format",
-    "Clippy"
-  ],
-  "finished": "2026-11-10T04:12:54Z",
-  "error_lines": 326,
+  "conclusion": "cancelled",
+  "failed": [],
+  "finished": "2026-11-10T04:22:18Z",
+  "error_lines": 0,
   "steps": [
     {
       "name": "Checkout",
@@ -48,17 +45,17 @@
     },
     {
       "name": "Format",
-      "outcome": "failure",
-      "log": "fmt.log"
+      "outcome": "success",
+      "log": ""
     },
     {
       "name": "Format patch",
-      "outcome": "success",
-      "log": "fmt.patch"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Clippy",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "clippy.log"
     },
     {
@@ -68,13 +65,13 @@
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "nsis.log"
     },
     {
       "name": "Save NSIS toolset",
@@ -83,8 +80,8 @@
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "cancelled",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
@@ -93,13 +90,13 @@
     },
     {
       "name": "Capture check",
-      "outcome": "success",
-      "log": "capture.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Desktop selfcheck",
-      "outcome": "success",
-      "log": "desktop.log"
+      "outcome": "skipped",
+      "log": ""
     },
     {
       "name": "Upload installer",
