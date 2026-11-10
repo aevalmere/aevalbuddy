@@ -200,13 +200,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.020
+[UI] globShapeMs=0.018
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=513 frames=24 longestFrameMs=33.4
+[UI] globOpen ms=518 frames=24 longestFrameMs=33.4
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -578,6 +578,42 @@
 [UI] shot menu-bounds-combo.png
 [UI] scene polish/menu-bounds-history
 [UI] menuInsideWindow.historyRow=ok
+[UI] scene watch/watch-card-done
+[UI] watch-card-done.ready=ok
+[UI] watch-card-done.sized=ok
+[UI] watch-card-done.drawn=ok
+[UI] watch-card-done.rows=ok
+[UI] watch-card-done.controls=ok
+[UI] shot watch-card-done.png
+[UI] watchDetailOneLineAtRest=ok
+[UI] watchHoverOpensTheMessage=ok
+[UI] shot watch-card-open.png
+[UI] watchRowOpensItsSession=ok
+[UI] watchCardFoldsAway=ok
+[UI] scene watch/watch-card-needs-you
+[UI] watch-card-needs-you.ready=ok
+[UI] watch-card-needs-you.sized=ok
+[UI] watch-card-needs-you.drawn=ok
+[UI] watch-card-needs-you.rows=ok
+[UI] watch-card-needs-you.controls=ok
+[UI] shot watch-card-needs-you.png
+[UI] scene watch/watch-card-offer
+[UI] watch-card-offer.ready=ok
+[UI] watch-card-offer.sized=ok
+[UI] watch-card-offer.drawn=ok
+[UI] watch-card-offer.rows=ok
+[UI] watch-card-offer.controls=ok
+[UI] shot watch-card-offer.png
+[UI] scene watch/watch-settings
+[UI] shot watch-settings-agents.png
+[UI] watchSettingsPage=ok
+[UI] watchSettingsSaves=ok
+[UI] shot watch-settings-awake.png
+[UI] scene watch/watch-settings-ts200
+[UI] shot watch-settings-agents-ts200.png
+[UI] watchSettingsPage-ts200=ok
+[UI] watchSettingsSaves-ts200=ok
+[UI] shot watch-settings-awake-ts200.png
 [UI] scene harness/backdrop-dark-editor-150
 [UI] shot 11-dark-editor-bar-output-150.png
 [UI] scene harness/backdrop-photo-busy-150
@@ -774,7 +810,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=505 frames=22 longestFrameMs=50.0
+[UI] globOpen-150 ms=537 frames=24 longestFrameMs=33.4
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -1134,6 +1170,42 @@
 [UI] shot menu-bounds-combo-150.png
 [UI] scene polish/menu-bounds-history-150
 [UI] menuInsideWindow.historyRow-150=ok
+[UI] scene watch/watch-card-done-150
+[UI] watch-card-done.ready-150=ok
+[UI] watch-card-done.sized-150=ok
+[UI] watch-card-done.drawn-150=ok
+[UI] watch-card-done.rows-150=ok
+[UI] watch-card-done.controls-150=ok
+[UI] shot watch-card-done-150.png
+[UI] watchDetailOneLineAtRest-150=ok
+[UI] watchHoverOpensTheMessage-150=ok
+[UI] shot watch-card-open-150.png
+[UI] watchRowOpensItsSession-150=ok
+[UI] watchCardFoldsAway-150=ok
+[UI] scene watch/watch-card-needs-you-150
+[UI] watch-card-needs-you.ready-150=ok
+[UI] watch-card-needs-you.sized-150=ok
+[UI] watch-card-needs-you.drawn-150=ok
+[UI] watch-card-needs-you.rows-150=ok
+[UI] watch-card-needs-you.controls-150=ok
+[UI] shot watch-card-needs-you-150.png
+[UI] scene watch/watch-card-offer-150
+[UI] watch-card-offer.ready-150=ok
+[UI] watch-card-offer.sized-150=ok
+[UI] watch-card-offer.drawn-150=ok
+[UI] watch-card-offer.rows-150=ok
+[UI] watch-card-offer.controls-150=ok
+[UI] shot watch-card-offer-150.png
+[UI] scene watch/watch-settings-150
+[UI] shot watch-settings-agents-150.png
+[UI] watchSettingsPage-150=ok
+[UI] watchSettingsSaves-150=ok
+[UI] shot watch-settings-awake-150.png
+[UI] scene watch/watch-settings-150-ts200
+[UI] shot watch-settings-agents-150-ts200.png
+[UI] watchSettingsPage-150-ts200=ok
+[UI] watchSettingsSaves-150-ts200=ok
+[UI] shot watch-settings-awake-150-ts200.png
 [UI] lane harness sceneRuns=8
 [UI] lane platform sceneRuns=0
 [UI] lane windows sceneRuns=0
@@ -1145,12 +1217,14 @@
 [UI] lane settings sceneRuns=68
 [UI] lane voice sceneRuns=8
 [UI] lane polish sceneRuns=10
+[UI] lane watch sceneRuns=10
 [UI] sheetCssLint=ok
 [UI] markdownNeverInjects=ok
 [UI] cssOnSystem.settings=ok
 [UI] cssOnSystem.history=ok
-[UI] oneCssLayer=ok
+[UI] oneCssLayer=FAIL:settings/settings.html loads ../renderer/glass.css, settings.css, ../renderer/agents-settings.css
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
+[UI] watchCardNeedsNoFocus=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=390
+[UI] done failed=1 shots=406
