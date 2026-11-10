@@ -4,7 +4,7 @@
 [CAPTURE] display=1024x768 phys, 1024x768 dip, scale 1
 [CAPTURE] fixtureShown=ok
 [CAPTURE] probeShown=ok
-[CAPTURE] dxgiFirstFrameMs=44
+[CAPTURE] dxgiFirstFrameMs=20
 [CAPTURE] dxgiFirstFrame=ok
 [CAPTURE] hdr=off
 [CAPTURE] dxgiOpensPerTick=1
@@ -33,13 +33,13 @@
 [CAPTURE] fidelity=1024x768 -> 640x480 lanczosEdge=9.12 boxEdge=10.49
 [CAPTURE] fidelityStripes=lanczosRmse=0.58 boxRmse=23.73
 [CAPTURE] fidelityLanczos=ok
-[CAPTURE] glassFrame=Some((171, 128)) wall=8.2ms encode=3.4ms
+[CAPTURE] glassFrame=Some((171, 128)) wall=11.0ms encode=3.1ms
 [CAPTURE] glassFrameSize=ok
-[CAPTURE] snapCost={"n":10,"wallP50":0.07369999999999999,"wallP95":16.9218,"encodeP95":3.0419,"blockP95":0.2074}
+[CAPTURE] snapCost={"n":10,"wallP50":0.0739,"wallP95":17.46,"encodeP95":2.9718999999999998,"blockP95":0.1472}
 [CAPTURE] snapCost=ok
 [CAPTURE] glassTier=live
 [CAPTURE] glassLive=ok
-[CAPTURE] tickMs=7.5
+[CAPTURE] tickMs=7.2
 [CAPTURE] tickMs=ok
 [CAPTURE] tickReusesFrame=ok
 [CAPTURE] glassFixture=ok
@@ -47,4 +47,4 @@
 [CAPTURE] done
 
 --- stderr ---
-[1110/090853.977:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1110/092439.775:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412

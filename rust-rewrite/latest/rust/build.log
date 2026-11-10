@@ -13,10 +13,10 @@
    Compiling tauri-macros v2.7.4
    Compiling arboard v3.7.0
    Compiling tauri v2.12.5
+   Compiling tauri-plugin-clipboard-manager v2.5.0
    Compiling tauri-plugin-global-shortcut v2.4.1
    Compiling tauri-plugin-opener v2.7.2
-   Compiling tauri-plugin-clipboard-manager v2.5.0
-    Finished `release` profile [optimized] target(s) in 6m 59s
+    Finished `release` profile [optimized] target(s) in 7m 02s
        Built application at: D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe
         Info Patching D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\AevalBuddy.exe with bundle type information: nsis
         Info Target: x64
