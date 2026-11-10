@@ -502,7 +502,7 @@ pub fn match_literal(
         });
     };
     let single = !q.chars().any(js_space);
-    for span in spans {
+    for (k, span) in spans.iter().enumerate() {
         let mut found = false;
         let mut at = index_of(&span.hay, &q16, 0);
         while let Some(i) = at {
@@ -528,6 +528,26 @@ pub fn match_literal(
                         push(span, i, i + w.len());
                         at = index_of(&span.hay, w, i + w.len());
                     }
+                }
+                continue;
+            }
+            // The phrase runs on into the next piece of text (a link in the
+            // middle of a sentence): each piece's part of it is a hit.
+            let Some(next) = spans.get(k + 1).filter(|n| n.window == span.window) else {
+                continue;
+            };
+            let tail = span.hay.iter().rposition(|u| *u != 32).map_or(0, |i| i + 1);
+            let lead = next.hay.iter().position(|u| *u != 32);
+            let lead = lead.unwrap_or(next.hay.len());
+            let mut joined = span.hay[..tail].to_vec();
+            joined.push(32);
+            joined.extend_from_slice(&next.hay[lead..]);
+            let from = tail.saturating_sub(q16.len());
+            if let Some(p) = index_of(&joined, &q16, from) {
+                let end = p + q16.len();
+                if p < tail && end > tail + 1 {
+                    push(span, p, tail);
+                    push(next, lead, lead + end - tail - 1);
                 }
             }
             continue;
@@ -1692,14 +1712,16 @@ impl Inner {
             let Some(snap) = s.snapshot.as_ref() else {
                 return;
             };
-            if len16(&q) < 2 || snap.source == "ocr" {
+            if q.is_empty() || snap.source == "ocr" {
                 return;
             }
             (q, s.gen, snap.windows.clone())
         };
+        // One letter is in every line; enough of them to step through.
+        let max = if len16(&q) < 2 { DOC_MAX / 4 } else { DOC_MAX };
         let mut found: Vec<(Value, Vec<Value>)> = Vec::new();
         for w in &windows {
-            let args = json!({ "windowHandle": w["handle"], "query": q, "max": DOC_MAX });
+            let args = json!({ "windowHandle": w["handle"], "query": q, "max": max });
             let Ok(r) = self.desktop.op("findText", args).await else {
                 continue;
             };
@@ -2494,6 +2516,15 @@ mod tests {
         let hits = match_literal(&spans, "invoice total", "literal", &mut taken);
         let found: Vec<(usize, &str)> = hits.iter().map(|h| (h.span_id, &h.matched[..])).collect();
         assert_eq!(found, [(0, "invoice"), (0, "total")]);
+    }
+
+    #[test]
+    fn a_phrase_running_into_the_next_piece_is_found() {
+        let spans = index_spans(&[span("Pay the "), span("invoice total today")]);
+        let mut taken = HashSet::new();
+        let hits = match_literal(&spans, "the invoice", "literal", &mut taken);
+        let found: Vec<(usize, &str)> = hits.iter().map(|h| (h.span_id, &h.matched[..])).collect();
+        assert_eq!(found, [(0, "the"), (1, "invoice")]);
     }
 
     #[test]
