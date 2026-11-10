@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] transcriptScroll=FAIL:Ok(String("3004:419:0:auto"))
+[SMOKE] failed: transcriptScroll
+[GATE] fail transcriptScroll=FAIL:Ok(String("3004:419:0:auto"))
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: transcriptScroll; 1 listed label(s) never printed

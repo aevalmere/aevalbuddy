@@ -4,19 +4,19 @@
 [CAPTURE] display=1024x768 phys, 1024x768 dip, scale 1
 [CAPTURE] fixtureShown=ok
 [CAPTURE] probeShown=ok
-[CAPTURE] dxgiFirstFrameMs=24
+[CAPTURE] dxgiFirstFrameMs=40
 [CAPTURE] dxgiFirstFrame=ok
 [CAPTURE] hdr=off
 [CAPTURE] dxgiOpensPerTick=1
 [CAPTURE] dxgiOpensPerTick=ok
-[CAPTURE] dxgi.frame=1024x768 in 12ms
+[CAPTURE] dxgi.frame=1024x768 in 13ms
 [CAPTURE] dxgi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
 [CAPTURE] dxgiExcludesOwnWithoutBlanking=ok
 [CAPTURE] gdi.frame=1024x768 in 35ms
 [CAPTURE] gdi.probe=magenta=0.000 black=0.000 mean=238 controlMean=245
 [CAPTURE] gdiExcludesOwnWithoutBlanking=ok
 [CAPTURE] captureExcludesOwn=ok
-[CAPTURE] capture=1024x768 bytes=277665 q=88 backend=dxgi ms=47
+[CAPTURE] capture=1024x768 bytes=277665 q=88 backend=dxgi ms=49
 [CAPTURE] captureSize=ok
 [CAPTURE] captureJpeg=ok
 [CAPTURE] wholeScreenShowsFixture=ok
@@ -28,18 +28,18 @@
 [CAPTURE] regionNative=ok
 [CAPTURE] regionEchoed=ok
 [CAPTURE] regionJpeg=ok
-[CAPTURE] regionLoadMs=253
+[CAPTURE] regionLoadMs=262
 [CAPTURE] regionDragReturnsTheBox=ok
 [CAPTURE] fidelity=1024x768 -> 640x480 lanczosEdge=9.12 boxEdge=10.49
 [CAPTURE] fidelityStripes=lanczosRmse=0.58 boxRmse=23.73
 [CAPTURE] fidelityLanczos=ok
-[CAPTURE] glassFrame=Some((171, 128)) wall=0.1ms encode=0.0ms
+[CAPTURE] glassFrame=Some((171, 128)) wall=11.5ms encode=3.1ms
 [CAPTURE] glassFrameSize=ok
-[CAPTURE] snapCost={"n":10,"wallP50":0.0717,"wallP95":0.08420000000000001,"encodeP95":0.0015999999999999999,"blockP95":0.23829999999999998}
+[CAPTURE] snapCost={"n":10,"wallP50":0.08679999999999999,"wallP95":17.472099999999998,"encodeP95":3.0572,"blockP95":0.2066}
 [CAPTURE] snapCost=ok
 [CAPTURE] glassTier=live
 [CAPTURE] glassLive=ok
-[CAPTURE] tickMs=8.8
+[CAPTURE] tickMs=7.6
 [CAPTURE] tickMs=ok
 [CAPTURE] tickReusesFrame=ok
 [CAPTURE] glassFixture=ok
@@ -47,4 +47,4 @@
 [CAPTURE] done
 
 --- stderr ---
-[1110/200009.964:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+[1110/201703.279:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
