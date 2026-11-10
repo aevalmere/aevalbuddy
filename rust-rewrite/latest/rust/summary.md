@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42867603329](https://github.com/aevalmere/aevaleron/actions/runs/42867603329), attempt 1, on push
-- Commit: 3a2206d8cae3cf9f496abc295dad1b7ae39c5378
+- Run: [42868589517](https://github.com/aevalmere/aevaleron/actions/runs/42868589517), attempt 1, on push
+- Commit: 63b329facbc9a53241c88850ed69fcd2ef103ff3
 - Ref: rust-rewrite
 - Conclusion: **failure**
-- Failed: Clippy
-- Finished: 2026-11-10T17:47:02Z
+- Failed: Smoke
+- Finished: 2026-11-10T18:02:42Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -18,15 +18,15 @@
 | Prebuild desktop helper | success | [prebuild.log](prebuild.log) |
 | Format | success |  |
 | Format patch | skipped |  |
-| Clippy | failure | [clippy.log](clippy.log) |
+| Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
-| Restore NSIS toolset | skipped |  |
-| Seed NSIS toolset | skipped |  |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
 | Save NSIS toolset | skipped |  |
-| Build installer | skipped |  |
-| Smoke | skipped |  |
+| Build installer | success | [build.log](build.log) |
+| Smoke | failure | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 12 error and warning lines from the logs.
+errors.txt: 10 error and warning lines from the logs.

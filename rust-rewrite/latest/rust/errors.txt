@@ -1,15 +1,11 @@
-== clippy.log ==
-error: deref which would be done by auto-deref
-   --> src\find.rs:832:60
-    |
-832 |         let mine = self.literal.iter().filter(|h| !covered(*h));
-    |                                                            ^^ help: try: `h`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#explicit_auto_deref
-    = note: `-D clippy::explicit-auto-deref` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::explicit_auto_deref)]`
-
-error: could not compile `aevaleron` (lib) due to 1 previous error
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `aevaleron` (lib test) due to 1 previous error
-
+== smoke.log ==
+[SMOKE] transcriptScroll=FAIL:Ok(String("0:0:0:auto"))
+[SMOKE] transcriptWheel=FAIL:at (192, 84) moved Ok(()) sent Ok(())
+[SMOKE] moreIndicator=FAIL:Ok(String("0:0"))
+[SMOKE] readingMeasure=FAIL:Ok(Number(0))
+[SMOKE] failed: transcriptScroll, transcriptWheel, moreIndicator, readingMeasure
+[GATE] fail transcriptScroll=FAIL:Ok(String("0:0:0:auto"))
+[GATE] fail transcriptWheel=FAIL:at (192, 84) moved Ok(()) sent Ok(())
+[GATE] fail moreIndicator=FAIL:Ok(String("0:0"))
+[GATE] fail readingMeasure=FAIL:Ok(Number(0))
+[GATE] verdict=FAIL:4 FAIL line(s); no "done" line; failed: transcriptScroll, transcriptWheel, moreIndicator, readingMeasure; 1 listed label(s) never printed

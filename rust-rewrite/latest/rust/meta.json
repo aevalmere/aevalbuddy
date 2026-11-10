@@ -1,19 +1,19 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42867603329,
+  "run_id": 42868589517,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/42867603329",
+  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/42868589517",
   "event": "push",
-  "sha": "3a2206d8cae3cf9f496abc295dad1b7ae39c5378",
+  "sha": "63b329facbc9a53241c88850ed69fcd2ef103ff3",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
   "conclusion": "failure",
   "failed": [
-    "Clippy"
+    "Smoke"
   ],
-  "finished": "2026-11-10T17:47:02Z",
-  "error_lines": 12,
+  "finished": "2026-11-10T18:02:42Z",
+  "error_lines": 10,
   "steps": [
     {
       "name": "Checkout",
@@ -57,7 +57,7 @@
     },
     {
       "name": "Clippy",
-      "outcome": "failure",
+      "outcome": "success",
       "log": "clippy.log"
     },
     {
@@ -67,13 +67,13 @@
     },
     {
       "name": "Restore NSIS toolset",
-      "outcome": "skipped",
+      "outcome": "success",
       "log": ""
     },
     {
       "name": "Seed NSIS toolset",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "nsis.log"
     },
     {
       "name": "Save NSIS toolset",
@@ -82,13 +82,13 @@
     },
     {
       "name": "Build installer",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "success",
+      "log": "build.log"
     },
     {
       "name": "Smoke",
-      "outcome": "skipped",
-      "log": ""
+      "outcome": "failure",
+      "log": "smoke.log"
     },
     {
       "name": "Capture check",

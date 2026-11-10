@@ -24,22 +24,10 @@
     Checking rustls-pki-types v1.16.0
    Compiling aevaleron v1.1.1 (D:\a\aevaleron\aevaleron\src-tauri)
     Checking rustls-webpki v0.103.16
-    Checking rustls-native-certs v0.8.5
     Checking webpki-roots v1.0.11
+    Checking rustls-native-certs v0.8.5
     Checking rustls v0.23.46
     Checking tokio-rustls v0.26.6
     Checking hyper-rustls v0.27.10
     Checking reqwest v0.12.28
-error: deref which would be done by auto-deref
-   --> src\find.rs:832:60
-    |
-832 |         let mine = self.literal.iter().filter(|h| !covered(*h));
-    |                                                            ^^ help: try: `h`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#explicit_auto_deref
-    = note: `-D clippy::explicit-auto-deref` implied by `-D warnings`
-    = help: to override `-D warnings` add `#[allow(clippy::explicit_auto_deref)]`
-
-error: could not compile `aevaleron` (lib) due to 1 previous error
-warning: build failed, waiting for other jobs to finish...
-error: could not compile `aevaleron` (lib test) due to 1 previous error
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 37.78s
