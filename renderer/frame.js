@@ -265,8 +265,8 @@
     if (!menu) return;
     const { el, back } = menu;
     menu = null;
-    el.classList.add('closing');
-    setTimeout(() => el.remove(), 120);
+    if (window.AevalGlass && window.AevalGlass.menuOut) window.AevalGlass.menuOut(el, () => el.remove());
+    else el.remove();
     if (refocus && back && back.focus) back.focus();
   }
 

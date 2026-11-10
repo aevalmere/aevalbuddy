@@ -351,13 +351,18 @@ function askForModels() {
   });
 }
 
+// Open, and not on its way out (the shared 120 ms fade, glass.js).
+const modelMenuOpen = () => !modelMenu.hidden && !modelMenu.classList.contains('closing');
+
 function closeModelMenu() {
-  if (modelMenu.hidden) return;
-  modelMenu.hidden = true;
+  if (!modelMenuOpen()) return;
+  window.AevalGlass.menuOut(modelMenu, () => {
+    modelMenu.hidden = true;
+    requestResize();
+  });
   input.removeAttribute('aria-activedescendant');
   input.removeAttribute('aria-controls');
   input.removeAttribute('aria-autocomplete');
-  requestResize();
 }
 
 function markModel(at) {
@@ -417,6 +422,7 @@ function renderModelMenu(filter) {
     modelList.appendChild(none);
     announceSoon(none.textContent);
   }
+  window.AevalGlass.menuIn(modelMenu);
   modelMenu.hidden = false;
   input.setAttribute('aria-controls', 'model-menu');
   input.setAttribute('aria-autocomplete', 'list');
@@ -476,7 +482,7 @@ function renderPin() {
 
 // True when the list took the key.
 function modelKey(e) {
-  if (modelMenu.hidden || e.ctrlKey || e.altKey || e.metaKey) return false;
+  if (!modelMenuOpen() || e.ctrlKey || e.altKey || e.metaKey) return false;
   const rows = bar.modelRows;
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
@@ -543,9 +549,13 @@ function takePrefix() {
 
 // ------------------------------------------------------------- the menu
 
+// Open, and not on its way out (the shared 120 ms fade, glass.js).
+const menuOpen = () => !intentMenu.hidden && !intentMenu.classList.contains('closing');
+
 function openMenu() {
   // Enter belongs to the running task; Ctrl+1/2/3 or a prefix still choose.
   if (replyState()) return;
+  window.AevalGlass.menuIn(intentMenu);
   intentMenu.hidden = false;
   token.setAttribute('aria-expanded', 'true');
   const opts = [...intentMenu.querySelectorAll('[role="option"]')];
@@ -556,17 +566,19 @@ function openMenu() {
 }
 
 function closeMenu(refocus) {
-  if (intentMenu.hidden) return;
-  intentMenu.hidden = true;
+  if (!menuOpen()) return;
+  window.AevalGlass.menuOut(intentMenu, () => {
+    intentMenu.hidden = true;
+    requestResize();
+  });
   token.setAttribute('aria-expanded', 'false');
   if (refocus) input.focus();
-  requestResize();
 }
 
 token.addEventListener('click', () => {
   hideTip();
-  if (intentMenu.hidden) openMenu();
-  else closeMenu(true);
+  if (menuOpen()) closeMenu(true);
+  else openMenu();
 });
 
 // The token's key hints as a glass row under it (U44): after 600 ms of
@@ -577,7 +589,7 @@ let tipTimer = null;
 function showTip(delay) {
   clearTimeout(tipTimer);
   tipTimer = setTimeout(() => {
-    if (!intentMenu.hidden || !tokenTip.hidden) return;
+    if (menuOpen() || !tokenTip.hidden) return;
     tokenTip.hidden = false;
     requestResize();
   }, delay);
@@ -1134,7 +1146,7 @@ document.addEventListener('keydown', (e) => {
 // Escape anywhere else in the window: the menu, then the bar.
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !e.defaultPrevented) {
-    if (!intentMenu.hidden) closeMenu(true);
+    if (menuOpen()) closeMenu(true);
     else window.aeval.invoke('overlay:collapse');
   }
   if (e.key === 'F6' && !e.defaultPrevented) window.aeval.invoke('ui:focus-answer');

@@ -447,8 +447,8 @@ mark {
 #app > .row-menu {
   position: fixed;
   z-index: 20;
-  min-width: 180px;
-  padding: var(--sp-1);
+  min-width: calc(180px * var(--text-scale));
+  padding: var(--inset-menu);
   display: flex;
   flex-direction: column;
   border-radius: var(--r-card);

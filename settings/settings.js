@@ -1454,8 +1454,12 @@ function makeCombo(config) {
     if (!list.hidden) window.AevalGlass.place(list, button, { width: 'anchor' });
   }
 
+  // Open, and not on its way out (the shared 120 ms fade, glass.js).
+  const isOpen = () => !list.hidden && !list.classList.contains('closing');
+
   function open() {
     closeCombos(false);
+    window.AevalGlass.menuIn(list);
     list.hidden = false;
     button.setAttribute('aria-expanded', 'true');
     place();
@@ -1469,8 +1473,10 @@ function makeCombo(config) {
   }
 
   function close(focusButton) {
-    if (list.hidden) return;
-    list.hidden = true;
+    if (!isOpen()) return;
+    window.AevalGlass.menuOut(list, () => {
+      list.hidden = true;
+    });
     document.removeEventListener('scroll', place, true);
     window.removeEventListener('resize', place);
     button.setAttribute('aria-expanded', 'false');
@@ -1487,8 +1493,8 @@ function makeCombo(config) {
   }
 
   button.addEventListener('click', () => {
-    if (list.hidden) open();
-    else close(false);
+    if (isOpen()) close(false);
+    else open();
   });
 
   button.addEventListener('keydown', (e) => {
@@ -1543,13 +1549,13 @@ function makeCombo(config) {
   });
 
   document.addEventListener('click', (e) => {
-    if (!list.hidden && !e.target.closest(`#${rootId}`)) close(false);
+    if (isOpen() && !e.target.closest(`#${rootId}`)) close(false);
   });
 
   const api = {
     load,
     close,
-    isOpen: () => !list.hidden,
+    isOpen,
     provider: () => state.provider,
     setCurrent: (id) => {
       state.current = id;

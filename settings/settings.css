@@ -979,9 +979,9 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 .combo > .g-menu {
   position: fixed;
   z-index: 10;
-  max-height: min(320px, 60vh);
+  max-height: min(calc(320px * var(--text-scale)), 60vh);
   overflow-y: auto;
-  padding: var(--sp-1);
+  padding: var(--inset-menu);
   border-radius: var(--r-card);
   background: var(--solid);
   box-shadow: var(--edge), var(--shadow-menu);

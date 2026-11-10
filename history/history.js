@@ -504,8 +504,12 @@ function menuItems() {
   return [...menuEl.querySelectorAll('[role="menuitem"]')];
 }
 
+// Open, and not on its way out (the shared 120 ms fade, glass.js).
+const menuOpen = () => !menuEl.hidden && !menuEl.classList.contains('closing');
+
 function openMenu(item, x, y) {
   menuFor = item.dataset.id;
+  window.AevalGlass.menuIn(menuEl);
   menuEl.hidden = false;
   // At the point, flipped and clamped inside the window (glass.js).
   window.AevalGlass.place(menuEl, { x, y }, { gap: 0 });
@@ -513,8 +517,10 @@ function openMenu(item, x, y) {
 }
 
 function closeMenu(focusRow) {
-  if (menuEl.hidden) return;
-  menuEl.hidden = true;
+  if (!menuOpen()) return;
+  window.AevalGlass.menuOut(menuEl, () => {
+    menuEl.hidden = true;
+  });
   const id = menuFor;
   menuFor = null;
   if (focusRow && id) {
@@ -573,7 +579,7 @@ menuEl.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('pointerdown', (e) => {
-  if (!menuEl.hidden && !e.target.closest('#row-menu')) closeMenu(false);
+  if (menuOpen() && !e.target.closest('#row-menu')) closeMenu(false);
 });
 
 // ---------------------------------------------------------------- the rest
@@ -597,7 +603,7 @@ $('close-history').addEventListener('click', () => {
 // Esc: the menu, then the confirm, then the search text, then the window.
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!menuEl.hidden) {
+  if (menuOpen()) {
     closeMenu(true);
     return;
   }

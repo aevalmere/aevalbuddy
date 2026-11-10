@@ -35,7 +35,9 @@ const modelMenu = (f) =>
     const active = m.querySelector('[aria-selected="true"]');
     const none = m.querySelector('.g-menu-empty');
     return {
-      open: !m.hidden,
+      // On its way out (the shared 120 ms fade) counts as closed.
+      open: !m.hidden && !m.classList.contains('closing'),
+      fading: !m.hidden && m.classList.contains('closing'),
       groups: [...m.querySelectorAll('[role="group"]')].map((g) => g.getAttribute('aria-label')),
       rows: [...m.querySelectorAll('[role="option"]')].map((o) => o.textContent),
       active: active ? active.textContent : '',
@@ -633,9 +635,48 @@ export const scenes = [
       t.check('noButtonBarOpensFromItsMiddle', growing === 'in' && open.panel && open.opacity === '1' && open.morph === '', JSON.stringify([growing, open]));
       await t.shot('bar-no-button-open', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: 140 });
       await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid }));
+      // The closing flicker: a second state while the bar folds (an answer
+      // finishing, Esc twice) must not cut the fold short, and Rust is told
+      // the bar is gone only once it is, and once.
+      await t.settle(60);
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid, pillState: 'chat' }));
+      const mid2 = await f.evaluate(() => ({ panel: document.getElementById('panel').hidden, folding: document.body.dataset.folding || '' }));
+      const early = (await t.calls('overlay', 'bar:folded')).length;
+      t.check('foldSurvivesASecondState', !mid2.panel && mid2.folding === '1' && early === 0, JSON.stringify([mid2, early]));
       await t.settle(500);
       const folded = await f.evaluate(() => ({ pill: document.getElementById('pill').hidden, panel: document.getElementById('panel').hidden, opacity: document.querySelector('#bar > .gl').style.opacity }));
       t.check('noButtonBarFoldsAway', folded.pill && folded.panel && folded.opacity === '', JSON.stringify(folded));
+      const said = (await t.calls('overlay', 'bar:folded')).length;
+      t.check('foldedSaidOnceAfterTheFold', said === 1, `bar:folded sent ${said} times`);
+      // Opened again before the fold is over: nothing is said, so Rust never
+      // hides a bar that is open.
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'panel', inputAnchor: mid }));
+      await t.settle(700);
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid }));
+      await t.settle(60);
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'panel', inputAnchor: mid }));
+      await t.settle(500);
+      const reopened = await f.evaluate(() => !document.getElementById('panel').hidden);
+      const saidAfter = (await t.calls('overlay', 'bar:folded')).length;
+      t.check('reopenedBarSaysNothing', reopened && saidAfter === 1, `open=${reopened} bar:folded sent ${saidAfter} times`);
+      // The layout editor closing, and the button being turned off, also
+      // leave the window empty: Rust hears of each once it is painted away,
+      // so it never hides a window with the editor or the orb still on it.
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'hud', inputAnchor: mid }));
+      await t.settle(200);
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid }));
+      await t.settle(300);
+      const hudGone = await f.evaluate(() => document.getElementById('hud').hidden);
+      const afterHud = (await t.calls('overlay', 'bar:folded')).length;
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid, button: true, orbAt: { x: 300, y: 20, width: 48, height: 48 } }));
+      await t.settle(200);
+      const orbUp = await f.evaluate(() => !document.getElementById('pill').hidden);
+      const afterOn = (await t.calls('overlay', 'bar:folded')).length;
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill', inputAnchor: mid, button: false }));
+      await t.settle(300);
+      const orbGone = await f.evaluate(() => document.getElementById('pill').hidden);
+      const afterOff = (await t.calls('overlay', 'bar:folded')).length;
+      t.check('editorAndButtonSayFolded', hudGone && afterHud === 2 && orbUp && afterOn === 2 && orbGone && afterOff === 3, JSON.stringify({ hudGone, afterHud, orbUp, afterOn, orbGone, afterOff }));
     },
   },
   {
@@ -688,6 +729,13 @@ export const scenes = [
       const kept = await fieldValue(f);
       const closed = await modelMenu(f);
       t.check('modelMenuFilters', some.rows.join() === 'Haiku 5' && none.none === 'No model called "zzz". Esc to keep typing.' && kept === '@zzz' && !closed.open, JSON.stringify({ some, none, kept, closed }));
+      // Every menu leaves the same way: the shared fade, then hidden.
+      await t.settle(250);
+      const faded = await f.evaluate(() => {
+        const m = document.getElementById('model-menu');
+        return m.hidden && !m.classList.contains('closing');
+      });
+      t.check('menuFadesThenHides', closed.fading && faded, JSON.stringify({ fading: closed.fading, faded }));
 
       await setField(f, '');
       await setField(f, '@son');
@@ -855,6 +903,16 @@ export const scenes = [
         return { filter: c.filter, transform: c.transform, duration: c.transitionDuration };
       });
       t.check('reducedFoldHasNoBlur', fold.filter === 'none' && fold.transform === 'none' && fold.duration === '0.15s', JSON.stringify(fold));
+      // With nothing to play the bar is gone at once, and Rust still hears
+      // it only after that frame.
+      await f.evaluate(() => {
+        delete document.getElementById('panel').dataset.morph;
+      });
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill' }));
+      const gone = await f.evaluate(() => document.getElementById('panel').hidden);
+      await t.settle(200);
+      const said = (await t.calls('overlay', 'bar:folded')).length;
+      t.check('reducedFoldSaysFolded', gone && said === 1, `hidden=${gone} bar:folded sent ${said} times`);
       await t.shot('reduced-motion-bar-morph', BAR_CLIP);
     },
   },

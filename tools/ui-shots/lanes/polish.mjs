@@ -13,6 +13,8 @@ export const cssLintEnforce = [];
 // this.
 const BAR_MAX = 400 + 40;
 const overlay = { name: 'overlay', src: '/renderer/index.html', x: BAR.x, y: BAR.y, w: BAR.w, h: 116, z: 2, max: BAR_MAX };
+// At 200% text Rust's cap doubles with the type (layout.rs input_bounds).
+const overlayFor = (t) => ({ ...overlay, max: BAR_MAX * t });
 
 const model = (id, name) => ({ id, name });
 const MODELS = {
@@ -53,43 +55,57 @@ const setField = (f, text) =>
 
 const seenBefore = (f) => f.evaluate(() => localStorage.setItem('aeval.hasSentFirstRequest', '1'));
 
-export const scenes = [
-  // The token's menu under a four-line question, and the @ menu with eight
-  // models: the bar window grows to hold them, up to Rust's cap.
-  {
-    name: 'menu-bounds-bar',
-    backdrop: 'wallpaper',
-    windows: [{ ...overlay, responses: { 'models:list': MODELS } }],
-    async run(t) {
-      const f = t.frame('overlay');
-      await seenBefore(f);
-      await openBar(f);
-      await t.settle();
-      await setField(f, 'Why does the build fail\non the release branch\nbut not on main\nsince Tuesday?');
-      await t.settle(200);
-      // A real click: a menu opened with the pointer shows no focus ring.
-      await f.click('#intent');
-      await t.settle(400);
-      await check(t, 'menuInsideWindow.barIntent', f, '#intent-menu');
-      const ring = await f.evaluate(() => {
-        const a = document.activeElement;
-        return a && a.closest('.g-menu') ? getComputedStyle(a).outlineStyle : `focus on ${a && a.id}`;
-      });
-      t.check('pointerMenuNoRing', ring === 'none', ring);
-      await t.shot('menu-bounds-bar-intent', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: BAR_MAX + 40 });
-      await f.evaluate(() => document.getElementById('intent').click());
-      await setField(f, '@');
-      await t.settle(400);
-      await check(t, 'menuInsideWindow.barModel', f, '#model-menu');
-      await t.shot('menu-bounds-bar-model', { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: BAR_MAX + 40 });
-    },
+// The token's menu under a four-line question, and the @ menu with eight
+// models: the bar window grows to hold them, up to Rust's cap. Once for
+// each way the bar can be anchored: at the top, in the middle of the screen
+// (the default, growing down from there) and at the bottom (growing up).
+const barMenus = (name, tag, anchor) => ({
+  name,
+  backdrop: 'wallpaper',
+  textScale: true,
+  windows: [{ ...overlay, responses: { 'models:list': MODELS } }],
+  async run(t) {
+    const f = t.frame('overlay');
+    // The mock grows the frame as Rust grows the window: to the cap for
+    // this text size.
+    await t.page.evaluate((max) => {
+      document.querySelector('iframe[name="overlay"]').dataset.max = String(max);
+    }, overlayFor(t.textScale).max);
+    await seenBefore(f);
+    await openBar(f, { inputAnchor: anchor });
+    await t.settle();
+    await setField(f, 'Why does the build fail\non the release branch\nbut not on main\nsince Tuesday?');
+    await t.settle(200);
+    // A real click: a menu opened with the pointer shows no focus ring.
+    await f.click('#intent');
+    await t.settle(400);
+    await check(t, `menuInsideWindow.barIntent${tag}`, f, '#intent-menu');
+    const ring = await f.evaluate(() => {
+      const a = document.activeElement;
+      return a && a.closest('.g-menu') ? getComputedStyle(a).outlineStyle : `focus on ${a && a.id}`;
+    });
+    t.check(`pointerMenuNoRing${tag}`, ring === 'none', ring);
+    const clip = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: overlayFor(t.textScale).max + 40 };
+    await t.shot(`${name}-intent`, clip);
+    await f.evaluate(() => document.getElementById('intent').click());
+    await setField(f, '@');
+    await t.settle(400);
+    await check(t, `menuInsideWindow.barModel${tag}`, f, '#model-menu');
+    await t.shot(`${name}-model`, clip);
   },
+});
+
+export const scenes = [
+  barMenus('menu-bounds-bar', '', { h: 'center', v: 'top' }),
+  barMenus('menu-bounds-bar-middle', '.middle', { h: 'center', v: 'center' }),
+  barMenus('menu-bounds-bar-bottom', '.bottom', { h: 'center', v: 'bottom' }),
 
   // Retry's model menu from an answer in a short window: it cannot fit
   // under the chevron, so it opens above it or scrolls, inside the window.
   {
     name: 'menu-bounds-retry',
     backdrop: 'wallpaper',
+    textScale: true,
     windows: [{ name: 'out1', src: '/renderer/output.html', x: 560, y: 120, w: 520, h: 360, z: 2, fixed: true, responses: { 'models:list': MODELS } }],
     async run(t) {
       const f = t.frame('out1');
@@ -110,6 +126,7 @@ export const scenes = [
   {
     name: 'menu-bounds-window',
     backdrop: 'wallpaper',
+    textScale: true,
     windows: [{ name: 'out1', src: '/renderer/output.html', x: 560, y: 120, w: 420, h: 240, z: 2, fixed: true }],
     async run(t) {
       const f = t.frame('out1');
@@ -130,6 +147,7 @@ export const scenes = [
   {
     name: 'menu-bounds-combo',
     backdrop: 'wallpaper',
+    textScale: true,
     windows: [{ name: 'settings', src: '/settings/settings.html', x: 470, y: 160, w: 660, h: 520, z: 1, responses: { 'settings:get': { ...COMMON['settings:get'], model: 'mistralai/mistral-small-3.1-24b-instruct:free' } } }],
     async run(t) {
       const f = t.frame('settings');
@@ -162,6 +180,7 @@ export const scenes = [
   {
     name: 'menu-bounds-history',
     backdrop: 'wallpaper',
+    textScale: true,
     windows: [{ name: 'history', src: '/history/history.html', x: 520, y: 140, w: 500, h: 420, z: 1 }],
     async run(t) {
       const f = t.frame('history');
