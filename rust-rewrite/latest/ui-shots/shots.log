@@ -205,13 +205,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.011
+[UI] globShapeMs=0.013
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=511 frames=31 longestFrameMs=16.8
+[UI] globOpen ms=507 frames=30 longestFrameMs=33.2
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -612,13 +612,23 @@
 [UI] scene watch/watch-settings
 [UI] shot watch-settings-agents.png
 [UI] watchSettingsPage=ok
+[UI] watchChatsSwitch=ok
+[UI] watchChatsSaysWhyItStopped=ok
+[UI] shot watch-settings-chats.png
+[UI] watchChatsNeedsWatching=ok
 [UI] watchSettingsSaves=ok
 [UI] shot watch-settings-awake.png
+[UI] watchLidNoteSaysItSleeps=ok
 [UI] scene watch/watch-settings-ts200
 [UI] shot watch-settings-agents-ts200.png
 [UI] watchSettingsPage-ts200=ok
+[UI] watchChatsSwitch-ts200=ok
+[UI] watchChatsSaysWhyItStopped-ts200=ok
+[UI] shot watch-settings-chats-ts200.png
+[UI] watchChatsNeedsWatching-ts200=ok
 [UI] watchSettingsSaves-ts200=ok
 [UI] shot watch-settings-awake-ts200.png
+[UI] watchLidNoteSaysItSleeps-ts200=ok
 [UI] scene harness/backdrop-dark-editor-150
 [UI] shot 11-dark-editor-bar-output-150.png
 [UI] scene harness/backdrop-photo-busy-150
@@ -820,7 +830,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=515 frames=31 longestFrameMs=16.8
+[UI] globOpen-150 ms=496 frames=28 longestFrameMs=33.3
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -1209,13 +1219,23 @@
 [UI] scene watch/watch-settings-150
 [UI] shot watch-settings-agents-150.png
 [UI] watchSettingsPage-150=ok
+[UI] watchChatsSwitch-150=ok
+[UI] watchChatsSaysWhyItStopped-150=ok
+[UI] shot watch-settings-chats-150.png
+[UI] watchChatsNeedsWatching-150=ok
 [UI] watchSettingsSaves-150=ok
 [UI] shot watch-settings-awake-150.png
+[UI] watchLidNoteSaysItSleeps-150=ok
 [UI] scene watch/watch-settings-150-ts200
 [UI] shot watch-settings-agents-150-ts200.png
 [UI] watchSettingsPage-150-ts200=ok
+[UI] watchChatsSwitch-150-ts200=ok
+[UI] watchChatsSaysWhyItStopped-150-ts200=ok
+[UI] shot watch-settings-chats-150-ts200.png
+[UI] watchChatsNeedsWatching-150-ts200=ok
 [UI] watchSettingsSaves-150-ts200=ok
 [UI] shot watch-settings-awake-150-ts200.png
+[UI] watchLidNoteSaysItSleeps-150-ts200=ok
 [UI] lane harness sceneRuns=8
 [UI] lane platform sceneRuns=0
 [UI] lane windows sceneRuns=0
@@ -1237,4 +1257,4 @@
 [UI] voicePillOnlyListens=ok
 [UI] watchCardNeedsNoFocus=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=408
+[UI] done failed=0 shots=412

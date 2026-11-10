@@ -1,2 +1,0 @@
-== bridge.log ==
-[BRIDGE] cssLint=FAIL:4 violations in src-tauri/src/backdrop/contrast-hide.css, renderer/lens.css, settings/settings.css, history/history.css
