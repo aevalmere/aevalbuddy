@@ -1,2 +1,3 @@
 == shots.log ==
 [UI] continuedTurnsRead-ts200=FAIL:{"overlaps":0,"gaps":[28,28],"rights":[372,372],"wide":[73,73],"metas":[0,0,128]}
+[UI] continuedTurnsRead-150-ts200=FAIL:{"overlaps":0,"gaps":[28,28],"rights":[372,372],"wide":[73,73],"metas":[0,0,128]}
