@@ -90,6 +90,8 @@
       actions.appendChild(b);
     }
     actions.hidden = !actions.childElementCount;
+    // A question from the app is read whole before it is answered.
+    card.classList.toggle('asks', actions.childElementCount > 0);
 
     rows.textContent = '';
     for (const r of p.rows || []) rows.appendChild(row(r));

@@ -69,7 +69,7 @@
     else if (!found.length) $('watch-agents-summary').textContent = 'On, none found yet';
     else $('watch-agents-summary').textContent = `${connected} of ${found.length} connected`;
     if (p.enabled && !found.length) status('No coding agent was found on this PC. One installed later is picked up within 10 minutes.');
-    else if (failedOnes.length) status(`Could not connect ${failedOnes.map((a) => a.name).join(', ')}. The reason is beside each one.`, true);
+    else if (failedOnes.length) status(`Could not connect ${failedOnes.map((a) => a.name).join(', ')}. The reason is under its name.`, true);
     else status('');
 
     const awake = !p.keepAwake ? 'Off' : p.lidAwake && snap.hasLid ? 'On, lid closed too' : p.displayOn ? 'On, screen too' : 'On';

@@ -1388,3 +1388,36 @@ html[data-motion="reduced"] .state[data-status="checking"] svg {
   width: 100%;
   appearance: auto;
 }
+
+/* ---- agents lane: the Agents page (#pg-watch) ---- */
+
+/* Options that depend on a switch sit under it, one step in, and are there
+   only while it is on. */
+.watch-nested {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-left: var(--sp-5);
+}
+
+.watch-nested[hidden] {
+  display: none;
+}
+
+/* What an agent still needs from the person, under its name. */
+.watch-says {
+  display: block;
+  font-size: var(--t-meta);
+  line-height: var(--lh-meta);
+  font-weight: var(--w-body);
+  color: var(--label-2);
+}
+
+.watch-says.error {
+  color: var(--danger);
+}
+
+.watch-actions {
+  display: flex;
+  gap: var(--sp-2);
+}

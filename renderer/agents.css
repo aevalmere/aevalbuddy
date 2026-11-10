@@ -282,7 +282,8 @@ html[data-motion="reduced"] #card.out {
   overflow-wrap: anywhere;
 }
 
-#card.open #detail {
+#card.open #detail,
+#card.asks #detail {
   -webkit-line-clamp: 8;
   line-clamp: 8;
   color: var(--label);

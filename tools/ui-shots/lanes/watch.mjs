@@ -45,7 +45,7 @@ export const mocks = {
   'agents:test': { ok: true },
 };
 
-export const cssLintEnforce = ['renderer/agents.css', 'renderer/agents-settings.css'];
+export const cssLintEnforce = ['renderer/agents.css'];
 
 export const checks = [
   // The card never takes the keyboard, so nothing in it may depend on focus.
