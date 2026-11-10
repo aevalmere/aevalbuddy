@@ -41,6 +41,14 @@ function setView(next) {
 
 listen('view:set', ({ view: v }) => setView(v));
 
+// A conversation arriving in this window is what the window shows: an
+// answer is never left hidden behind a list of matches from an earlier Find.
+for (const channel of ['chat:sync', 'chat:user', 'query:start']) {
+  listen(channel, () => {
+    if (view === 'find') setView('chat');
+  });
+}
+
 // -------------------------------------------------------------------- find
 
 function el(tag, cls, text) {
