@@ -20,14 +20,14 @@
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
  Downloading crates ...
-  Downloaded tauri-plugin-opener v2.7.3
   Downloaded crc32fast v1.5.5
+  Downloaded tauri-plugin-opener v2.7.3
   Downloaded wry v0.57.2
   Downloaded jiff v0.2.42
    Compiling crc32fast v1.5.5
    Compiling wry v0.57.2
    Compiling tauri-plugin-opener v2.7.3
-   Compiling aevaleron v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
+   Compiling aevaleron v1.1.1 (D:\a\aevaleron\aevaleron\src-tauri)
     Checking flate2 v1.1.11
     Checking tauri-runtime-wry v2.12.3
     Checking png v0.18.1
@@ -40,4 +40,4 @@
     Checking tauri v2.12.5
     Checking tauri-plugin-global-shortcut v2.4.1
     Checking tauri-plugin-clipboard-manager v2.5.0
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 44.72s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 41.91s

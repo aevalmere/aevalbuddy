@@ -3,24 +3,24 @@
    Compiling crc32fast v1.5.5
    Compiling wry v0.57.2
    Compiling tauri-plugin-opener v2.7.3
-   Compiling aevaleron v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
+   Compiling aevaleron v1.1.1 (D:\a\aevaleron\aevaleron\src-tauri)
    Compiling flate2 v1.1.11
    Compiling png v0.18.1
+   Compiling png v0.17.16
    Compiling ico v0.6.0
-   Compiling tauri-runtime-wry v2.12.3
    Compiling tauri-codegen v2.7.4
    Compiling image v0.25.10
-   Compiling png v0.17.16
+   Compiling tauri-runtime-wry v2.12.3
    Compiling tauri-macros v2.7.4
    Compiling arboard v3.7.0
    Compiling tauri v2.12.5
-   Compiling tauri-plugin-global-shortcut v2.4.1
    Compiling tauri-plugin-clipboard-manager v2.5.0
-    Finished `release` profile [optimized] target(s) in 5m 59s
-       Built application at: D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\Aevaleron.exe
-        Info Patching D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\Aevaleron.exe with bundle type information: nsis
+   Compiling tauri-plugin-global-shortcut v2.4.1
+    Finished `release` profile [optimized] target(s) in 6m 57s
+       Built application at: D:\a\aevaleron\aevaleron\src-tauri\target\release\Aevaleron.exe
+        Info Patching D:\a\aevaleron\aevaleron\src-tauri\target\release\Aevaleron.exe with bundle type information: nsis
         Info Target: x64
-     Running makensis to produce D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\bundle\nsis\Aevaleron_1.1.1_x64-setup.exe
+     Running makensis to produce D:\a\aevaleron\aevaleron\src-tauri\target\release\bundle\nsis\Aevaleron_1.1.1_x64-setup.exe
     Finished 1 bundle at:
-        D:\a\aevalbuddy\aevalbuddy\src-tauri\target\release\bundle\nsis\Aevaleron_1.1.1_x64-setup.exe (5.16 MiB)
+        D:\a\aevaleron\aevaleron\src-tauri\target\release\bundle\nsis\Aevaleron_1.1.1_x64-setup.exe (5.16 MiB)
 
