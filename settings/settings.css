@@ -1003,6 +1003,12 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   line-height: var(--lh-row);
 }
 
+/* A name with no second line (only the check follows it) takes both rows,
+   so it sits in the middle of the row like the check beside it. */
+.menu-row > .opt-name:nth-last-child(2) {
+  grid-row: 1 / span 2;
+}
+
 .opt-detail {
   grid-column: 1;
   font-size: var(--fs-meta);

@@ -40,8 +40,14 @@ const inside = (f, selector) =>
     return ok ? 'ok' : `${s} at ${Math.round(r.left)},${Math.round(r.top)} to ${Math.round(r.right)},${Math.round(r.bottom)} in a ${w}x${h} window`;
   }, selector);
 
+// The settled state: headless Edge can hold a frame back for half a second
+// when nothing else is painting, and the bar asks for its room on a frame.
 const check = async (t, name, f, selector) => {
-  const v = await inside(f, selector);
+  let v = await inside(f, selector);
+  for (let i = 0; i < 6 && v !== 'ok'; i += 1) {
+    await t.settle(250);
+    v = await inside(f, selector);
+  }
   t.check(name, v === 'ok', v);
 };
 
@@ -172,6 +178,17 @@ export const scenes = [
       await f.click('#model-combo-btn');
       await t.settle(400);
       await check(t, 'menuInsideWindow.combo', f, '#model-combo-list');
+      // A model with no second line sits in the middle of its row, level
+      // with the check, not in the row's top half.
+      const off = await f.evaluate(() => {
+        const rows = [...document.querySelectorAll('#model-combo-list [role="option"]')].filter((o) => !o.querySelector('.opt-detail'));
+        return rows.map((o) => {
+          const r = o.getBoundingClientRect();
+          const n = o.querySelector('.opt-name').getBoundingClientRect();
+          return Math.abs((n.top + n.bottom) / 2 - (r.top + r.bottom) / 2);
+        });
+      });
+      t.check('comboNameCentred', off.length > 0 && off.every((d) => d <= 1), JSON.stringify(off));
       await t.shot('menu-bounds-combo');
     },
   },
