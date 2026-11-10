@@ -7,7 +7,7 @@ export const mocks = {};
 export const checks = [];
 // glass.css goes on this list once the lint itself (B-145) has landed and the
 // file has been run through it.
-export const cssLintEnforce = [];
+export const cssLintEnforce = ['renderer/overlay.css'];
 
 const overlay = { name: 'overlay', src: '/renderer/index.html', x: BAR.x, y: BAR.y, w: BAR.w, h: BAR.h, z: 2 };
 const BAR_CLIP = { x: BAR.x - 20, y: 0, width: BAR.w + 40, height: 140 };

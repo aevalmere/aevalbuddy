@@ -5,7 +5,7 @@ import { W, H } from '../kit.mjs';
 
 export const mocks = {};
 export const checks = [];
-export const cssLintEnforce = ['renderer/lens.css', 'renderer/cursor-buddy.css'];
+export const cssLintEnforce = ['renderer/lens.css', 'renderer/cursor-buddy.css', 'renderer/region.css'];
 
 // The lens and the area selector each cover a whole display.
 const full = (name, src, z) => ({ name, src, x: 0, y: 0, w: W, h: H, z, fixed: true });

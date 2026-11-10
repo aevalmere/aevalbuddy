@@ -53,6 +53,19 @@
   --blush: #F9E7E0;
   --danger: #F2A0A8;
   --danger-edge: #6B2E38;
+  /* Selected text in the bar and the sheets. */
+  --selection: rgb(94 134 180 / 0.55);
+  /* The bar and its orb (overlay.css): the shadow that lifts the orb's
+     pointer off the glass, the ring that cuts its badge out of the tint,
+     the halo of the focused bar, the lit top of a locked token, the layout
+     editor's dashed guide, and the outline a control gets when Windows asks
+     for more contrast. */
+  --mark-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+  --badge-ring: 0 0 0 2px rgb(var(--tint) / 0.9);
+  --focus-halo: 0 0 6px rgb(169 198 228 / 0.3);
+  --token-rim: inset 0 var(--px) 0 rgb(255 255 255 / 0.16);
+  --guide: rgb(169 198 228 / 0.85);
+  --contrast-ring: inset 0 0 0 1px #fff;
 
   /* Text size: the Windows text size times the person's own setting
      (glass.js sets it from ui:text-scale; Ctrl+= / Ctrl+- / Ctrl+0). Every

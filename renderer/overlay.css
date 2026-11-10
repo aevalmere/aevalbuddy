@@ -20,7 +20,7 @@
 }
 
 ::selection {
-  background: rgb(94 134 180 / 0.55);
+  background: var(--selection);
   color: var(--label);
 }
 
@@ -114,7 +114,7 @@ body[data-anchor-v="center"] #pill { top: 50%; margin-top: -22px; }
   grid-area: 1 / 1;
   fill: currentColor;
   transform: translate(1px, 1px);
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(var(--mark-shadow));
   transition: opacity var(--d-fast) ease, transform var(--d-med) var(--ease-settle);
 }
 
@@ -149,7 +149,7 @@ body[data-pill="agent"] .pill-label {
   height: 10px;
   border-radius: 50%;
   background: var(--accent-bright);
-  box-shadow: 0 0 0 2px rgb(var(--tint) / 0.9);
+  box-shadow: var(--badge-ring);
   transform: scale(0);
   transition: transform 240ms var(--ease-settle), background var(--d-fast) ease;
 }
@@ -331,7 +331,7 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  /* The x is 24 in a 28 capsule: 2 px from the end, concentric. */
+  /* optical: the x is 24 in a 28 capsule, 2 px from the end, concentric. */
   padding: 0 2px 0 var(--sp-3);
   border-radius: var(--r-cap);
   background: var(--fill-1);
@@ -399,7 +399,7 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
    specular rim brightens and a faint pastel halo sits just outside it; the
    caret, in the accent, is the live mark. */
 #bar:focus-within > .gl {
-  box-shadow: var(--shadow-control), 0 0 6px rgb(169 198 228 / 0.3);
+  box-shadow: var(--shadow-control), var(--focus-halo);
 }
 
 #bar:focus-within > .gl::after {
@@ -461,7 +461,7 @@ body[data-region="1"] #region-btn {
 }
 
 .intent-token[data-locked="true"] {
-  --own-shadow: inset 0 var(--px) 0 rgb(255 255 255 / 0.16);
+  --own-shadow: var(--token-rim);
   background: var(--accent-glass);
 }
 
@@ -1856,7 +1856,7 @@ body[data-fixed-height="1"] #chat {
   position: absolute;
   inset: 6px;
   border-radius: 22px;
-  border: 1.5px dashed rgb(169 198 228 / 0.85);
+  border: 1.5px dashed var(--guide);
   pointer-events: none;
   transition: border-color var(--d-fast) ease;
 }
@@ -1870,7 +1870,7 @@ body[data-fixed-height="1"] #chat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
   text-align: center;
   padding: 0 20px;
 }
@@ -2602,7 +2602,7 @@ html[data-motion="reduced"] .trow.running .trow-mark::before {
   .intent-token,
   .g-chip,
   .copy-msg {
-    box-shadow: inset 0 0 0 1px #fff;
+    box-shadow: var(--contrast-ring);
   }
 }
 

@@ -38,6 +38,13 @@
   --chip-shadow:
     0 1px 2px rgb(8 12 20 / 0.2),
     0 6px 18px -4px rgb(8 12 20 / 0.4);
+  --key-rim: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  /* What dims everything outside the selection. */
+  --scrim: rgb(10 15 23 / 0.42);
+  /* The dark rims that keep the edges and the ticks readable on a pale
+     page. */
+  --edge-rim: 0 0 0 1px rgb(11 12 16 / 0.55);
+  --tick-rim: 0 0 1px rgb(11 12 16 / 0.85);
 }
 
 * {
@@ -61,7 +68,7 @@ body {
 
 .scrim {
   position: fixed;
-  background: rgb(10 15 23 / 0.42);
+  background: var(--scrim);
   /* No transition: the panels are driven from mousemove and easing them puts
      the darkened area a frame behind the cursor. */
 }
@@ -98,7 +105,7 @@ body:not([data-dragging]) #scrim-right {
 .edge {
   position: absolute;
   background: var(--label-2);
-  box-shadow: 0 0 0 1px rgba(11, 12, 16, 0.55);
+  box-shadow: var(--edge-rim);
 }
 
 .edge-t,
@@ -128,7 +135,7 @@ body:not([data-dragging]) #scrim-right {
   border: 3px solid var(--accent-bright);
   /* Same reasoning as the edges: a dark rim keeps the accent readable on a
      pale background without turning the corner into a block of colour. */
-  filter: drop-shadow(0 0 1px rgba(11, 12, 16, 0.85));
+  filter: drop-shadow(var(--tick-rim));
 }
 
 .c-tl { top: -3px; left: -3px; border-right: 0; border-bottom: 0; }
@@ -148,7 +155,7 @@ body:not([data-dragging]) #scrim-right {
   color: var(--label);
   background: var(--chip-bg);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   box-shadow: var(--chip-rim), var(--chip-shadow);
   white-space: nowrap;
 }
@@ -204,8 +211,8 @@ kbd {
   color: var(--label-2);
   background: var(--fill-1);
   border-radius: 6px;
-  padding: 2px 8px;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  padding: 2px 8px; /* optical: a key cap hugs its letter */
+  box-shadow: var(--key-rim);
 }
 
 /* The keyboard's half of the hint, quieter than the instruction. */
