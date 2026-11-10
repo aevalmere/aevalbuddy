@@ -1,2 +1,0 @@
-== shots.log ==
-[UI] oneCssLayer=FAIL:settings/settings.html loads ../renderer/glass.css, settings.css, ../renderer/agents-settings.css
