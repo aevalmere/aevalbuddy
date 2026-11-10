@@ -2154,6 +2154,16 @@ body[data-fixed-height="1"] #chat {
   box-shadow: inset 0 0 0 1.5px var(--label-3);
 }
 
+/* The glyphs are drawn for a 20 px line. On a taller one (larger text) they
+   move down with the middle of the first line instead of staying at its
+   top. */
+.trow-mark::before,
+.trow-mark::after,
+.plan-item > .plan-mark::before,
+.plan-item > .plan-mark::after {
+  margin-top: calc((var(--lh-row, 20px) - 20px) / 2);
+}
+
 /* Running: an arc turning, the rim light's language at row size. */
 .trow.running .trow-mark::before,
 .plan-item.running > .plan-mark::before {

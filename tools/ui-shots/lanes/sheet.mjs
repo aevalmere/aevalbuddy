@@ -1350,6 +1350,7 @@ export const scenes = [
   {
     name: 'sheet-task-running',
     backdrop: 'wallpaper',
+    textScale: true,
     windows: [outWin('out1', OUT1, { max: 900 })],
     async run(t) {
       const f = t.frame('out1');
@@ -1381,6 +1382,16 @@ export const scenes = [
       });
       const okPrefix = sr.length >= 6 && sr.every((p) => /^(Planned|Now|Done|Skipped|Failed): $/.test(p));
       t.check('trailRowsHaveSrPrefixes', okPrefix && sr[0] === 'Done: ' && sr.includes('Now: ') && sr.includes('Planned: '), JSON.stringify(sr));
+      // Each step's glyph sits on the middle of its first line at any text
+      // size (it used to stay at the top of a taller line).
+      const marks = await f.evaluate(() =>
+        [...document.querySelectorAll('.plan-item > .plan-mark')].map((m) => {
+          const c = getComputedStyle(m, '::before');
+          const mid = parseFloat(c.top) + parseFloat(c.marginTop) + parseFloat(c.height) / 2;
+          return Math.round((mid - m.getBoundingClientRect().height / 2) * 10) / 10;
+        })
+      );
+      t.check('stepGlyphOnFirstLine', marks.length === 3 && marks.every((d) => Math.abs(d) <= 1), JSON.stringify(marks));
     },
   },
 
