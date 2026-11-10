@@ -400,6 +400,13 @@ unsafe extern "system" fn hook(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRE
         if (down || up) && k.dwExtraInfo != OWN_INPUT {
             let vk = k.vkCode as u16;
             let phys = physical_mods();
+            // agents lane: Alt+Tab while an agent's card is up jumps to
+            // that agent's window. Only a real key press (not an injected
+            // one), and the card decides whether it takes it.
+            let typed = (k.flags & wm::LLKHF_INJECTED) == 0;
+            if down && vk == 0x09 && phys.alt && typed && crate::agents::alt_tab() {
+                return 1;
+            }
             let (event, swallow) = match MACHINE.lock().as_mut() {
                 Some(m) => {
                     m.resync(phys, vk);

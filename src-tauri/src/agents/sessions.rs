@@ -298,12 +298,6 @@ impl SessionBook {
         self.map.is_empty()
     }
 
-    /// Whether a busy session lives in this window (the chat watcher leaves
-    /// such a window alone, so it is not counted twice).
-    pub fn busy_in_window(&self, hwnd: i64) -> bool {
-        hwnd != 0 && self.map.values().any(|s| s.hwnd == hwnd && s.busy() && s.agent != "chat")
-    }
-
     /// The session whose agent process started this one's, if it is known.
     pub fn parent_of(&self, s: &Session) -> Option<&Session> {
         if s.outer_pid == 0 {

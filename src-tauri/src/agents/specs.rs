@@ -1,5 +1,5 @@
 //! One entry per coding agent: where its hooks live, what an entry looks
-//! like, and how its payload maps onto the events `core` works in. Port of
+//! like, and how its payload maps onto the events `sessions` works in. Port of
 //! Aevalsistant's `Agents.cs`.
 //!
 //! Every agent with a hook system gets the same treatment: one entry per
@@ -15,7 +15,7 @@
 
 use serde_json::{json, Map, Value};
 
-use super::core::HookEvent;
+use super::sessions::HookEvent;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Layout {
@@ -48,7 +48,7 @@ const COPILOT_EVENTS: [&str; 4] = [
     "sessionEnd",
 ];
 
-pub const ALL: [AgentSpec; 7] = [
+pub static ALL: [AgentSpec; 7] = [
     AgentSpec {
         id: "claude",
         name: "Claude Code",

@@ -7,6 +7,8 @@
 #![recursion_limit = "256"]
 
 mod agent;
+// agents lane: watching other coding agents (Claude Code, Codex, ...).
+mod agents;
 mod ask;
 pub mod autostart;
 mod backdrop;
@@ -159,6 +161,11 @@ fn on_exit(app: &tauri::AppHandle) {
 }
 
 pub fn run() {
+    // agents lane: a coding agent's hook call forwards its event to the
+    // running app and exits, before anything else starts.
+    if agents::hook::run_if_asked() {
+        return;
+    }
     force_shot_scale();
     windows::mark_start();
     notify::set_app_user_model_id();
@@ -219,6 +226,8 @@ pub fn run() {
             host::setup(&handle);
             // voice lane: the dictation chord and its pill.
             voice::setup(&handle);
+            // agents lane: the hook pipe, keep-awake and the card.
+            agents::setup(&handle);
             store::get().decide_presence();
             // Not apply: boot leaves Task Manager's StartupApproved alone.
             autostart::sync();

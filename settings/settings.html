@@ -7,6 +7,7 @@
   <title>AevalBuddy settings</title>
   <link rel="stylesheet" href="../renderer/glass.css" />
   <link rel="stylesheet" href="settings.css" />
+  <link rel="stylesheet" href="../renderer/agents-settings.css" /> <!-- agents lane -->
 </head>
 <body>
   <div id="app" class="glass thick refract">
@@ -28,6 +29,7 @@
         <button type="button" data-page="pg-find">Find</button>
         <button type="button" data-page="pg-agent">Tasks</button>
         <button type="button" data-page="pg-voice">Voice</button> <!-- voice lane -->
+        <button type="button" data-page="pg-watch">Agents</button> <!-- agents lane -->
         <button type="button" data-page="pg-privacy">Privacy</button>
         <button type="button" data-page="pg-shortcuts">Shortcuts</button>
         <button type="button" data-page="pg-general">General</button>
@@ -383,6 +385,113 @@
           </div>
         </div>
 
+        <!-- agents lane: the Agents page (renderer/agents-settings.js). -->
+        <div class="page" id="pg-watch">
+          <h1 tabindex="-1">Agents</h1>
+          <div class="group">
+            <section class="row" id="sec-watch-agents">
+              <div class="row-head">
+                <h2 id="watch-agents-heading">Coding agents</h2>
+                <span id="watch-agents-summary" class="summary">Off</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-watch-agents-body" aria-labelledby="watch-agents-heading watch-agents-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-watch-agents-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Watch my coding agents</span>
+                    <input id="watch-enabled" type="checkbox" role="switch" />
+                  </label>
+                  <p class="note">Keeps this PC awake while Claude Code, Codex, Gemini CLI, Copilot CLI, Cursor, Windsurf or OpenCode is working, and shows a card when one finishes or needs you. Turning this on adds a hook to each agent's own settings file, after saving a copy of the file beside it; turning it off takes the hooks out again. Nothing about your sessions leaves this PC.</p>
+                  <div id="watch-agent-list" class="watch-nested" role="group" aria-label="Agents on this PC" hidden></div>
+                  <p id="watch-status" class="status" role="status" hidden></p>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-watch-awake">
+              <div class="row-head">
+                <h2 id="watch-awake-heading">Keep awake</h2>
+                <span id="watch-awake-summary" class="summary">On</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-watch-awake-body" aria-labelledby="watch-awake-heading watch-awake-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-watch-awake-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Keep the PC awake while agents work</span>
+                    <input id="watch-keep-awake" type="checkbox" role="switch" data-watch="keepAwake" />
+                  </label>
+                  <div class="watch-nested" id="watch-awake-more">
+                    <label class="switch">
+                      <span>Keep the screen on too</span>
+                      <input type="checkbox" role="switch" data-watch="displayOn" />
+                    </label>
+                    <label class="switch" id="watch-lid-row">
+                      <span>Keep working with the lid closed</span>
+                      <input type="checkbox" role="switch" data-watch="lidAwake" />
+                    </label>
+                  </div>
+                  <p class="note" id="watch-awake-note">Windows will not sleep until the last agent stops. The screen can still turn off unless you keep it on.</p>
+                </div>
+              </div>
+            </section>
+            <section class="row" id="sec-watch-cards">
+              <div class="row-head">
+                <h2 id="watch-cards-heading">Cards</h2>
+                <span id="watch-cards-summary" class="summary">Finished and needs you</span>
+                <button class="edit" type="button" aria-expanded="false" aria-controls="sec-watch-cards-body" aria-labelledby="watch-cards-heading watch-cards-summary"><span class="ico i-chevron" aria-hidden="true"></span></button>
+              </div>
+              <div class="body" id="sec-watch-cards-body">
+                <div class="body-in">
+                  <label class="switch">
+                    <span>Show a card when an agent finishes</span>
+                    <input type="checkbox" role="switch" data-watch="notifyDone" />
+                  </label>
+                  <div class="watch-nested" data-watch-under="notifyDone">
+                    <label class="switch">
+                      <span>Also when background agents finish</span>
+                      <input type="checkbox" role="switch" data-watch="notifyBackgroundDone" />
+                    </label>
+                  </div>
+                  <label class="switch">
+                    <span>Show a card when an agent needs you</span>
+                    <input type="checkbox" role="switch" data-watch="notifyNeedsYou" />
+                  </label>
+                  <div class="watch-nested" data-watch-under="notifyNeedsYou">
+                    <label class="switch">
+                      <span>Also when a background agent needs you</span>
+                      <input type="checkbox" role="switch" data-watch="notifyBackgroundNeedsYou" />
+                    </label>
+                  </div>
+                  <label class="switch">
+                    <span>Play a soft chime</span>
+                    <input type="checkbox" role="switch" data-watch="sound" />
+                  </label>
+                  <label class="switch">
+                    <span>Open the card on hover to read the whole message</span>
+                    <input type="checkbox" role="switch" data-watch="expandOnHover" />
+                  </label>
+                  <label class="switch">
+                    <span>Alt+Tab jumps to the agent while its card is up</span>
+                    <input type="checkbox" role="switch" data-watch="altTab" />
+                  </label>
+                  <label class="switch">
+                    <span>List subagents under their session</span>
+                    <input type="checkbox" role="switch" data-watch="showChildren" />
+                  </label>
+                  <div class="choice" role="radiogroup" aria-label="How long a card stays up" id="watch-time">
+                    <button type="button" class="choice-option" role="radio" data-watch-time="0">Short<span class="choice-note">About 5 seconds.</span></button>
+                    <button type="button" class="choice-option" role="radio" data-watch-time="1">Normal<span class="choice-note">About 8 seconds, 10 when an agent needs you.</span></button>
+                    <button type="button" class="choice-option" role="radio" data-watch-time="2">Long<span class="choice-note">About 14 seconds.</span></button>
+                  </div>
+                  <div class="watch-actions">
+                    <button id="watch-test" type="button" class="g-btn">Show a test card</button>
+                  </div>
+                  <p class="note">A card counts down only while you are at the keyboard, never takes the keyboard from the app you are in, and stays out of screenshots and screen sharing. Background means subagents, sessions another agent started, and turns an agent takes on its own.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
         <div class="page" id="pg-privacy">
           <h1 tabindex="-1">Privacy</h1>
           <div class="group">
@@ -625,5 +734,6 @@
   <script src="../renderer/frame.js"></script>
   <script src="settings.js"></script>
   <script src="../renderer/voice-settings.js"></script> <!-- voice lane -->
+  <script src="../renderer/agents-settings.js"></script> <!-- agents lane -->
 </body>
 </html>

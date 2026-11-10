@@ -87,6 +87,27 @@ extern "system" {
     fn SHQueryUserNotificationState(state: *mut i32) -> i32;
 }
 
+#[link(name = "winmm")]
+extern "system" {
+    fn PlaySoundW(sound: *const u8, module: isize, flags: u32) -> i32;
+}
+
+const DONE_WAV: &[u8] = include_bytes!("../../assets/sounds/done.wav");
+const NEEDS_YOU_WAV: &[u8] = include_bytes!("../../assets/sounds/needs-you.wav");
+/// SND_ASYNC, SND_NODEFAULT and SND_MEMORY.
+const SND_FLAGS: u32 = 0x1 | 0x2 | 0x4;
+
+/// The soft chime that comes with a card: one for "finished", one for
+/// "needs you". Returns at once.
+pub fn chime(needs_you: bool) {
+    let wav = if needs_you { NEEDS_YOU_WAV } else { DONE_WAV };
+    // SAFETY: the sound is a whole WAV file in static memory, which an
+    // asynchronous play needs it to be.
+    unsafe {
+        PlaySoundW(wav.as_ptr(), 0, SND_FLAGS);
+    }
+}
+
 const TH32CS_SNAPPROCESS: u32 = 0x2;
 const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
 const STILL_ACTIVE: u32 = 259;
@@ -379,11 +400,6 @@ fn window_pid(hwnd: isize) -> u32 {
     pid
 }
 
-/// The process that owns `hwnd`.
-pub fn pid_of_window(hwnd: i64) -> u32 {
-    window_pid(hwnd as isize)
-}
-
 fn title(hwnd: isize) -> String {
     // SAFETY: the buffer is one longer than the length asked for.
     unsafe {
@@ -506,11 +522,6 @@ pub fn from_hook_process(project: &str, agent: &str) -> Found {
 pub fn is_window(hwnd: i64) -> bool {
     // SAFETY: a query.
     hwnd != 0 && unsafe { IsWindow(hwnd as isize) } != 0
-}
-
-pub fn foreground() -> i64 {
-    // SAFETY: a query.
-    unsafe { GetForegroundWindow() as i64 }
 }
 
 /// Brings `hwnd` to the front. False when the window is gone.

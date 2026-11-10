@@ -1,0 +1,399 @@
+/* The agents card (agents.html): one thin glass card that grows out of the
+   bar when a coding agent finishes or needs you. Tokens from glass.css; the
+   window is exactly the card plus 16 px of room for its shadow, never takes
+   the keyboard, and stays out of screenshots. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font-text);
+}
+
+/* Which edge of the window touches the bar: the card hangs from it and
+   grows out of it. */
+body {
+  --from-y: -18px;
+}
+
+body[data-from="bottom"] {
+  --from-y: 18px;
+}
+
+#card {
+  --r: var(--r-sheet);
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 16px;
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--label);
+  font-size: var(--t-row);
+  line-height: var(--lh-row);
+  transform-origin: 50% 0;
+}
+
+body[data-from="bottom"] #card {
+  top: auto;
+  bottom: 16px;
+  transform-origin: 50% 100%;
+}
+
+#card[hidden] {
+  display: none;
+}
+
+/* Drawn but not yet shown: Rust is told its height first. */
+#card.measuring {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ motion */
+
+/* Out of the bar: a small drop at the bar edge that swells into the card,
+   settling a little past its size and back, the way a liquid does. Only
+   transform, opacity and a short blur move. */
+#card.in {
+  animation: card-swell var(--d-glob) var(--ease-spring) both;
+}
+
+@keyframes card-swell {
+  from {
+    opacity: 0;
+    transform: translateY(var(--from-y)) scale(0.34, 0.18);
+    filter: blur(8px);
+  }
+  45% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  72% {
+    transform: scale(1.012, 1.03);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The words arrive once there is a card to hold them. */
+#card.in > :not(.gl) {
+  animation: card-words 240ms ease 150ms both;
+}
+
+@keyframes card-words {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Back into the bar. */
+#card.out {
+  animation: card-fold var(--d-glob-close) var(--ease-out) both;
+  pointer-events: none;
+}
+
+@keyframes card-fold {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--from-y) * 0.6)) scale(0.82, 0.6);
+    filter: blur(6px);
+  }
+}
+
+@keyframes card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes card-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+html[data-motion="reduced"] #card.in {
+  animation: card-fade var(--d-reduced) ease both;
+}
+
+html[data-motion="reduced"] #card.in > :not(.gl) {
+  animation: none;
+}
+
+html[data-motion="reduced"] #card.out {
+  animation: card-fade-out var(--d-reduced) ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #card.in {
+    animation: card-fade var(--d-reduced) ease both;
+  }
+
+  #card.in > :not(.gl) {
+    animation: none;
+  }
+
+  #card.out {
+    animation: card-fade-out var(--d-reduced) ease both;
+  }
+}
+
+/* -------------------------------------------------------------------- head */
+
+#head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-s);
+}
+
+/* The whole top row is the way to that agent window. */
+#jump {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--w-strong);
+  text-align: left;
+  cursor: pointer;
+}
+
+#jump.plain {
+  cursor: default;
+}
+
+#title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#place {
+  flex: 0 0 auto;
+  color: var(--label-2);
+  font-weight: var(--w-body);
+  white-space: nowrap;
+}
+
+#place::before {
+  content: "\00b7";
+  margin-right: 8px;
+}
+
+#place[hidden],
+#keys[hidden],
+#detail[hidden],
+#actions[hidden],
+#rows[hidden],
+#more[hidden] {
+  display: none;
+}
+
+/* What the session is: finished, needs you, or the app speaking. */
+.dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-cap);
+  background: var(--accent-bright);
+}
+
+#card[data-kind="needs-you"] #dot,
+.row.needs-you .dot {
+  background: var(--blush);
+}
+
+#card[data-kind="info"] #dot {
+  background: var(--label-2);
+}
+
+.row.done .dot {
+  background: var(--label-3);
+}
+
+/* Working: a ring, not a filled dot. */
+.row.working .dot {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--label-2);
+}
+
+#keys {
+  flex: 0 0 auto;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-key);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  color: var(--label-2);
+  font: inherit;
+  font-size: var(--t-meta);
+  line-height: var(--lh-row);
+}
+
+#close {
+  flex: 0 0 auto;
+  width: var(--ctl-s);
+  height: var(--ctl-s);
+  margin-right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--r-cap);
+  background: none;
+  color: var(--label-2);
+  cursor: pointer;
+  transition: background var(--d-fast) ease, color var(--d-fast) ease;
+}
+
+#close:hover {
+  background: var(--fill-1);
+  color: var(--label);
+}
+
+/* ------------------------------------------------------------------ detail */
+
+/* One line at rest, under the first letter of the title; the pointer
+   resting on the card opens up to eight. */
+#detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-5);
+  color: var(--label-2);
+  font-size: var(--t-caption);
+  line-height: var(--lh-caption);
+  overflow-wrap: anywhere;
+}
+
+#card.open #detail {
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+  color: var(--label);
+}
+
+/* ----------------------------------------------------------------- actions */
+
+#actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: 12px;
+}
+
+#actions .act {
+  min-height: var(--ctl);
+  padding: 0 var(--sp-4);
+  border: none;
+  border-radius: var(--r-cap);
+  font: inherit;
+  font-size: var(--t-caption);
+  font-weight: var(--w-strong);
+  color: var(--label);
+  background: var(--fill-1);
+  box-shadow: var(--chip-rim);
+  cursor: pointer;
+  transition: background var(--d-fast) ease;
+}
+
+#actions .act:hover {
+  background: var(--fill-2);
+}
+
+#actions .act.primary {
+  background: var(--accent-glass);
+}
+
+#actions .act.primary:hover {
+  background: var(--accent-glass-hover);
+}
+
+/* -------------------------------------------------------------------- rows */
+
+/* Every other session, quieter than the head: needs you first, then done,
+   then working. What a session started sits one step in under it. */
+#rows {
+  list-style: none;
+  margin-top: 8px;
+}
+
+.row-btn {
+  width: 100%;
+  min-height: var(--ctl-s);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0;
+  border: none;
+  border-radius: var(--r-row);
+  background: none;
+  color: var(--label);
+  font: inherit;
+  font-size: var(--t-caption);
+  line-height: var(--lh-caption);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--d-fast) ease;
+}
+
+.row-btn:disabled {
+  cursor: default;
+}
+
+.row-btn:not(:disabled):hover {
+  background: var(--fill-1);
+}
+
+.row.child .row-btn {
+  padding-left: var(--sp-4);
+}
+
+.row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--w-strong);
+}
+
+.row.child .row-name {
+  font-weight: var(--w-body);
+}
+
+.row-place {
+  flex: 0 0 auto;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.row-text {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#more {
+  margin-top: 4px;
+  padding-left: var(--sp-4);
+  color: var(--label-3);
+  font-size: var(--t-meta);
+  line-height: var(--lh-meta);
+}

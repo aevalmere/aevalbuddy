@@ -148,6 +148,17 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "voice:download",
     "voice:capture-hotkey",
     // end voice lane
+    // agents lane
+    "agents:ready",
+    "agents:size",
+    "agents:hover",
+    "agents:open",
+    "agents:dismiss",
+    "agents:act",
+    "agents:get",
+    "agents:set",
+    "agents:test",
+    // end agents lane
 ];
 
 /// Channels a page may listen on. Must equal `LISTEN_CHANNELS` in preload.js.
@@ -206,6 +217,11 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     "voice:level",
     "voice:progress",
     // end voice lane
+    // agents lane
+    "agents:card",
+    "agents:hide",
+    "agents:state",
+    // end agents lane
 ];
 
 const BRIDGE_JS: &str = include_str!("../bridge/aeval-bridge.js");
@@ -240,6 +256,8 @@ pub enum Caller {
     Lens,
     /// The area picker.
     Region,
+    /// The agents card (agents lane).
+    Agents,
     /// Anything else (a test fixture page).
     Other,
 }
@@ -252,6 +270,7 @@ impl Caller {
             "history" => Caller::History,
             "buddy" => Caller::Buddy,
             "region" => Caller::Region,
+            crate::agents::LABEL => Caller::Agents,
             l if outputs::is_output(l) => Caller::Output,
             l if l.starts_with("lens-") => Caller::Lens,
             _ => Caller::Other,
@@ -267,6 +286,7 @@ const ANY: &[Caller] = &[
     Caller::Buddy,
     Caller::Lens,
     Caller::Region,
+    Caller::Agents,
 ];
 const BAR: &[Caller] = &[Caller::Bar];
 const APP: &[Caller] = &[Caller::Bar, Caller::Settings];
@@ -283,11 +303,14 @@ const GLASS_PAGES: &[Caller] = &[
     Caller::History,
     Caller::Output,
     Caller::Buddy,
+    Caller::Agents,
 ];
 const ASK: &[Caller] = &[Caller::Bar, Caller::Output];
 const BUDDY: &[Caller] = &[Caller::Bar, Caller::Settings, Caller::Buddy];
 const LENS: &[Caller] = &[Caller::Lens];
 const REGION: &[Caller] = &[Caller::Bar, Caller::Region];
+// agents lane: the card's own calls and Settings' Agents page.
+const AGENTS: &[Caller] = &[Caller::Settings, Caller::Agents];
 
 /// Channels whose callers differ from their prefix's row. A table, not
 /// match arms, so `every_invoke_channel_has_a_route` never takes a rule
@@ -346,6 +369,8 @@ fn family(channel: &str) -> Option<&'static [Caller]> {
         "window" => PAGES,
         // voice lane: the bar's mic and Settings' Voice section.
         "voice" => APP,
+        // agents lane.
+        "agents" => AGENTS,
         _ => return None,
     })
 }
@@ -494,6 +519,10 @@ async fn dispatch(window: &WebviewWindow, channel: &str, payload: Value) -> Resu
     }
     // voice lane
     if let Some(r) = crate::voice::ipc::route(&app, &label, channel, &payload).await {
+        return r;
+    }
+    // agents lane
+    if let Some(r) = crate::agents::ipc::route(&app, channel, &payload).await {
         return r;
     }
     if channel == "ui:context-menu" {
@@ -955,6 +984,7 @@ mod tests {
             include_str!("host/agent.rs"),
             include_str!("host/settings.rs"),
             include_str!("voice/ipc.rs"), // voice lane
+            include_str!("agents/ipc.rs"), // agents lane
         ]
         .concat();
         // Arms are `"x" =>`, `"x" | "y" =>`, or `channel == "x"`.
@@ -1213,7 +1243,7 @@ mod tests {
     fn pages_may_call_what_they_call() {
         let glass = include_str!("../../renderer/glass.js");
         let frame = include_str!("../../renderer/frame.js");
-        let pages: [(Caller, Vec<&str>); 7] = [
+        let pages: [(Caller, Vec<&str>); 8] = [
             (
                 Caller::Bar,
                 vec![
@@ -1242,6 +1272,7 @@ mod tests {
                     frame,
                     include_str!("../../settings/settings.js"),
                     include_str!("../../renderer/voice-settings.js"), // voice lane
+                    include_str!("../../renderer/agents-settings.js"), // agents lane
                 ],
             ),
             (
@@ -1256,6 +1287,11 @@ mod tests {
             (
                 Caller::Region,
                 vec![include_str!("../../renderer/region.js")],
+            ),
+            // agents lane
+            (
+                Caller::Agents,
+                vec![glass, include_str!("../../renderer/agents.js")],
             ),
         ];
         let mut refused = Vec::new();

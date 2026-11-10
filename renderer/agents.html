@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
+  <title>AevalBuddy agents</title>
+  <link rel="stylesheet" href="glass.css" />
+  <link rel="stylesheet" href="agents.css" />
+</head>
+<body>
+  <!-- The agents card (src-tauri/src/agents): one glass card that grows out
+       of the bar when a coding agent finishes or needs you. The top row is
+       the session that just changed; under it, every other session with its
+       state. Clicking a row goes to that agent's window. The window never
+       takes the keyboard, so nothing here needs focus: Alt+Tab is the
+       keyboard's way in. -->
+  <div id="card" class="glass thin" role="status" aria-live="polite" hidden>
+    <div id="head">
+      <button id="jump" type="button">
+        <span id="dot" class="dot" aria-hidden="true"></span>
+        <span id="title"></span>
+        <span id="place"></span>
+      </button>
+      <kbd id="keys" hidden>Alt+Tab</kbd>
+      <button id="close" type="button" aria-label="Dismiss">
+        <span class="ico i-x" aria-hidden="true"></span>
+      </button>
+    </div>
+    <p id="detail"></p>
+    <div id="actions" hidden></div>
+    <ul id="rows" hidden></ul>
+    <p id="more" hidden></p>
+  </div>
+  <script src="glass.js"></script>
+  <script src="agents.js"></script>
+</body>
+</html>
