@@ -6,6 +6,7 @@
 const PREFS = {
   enabled: true,
   agentsOff: ['cursor'],
+  chats: false,
   keepAwake: true,
   displayOn: false,
   lidAwake: false,
@@ -31,6 +32,7 @@ const SNAPSHOT = {
     { id: 'cursor', name: 'Cursor', found: true, on: false, connected: false, note: '', error: null },
   ],
   aevalsistant: false,
+  chatProblem: null,
   hasLid: true,
   working: 2,
   awake: true,
@@ -211,6 +213,36 @@ export const scenes = [
         page.enabled && page.summary === '1 of 3 connected' && page.agents.join() === 'Claude Code,Codex,Cursor' && page.says.length === 2 && /Could not connect Codex/.test(page.status) && page.awake === 'On · holding now' && page.cards === 'Finished and needs you' && page.lid && page.time === '1',
         JSON.stringify(page),
       );
+      // Chat watching: off until asked for, saved by its switch, and when it
+      // stopped by itself the reason shows under the switch.
+      const chat = () =>
+        st.evaluate(() => {
+          const box = document.querySelector('input[data-watch="chats"]');
+          const says = document.getElementById('watch-chats-status');
+          return { label: box.closest('label').textContent.trim(), shown: !box.closest('label').hidden, on: box.checked, says: says.hidden ? '' : says.textContent };
+        });
+      const chatOff = await chat();
+      await st.click('input[data-watch="chats"]');
+      await t.settle(200);
+      const chatSet = (await t.calls('settings', 'agents:set')).map((c) => c.payload);
+      t.check(
+        'watchChatsSwitch',
+        chatOff.label === 'Also watch the Claude and ChatGPT apps' && chatOff.shown && !chatOff.on && chatOff.says === '' && chatSet.some((p) => p.chats === true),
+        JSON.stringify([chatOff, chatSet]),
+      );
+      const stopped = 'Chat watching stopped: Windows UI Automation did not load.';
+      await t.emit('settings', 'agents:state', { ...SNAPSHOT, prefs: { ...PREFS, chats: true }, chatProblem: stopped });
+      await t.settle(200);
+      const chatOn = await chat();
+      t.check('watchChatsSaysWhyItStopped', chatOn.on && chatOn.says === stopped, JSON.stringify(chatOn));
+      await t.shot('watch-settings-chats', { x: S.x - 10, y: S.y - 10, width: S.w + 20, height: S.h + 20 });
+      // With agent watching off there is nothing for it to add to.
+      await t.emit('settings', 'agents:state', { ...SNAPSHOT, prefs: { ...PREFS, enabled: false, chats: true }, chatProblem: stopped });
+      await t.settle(200);
+      const chatHidden = await chat();
+      t.check('watchChatsNeedsWatching', !chatHidden.shown && chatHidden.says === '', JSON.stringify(chatHidden));
+      await t.emit('settings', 'agents:state', SNAPSHOT);
+      await t.settle(200);
       await st.evaluate(() => openSection('sec-watch-awake'));
       await t.settle(400);
       await st.click('input[data-watch="displayOn"]');

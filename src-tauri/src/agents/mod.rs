@@ -9,6 +9,7 @@
 //! arrive from `hook` over a named pipe; `sessions` keeps them; this
 //! file wires them to the power request, the card window and Settings.
 
+mod chats;
 pub mod hook;
 pub mod ipc;
 mod native;
@@ -57,6 +58,8 @@ pub struct Prefs {
     pub enabled: bool,
     /// Agent ids switched off one by one.
     pub agents_off: Vec<String>,
+    /// Also watch the Claude and ChatGPT desktop apps (`chats`).
+    pub chats: bool,
     pub keep_awake: bool,
     pub display_on: bool,
     pub lid_awake: bool,
@@ -83,6 +86,7 @@ impl Default for Prefs {
         Prefs {
             enabled: false,
             agents_off: Vec::new(),
+            chats: false,
             keep_awake: true,
             display_on: false,
             lid_awake: false,
@@ -240,6 +244,7 @@ pub fn setup(app: &AppHandle) {
     let _ = std::thread::Builder::new()
         .name("agents-tick".into())
         .spawn(tick_loop);
+    chats::set(p.enabled && p.chats);
     if p.enabled {
         sync_soon();
     } else if !p.offered {
@@ -311,7 +316,8 @@ fn on_envelope(text: &str) {
 /// event calls for one.
 fn on_event(e: &HookEvent) {
     let p = prefs();
-    if !p.enabled {
+    // A chat sample that was under way when chat watching was switched off.
+    if !p.enabled || (e.agent == "chat" && !p.chats) {
         return;
     }
     let request = state().lock().book.apply(e, now_ms());
@@ -326,6 +332,29 @@ fn on_event(e: &HookEvent) {
         _ => refresh_card(&p),
     }
     sync_tray();
+}
+
+// ------------------------------------------------------------------- chats
+
+/// Whether a coding agent's hooks already report a busy session in this
+/// window, so the chat watcher does not list it a second time.
+fn hook_busy(hwnd: i64) -> bool {
+    state().lock().book.hook_busy_in(hwnd)
+}
+
+/// Chat watching ended, by the setting or by itself: its sessions go, and
+/// Settings hears why.
+fn chats_stopped() {
+    let had_any = state().lock().book.forget_agent("chat");
+    if had_any {
+        let p = prefs();
+        refresh_power(&p);
+        refresh_card(&p);
+        sync_tray();
+    }
+    if let Some(app) = APP.get() {
+        crate::windows::emit(app, crate::windows::SETTINGS, "agents:state", snapshot());
+    }
 }
 
 // -------------------------------------------------------------- transcript
@@ -1049,6 +1078,7 @@ fn snapshot() -> Value {
         "prefs": p,
         "agents": agents,
         "aevalsistant": other,
+        "chatProblem": chats::problem(),
         "hasLid": power::has_lid(),
         "working": busy,
         "awake": awake.0,
@@ -1071,6 +1101,13 @@ fn set(patch: &Value) -> Value {
         refresh_power(&after);
         if after.enabled != before.enabled || after.agents_off != before.agents_off {
             sync_hooks(&after);
+        }
+        let chats_on = after.enabled && after.chats;
+        if chats_on != (before.enabled && before.chats) {
+            chats::set(chats_on);
+            if !chats_on {
+                chats_stopped();
+            }
         }
         sync_tray();
     }
@@ -1203,6 +1240,8 @@ mod tests {
         // Stored settings from before a field existed read with defaults.
         let old: Prefs = serde_json::from_value(json!({ "enabled": true })).unwrap();
         assert!(old.enabled && old.notify_done && old.alt_tab);
+        assert!(!old.chats, "chat watching is off until it is asked for");
+        assert!(merged(&old, &json!({ "chats": true })).chats);
     }
 
     #[test]

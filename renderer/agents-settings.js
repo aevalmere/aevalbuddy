@@ -11,6 +11,7 @@
     enabled: $('watch-enabled'),
     list: $('watch-agent-list'),
     status: $('watch-status'),
+    chatsStatus: $('watch-chats-status'),
     awakeMore: $('watch-awake-more'),
     lidRow: $('watch-lid-row'),
     awakeNote: $('watch-awake-note'),
@@ -72,6 +73,10 @@
     else if (failedOnes.length) status(`Could not connect ${failedOnes.map((a) => a.name).join(', ')}. The reason is under its name.`, true);
     else if (p.enabled && snap.aevalsistant) status('Aevalsistant is installed too. Quit it from its tray icon, or each agent will show two cards.');
     else status('');
+    // Why chat watching stopped by itself, under its switch.
+    const chats = p.enabled && p.chats ? snap.chatProblem || '' : '';
+    w.chatsStatus.hidden = !chats;
+    w.chatsStatus.textContent = chats;
 
     const awake = !p.keepAwake ? 'Off' : p.lidAwake && snap.hasLid ? 'On, lid closed too' : p.displayOn ? 'On, screen too' : 'On';
     $('watch-awake-summary').textContent = snap.working && snap.awake ? `${awake} · holding now` : awake;

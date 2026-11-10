@@ -304,6 +304,24 @@ impl SessionBook {
         self.map.is_empty()
     }
 
+    /// Whether a coding agent's hooks already report a busy session in this
+    /// window (Claude Code in the Claude app's Code tab), so the chat watcher
+    /// leaves it alone and it does not show twice.
+    pub fn hook_busy_in(&self, hwnd: i64) -> bool {
+        hwnd != 0
+            && self
+                .map
+                .values()
+                .any(|s| s.busy() && s.agent != "chat" && s.hwnd == hwnd)
+    }
+
+    /// Drops every session of `agent`. True when there were any.
+    pub fn forget_agent(&mut self, agent: &str) -> bool {
+        let before = self.map.len();
+        self.map.retain(|_, s| s.agent != agent);
+        self.map.len() != before
+    }
+
     /// The session whose agent process started this one's, if it is known.
     pub fn parent_of(&self, s: &Session) -> Option<&Session> {
         if s.outer_pid == 0 {

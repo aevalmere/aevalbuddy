@@ -518,6 +518,18 @@ pub fn from_hook_process(project: &str, agent: &str) -> Found {
     found
 }
 
+/// The window in front; 0 when there is none.
+pub fn foreground() -> i64 {
+    // SAFETY: a query.
+    unsafe { GetForegroundWindow() as i64 }
+}
+
+/// The process that owns `hwnd`, and its exe's file name ("Claude.exe").
+pub fn window_exe(hwnd: i64) -> (u32, String) {
+    let pid = window_pid(hwnd as isize);
+    (pid, file_name(&image_path(pid)).to_string())
+}
+
 pub fn is_window(hwnd: i64) -> bool {
     // SAFETY: a query.
     hwnd != 0 && unsafe { IsWindow(hwnd as isize) } != 0

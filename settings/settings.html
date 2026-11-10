@@ -405,6 +405,12 @@
                   <p class="note">Keeps this PC awake while Claude Code, Codex, Gemini CLI, Copilot CLI, Cursor, Windsurf or OpenCode is working, and shows a card when one finishes or needs you. Turning this on adds a hook to each agent's own settings file, after saving a copy of the file beside it; turning it off takes the hooks out again. Nothing about your sessions leaves this PC.</p>
                   <div id="watch-agent-list" class="watch-nested" role="group" aria-label="Agents on this PC" hidden></div>
                   <p id="watch-status" class="status" role="status" hidden></p>
+                  <label class="switch" data-watch-under="enabled">
+                    <span>Also watch the Claude and ChatGPT apps</span>
+                    <input type="checkbox" role="switch" data-watch="chats" />
+                  </label>
+                  <p class="note" data-watch-under="enabled">Shows a card when a reply in the Claude or ChatGPT desktop app finishes while you are in another app, and keeps the PC awake until it does. It looks only for the app's Stop button, and only after you switch away from the app.</p>
+                  <p id="watch-chats-status" class="status error" role="status" hidden></p>
                 </div>
               </div>
             </section>
