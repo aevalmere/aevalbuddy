@@ -1,5 +1,5 @@
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 58.05s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 17s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-79a71c4cf9dd7430.exe)
 
 running 498 tests
@@ -9,18 +9,18 @@ test agent::gate::tests::chord_risks ... ok
 test agent::describe::tests::the_card_value_is_the_whole_text ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
 test agent::gate::tests::explorer_double_click_asks ... ok
-test agent::gate::tests::open_and_plans_and_keys ... ok
-test agent::gate::tests::quotes_are_cut ... ok
 test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
+test agent::gate::tests::quotes_are_cut ... ok
+test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::space_in_text_field_is_free ... ok
 test agent::gate::tests::typed_space_on_button_asks ... ok
 test agent::gate::tests::space_on_focused_send_button_asks ... ok
-test agent::gate::tests::unknown_named_button_asks ... ok
-test agent::run::tests::a_claim_turns_away_other_starts ... ok
 test agent::gate::tests::localized_send_asks ... ok
+test agent::run::tests::a_claim_turns_away_other_starts ... ok
+test agent::gate::tests::unknown_named_button_asks ... ok
+test agent::gate::tests::web_dialog_text_is_read ... ok
 test agent::run::tests::app_label_kelvin_and_dotted_i ... ok
 test agent::run::tests::bad_coordinates_are_rejected ... ok
-test agent::gate::tests::web_dialog_text_is_read ... ok
 test agent::run::tests::concurrent_starts_yield_one_run ... ok
 test agent::run::tests::a_timed_out_step_is_an_unknown_outcome ... ok
 test agent::run::tests::dialect_switch_rewrites_system_prompt ... ok
@@ -36,10 +36,10 @@ test agent::run::tests::space_on_focused_send_asks_before_any_key ... ok
 test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
 test agent::run::tests::step_payload_has_plan_index ... ok
 test agent::run::tests::stop_while_typing_cancels_the_helper ... ok
-test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::stop_ends_the_run_at_once ... ok
 test agent::run::tests::the_task_is_what_stops ... ok
 test agent::run::tests::trail_text_numbers_the_steps ... ok
+test agent::run::tests::the_step_limit_stops_a_run_that_never_finishes ... ok
 test agent::run::tests::typed_password_in_focused_field_stays_dotted ... ok
 test agent::tools::tests::json_rules_list_every_tool ... ok
 test agent::tools::tests::json_turns_are_found_in_prose ... ok
@@ -89,20 +89,20 @@ test capture::encode::tests::lanczos_keeps_flat_colour_and_size ... ok
 test capture::encode::tests::long_edge_fit ... ok
 test capture::encode::tests::whole_screen_uses_physical_pixels_within_budget ... ok
 test capture::screen::tests::active_prefers_foreground_monitor ... ok
-test capture::dxgi::tests::empty_first_frame_falls_back ... ok
 test capture::screen::tests::dip_bounds_divide_by_scale ... ok
-test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::dip_round_trip_on_a_scaled_display ... ok
-test capture::screen::tests::layout_ignores_enumeration_order ... ok
+test capture::screen::tests::display_ids_are_stable_and_distinct ... ok
 test capture::screen::tests::latch_finds_its_display_only_while_it_exists ... ok
-test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
+test capture::screen::tests::layout_ignores_enumeration_order ... ok
 test capture::screen::tests::layouts_never_overlap_whatever_the_scales ... ok
+test capture::screen::tests::matching_picks_most_overlap_by_id_not_order ... ok
 test capture::screen::tests::offsets_along_the_edge_follow_chromium ... ok
 test capture::screen::tests::overlapping_mixed_dpi_layout_is_adjacent ... ok
 test capture::screen::tests::physical_points_map_through_their_own_display ... ok
 test capture::screen::tests::primary_comes_first_and_is_the_fallback ... ok
 test capture::screen::tests::rect_in_old_overlap_maps_to_primary ... ok
 test capture::screen::tests::ties_go_to_the_primary_then_the_centre ... ok
+test capture::dxgi::tests::empty_first_frame_falls_back ... ok
 test agent::smoke::tests::every_smoke_line_holds ... ok
 test capture::tests::area_on_primary_crops_primary ... ok
 test capture::tests::whole_screen_is_the_whole_target ... ok
@@ -148,13 +148,13 @@ test desktop::win::tests::descendants_walks_the_tree_once ... ok
 test desktop::win::tests::our_own_pid_is_always_listed ... ok
 test find::tests::an_unreadable_window_offers_ask ... ok
 test find::tests::ask_mode_says_what_would_leave_the_computer ... ok
-test capture::tests::area_on_the_scaled_display_crops_its_pixels ... ok
+test capture::tests::hung_worker_is_replaced ... ok
 test find::tests::budget_keeps_spans_near_the_hits ... ok
 test find::tests::fold_strips_accents_and_widths ... ok
 test find::tests::line_reader_takes_objects_only ... ok
 test find::tests::literal_matching_stages ... ok
 test find::tests::one_edit_is_a_typo ... ok
-test capture::tests::hung_worker_is_replaced ... ok
+test capture::tests::area_on_the_scaled_display_crops_its_pixels ... ok
 test find::tests::snippets_are_cut_around_the_match ... ok
 test find::tests::sub_rects_follow_lines ... ok
 test find::tests::tokens_split_camel_snake_and_digits ... ok
@@ -215,7 +215,7 @@ test hotkeys::tests::unparseable_is_an_error_not_a_panic ... ok
 test hotkeys::tests::validation_matches_main_js ... ok
 test instance::tests::an_open_during_boot_is_answered_once_ready ... ok
 test instance::tests::lock_is_per_folder_and_case_blind ... ok
-test history::tests::trim_result_serializes_under_4mb ... ok
+test instance::tests::stalled_client_does_not_block_server ... ok
 test ipc::tests::bridge_script_carries_both_allowlists ... ok
 test ipc::tests::clipboard_keys_are_matched_and_masked ... ok
 test ipc::tests::every_invoke_channel_has_a_label_rule ... ok
@@ -237,7 +237,7 @@ test ipc::tests::unknown_channel_is_refused_with_the_electron_wording ... ok
 test lens::tests::hits_land_on_the_display_their_pixels_are_on ... ok
 test lens::tests::payload_is_display_relative_with_a_4px_floor ... ok
 test llm::auth::tests::callback_parses_code_and_rejects_bad_requests ... ok
-test instance::tests::stalled_client_does_not_block_server ... ok
+test llm::auth::tests::no_answer_times_out_with_the_paste_hint ... ok
 test llm::auth::tests::pkce_challenge_is_s256_of_verifier ... ok
 test llm::auth::tests::the_approval_url_has_the_documented_parameters ... ok
 test llm::catalogue::tests::curated_table_order_and_tiers ... ok
@@ -249,12 +249,12 @@ test llm::catalogue::tests::model_names_people_read ... ok
 test llm::catalogue::tests::native_retired_id_heals_in_memory ... ok
 test llm::catalogue::tests::retired_ids_heal_to_a_live_free_model ... ok
 test llm::catalogue::tests::stand_in_is_live_and_sees_images ... ok
-test llm::auth::tests::no_answer_times_out_with_the_paste_hint ... ok
+test llm::client::tests::builder_uses_native_roots_and_proxy ... ok
 test llm::client::tests::catalogue_is_cached ... ok
 test llm::client::tests::data_policy_probe_reports_blocked ... ok
 test llm::client::tests::empty_streams_and_http_errors ... ok
 test llm::client::tests::error_in_200_body_is_an_error ... ok
-test llm::client::tests::builder_uses_native_roots_and_proxy ... ok
+test history::tests::trim_result_serializes_under_4mb ... ok
 test llm::client::tests::native_list_parsing ... ok
 test llm::client::tests::native_turns_go_to_the_native_api ... ok
 test llm::client::tests::offline_refuses_everything ... ok
@@ -366,15 +366,15 @@ test store::crypto::tests::seals_byte_for_byte_like_chromium ... ok
 test store::crypto::tests::unreadable_local_state_is_left_alone ... ok
 test store::crypto::tests::wrong_key_or_garbage_is_none_not_a_panic ... ok
 test store::durable::tests::replaces_a_target_another_handle_has_open ... ok
+test history::tests::steady_saves_still_write_within_400ms ... ok
+test history::tests::flush_now_and_timer_never_overlap ... ok
 test store::durable::tests::replaces_and_leaves_no_temp ... ok
 test store::durable::tests::sweep_removes_only_our_temps ... ok
-test store::tests::chosen_flag_rules ... ok
-test history::tests::flush_now_and_timer_never_overlap ... ok
-test history::tests::steady_saves_still_write_within_400ms ... ok
 test store::tests::corrupt_file_is_kept_aside ... ok
 test llm::client::tests::idle_stream_times_out_as_408 ... ok
 test store::tests::electron_key_is_migrated ... ok
 test store::tests::fresh_file_gets_every_default_in_order ... ok
+test store::tests::chosen_flag_rules ... ok
 test store::tests::fresh_store_set_lands_on_disk_while_file_is_open ... ok
 test store::tests::invalid_utf8_is_read_lossy_not_reset ... ok
 test store::tests::js_helpers ... ok
@@ -383,8 +383,8 @@ test store::tests::find_and_agent_settings ... ok
 test store::tests::parse_failure_recovers_from_bak ... ok
 test store::tests::provider_keys_encrypt_and_mirror_openrouter ... ok
 test store::tests::presence_and_glass ... ok
-test store::tests::sanitisers_match_lib_store ... ok
 test store::tests::set_raw_stores_and_saves ... ok
+test store::tests::sanitisers_match_lib_store ... ok
 test store::tests::stored_input_width_is_kept ... ok
 test store::tests::solid_profiles_start_with_no_glass ... ok
 test store::tests::undecryptable_key_reads_as_empty ... ok
@@ -502,7 +502,7 @@ test voice::capture::tests::a_fixture_records_like_a_microphone ... ok
 test store::tests::input_history ... ok
 test store::tests::concurrent_sets_never_lose_or_corrupt ... ok
 
-test result: ok. 498 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.70s
+test result: ok. 498 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.67s
 
      Running unittests src\main.rs (target\debug\deps\aevalbuddy-af08322bffe9470e.exe)
 

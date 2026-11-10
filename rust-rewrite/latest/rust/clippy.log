@@ -20,4 +20,4 @@
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.29s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.91s

@@ -1,5 +1,0 @@
-== smoke.log ==
-[SMOKE] ocrWords=FAIL:TIMEOUT:ocr did not finish in 15000ms (the target app may be hung)
-[SMOKE] failed: ocrWords
-[GATE] fail ocrWords=FAIL:TIMEOUT:ocr did not finish in 15000ms (the target app may be hung)
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: ocrWords; 1 listed label(s) never printed
