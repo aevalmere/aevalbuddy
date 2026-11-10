@@ -829,7 +829,7 @@ impl State {
             let known = h.r#ref.as_str().is_some_and(|r| self.doc_refs.contains(r));
             known && h.matched.to_lowercase() == q
         };
-        let mine = self.literal.iter().filter(|h| !covered(*h));
+        let mine = self.literal.iter().filter(|h| !covered(h));
         let mut out: Vec<Hit> = mine.cloned().collect();
         out.extend(self.doc.iter().cloned());
         out.extend(related);
