@@ -383,7 +383,7 @@ noticeSettings.addEventListener('click', () => {
   window.aeval.invoke('overlay:open-settings', section ? { section } : undefined);
 });
 closeBtn.addEventListener('click', () => {
-  window.aeval.invoke('overlay:collapse');
+  window.aeval.invoke('overlay:minimize');
 });
 hudDone.addEventListener('click', () => {
   window.aeval.invoke('hud:exit');

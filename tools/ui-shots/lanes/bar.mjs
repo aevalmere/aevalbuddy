@@ -421,7 +421,13 @@ export const scenes = [
         const b = document.getElementById('close-btn');
         return `${b.getAttribute('aria-label')}|${b.title}`;
       });
-      t.check('closeButtonNamed', closeBtn === 'Close the bar|Close (Esc)', closeBtn);
+      // The bar's button folds it and its answers into the pill (Esc folds
+      // only the bar, D-01).
+      t.check('closeButtonNamed', closeBtn === 'Minimize to the pill|Minimize (Ctrl+M)', closeBtn);
+      const mins = (await t.calls('overlay', 'overlay:minimize')).length;
+      await f.evaluate(() => document.getElementById('close-btn').click());
+      await t.settle(30);
+      t.check('minimizeButtonFolds', (await t.calls('overlay', 'overlay:minimize')).length === mins + 1, 'the button did not ask to minimize');
 
       // Each chord reaches the channel it names.
       const chords = [
@@ -434,6 +440,7 @@ export const scenes = [
         [{ key: 'r', ctrlKey: true }, 'region:pick'],
         [{ key: ',', code: 'Comma', ctrlKey: true }, 'overlay:open-settings'],
         [{ key: 'h', ctrlKey: true }, 'overlay:open-history'],
+        [{ key: 'm', ctrlKey: true }, 'overlay:minimize'],
         [{ key: 'F6' }, 'ui:focus-answer'],
       ];
       const silent = [];
@@ -695,7 +702,7 @@ export const scenes = [
       await altSpace(f);
       await t.settle();
       const menu = await windowMenu(f);
-      const opened = !!menu && menu.role === 'menu' && menu.rows.join() === 'Move,Size,Close' && menu.focus === 'Move';
+      const opened = !!menu && menu.role === 'menu' && menu.rows.join() === 'Move,Size,Minimize,Close' && menu.focus === 'Move';
       t.check('windowMenuOpens', opened, JSON.stringify(menu));
       await t.shot('window-menu-open');
 

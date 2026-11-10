@@ -215,6 +215,9 @@
         },
       });
     }
+    // An answer window folds into the pill with the bar, keeping its chat.
+    const minimize = document.getElementById('minimize-out');
+    if (minimize) rows.push({ name: 'Minimize', run: () => minimize.click() });
     rows.push({
       name: 'Close',
       run: () => {

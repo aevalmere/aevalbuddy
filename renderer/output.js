@@ -1340,6 +1340,10 @@ async function closeWindow() {
 
 closeOutBtn.addEventListener('click', closeWindow);
 
+// Minimize: this window, its siblings and the bar fold into the pill; the
+// conversation stays and comes back when the bar opens again.
+document.getElementById('minimize-out').addEventListener('click', () => send('overlay:minimize'));
+
 // A code block copies in one click; the icon is a check for 1.5 s.
 chatEl.addEventListener('click', (e) => {
   const btn = e.target.closest && e.target.closest('.md-copy');
@@ -1408,6 +1412,7 @@ window.addEventListener('keydown', (e) => {
   else if (lower === 'r' && e.shiftKey) retryHere();
   else if (k === ',' && !e.shiftKey) send('overlay:open-settings', {});
   else if (lower === 'h' && !e.shiftKey) send('overlay:open-history');
+  else if (lower === 'm' && !e.shiftKey) send('overlay:minimize');
   else handled = false;
   if (handled) e.preventDefault();
 });

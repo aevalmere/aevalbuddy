@@ -1112,6 +1112,7 @@ const BAR_CHORDS = {
   'Ctrl+r': () => invokeSoft('region:pick'),
   'Ctrl+,': () => invokeSoft('overlay:open-settings'),
   'Ctrl+h': () => invokeSoft('overlay:open-history'),
+  'Ctrl+m': () => invokeSoft('overlay:minimize'),
 };
 
 function chordOf(e) {

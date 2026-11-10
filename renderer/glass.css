@@ -513,12 +513,12 @@ html[data-shot-bg] body {
   background-color: currentColor;
   -webkit-mask-image: url(icons.svg);
   mask-image: url(icons.svg);
-  /* 408 x 20 strip: 20.4 boxes wide. A percentage position p offsets by
-     p x (box - image) = -19.4 p boxes; glyph i starts 1.2 i boxes in. */
-  -webkit-mask-size: 2040% 100%;
-  mask-size: 2040% 100%;
-  -webkit-mask-position: calc(var(--i) * 100% * 1.2 / 19.4) 0;
-  mask-position: calc(var(--i) * 100% * 1.2 / 19.4) 0;
+  /* 432 x 20 strip: 21.6 boxes wide. A percentage position p offsets by
+     p x (box - image) = -20.6 p boxes; glyph i starts 1.2 i boxes in. */
+  -webkit-mask-size: 2160% 100%;
+  mask-size: 2160% 100%;
+  -webkit-mask-position: calc(var(--i) * 100% * 1.2 / 20.6) 0;
+  mask-position: calc(var(--i) * 100% * 1.2 / 20.6) 0;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   /* A mask needs its background painted; the contrast-theme block names the
@@ -543,6 +543,7 @@ html[data-shot-bg] body {
 .i-search { --i: 14; }
 .i-trash { --i: 15; }
 .i-retry { --i: 16; }
+.i-minimize { --i: 17; }
 
 .g-icon {
   flex: 0 0 auto;
