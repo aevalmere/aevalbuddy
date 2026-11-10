@@ -120,7 +120,7 @@ fn create(app: &AppHandle, d: &screen::Display) -> tauri::Result<tauri::WebviewW
         .build()?;
     let raw = capture::hwnd_of(&win);
     win::tool_window(raw, true);
-    let _ = win.set_ignore_cursor_events(true);
+    win::set_mouse_through(raw, true);
     win::place(&win, d.phys);
     capture::exclude_window(raw);
     win.on_window_event(move |e| {

@@ -54,7 +54,7 @@ fn create(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
     .build()?;
     let raw = capture::hwnd_of(&win);
     win::tool_window(raw, true);
-    let _ = win.set_ignore_cursor_events(true);
+    win::set_mouse_through(raw, true);
     capture::exclude_window(raw);
     crate::crash::guard_webview(&win, |app, label| {
         if let Some(w) = app.get_webview_window(label) {

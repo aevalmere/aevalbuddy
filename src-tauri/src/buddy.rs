@@ -367,7 +367,7 @@ fn create_window(display: &screen::Display) {
             let raw = capture::hwnd_of(&w);
             win::tool_window(raw, true);
             win::place(&w, phys);
-            let _ = w.set_ignore_cursor_events(true);
+            win::set_mouse_through(raw, true);
             win::show_inactive(raw);
             w.on_window_event(|e| {
                 if matches!(e, tauri::WindowEvent::Destroyed) {
@@ -428,7 +428,6 @@ fn put_away() {
     emit_to(LABEL, "buddy:reset", json!(null));
     let raw = capture::hwnd_of(&w);
     if with(|s| std::mem::replace(&mut s.focusable, false)) {
-        let _ = w.set_focusable(false);
         win::set_no_activate(raw, true);
     }
     set_click_through(true);
@@ -896,8 +895,9 @@ pub fn handle_resolve_result(result: &Value) {
 pub fn focus_card() {
     if let Some(w) = window() {
         with(|s| s.focusable = true);
+        // Focusable through the style bit alone: Tauri's `set_focusable`
+        // rebuilds the style and hides a window shown with `show_inactive`.
         win::set_no_activate(capture::hwnd_of(&w), false);
-        let _ = w.set_focusable(true);
         let _ = w.set_focus();
     }
 }
@@ -906,7 +906,6 @@ fn hide_pointer() {
     with(|s| s.last_sent = None);
     if let Some(w) = window() {
         if with(|s| std::mem::replace(&mut s.focusable, false)) {
-            let _ = w.set_focusable(false);
             win::set_no_activate(capture::hwnd_of(&w), true);
         }
         emit_to(LABEL, "buddy:hide", json!(null));
@@ -934,7 +933,7 @@ pub fn set_click_through(ignore: bool) {
             s.ignoring = ignore;
             s.heard = Some(Instant::now());
         });
-        let _ = w.set_ignore_cursor_events(ignore);
+        win::set_mouse_through(capture::hwnd_of(&w), ignore);
     }
 }
 

@@ -11,8 +11,8 @@ use windows::Win32::System::Diagnostics::ToolHelp::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, ShowWindow, GWL_EXSTYLE, HWND_TOPMOST,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOWNOACTIVATE, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
 };
 
 use crate::capture::{self, PxRect};
@@ -59,6 +59,35 @@ pub fn show_inactive(raw: isize) {
         let _ = ShowWindow(hwnd(raw), SW_SHOWNOACTIVATE);
     }
     raise(raw);
+}
+
+/// The extended style with the mouse let through or not (TRANSPARENT needs
+/// LAYERED to pass clicks to the window underneath).
+fn through_style(ex: isize, through: bool) -> isize {
+    let bits = (WS_EX_TRANSPARENT.0 | WS_EX_LAYERED.0) as isize;
+    if through {
+        ex | bits
+    } else {
+        ex & !bits
+    }
+}
+
+/// Lets the mouse through the window, or takes it back. Straight on the
+/// window, never through Tauri's `set_ignore_cursor_events`: that rebuilds
+/// the whole style from flags that do not know a window shown with
+/// `show_inactive` is visible, and so hides it (`windows/flags.rs` has the
+/// same rule for the app windows).
+pub fn set_mouse_through(raw: isize, through: bool) {
+    if raw == 0 {
+        return;
+    }
+    unsafe {
+        let ex = GetWindowLongPtrW(hwnd(raw), GWL_EXSTYLE);
+        let next = through_style(ex, through);
+        if next != ex {
+            SetWindowLongPtrW(hwnd(raw), GWL_EXSTYLE, next);
+        }
+    }
 }
 
 /// Whether the window lets the mouse through.
@@ -158,6 +187,39 @@ pub fn descendants(root: u32, pairs: &[(u32, u32)]) -> Vec<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mouse_through_sets_and_clears_both_bits() {
+        // Tool window, no-activate, topmost: opaque and click-through.
+        assert_eq!(through_style(0x0800_0088, true), 0x0808_00a8);
+        assert_eq!(through_style(0x0808_00a8, false), 0x0800_0088);
+        assert_eq!(through_style(0x0808_00a8, true), 0x0808_00a8);
+    }
+
+    /// The sheets are shown with `show_inactive`, so a style change made
+    /// through Tauri hides them: none of them may ask for one.
+    #[test]
+    fn sheets_never_change_style_through_tauri() {
+        let sources = [
+            include_str!("../buddy.rs"),
+            include_str!("../lens.rs"),
+            include_str!("../voice/pill.rs"),
+        ];
+        let calls = [
+            ["set_ignore", "_cursor_events("].concat(),
+            [".set_focus", "able("].concat(),
+            [".set_always", "_on_top("].concat(),
+        ];
+        for src in sources {
+            let code: String = src
+                .lines()
+                .filter(|l| !l.trim_start().starts_with("//"))
+                .collect();
+            for call in &calls {
+                assert!(!code.contains(call.as_str()), "{call}");
+            }
+        }
+    }
 
     #[test]
     fn descendants_walks_the_tree_once() {
