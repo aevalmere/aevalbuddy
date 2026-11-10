@@ -521,8 +521,6 @@ happening."
 /// The countdown note while a busy model waits for its automatic retry
 /// (C-71, C-72): `Try now`, and `Ask <Provider> instead` when another
 /// provider is ready.
-// B-120's automatic retry in host::ask shows this; tested here until then.
-#[allow(dead_code)]
 pub fn busy_note(code: &str, a: &About<'_>, wait_ms: u64) -> Explained {
     let secs = wait_ms.div_ceil(1000).max(1);
     let free = code == codes::FREE_BUSY;
@@ -552,8 +550,6 @@ pub fn busy_note(code: &str, a: &About<'_>, wait_ms: u64) -> Explained {
 
 /// C-63: free models are busy and the next ready provider bills per
 /// question, so the person decides (design-ux 3.4).
-// B-046's provider hop in host::ask asks this; tested here until then.
-#[allow(dead_code)]
 pub fn paid_hop(to: Provider, model: &str, model_name: &str) -> Explained {
     let p = to.name();
     let text = format!(

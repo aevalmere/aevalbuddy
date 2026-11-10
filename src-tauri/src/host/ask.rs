@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use tauri::AppHandle;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use crate::ask::{
@@ -20,9 +21,11 @@ use crate::capture::{self, Shot};
 use crate::llm::catalogue::{self, Kind};
 use crate::llm::client::{ChatTurn, QueryOpts, ReaderOpts};
 use crate::llm::elements::{match_element, parse_elements, View};
-use crate::llm::errors::{details, explain, About, ApiError};
+use crate::llm::errors::{
+    busy_note, code_of, codes, details, explain, paid_hop, About, ApiError,
+};
 use crate::llm::failover::{short_model, with_failover};
-use crate::llm::payloads::{QueryError, Usage};
+use crate::llm::payloads::{FailoverPrefs, QueryError, Usage};
 use crate::llm::points::{Point, PointExtractor};
 use crate::llm::prompt::{extract_task, ExactText};
 use crate::llm::provider::Provider;
@@ -96,6 +99,162 @@ fn uninstall(map: &Mutex<HashMap<String, Current>>, label: &str, gen: u64) {
     if m.get(label).is_some_and(|c| c.gen == gen) {
         m.remove(label);
     }
+}
+
+/// How many answers may stream at once (B-040, D-15). A third question
+/// waits for one of them to finish.
+const MAX_ANSWERS: usize = 2;
+
+/// C-24: what a waiting question's window says.
+const WAITING_FOR_SLOT: &str = "Waiting for your other answer to finish";
+
+fn answer_slots() -> &'static Arc<Semaphore> {
+    static S: OnceLock<Arc<Semaphore>> = OnceLock::new();
+    S.get_or_init(|| Arc::new(Semaphore::new(MAX_ANSWERS)))
+}
+
+/// A place among the answers streaming now. When none is free, `waiting`
+/// runs once and this waits for one; `None` when the question was stopped
+/// while it waited.
+async fn wait_for_slot(
+    slots: &Arc<Semaphore>,
+    cancel: &CancellationToken,
+    waiting: impl FnOnce(),
+) -> Option<OwnedSemaphorePermit> {
+    if let Ok(p) = slots.clone().try_acquire_owned() {
+        return Some(p);
+    }
+    waiting();
+    tokio::select! {
+        p = slots.clone().acquire_owned() => p.ok(),
+        _ = cancel.cancelled() => None,
+    }
+}
+
+/// A busy model is asked again by itself this many times (B-120).
+const MAX_BUSY_RETRIES: u32 = 2;
+
+/// The waits before those retries when the provider names none.
+const BUSY_WAITS_MS: [u64; 2] = [20_000, 40_000];
+
+/// A provider that asks for a longer wait than this is not waited for.
+const LONGEST_BUSY_WAIT_MS: u64 = 120_000;
+
+/// How long to wait before busy retry number `waits` (0 or 1): the
+/// provider's Retry-After when it sent one, else 20 s then 40 s.
+fn busy_wait(waits: u32, retry_after_ms: Option<u64>) -> Option<u64> {
+    let default = *BUSY_WAITS_MS.get(waits as usize)?;
+    match retry_after_ms {
+        Some(ms) if ms > LONGEST_BUSY_WAIT_MS => None,
+        Some(ms) => Some(ms.max(1_000)),
+        None => Some(default),
+    }
+}
+
+/// What a failed attempt knows when it decides what happens next.
+#[derive(Clone, Copy, Debug)]
+struct Failed<'a> {
+    /// One of `llm::errors::codes`.
+    code: &'a str,
+    /// The OS reports a connection.
+    online: bool,
+    /// Some of the answer has been shown already.
+    shown: bool,
+    /// The person picked this model for this question (B-122).
+    pinned: bool,
+    /// The failed attempt was on one of OpenRouter's free models.
+    from_free: bool,
+    /// Another provider is ready; true when it bills per question.
+    next_bills: Option<bool>,
+    prefs: FailoverPrefs,
+    /// Busy retries made so far.
+    waits: u32,
+    retry_after_ms: Option<u64>,
+}
+
+/// What happens after a failed attempt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Next {
+    /// The error is shown.
+    Stop,
+    /// The next provider answers.
+    Hop,
+    /// The same provider is asked again after this many ms.
+    Wait(u64),
+    /// As `Wait`, and the note offers the next provider, which bills.
+    AskPaid(u64),
+}
+
+/// B-046 and B-120. A question moves to the next provider only before any
+/// of the answer was shown, only for a failure another provider could get
+/// past (busy, a server error, a missing model, a rejected key, no credit, a
+/// dropped connection while online), and never with a pinned model. From a
+/// free model to a provider that bills it asks first, unless the person
+/// turned that off. A busy provider with nowhere to go is asked again by
+/// itself, twice at most.
+fn after_failure(f: &Failed<'_>) -> Next {
+    if f.shown || f.pinned {
+        return Next::Stop;
+    }
+    let busy = matches!(f.code, codes::FREE_BUSY | codes::RATE_LIMITED);
+    let elsewhere = matches!(
+        f.code,
+        codes::SERVER | codes::MODEL_GONE | codes::BAD_KEY | codes::NO_CREDIT | codes::DAILY_CAP
+    );
+    let dropped = f.code == codes::OFFLINE && f.online;
+    let mut ask = false;
+    if (busy || elsewhere || dropped) && f.prefs.across_providers {
+        if let Some(bills) = f.next_bills {
+            if !(f.from_free && bills && f.prefs.ask_before_paid) {
+                return Next::Hop;
+            }
+            ask = true;
+        }
+    }
+    if !busy || f.waits >= MAX_BUSY_RETRIES {
+        return Next::Stop;
+    }
+    match busy_wait(f.waits, f.retry_after_ms) {
+        Some(ms) if ask => Next::AskPaid(ms),
+        Some(ms) => Next::Wait(ms),
+        None => Next::Stop,
+    }
+}
+
+/// The stage shown while a question moves to another provider (C-25).
+fn hop_stage(code: &str, from: Provider, to: Provider) -> String {
+    let (from, to) = (from.name(), to.name());
+    if matches!(code, codes::FREE_BUSY | codes::RATE_LIMITED) {
+        format!("{from} is busy. Asking {to}\u{2026}")
+    } else {
+        format!("{from} didn't answer. Asking {to}\u{2026}")
+    }
+}
+
+/// `usage.hopReason`: why the answer came from another provider.
+fn hop_reason_text(code: &str, from: Provider) -> String {
+    let from = from.name();
+    match code {
+        codes::FREE_BUSY | codes::RATE_LIMITED => format!("{from} was busy"),
+        codes::BAD_KEY => format!("{from} rejected its key"),
+        codes::NO_CREDIT => format!("{from} had no credit left"),
+        codes::DAILY_CAP => format!("{from} reached its daily limit"),
+        _ => format!("{from} didn't answer"),
+    }
+}
+
+/// The screen model and the brain a question uses on `provider`.
+async fn models_on(provider: Provider) -> (String, String) {
+    if !provider.is_native() {
+        return super::live_models(true).await;
+    }
+    let sv = services();
+    let settings = &*sv.settings;
+    let pick = |kind| {
+        sv.llm
+            .known_native(provider, kind, &model_for(settings, provider, kind))
+    };
+    (pick(Kind::Vision), pick(Kind::Text))
 }
 
 /// How many sent pictures each window keeps for "What was sent" (D-38).
@@ -647,27 +806,23 @@ pub async fn submit_to(
         && !is_visual(&text);
     let shot = if text_only { None } else { shot_taken };
     let via_region = shot.as_ref().is_some_and(|s| s.region.is_some());
-    let provider = act
+    let mut provider = act
         .as_ref()
         .map(|a| a.provider)
         .unwrap_or(Provider::OpenRouter);
-    let act = act.unwrap_or(Active {
+    let mut act = act.unwrap_or(Active {
         provider: Provider::OpenRouter,
         key: String::new(),
     });
+    // The picks for the provider being asked; a hop replaces them.
+    let mut cur_model = model;
+    let mut cur_brain = brain;
 
-    let ex = Arc::new(Mutex::new(PointExtractor::new()));
+    let mut ex = Arc::new(Mutex::new(PointExtractor::new()));
     let meter = Arc::new(Mutex::new(Meter::default()));
     let t0 = meter.lock().t0;
     let llm = services().llm.clone();
-    // A free model that answered 404 earlier this session is not asked
-    // again (B-042). A pinned one is asked as picked.
-    let model = if pinned {
-        model
-    } else {
-        llm.first_model(Kind::Vision, &model)
-    };
-    let brain = llm.first_model(Kind::Text, &brain);
+    let prefs = services().settings.failover();
     // A pinned model never hands the question on (B-122).
     let next_free = |kind: Kind, tried: &[String]| {
         if pinned {
@@ -676,163 +831,289 @@ pub async fn submit_to(
             llm.next_free_model(kind, tried)
         }
     };
-    let mut answering = model.clone();
+    let mut answering = cur_model.clone();
     let mut answer_kind = Kind::Vision;
     // The screen model whose reading the answer used (B-121).
     let mut reader_used: Option<String> = None;
+    // The screen model the provider was asked with, for a reader's error.
+    let mut asked = cur_model.clone();
+    // The providers that failed this question, and why it last moved on.
+    let mut failed: Vec<Provider> = Vec::new();
+    let mut hop_reason: Option<String> = None;
+    let mut waits = 0u32;
 
-    let result: Result<Option<String>, ApiError> = async {
-        let mut report: Option<String> = None;
-        // The screen model that last answered, so "Answering directly"
-        // reuses a stand-in that worked rather than the busy first pick.
-        let mut seeing = model.clone();
-        if use_brain {
-            if let Some(s) = &shot {
-                send("query:stage", json!({ "label": "Reading your screen" }));
-                let read = with_failover(
-                    &model,
-                    |tried| next_free(Kind::Vision, tried),
-                    || true,
-                    |m| send("query:stage", busy_stage("Reading with", m)),
-                    |m| {
-                        let llm = llm.clone();
-                        let act = act.clone();
-                        let img = s.base64.clone();
-                        let q = text.clone();
-                        let exact = exact.clone();
-                        let cancel = cancel.clone();
-                        async move {
-                            let opts = ReaderOpts {
-                                model: &m,
-                                image_base64: &img,
-                                question: &q,
-                                region: via_region,
-                                exact_text: exact.as_ref(),
-                            };
-                            llm.read_screen(&act, opts, &cancel).await
+    // At most two answers stream at once; a third waits its turn (B-040).
+    let slot = wait_for_slot(answer_slots(), &cancel, || {
+        send("query:stage", json!({ "label": WAITING_FOR_SLOT }))
+    })
+    .await;
+
+    let result: Result<Option<String>, ApiError> = loop {
+        if slot.is_none() {
+            break Err(ApiError::abort());
+        }
+        // A free model that answered 404 earlier this session is not asked
+        // again (B-042). A pinned one is asked as picked.
+        let model = if pinned {
+            cur_model.clone()
+        } else {
+            llm.first_model(Kind::Vision, &cur_model)
+        };
+        let brain = llm.first_model(Kind::Text, &cur_brain);
+        asked = model.clone();
+        answering = model.clone();
+        answer_kind = Kind::Vision;
+        reader_used = None;
+
+        let attempted: Result<Option<String>, ApiError> = async {
+            let mut report: Option<String> = None;
+            // The screen model that last answered, so "Answering directly"
+            // reuses a stand-in that worked rather than the busy first pick.
+            let mut seeing = model.clone();
+            if use_brain {
+                if let Some(s) = &shot {
+                    send("query:stage", json!({ "label": "Reading your screen" }));
+                    let read = with_failover(
+                        &model,
+                        |tried| next_free(Kind::Vision, tried),
+                        || true,
+                        |m| send("query:stage", busy_stage("Reading with", m)),
+                        |m| {
+                            let llm = llm.clone();
+                            let act = act.clone();
+                            let img = s.base64.clone();
+                            let q = text.clone();
+                            let exact = exact.clone();
+                            let cancel = cancel.clone();
+                            async move {
+                                let opts = ReaderOpts {
+                                    model: &m,
+                                    image_base64: &img,
+                                    question: &q,
+                                    region: via_region,
+                                    exact_text: exact.as_ref(),
+                                };
+                                llm.read_screen(&act, opts, &cancel).await
+                            }
+                        },
+                    )
+                    .await;
+                    match read {
+                        Ok((m, r)) => {
+                            reader_used = Some(m.clone());
+                            seeing = m;
+                            report = Some(r);
                         }
-                    },
+                        Err(e) if e.is_abort() => return Err(e),
+                        Err(_) => report = None,
+                    }
+                }
+            }
+
+            let skills = &services().skills;
+            let pinned = store::get().get_skill_id(super::skill_exists);
+            let chosen = if pinned == AUTO_SKILL {
+                let task = extract_task(report.as_deref());
+                skills
+                    .route(&text, Some(task.as_str()).filter(|t| !t.is_empty()))
+                    .0
+            } else {
+                pinned
+            };
+            let skill = skills.get(&chosen).map(|s| s.text());
+
+            // One streamed attempt on `m`, with or without the picture or the
+            // reading.
+            let attempt = |m: String, image: Option<String>, rep: Option<String>| {
+                let llm = llm.clone();
+                let act = act.clone();
+                let q = text.clone();
+                let exact = exact.clone();
+                let skill = skill.clone();
+                let prior = prior.clone();
+                let cancel = cancel.clone();
+                let ex = ex.clone();
+                let meter = meter.clone();
+                let send = send.clone();
+                let (w, h) = shot.as_ref().map(|s| (s.width, s.height)).unwrap_or((0, 0));
+                async move {
+                    let mut on_delta = move |t: &str| {
+                        let pieces = ex.lock().push(t);
+                        for p in pieces {
+                            send("query:delta", json!({ "text": p }));
+                        }
+                    };
+                    let opts = QueryOpts {
+                        model: &m,
+                        question: &q,
+                        image_base64: image.as_deref(),
+                        image_width: w,
+                        image_height: h,
+                        history: &prior,
+                        skill: skill.as_ref(),
+                        screen_report: rep.as_deref(),
+                        via_region,
+                        exact_text: exact.as_ref(),
+                    };
+                    let mut mtr = Meter::default();
+                    let r = llm
+                        .stream_query(&act, opts, &cancel, &mut on_delta, &mut mtr)
+                        .await;
+                    let mut total = meter.lock();
+                    if total.ttft_ms == 0 && mtr.ttft_ms > 0 {
+                        total.ttft_ms = (mtr.t0 - total.t0).as_millis() as u64 + mtr.ttft_ms;
+                    }
+                    total.prompt += mtr.prompt;
+                    total.completion += mtr.completion;
+                    if let Some(c) = mtr.cost {
+                        total.cost = Some(total.cost.unwrap_or(0.0) + c);
+                    }
+                    r
+                }
+            };
+            let nothing_shown = || ex.lock().text.is_empty();
+
+            if let Some(rep) = report.clone() {
+                answering = brain.clone();
+                answer_kind = Kind::Text;
+                send("query:stage", json!({ "label": "Thinking" }));
+                let spoke = with_failover(
+                    &brain,
+                    |tried| next_free(Kind::Text, tried),
+                    nothing_shown,
+                    |m| send("query:stage", busy_stage("Thinking with", m)),
+                    |m| attempt(m, None, Some(rep.clone())),
                 )
                 .await;
-                match read {
-                    Ok((m, r)) => {
-                        reader_used = Some(m.clone());
-                        seeing = m;
-                        report = Some(r);
+                match spoke {
+                    Ok((m, _)) => answering = m,
+                    Err(e) => {
+                        if e.is_abort() || !nothing_shown() {
+                            return Err(e);
+                        }
+                        answering = seeing.clone();
+                        answer_kind = Kind::Vision;
+                        send("query:stage", json!({ "label": "Answering directly" }));
+                        let img = shot.as_ref().map(|s| s.base64.clone());
+                        attempt(seeing.clone(), img, None).await?;
                     }
-                    Err(e) if e.is_abort() => return Err(e),
-                    Err(_) => report = None,
                 }
-            }
-        }
-
-        let skills = &services().skills;
-        let pinned = store::get().get_skill_id(super::skill_exists);
-        let chosen = if pinned == AUTO_SKILL {
-            let task = extract_task(report.as_deref());
-            skills
-                .route(&text, Some(task.as_str()).filter(|t| !t.is_empty()))
-                .0
-        } else {
-            pinned
-        };
-        let skill = skills.get(&chosen).map(|s| s.text());
-
-        // One streamed attempt on `m`, with or without the picture or the
-        // reading.
-        let attempt = |m: String, image: Option<String>, rep: Option<String>| {
-            let llm = llm.clone();
-            let act = act.clone();
-            let q = text.clone();
-            let exact = exact.clone();
-            let skill = skill.clone();
-            let prior = prior.clone();
-            let cancel = cancel.clone();
-            let ex = ex.clone();
-            let meter = meter.clone();
-            let send = send.clone();
-            let (w, h) = shot.as_ref().map(|s| (s.width, s.height)).unwrap_or((0, 0));
-            async move {
-                let mut on_delta = move |t: &str| {
-                    let pieces = ex.lock().push(t);
-                    for p in pieces {
-                        send("query:delta", json!({ "text": p }));
-                    }
-                };
-                let opts = QueryOpts {
-                    model: &m,
-                    question: &q,
-                    image_base64: image.as_deref(),
-                    image_width: w,
-                    image_height: h,
-                    history: &prior,
-                    skill: skill.as_ref(),
-                    screen_report: rep.as_deref(),
-                    via_region,
-                    exact_text: exact.as_ref(),
-                };
-                let mut mtr = Meter::default();
-                let r = llm
-                    .stream_query(&act, opts, &cancel, &mut on_delta, &mut mtr)
-                    .await;
-                let mut total = meter.lock();
-                if total.ttft_ms == 0 && mtr.ttft_ms > 0 {
-                    total.ttft_ms = (mtr.t0 - total.t0).as_millis() as u64 + mtr.ttft_ms;
-                }
-                total.prompt += mtr.prompt;
-                total.completion += mtr.completion;
-                if let Some(c) = mtr.cost {
-                    total.cost = Some(total.cost.unwrap_or(0.0) + c);
-                }
-                r
-            }
-        };
-        let nothing_shown = || ex.lock().text.is_empty();
-
-        if let Some(rep) = report.clone() {
-            answering = brain.clone();
-            answer_kind = Kind::Text;
-            send("query:stage", json!({ "label": "Thinking" }));
-            let spoke = with_failover(
-                &brain,
-                |tried| next_free(Kind::Text, tried),
-                nothing_shown,
-                |m| send("query:stage", busy_stage("Thinking with", m)),
-                |m| attempt(m, None, Some(rep.clone())),
-            )
-            .await;
-            match spoke {
-                Ok((m, _)) => answering = m,
-                Err(e) => {
-                    if e.is_abort() || !nothing_shown() {
-                        return Err(e);
-                    }
-                    answering = seeing.clone();
-                    answer_kind = Kind::Vision;
+            } else {
+                answering = model.clone();
+                if use_brain && shot.is_some() {
                     send("query:stage", json!({ "label": "Answering directly" }));
-                    let img = shot.as_ref().map(|s| s.base64.clone());
-                    attempt(seeing.clone(), img, None).await?;
                 }
+                let img = shot.as_ref().map(|s| s.base64.clone());
+                let (m, _) = with_failover(
+                    &model,
+                    |tried| next_free(Kind::Vision, tried),
+                    nothing_shown,
+                    |m| send("query:stage", busy_stage("Trying", m)),
+                    |m| attempt(m, img.clone(), None),
+                )
+                .await?;
+                answering = m;
             }
-        } else {
-            answering = model.clone();
-            if use_brain && shot.is_some() {
-                send("query:stage", json!({ "label": "Answering directly" }));
-            }
-            let img = shot.as_ref().map(|s| s.base64.clone());
-            let (m, _) = with_failover(
-                &model,
-                |tried| next_free(Kind::Vision, tried),
-                nothing_shown,
-                |m| send("query:stage", busy_stage("Trying", m)),
-                |m| attempt(m, img.clone(), None),
-            )
-            .await?;
-            answering = m;
+            Ok(report)
         }
-        Ok(report)
-    }
-    .await;
+        .await;
+
+        let err = match attempted {
+            Ok(report) => break Ok(report),
+            Err(e) => e,
+        };
+        if err.is_abort() {
+            break Err(err);
+        }
+        let (named, kind) = if err.stage == Some("reader") {
+            (asked.clone(), Kind::Vision)
+        } else {
+            (answering.clone(), answer_kind)
+        };
+        super::settings::note_answer(app, provider, &act.key, Err(&err), &named);
+        if !failed.contains(&provider) {
+            failed.push(provider);
+        }
+        let code = code_of(provider, &err, &named);
+        let shown = !ex.lock().text.is_empty();
+        let online = super::online();
+        // The next provider ready for this question, and its models.
+        let mut next = None;
+        if !shown && !pinned {
+            let ready = candidates_for(&*services().settings, Kind::Vision);
+            if let Some(c) = ready.into_iter().find(|c| !failed.contains(&c.provider)) {
+                let (m, b) = models_on(c.provider).await;
+                next = Some((c, m, b));
+            }
+        }
+        let from_free = provider == Provider::OpenRouter && named.ends_with(":free");
+        let f = Failed {
+            code,
+            online,
+            shown,
+            pinned,
+            from_free,
+            next_bills: next
+                .as_ref()
+                .map(|(c, m, _)| c.provider.is_native() || !m.ends_with(":free")),
+            prefs,
+            waits,
+            retry_after_ms: err.retry_after_ms,
+        };
+        match (after_failure(&f), next) {
+            (Next::Hop, Some((c, m, b))) => {
+                let label = hop_stage(code, provider, c.provider);
+                send("query:stage", json!({ "label": label }));
+                hop_reason = Some(hop_reason_text(code, provider));
+                provider = c.provider;
+                act = c.active();
+                cur_model = m;
+                cur_brain = b;
+                waits = 0;
+            }
+            (step @ (Next::Wait(ms) | Next::AskPaid(ms)), next) => {
+                // The countdown note (C-71, C-72), or the question whether a
+                // provider that bills should answer (C-63); either way this
+                // one is asked again when the wait is over.
+                let name = display_name(&named);
+                let mut about = About::new(provider, &named, &name, kind);
+                about.next = next.as_ref().map(|(c, _, _)| c.provider);
+                about.online = online;
+                let note = match (&next, step) {
+                    (Some((c, m, _)), Next::AskPaid(_)) => {
+                        paid_hop(c.provider, m, &display_name(m))
+                    }
+                    _ => busy_note(code, &about, ms),
+                };
+                let row = QueryError {
+                    message: note.text,
+                    question: text.clone(),
+                    code: note.code.to_string(),
+                    provider: provider.id().to_string(),
+                    model: named.clone(),
+                    model_name: name.clone(),
+                    retry_in_ms: Some(ms),
+                    tone: note.tone,
+                    actions: note.actions,
+                    detail: details(&err, &about),
+                };
+                send("query:error", json!(row));
+                let stopped = tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_millis(ms)) => false,
+                    _ = cancel.cancelled() => true,
+                };
+                if stopped {
+                    break Err(ApiError::abort());
+                }
+                waits += 1;
+                send("query:start", json!({}));
+            }
+            _ => break Err(err),
+        }
+        // Nothing of the failed attempt was shown; the next starts clean.
+        ex = Arc::new(Mutex::new(PointExtractor::new()));
+    };
+    drop(slot);
 
     for p in ex.lock().flush() {
         send("query:delta", json!({ "text": p }));
@@ -861,8 +1142,8 @@ pub async fn submit_to(
                 model_name: display_name(&answering),
                 provider: provider.id().to_string(),
                 provider_name: provider.name().to_string(),
-                via: None,
-                hop_reason: None,
+                via: hop_reason.as_ref().map(|_| provider.name().to_string()),
+                hop_reason: hop_reason.clone(),
             };
             // What left this PC for this answer (B-121, K-19).
             let window_text = exact.as_ref().filter(|e| !e.text.is_empty()).map(|e| {
@@ -924,14 +1205,12 @@ pub async fn submit_to(
                 });
                 super::remember_chat(app, &label, &answering);
             }
+            // The loop above told the status table about the failure.
             let (named, kind) = if err.stage == Some("reader") {
-                (&model, Kind::Vision)
+                (&asked, Kind::Vision)
             } else {
                 (&answering, answer_kind)
             };
-            if !err.is_abort() {
-                super::settings::note_answer(app, provider, &act.key, Err(&err), named);
-            }
             match error_row(provider, &err, named, kind, &text) {
                 Some(row) => send("query:error", json!(row)),
                 None => send("query:done", json!({})),
@@ -1129,6 +1408,169 @@ mod tests {
         );
         uninstall(&map, "output-1", 3);
         assert!(!map.lock().contains_key("output-1"));
+    }
+
+    #[test]
+    fn third_query_waits_for_a_slot() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let slots = Arc::new(Semaphore::new(MAX_ANSWERS));
+            let cancel = CancellationToken::new();
+            let told = std::cell::Cell::new(0);
+            let tell = || told.set(told.get() + 1);
+            let first = wait_for_slot(&slots, &cancel, tell).await;
+            let second = wait_for_slot(&slots, &cancel, tell).await;
+            assert!(first.is_some() && second.is_some());
+            assert_eq!(told.get(), 0, "two answers start at once");
+            // The third is told to wait, and starts when one finishes.
+            let third = wait_for_slot(&slots, &cancel, tell);
+            tokio::pin!(third);
+            let early = tokio::time::timeout(Duration::from_millis(30), &mut third).await;
+            assert!(early.is_err(), "the third did not wait");
+            assert_eq!(told.get(), 1);
+            drop(first);
+            assert!(third.await.is_some());
+            // A question stopped while it waits never starts.
+            let stopped = CancellationToken::new();
+            stopped.cancel();
+            assert!(wait_for_slot(&slots, &stopped, || ()).await.is_none());
+            drop(second);
+        });
+    }
+
+    fn failed(code: &'static str) -> Failed<'static> {
+        Failed {
+            code,
+            online: true,
+            shown: false,
+            pinned: false,
+            from_free: true,
+            next_bills: None,
+            prefs: FailoverPrefs::default(),
+            waits: 0,
+            retry_after_ms: None,
+        }
+    }
+
+    #[test]
+    fn hop_only_before_text() {
+        let ready = Failed {
+            from_free: false,
+            next_bills: Some(true),
+            ..failed(codes::RATE_LIMITED)
+        };
+        assert_eq!(after_failure(&ready), Next::Hop);
+        for code in [
+            codes::SERVER,
+            codes::MODEL_GONE,
+            codes::BAD_KEY,
+            codes::NO_CREDIT,
+            codes::DAILY_CAP,
+            codes::OFFLINE,
+        ] {
+            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Hop, "{code}");
+        }
+        // Not after text started, not with a pinned model, not when the
+        // person turned hopping off, and not for a failure that would be
+        // the same anywhere.
+        let shown = Failed {
+            shown: true,
+            ..ready
+        };
+        assert_eq!(after_failure(&shown), Next::Stop);
+        let pinned = Failed {
+            pinned: true,
+            ..ready
+        };
+        assert_eq!(after_failure(&pinned), Next::Stop);
+        let mut off = ready;
+        off.prefs.across_providers = false;
+        assert_eq!(after_failure(&off), Next::Wait(20_000));
+        for code in [
+            codes::REFUSED,
+            codes::NO_VISION,
+            codes::DATA_POLICY,
+            codes::UNKNOWN,
+        ] {
+            assert_eq!(after_failure(&Failed { code, ..ready }), Next::Stop, "{code}");
+        }
+        let offline = Failed {
+            code: codes::OFFLINE,
+            online: false,
+            ..ready
+        };
+        assert_eq!(after_failure(&offline), Next::Stop);
+    }
+
+    #[test]
+    fn free_to_paid_asks_first() {
+        let busy = Failed {
+            next_bills: Some(true),
+            ..failed(codes::FREE_BUSY)
+        };
+        assert_eq!(after_failure(&busy), Next::AskPaid(20_000));
+        // A free model's other failures show their own row, which offers
+        // the provider; nothing moves to a bill by itself.
+        let down = Failed {
+            code: codes::SERVER,
+            ..busy
+        };
+        assert_eq!(after_failure(&down), Next::Stop);
+        // Free to free, and paid to paid, move without asking.
+        let free_next = Failed {
+            next_bills: Some(false),
+            ..busy
+        };
+        assert_eq!(after_failure(&free_next), Next::Hop);
+        let from_paid = Failed {
+            from_free: false,
+            ..busy
+        };
+        assert_eq!(after_failure(&from_paid), Next::Hop);
+        // "Don't ask again".
+        let mut never = busy;
+        never.prefs.ask_before_paid = false;
+        assert_eq!(after_failure(&never), Next::Hop);
+    }
+
+    #[test]
+    fn busy_retries_twice_then_stops() {
+        let busy = failed(codes::FREE_BUSY);
+        assert_eq!(after_failure(&busy), Next::Wait(20_000));
+        let again = Failed { waits: 1, ..busy };
+        assert_eq!(after_failure(&again), Next::Wait(40_000));
+        let done = Failed { waits: 2, ..busy };
+        assert_eq!(after_failure(&done), Next::Stop);
+        // Retry-After is honoured, within reason.
+        let told = Failed {
+            retry_after_ms: Some(7_000),
+            ..busy
+        };
+        assert_eq!(after_failure(&told), Next::Wait(7_000));
+        let at_once = Failed {
+            retry_after_ms: Some(0),
+            ..busy
+        };
+        assert_eq!(after_failure(&at_once), Next::Wait(1_000));
+        let hour = Failed {
+            retry_after_ms: Some(3_600_000),
+            ..busy
+        };
+        assert_eq!(after_failure(&hour), Next::Stop);
+        // Only a busy provider is asked again.
+        assert_eq!(after_failure(&failed(codes::SERVER)), Next::Stop);
+    }
+
+    #[test]
+    fn hops_say_where_and_why() {
+        let (or, an) = (Provider::OpenRouter, Provider::Anthropic);
+        let stage = hop_stage(codes::FREE_BUSY, or, an);
+        assert_eq!(stage, "OpenRouter is busy. Asking Anthropic\u{2026}");
+        assert_eq!(hop_reason_text(codes::FREE_BUSY, or), "OpenRouter was busy");
+        assert!(hop_stage(codes::SERVER, an, or).starts_with("Anthropic didn't answer."));
     }
 
     #[test]

@@ -15,6 +15,7 @@
 //! start and end mean the same thing to the renderer as they did.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -26,9 +27,10 @@ use tokio_util::sync::CancellationToken;
 use unicode_normalization::UnicodeNormalization;
 
 use crate::agent::seams::{DeskError, DesktopOps};
-use crate::llm::catalogue::js_number;
+use crate::llm::catalogue::{js_number, Kind};
 use crate::llm::client::{Llm, Meta};
-use crate::llm::errors::ApiError;
+use crate::llm::errors::{should_failover, ApiError};
+use crate::llm::failover::MAX_MODEL_ATTEMPTS;
 use crate::llm::settings::Active;
 
 pub const IDLE_MS: u64 = 400;
@@ -1541,6 +1543,27 @@ impl Inner {
         self.st.lock().gen == gen
     }
 
+    /// The free model a stage tries after `model` failed with `err`, as an
+    /// answer does (B-044): only for a failure another model could get
+    /// past, only from a free model, only while nothing of the stage has
+    /// been shown, and three models at most.
+    fn stand_in(
+        &self,
+        err: &ApiError,
+        model: &str,
+        tried: &[String],
+        nothing_shown: bool,
+    ) -> Option<String> {
+        let may = nothing_shown
+            && model.ends_with(":free")
+            && should_failover(err)
+            && tried.len() < MAX_MODEL_ATTEMPTS;
+        if !may {
+            return None;
+        }
+        self.llm.next_free_model(Kind::Find, tried)
+    }
+
     fn stage_failed(&self, gen: i64, err: &ApiError, set: impl FnOnce(&mut State, Stage)) {
         let mut s = self.st.lock();
         if s.gen != gen || err.is_abort() {
@@ -1597,7 +1620,6 @@ impl Inner {
                 Ok(())
             }
             None => {
-                let mut lines = LineReader::default();
                 let meta = Meta {
                     purpose: "find-expand".into(),
                     query: Some(q.to_string()),
@@ -1606,29 +1628,40 @@ impl Inner {
                 };
                 let system = EXPAND_SYSTEM.join("\n");
                 let user = format!("Query: {q}");
-                let mut on_delta = |d: &str| {
-                    for o in lines.push(d) {
-                        on_term(&o, &mut terms);
+                let mut tried: Vec<String> = Vec::new();
+                let mut asking = model.to_string();
+                loop {
+                    tried.push(asking.clone());
+                    let mut lines = LineReader::default();
+                    let mut on_delta = |d: &str| {
+                        for o in lines.push(d) {
+                            on_term(&o, &mut terms);
+                        }
+                    };
+                    let sent = self.llm.stream_text(
+                        active,
+                        &asking,
+                        &system,
+                        &user,
+                        &meta,
+                        Some(500),
+                        abort,
+                        &mut on_delta,
+                    );
+                    match sent.await {
+                        Ok(_) => {
+                            for o in lines.end() {
+                                on_term(&o, &mut terms);
+                            }
+                            self.expand_cache.lock().insert(key, terms.clone());
+                            break Ok(());
+                        }
+                        Err(e) => match self.stand_in(&e, &asking, &tried, terms.is_empty()) {
+                            Some(next) => asking = next,
+                            None => break Err(e),
+                        },
                     }
-                };
-                let sent = self.llm.stream_text(
-                    active,
-                    model,
-                    &system,
-                    &user,
-                    &meta,
-                    Some(500),
-                    abort,
-                    &mut on_delta,
-                );
-                let r = sent.await.map(|_| ());
-                if r.is_ok() {
-                    for o in lines.end() {
-                        on_term(&o, &mut terms);
-                    }
-                    self.expand_cache.lock().insert(key, terms.clone());
                 }
-                r
             }
         };
         match result {
@@ -1689,6 +1722,9 @@ impl Inner {
         };
         self.emit_all();
         let Some(user) = user else { return };
+        // Lines this stage has shown: once there are any, a failure is not
+        // handed to another model.
+        let shown = AtomicUsize::new(0);
         let on_line = |o: &Value| {
             {
                 let mut s = self.st.lock();
@@ -1705,9 +1741,9 @@ impl Inner {
                 }
                 s.add_concept(span, &js_text(o.get("why")), score);
             }
+            shown.fetch_add(1, Ordering::Relaxed);
             self.emit_all();
         };
-        let mut lines = LineReader::default();
         let meta = Meta {
             purpose: "find-correlate".into(),
             query: Some(q.to_string()),
@@ -1715,26 +1751,44 @@ impl Inner {
             overall: None,
         };
         let system = CORRELATE_SYSTEM.join("\n");
-        let mut on_delta = |d: &str| {
-            for o in lines.push(d) {
-                on_line(&o);
-            }
-        };
-        let sent = self.llm.stream_text(
-            active,
-            model,
-            &system,
-            &user,
-            &meta,
-            Some(600),
-            abort,
-            &mut on_delta,
-        );
-        match sent.await {
-            Ok(_) => {
-                for o in lines.end() {
+        let mut tried: Vec<String> = Vec::new();
+        let mut asking = model.to_string();
+        let result = loop {
+            tried.push(asking.clone());
+            let mut lines = LineReader::default();
+            let mut on_delta = |d: &str| {
+                for o in lines.push(d) {
                     on_line(&o);
                 }
+            };
+            let sent = self.llm.stream_text(
+                active,
+                &asking,
+                &system,
+                &user,
+                &meta,
+                Some(600),
+                abort,
+                &mut on_delta,
+            );
+            match sent.await {
+                Ok(_) => {
+                    for o in lines.end() {
+                        on_line(&o);
+                    }
+                    break Ok(());
+                }
+                Err(e) => {
+                    let nothing = shown.load(Ordering::Relaxed) == 0;
+                    match self.stand_in(&e, &asking, &tried, nothing) {
+                        Some(next) => asking = next,
+                        None => break Err(e),
+                    }
+                }
+            }
+        };
+        match result {
+            Ok(()) => {
                 let mut s = self.st.lock();
                 if s.gen != gen {
                     return;
@@ -1917,6 +1971,14 @@ mod tests {
     }
 
     fn engine(related: Related, texts: &[&str]) -> (Find, Arc<Host>, Arc<FakeDesktop>) {
+        engine_with(related, texts, Arc::new(Fake::load()))
+    }
+
+    fn engine_with(
+        related: Related,
+        texts: &[&str],
+        fake: Arc<Fake>,
+    ) -> (Find, Arc<Host>, Arc<FakeDesktop>) {
         let desktop = Arc::new(FakeDesktop::default());
         let fg = json!({ "handle": 7, "title": "Bill", "rect": { "x": 0, "y": 0,
             "width": 800, "height": 600 } });
@@ -1924,7 +1986,7 @@ mod tests {
         let spans: Vec<Value> = texts.iter().map(|t| span(t)).collect();
         let text = json!({ "source": "uia", "spans": spans });
         desktop.reply("getText", text);
-        let mut llm = Llm::new(Arc::new(NoNet), Some(Arc::new(Fake::load())));
+        let mut llm = Llm::new(Arc::new(NoNet), Some(fake));
         llm.set_offline(false);
         let host = Arc::new(Host {
             events: Recorder::default(),
@@ -1981,6 +2043,56 @@ mod tests {
             assert_eq!(hits["current"], json!(0));
             find.close();
             assert!(!find.is_open());
+        });
+    }
+
+    /// The models each `purpose` request went to, oldest first.
+    fn asked(fake: &Fake, purpose: &str) -> Vec<String> {
+        fake.requests()
+            .iter()
+            .filter(|r| r.purpose == purpose)
+            .filter_map(|r| r.model.clone())
+            .collect()
+    }
+
+    #[test]
+    fn related_stage_fails_over_on_429() {
+        run(async {
+            let fake = Arc::new(Fake::load());
+            for purpose in ["find-expand", "find-correlate"] {
+                let busy = json!({ "purpose": purpose, "model": "m:free", "status": 429 });
+                fake.push_fixture(busy);
+            }
+            let (find, _, _) = engine_with(Related::Auto, &BILL, fake.clone());
+            find.open(None, None).await;
+            find.query("payment", false);
+            settle(900).await;
+            let st = find.state();
+            assert_eq!(st["stage"]["related"], json!("done"));
+            assert_eq!(st["status"]["text"], json!("0 exact \u{b7} 2 related"));
+            for purpose in ["find-expand", "find-correlate"] {
+                let models = asked(&fake, purpose);
+                assert_eq!(models.len(), 2, "{purpose}: {models:?}");
+                assert_eq!(models[0], "m:free");
+                assert!(models[1].ends_with(":free") && models[1] != "m:free");
+            }
+            find.close();
+        });
+    }
+
+    #[test]
+    fn a_stage_gives_up_after_three_busy_models() {
+        run(async {
+            let fake = Arc::new(Fake::load());
+            fake.push_fixture(json!({ "purpose": "find-expand", "status": 429 }));
+            let (find, _, _) = engine_with(Related::Auto, &BILL, fake.clone());
+            find.open(None, None).await;
+            find.query("payment", false);
+            settle(900).await;
+            let st = find.state();
+            assert_eq!(st["stage"]["related"], json!("failed"));
+            assert_eq!(asked(&fake, "find-expand").len(), 3);
+            find.close();
         });
     }
 

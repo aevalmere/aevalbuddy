@@ -927,7 +927,11 @@ function addErrorRow(message, question, actions, tone, extra) {
   }
   if (acts.childElementCount) row.appendChild(acts);
   chatEl.appendChild(row);
-  if (note && x.retryInMs > 0) startCountdown(span, message, x.retryInMs);
+  if (note && x.retryInMs > 0) {
+    // Rust asks again when this runs out; Stop takes the row away with it.
+    row.classList.add('counting');
+    startCountdown(span, message, x.retryInMs);
+  }
   // Past two lines of text the fixes go under it, left-aligned.
   requestAnimationFrame(() => {
     const lh = parseFloat(getComputedStyle(span).lineHeight) || 20;
@@ -1111,6 +1115,8 @@ listen('query:done', (p) => {
   if (gen < lastGen) return;
   clearInterval(waitTimer);
   stopCountdown();
+  // Stopped while a busy note counted down: nothing is coming any more.
+  if (!usage) for (const n of chatEl.querySelectorAll(':scope > .error-row.counting')) n.remove();
   chatEl.removeAttribute('aria-busy');
   if (liveMsg) {
     const done = liveMsg;
