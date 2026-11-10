@@ -20,15 +20,15 @@
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
  Downloading crates ...
-  Downloaded rustls-pki-types v1.16.0
   Downloaded webpki-roots v1.0.12
+  Downloaded rustls-pki-types v1.16.0
     Checking rustls-pki-types v1.16.0
    Compiling aevaleron v1.1.1 (D:\a\aevaleron\aevaleron\src-tauri)
     Checking rustls-webpki v0.103.16
-    Checking webpki-roots v1.0.12
     Checking rustls-native-certs v0.8.5
+    Checking webpki-roots v1.0.12
     Checking rustls v0.23.46
     Checking tokio-rustls v0.26.6
     Checking hyper-rustls v0.27.10
     Checking reqwest v0.12.28
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 41.95s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 35.16s
