@@ -43,6 +43,8 @@ const AWAY_AFTER_MS: u64 = 20_000;
 const TICK_MS: u64 = 250;
 /// Rows under the head; the rest are counted.
 const MAX_ROWS: usize = 6;
+/// Sessions the tray menu lists; the rest are counted.
+const TRAY_ROWS: usize = 8;
 const TAIL_BYTES: u64 = 256 * 1024;
 
 /// `agents` in aevalbuddy.json.
@@ -173,6 +175,8 @@ struct State {
     alt_tab: bool,
     /// Why an agent's hooks could not be written, by agent id.
     errors: HashMap<&'static str, String>,
+    /// The session rows the tray menu was last asked to show.
+    tray: (Vec<TrayRow>, usize),
 }
 
 fn state() -> &'static Mutex<State> {
@@ -185,6 +189,7 @@ fn state() -> &'static Mutex<State> {
             hover: false,
             alt_tab: true,
             errors: HashMap::new(),
+            tray: (Vec::new(), 0),
         })
     })
 }
@@ -315,6 +320,7 @@ fn on_event(e: &HookEvent) {
         }
         _ => refresh_card(&p),
     }
+    sync_tray();
 }
 
 // -------------------------------------------------------------- transcript
@@ -670,6 +676,12 @@ fn window_of(session: &str) -> i64 {
         .unwrap_or(0)
 }
 
+/// Brings a session's window to the front, as a click on its row in the
+/// card does. False when the window is gone.
+pub fn jump(session: &str) -> bool {
+    native::focus(window_of(session))
+}
+
 /// `agents:open`: a row or the head was clicked.
 fn open(p: &Value) -> Value {
     let hwnd = match p.get("session").and_then(Value::as_str) {
@@ -728,6 +740,9 @@ fn tick_loop() {
             // Every 5 seconds.
             if ticks % 20 == 0 {
                 sweep();
+                // The minutes in a row's text move on even when nothing
+                // else does.
+                sync_tray();
             }
             // Every 10 minutes: agents installed since, or hooks another
             // tool rewrote.
@@ -762,6 +777,104 @@ fn sweep() {
         refresh_power(&p);
         refresh_card(&p);
     }
+}
+
+// -------------------------------------------------------------------- tray
+
+/// One session as the tray menu lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TrayRow {
+    pub session: String,
+    /// The project and where it runs: "site · VS Code".
+    pub label: String,
+    /// "needs you", "working 12m", "done 3m ago".
+    pub status: String,
+    /// Its window is still there to jump to.
+    pub can_jump: bool,
+}
+
+/// The first sessions in the card's order (needs you, then done, then
+/// working), and how many more there are. With `nest`, what a session
+/// started sits under it, set in; its row goes to that session's window.
+fn tray_list(
+    book: &SessionBook,
+    nest: bool,
+    now: u64,
+    has_window: impl Fn(i64) -> bool,
+) -> (Vec<TrayRow>, usize) {
+    let all = book.tree(None, nest);
+    let more = all.len().saturating_sub(TRAY_ROWS);
+    let list = all
+        .iter()
+        .take(TRAY_ROWS)
+        .filter_map(|row| {
+            let s = book.get(&row.session_id)?;
+            let sub = row
+                .subagent_id
+                .as_ref()
+                .and_then(|id| s.subagents.iter().find(|(k, _)| k == id));
+            let (name, status) = match sub {
+                Some((_, a)) => {
+                    let kind = if a.kind.is_empty() {
+                        "Subagent"
+                    } else {
+                        a.kind.as_str()
+                    };
+                    (kind.to_string(), sessions::subagent_text(a, now))
+                }
+                None => {
+                    let place = s.place();
+                    let name = if place.is_empty() {
+                        s.project()
+                    } else {
+                        format!("{} \u{b7} {place}", s.project())
+                    };
+                    (name, sessions::status_text(s, now))
+                }
+            };
+            let label = if row.depth > 0 {
+                format!("\u{2003}\u{2003}{name}")
+            } else {
+                name
+            };
+            Some(TrayRow {
+                session: s.id.clone(),
+                label,
+                status,
+                can_jump: has_window(s.hwnd),
+            })
+        })
+        .collect();
+    (list, more)
+}
+
+/// The sessions the tray menu lists. Empty while agent watching is off.
+pub fn tray_rows() -> (Vec<TrayRow>, usize) {
+    let p = prefs();
+    if !p.enabled {
+        return (Vec::new(), 0);
+    }
+    tray_list(
+        &state().lock().book,
+        p.show_children,
+        now_ms(),
+        native::is_window,
+    )
+}
+
+/// Has the tray menu redrawn when its session rows are no longer the ones
+/// it was last asked to show.
+fn sync_tray() {
+    let Some(app) = APP.get() else { return };
+    let rows = tray_rows();
+    {
+        let mut st = state().lock();
+        if st.tray == rows {
+            return;
+        }
+        st.tray = rows;
+    }
+    crate::tray::refresh(app);
 }
 
 // ------------------------------------------------------------------- hooks
@@ -921,6 +1034,7 @@ fn set(patch: &Value) -> Value {
         if after.enabled != before.enabled || after.agents_off != before.agents_off {
             sync_hooks(&after);
         }
+        sync_tray();
     }
     snapshot()
 }
@@ -1097,6 +1211,61 @@ mod tests {
         assert!(
             list.iter().all(|r| r["session"] != "s0"),
             "the head is above"
+        );
+    }
+
+    #[test]
+    fn the_tray_lists_sessions_that_need_you_first() {
+        let mut book = SessionBook::default();
+        let ev = |name: &str, id: &str| HookEvent {
+            name: name.into(),
+            session_id: id.into(),
+            agent: "claude".into(),
+            cwd: format!("C:\\code\\{id}"),
+            host: "VS Code".into(),
+            ..HookEvent::default()
+        };
+        assert_eq!(tray_list(&book, true, 1_000, |_| true), (Vec::new(), 0));
+        for i in 0..10 {
+            book.apply(&ev("UserPromptSubmit", &format!("s{i}")), 1_000);
+        }
+        book.apply(&ev("Stop", "s3"), 2_000);
+        let mut ask = ev("Notification", "s7");
+        ask.notification_type = "permission_prompt".into();
+        ask.hwnd = 7;
+        book.apply(&ask, 3_000);
+        let later = 3_000 + 5 * 60_000;
+        let (list, more) = tray_list(&book, false, later, |hwnd| hwnd == 7);
+        assert_eq!((list.len(), more), (TRAY_ROWS, 2));
+        assert_eq!(
+            list[0],
+            TrayRow {
+                session: "s7".into(),
+                label: "s7 \u{b7} VS Code".into(),
+                status: "needs you".into(),
+                can_jump: true,
+            }
+        );
+        assert_eq!(
+            (list[1].session.as_str(), list[1].status.as_str()),
+            ("s3", "done 5m ago")
+        );
+        assert_eq!(list[2].status, "working 5m");
+        assert!(
+            list[1..].iter().all(|r| !r.can_jump),
+            "no window, nowhere to jump"
+        );
+        // With subagents listed, each sits under its session, set in.
+        let mut sub = ev("SubagentStart", "s7");
+        sub.agent_id = "x1".into();
+        sub.agent_type = "Explore".into();
+        book.apply(&sub, 3_000);
+        let (nested, more) = tray_list(&book, true, later, |_| false);
+        assert_eq!(more, 3);
+        assert_eq!(nested[1].label, "\u{2003}\u{2003}Explore");
+        assert_eq!(
+            (nested[1].session.as_str(), nested[1].status.as_str()),
+            ("s7", "running 5m")
         );
     }
 

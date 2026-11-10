@@ -20,6 +20,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::{AppHandle, Wry};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
 
+use crate::agents::TrayRow;
 use crate::state::shared;
 
 const TRAY_ID: &str = "main";
@@ -214,6 +215,54 @@ pub fn template(i: &Input) -> Vec<Item> {
     out
 }
 
+/// The ids of the rows that list coding-agent sessions. A click reports the
+/// row, and `Live::sessions` says which session it shows.
+const SESSION_IDS: [&str; 8] = [
+    "session-0",
+    "session-1",
+    "session-2",
+    "session-3",
+    "session-4",
+    "session-5",
+    "session-6",
+    "session-7",
+];
+
+/// `items` with the coding agents' sessions above the bar's own rows: one
+/// row each, with its state where a chord would be, then how many more
+/// there are. A row whose window is gone is greyed out.
+fn with_sessions(mut items: Vec<Item>, rows: &[TrayRow], more: usize) -> Vec<Item> {
+    if rows.is_empty() {
+        return items;
+    }
+    let at = items.iter().position(|it| it.id == "capture").unwrap_or(0);
+    let mut block: Vec<Item> = rows
+        .iter()
+        .zip(SESSION_IDS)
+        .map(|(row, id)| {
+            // A menu reads a single & as "underline the next letter".
+            let label = row.label.replace('&', "&&");
+            Item {
+                enabled: row.can_jump,
+                ..Item::new(id, label, Some(row.status.clone()))
+            }
+        })
+        .collect();
+    if more > 0 {
+        block.push(Item::disabled("sessions-more", format!("{more} more")));
+    }
+    block.push(Item::sep());
+    let rest = items.split_off(at);
+    items.extend(block);
+    items.extend(rest);
+    items
+}
+
+/// Which session row an id names.
+fn slot_of(id: &str) -> Option<usize> {
+    SESSION_IDS.iter().position(|s| *s == id)
+}
+
 /// Labels only, separators as `-`, for the order check.
 pub fn labels(i: &Input) -> Vec<String> {
     template(i).into_iter().map(|it| it.label).collect()
@@ -315,8 +364,9 @@ fn current_input_parts(app: &AppHandle) -> (Value, bool, bool, Map<String, Value
     )
 }
 
-/// The rows and tooltip for the state right now.
-fn snapshot(app: &AppHandle) -> (Vec<Item>, String) {
+/// The rows and tooltip for the state right now, and the session behind
+/// each session row.
+fn snapshot(app: &AppHandle) -> (Vec<Item>, String, Vec<String>) {
     let (update, agent_running, hidden, shortcuts) = current_input_parts(app);
     let m = manual().lock().clone();
     let input = Input {
@@ -327,9 +377,11 @@ fn snapshot(app: &AppHandle) -> (Vec<Item>, String) {
         manual: &m,
         now: crate::state::now_ms(),
     };
+    let (rows, more) = crate::agents::tray_rows();
     (
-        template(&input),
+        with_sessions(template(&input), &rows, more),
         tooltip(&update, agent_running, &shortcuts),
+        rows.into_iter().map(|row| row.session).collect(),
     )
 }
 
@@ -353,6 +405,8 @@ struct Live {
     menu: Menu<Wry>,
     items: Vec<Item>,
     handles: Vec<Handle>,
+    /// The session each session row shows, in row order.
+    sessions: Vec<String>,
     tip: String,
     icon: u32,
     /// When the download percentage last changed on screen (ms).
@@ -389,11 +443,12 @@ fn fill(app: &AppHandle, live: &mut Live, items: Vec<Item>) -> tauri::Result<()>
 }
 
 /// Main thread: applies one snapshot, touching only what changed.
-fn apply(app: &AppHandle, items: Vec<Item>, tip: String) {
+fn apply(app: &AppHandle, items: Vec<Item>, tip: String, sessions: Vec<String>) {
     let mut guard = live().lock();
     let Some(live) = guard.as_mut() else {
         return;
     };
+    live.sessions = sessions;
     let changes = diff(&live.items, &items);
     let now = crate::state::now_ms();
     let progress = progress_only(&items, &changes);
@@ -442,12 +497,13 @@ fn apply(app: &AppHandle, items: Vec<Item>, tip: String) {
 
 /// Creates the tray (boot, before hotkeys).
 pub fn init(app: &AppHandle) -> tauri::Result<()> {
-    let (items, tip) = snapshot(app);
+    let (items, tip, sessions) = snapshot(app);
     let menu = Menu::new(app)?;
     let mut state = Live {
         menu: menu.clone(),
         items: Vec::new(),
         handles: Vec::new(),
+        sessions,
         tip: tip.clone(),
         icon: screen_icon_size(),
         progress_at: 0,
@@ -561,14 +617,14 @@ pub fn refresh(app: &AppHandle) {
         return;
     }
     let seq = TAKEN.fetch_add(1, SeqCst) + 1;
-    let (items, tip) = snapshot(app);
+    let (items, tip, sessions) = snapshot(app);
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
         // A snapshot older than one already shown is stale.
         if SHOWN.fetch_max(seq, SeqCst) > seq {
             return;
         }
-        crate::crash::guard("tray.refresh", || apply(&handle, items, tip));
+        crate::crash::guard("tray.refresh", || apply(&handle, items, tip, sessions));
     });
 }
 
@@ -643,9 +699,19 @@ fn on_menu(app: &AppHandle, id: &str) {
             }
             "check" => run_check(&app),
             "quit" => app.exit(0),
-            _ => {}
+            other => {
+                if let Some(session) = session_of(other) {
+                    crate::agents::jump(&session);
+                }
+            }
         }
     });
+}
+
+/// The session behind a clicked session row.
+fn session_of(id: &str) -> Option<String> {
+    let slot = slot_of(id)?;
+    live().lock().as_ref()?.sessions.get(slot).cloned()
 }
 
 #[cfg(test)]
@@ -769,6 +835,67 @@ mod tests {
         // A task starting adds rows: replaced in place, not swapped.
         let running = items_for(idle, true, false, Manual::Idle);
         assert_eq!(diff(&base, &running), [Change::Rows]);
+    }
+
+    fn session(id: &str, label: &str, status: &str, can_jump: bool) -> TrayRow {
+        TrayRow {
+            session: id.into(),
+            label: label.into(),
+            status: status.into(),
+            can_jump,
+        }
+    }
+
+    #[test]
+    fn sessions_lead_the_menu() {
+        let base = items_for(json!({"status": "idle"}), true, false, Manual::Idle);
+        // No sessions, or agent watching off: the menu as it always was.
+        assert_eq!(with_sessions(base.clone(), &[], 0), base);
+        let rows = [
+            session("a", "site · Codex", "needs you", true),
+            session("b", "R&D · VS Code", "done 3m ago", false),
+        ];
+        let items = with_sessions(base.clone(), &rows, 3);
+        let labels: Vec<&str> = items.iter().map(|it| it.label.as_str()).collect();
+        assert_eq!(
+            &labels[..7],
+            [
+                "Stop the task",
+                "-",
+                "site · Codex",
+                "R&&D · VS Code",
+                "3 more",
+                "-",
+                "Ask, find, or do…",
+            ]
+        );
+        assert_eq!(text(&items[2]), "site · Codex\tneeds you");
+        assert_eq!((items[2].id, items[3].id), ("session-0", "session-1"));
+        // A session whose window is gone cannot be clicked, nor the count.
+        assert!(items[2].enabled && !items[3].enabled && !items[4].enabled);
+        assert_eq!(items.len(), base.len() + 4);
+        assert_eq!(slot_of("session-1"), Some(1));
+        assert_eq!(slot_of("settings"), None);
+        // A minute passing changes one row's text in place.
+        let later = [
+            rows[0].clone(),
+            session("b", "R&D · VS Code", "done 4m ago", false),
+        ];
+        assert_eq!(
+            diff(&items, &with_sessions(base.clone(), &later, 3)),
+            [Change::Text(3, "R&&D · VS Code\tdone 4m ago".into())]
+        );
+        // A session ending replaces the rows inside the same menu.
+        let fewer = with_sessions(base, &rows[..1], 0);
+        assert_eq!(diff(&items, &fewer), [Change::Rows]);
+        // More sessions than rows: the extra ones are only counted.
+        let many: Vec<TrayRow> = (0..10)
+            .map(|i| session(&format!("s{i}"), "x", "working", true))
+            .collect();
+        let listed = with_sessions(Vec::new(), &many, 2);
+        assert_eq!(listed.len(), SESSION_IDS.len() + 2);
+        assert_eq!(listed[7].id, "session-7");
+        assert_eq!(listed[8].label, "2 more");
     }
 
     #[test]
