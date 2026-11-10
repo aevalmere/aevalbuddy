@@ -2,6 +2,7 @@
 //! findEmit, findToLens, findToAsk, the `find.init({...})` deps and the
 //! bar:mode / find:* IPC rows.
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
@@ -44,6 +45,14 @@ static OUT: Mutex<Out> = Mutex::new(Out {
     last_hits: None,
     prev: None,
 });
+
+/// Counts Find's closes. Showing the results window takes a moment and
+/// statuses arrive from several threads, so whoever shows it checks that no
+/// close came in meanwhile.
+static CLOSES: AtomicU64 = AtomicU64::new(0);
+/// One status at a time places the results window; a second arriving in
+/// that moment leaves it to the first.
+static PLACING: AtomicBool = AtomicBool::new(false);
 
 fn out() -> std::sync::MutexGuard<'static, Out> {
     OUT.lock().unwrap_or_else(|e| e.into_inner())
@@ -242,6 +251,17 @@ fn hide_output(app: &AppHandle, label: &str) {
     }
 }
 
+/// The results window goes back to being a chat, and out of sight when it
+/// holds no conversation.
+fn put_away(app: &AppHandle, label: &str) {
+    set_view(app, label, "chat");
+    let empty = outputs::with(app, label, |o| o.chat.messages.is_empty()) == Some(true);
+    let agent = try_services().is_some_and(|s| s.agent.is_running());
+    if empty && !agent {
+        hide_output(app, label);
+    }
+}
+
 /// findToLens: physical rects to DIPs; hits without one are dropped.
 fn lens_hits(hits: &Value) -> Vec<lens::Hit> {
     let Some(list) = hits.as_array() else {
@@ -272,7 +292,9 @@ fn find_emit(app: &AppHandle, channel: &str, payload: Value) {
         let was = std::mem::replace(&mut shared(app).lock().find_open, open);
         // A status that was on its way when Find closed must not bring the
         // results back: nothing would be left to take them down again.
-        if has_content(&payload) && find_is_open() {
+        let place = has_content(&payload) && find_is_open();
+        if place && !PLACING.swap(true, Ordering::SeqCst) {
+            let closes = CLOSES.load(Ordering::SeqCst);
             if let Some((label, fresh)) = ensure_label(app) {
                 if fresh {
                     let hits = out().last_hits.clone();
@@ -288,7 +310,13 @@ fn find_emit(app: &AppHandle, channel: &str, payload: Value) {
                 if !active {
                     outputs::show(app, &label);
                 }
+                // Find closed while its window was coming up: the close saw
+                // no window to take down, so it is taken down here.
+                if CLOSES.load(Ordering::SeqCst) != closes || !find_is_open() {
+                    put_away(app, &label);
+                }
             }
+            PLACING.store(false, Ordering::SeqCst);
         }
         if was != open {
             send_overlay_state(app);
@@ -363,14 +391,10 @@ pub fn close_find(app: &AppHandle, keep_mode: bool) {
             s.find.close();
         }
     }
+    CLOSES.fetch_add(1, Ordering::SeqCst);
     lens::clear(app);
-    set_output_view(app, "chat");
     if let Some(l) = stored_label(app) {
-        let empty = outputs::with(app, &l, |o| o.chat.messages.is_empty()) == Some(true);
-        let agent = try_services().is_some_and(|s| s.agent.is_running());
-        if empty && !agent {
-            hide_output(app, &l);
-        }
+        put_away(app, &l);
     }
     // The conversation Find stepped in front of is the target again, so the
     // next question continues it.

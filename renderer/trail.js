@@ -45,7 +45,10 @@ listen('view:set', ({ view: v }) => setView(v));
 // answer is never left hidden behind a list of matches from an earlier Find.
 for (const channel of ['chat:sync', 'chat:user', 'query:start']) {
   listen(channel, () => {
-    if (view === 'find') setView('chat');
+    if (view !== 'find') return;
+    setView('chat');
+    // output.js scrolled before the chat was back on show.
+    scrollToBottom(true);
   });
 }
 
