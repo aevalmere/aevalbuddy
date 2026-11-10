@@ -353,7 +353,9 @@ pub fn button_changed(app: &AppHandle) {
     set_input_bounds(app, bar_home(app));
     if mode == Mode::Pill {
         if !button() {
-            flags::hide(&w);
+            // The page takes the button away first; the window goes when
+            // it says so (`bar:folded`), with nothing left on it.
+            await_fold(app);
         } else if !hidden {
             if let Some(h) = flags::hwnd_of(&w) {
                 flags::show_inactive(h);
@@ -690,6 +692,34 @@ fn collapse_gen() -> &'static Mutex<u64> {
     G.get_or_init(|| Mutex::new(0))
 }
 
+/// How long the window waits for the page to say `bar:folded` before it
+/// goes anyway. The page's fold takes `T_COLLAPSE` and two frames; this
+/// only runs out when the page cannot answer.
+const FOLD_WAIT: u64 = layout::T_COLLAPSE + 280;
+
+/// The fold the page is playing now, by its collapse generation. Set by
+/// `collapse_panel`; taken by the page's `bar:folded`, by the wait running
+/// out, or by the bar opening again.
+fn fold_pending() -> &'static Mutex<Option<u64>> {
+    static P: OnceLock<Mutex<Option<u64>>> = OnceLock::new();
+    P.get_or_init(|| Mutex::new(None))
+}
+
+/// Takes the pending fold: any one for the page (`gen` None), only its own
+/// for a timer. False when there is nothing to finish, so a fold is
+/// finished once however many ask.
+fn claim_fold(pending: &mut Option<u64>, gen: Option<u64>) -> bool {
+    let hit = match (*pending, gen) {
+        (Some(p), Some(g)) => p == g,
+        (Some(_), None) => true,
+        (None, _) => false,
+    };
+    if hit {
+        *pending = None;
+    }
+    hit
+}
+
 /// POS-08.
 pub fn expand_panel(app: &AppHandle) {
     let Some(w) = window(app, OVERLAY) else {
@@ -709,7 +739,7 @@ pub fn expand_panel(app: &AppHandle) {
         s.hidden = false;
         (was, s.input_height)
     };
-    *collapse_gen().lock() += 1;
+    *fold_pending().lock() = None;
     flags::set_click_through(&w, false);
     flags::set_focusable(h, true);
     flags::pin_on_top(h);
@@ -741,10 +771,12 @@ pub fn collapse_panel(app: &AppHandle) {
     if find_open {
         shared(app).call(app, |k| k.close_find.as_ref());
     }
-    let was_panel = {
+    // From the open bar or the layout editor: either leaves something on
+    // the window that the page has to take away first.
+    let was_open = {
         let st = shared(app);
         let mut s = st.lock();
-        let was = s.mode == Mode::Panel;
+        let was = s.mode != Mode::Pill;
         s.mode = Mode::Pill;
         s.input_height = layout::DEFAULT_INPUT_HEIGHT;
         was
@@ -758,33 +790,49 @@ pub fn collapse_panel(app: &AppHandle) {
         flags::show_inactive(h);
     }
     motion::stop(h);
-    if was_panel {
-        // The bar folds into the orb inside the page first; the window
-        // shrinks once that is over, invisible because the orb keeps its
-        // corner.
+    if was_open {
+        // The bar folds into the orb inside the page first. The window
+        // shrinks or goes only when the page says it has painted the
+        // folded bar away (`bar:folded`), so the last frame the window
+        // shows, and the first it shows next time, is an empty one.
+        await_fold(app);
         send_overlay_state(app);
-        let gen = {
-            let mut g = collapse_gen().lock();
-            *g += 1;
-            *g
-        };
-        let wait = if motion::reduced() {
-            0
-        } else {
-            layout::T_COLLAPSE + 30
-        };
-        let app2 = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(wait)).await;
-            if *collapse_gen().lock() != gen || shared(&app2).lock().mode != Mode::Pill {
-                return;
-            }
-            fold_done(&app2, button);
-        });
-    } else {
+    } else if fold_pending().lock().is_none() {
+        // A second collapse while the page still folds (Esc twice) leaves
+        // that fold to finish instead of cutting the window off under it.
         fold_done(app, button);
     }
     hotkeys::apply(app);
+}
+
+/// Starts the wait for the page's `bar:folded`. The caller sends the state
+/// that makes the page fold.
+fn await_fold(app: &AppHandle) {
+    let gen = {
+        let mut g = collapse_gen().lock();
+        *g += 1;
+        *g
+    };
+    *fold_pending().lock() = Some(gen);
+    let app2 = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(FOLD_WAIT)).await;
+        finish_fold(&app2, Some(gen));
+    });
+}
+
+/// `bar:folded`: the page has folded the bar and painted the frame without
+/// it.
+pub fn bar_folded(app: &AppHandle) {
+    finish_fold(app, None);
+}
+
+fn finish_fold(app: &AppHandle, gen: Option<u64>) {
+    let mine = claim_fold(&mut fold_pending().lock(), gen);
+    if !mine || shared(app).lock().mode != Mode::Pill {
+        return;
+    }
+    fold_done(app, button());
 }
 
 /// The bar has folded: the window shrinks to the button, or with no button
@@ -1609,6 +1657,23 @@ mod tests {
         assert_eq!(effective(1.5, 2.0), 2.5);
         assert_eq!(effective(2.25, 2.0), 2.5);
         assert_eq!(effective(0.0, 1.2), 1.2);
+    }
+
+    #[test]
+    fn a_fold_is_finished_once() {
+        // The page answers first: the timer for the same fold finds nothing.
+        let mut p = Some(3);
+        assert!(claim_fold(&mut p, None));
+        assert!(!claim_fold(&mut p, Some(3)));
+        // A timer left over from an earlier fold never ends a later one.
+        let mut p = Some(4);
+        assert!(!claim_fold(&mut p, Some(3)));
+        assert_eq!(p, Some(4));
+        assert!(claim_fold(&mut p, Some(4)));
+        // The bar opened again: neither the page nor the timer hides it.
+        let mut p = None;
+        assert!(!claim_fold(&mut p, None));
+        assert!(!claim_fold(&mut p, Some(4)));
     }
 
     #[test]

@@ -17,6 +17,9 @@ const WIDTH: f64 = 200.0;
 const HEIGHT: f64 = 52.0;
 /// Above the taskbar, clear of it.
 const MARGIN: f64 = 20.0;
+/// The capsule's fade in the page (voice-pill.css: 150 ms of opacity, 240 ms
+/// of travel) and the frame after it.
+const FADE: Duration = Duration::from_millis(260);
 
 /// The last state sent, so a page that loads late still shows it.
 static LAST: Mutex<Option<Value>> = Mutex::new(None);
@@ -119,7 +122,10 @@ pub fn update(app: &AppHandle, state: Value) {
     crate::windows::emit(app, LABEL, "voice:state", state);
 }
 
-/// Hides it after `after` (a done or error state stays briefly).
+/// Hides it after `after` (a done or error state stays briefly). The page
+/// fades the capsule first: a window hidden with the capsule still drawn
+/// keeps that frame and shows it for a moment when the next dictation
+/// starts.
 pub fn hide(app: &AppHandle, after: Duration, generation: u64) {
     let app = app.clone();
     std::thread::spawn(move || {
@@ -128,6 +134,12 @@ pub fn hide(app: &AppHandle, after: Duration, generation: u64) {
             return;
         }
         *last() = None;
+        let idle = super::state(super::Origin::Dictation, "idle", Value::Null);
+        crate::windows::emit(&app, LABEL, "voice:state", idle);
+        std::thread::sleep(FADE);
+        if super::generation() != generation {
+            return;
+        }
         let a = app.clone();
         let _ = app.run_on_main_thread(move || {
             if let Some(w) = a.get_webview_window(LABEL) {

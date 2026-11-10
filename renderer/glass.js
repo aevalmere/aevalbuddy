@@ -889,6 +889,51 @@
     return side;
   }
 
+  // ------------------------------------------------------------ menus out
+
+  // Every menu leaves the same way: the 120 ms fade of .g-menu.closing,
+  // then `done` hides or removes it. Until then it takes no clicks, and its
+  // owner counts it as closed (the class is the mark). menuIn takes a menu
+  // that opens again out of a fade still running.
+  const MENU_OUT_MS = 120;
+  const fading = new WeakMap();
+  function menuOut(el, done) {
+    if (fading.has(el)) return;
+    el.classList.add('closing');
+    fading.set(
+      el,
+      setTimeout(() => {
+        fading.delete(el);
+        el.classList.remove('closing');
+        done();
+      }, MENU_OUT_MS)
+    );
+  }
+  function menuIn(el) {
+    if (!fading.has(el)) return;
+    clearTimeout(fading.get(el));
+    fading.delete(el);
+    el.classList.remove('closing');
+  }
+
+  // ---------------------------------------------------------- after paint
+
+  // Runs `fn` once what is on screen is the page as it is now: the frame
+  // after next. Rust hides a window only after its page has said, through
+  // here, that the frame without its surface is up, because a hidden window
+  // keeps its last frame and shows it again first. Where no frames are
+  // coming (an occluded page) it runs after 80 ms instead of never.
+  function painted(fn) {
+    let done = false;
+    const go = () => {
+      if (done) return;
+      done = true;
+      fn();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 80);
+  }
+
   // ------------------------------------------------------- menu focus ring
 
   // A menu opened with the pointer moves focus to its first row without a
@@ -947,6 +992,9 @@
     track,
     morph,
     placeAll,
+    painted,
+    menuOut,
+    menuIn,
     solidAt,
     resetPassthrough,
     scrimFor,

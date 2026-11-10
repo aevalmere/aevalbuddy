@@ -49,9 +49,10 @@ const ORB_SAYS = {
   busy: 'AevalBuddy is answering',
 };
 
-function render(prevMode) {
-  // A fold that is still running is finished by whatever comes next.
-  if (state.mode !== 'pill' || prevMode !== 'panel') endFold();
+function render(prevMode, prevButton) {
+  // Only leaving the pill cuts a running fold short. Any other state that
+  // arrives meanwhile (an answer finishing, a second Esc) lets it play out.
+  if (state.mode !== 'pill') endFold();
   document.body.dataset.mode = state.mode;
   // idle, chat (a conversation is waiting behind it), busy (an answer is on
   // its way) or agent (it has the computer): the orb shows which.
@@ -77,11 +78,17 @@ function render(prevMode) {
   applyAnchor();
   renderRegion();
   syncBarFromState();
-  const folding = state.mode === 'pill' && prevMode === 'panel' && foldIntoOrb();
+  // What leaves the window empty or smaller: the bar closing, the layout
+  // editor closing, the button being turned off. Rust waits for each to be
+  // painted away before it touches the window (sayFolded).
+  const closing = state.mode === 'pill' && (prevMode !== 'pill' || (prevButton && !state.button));
+  if (closing && prevMode === 'panel') foldIntoOrb();
   // With no button (the default) the closed bar is not on screen at all.
   pill.hidden = state.mode !== 'pill' || !state.button;
   panel.hidden = state.mode !== 'panel' && !folding;
   hud.hidden = state.mode !== 'hud';
+  // Nothing to play (reduced motion): the bar is gone as of this frame.
+  if (closing && !folding) sayFolded();
   if (state.mode === 'pill' && prevMode !== 'pill') {
     // Main made the whole window click-through again on the way to the pill.
     // Without this the cache still says "taking clicks" from the bar, so the
@@ -261,6 +268,17 @@ function growFromOrb() {
 
 let folding = false;
 
+// Rust keeps the window as it is until the folded bar has been painted
+// away: the frame after next is on screen without it. So the window never
+// goes with half a bar on it, and never comes back showing an old one.
+let foldSeq = 0;
+function sayFolded() {
+  const seq = ++foldSeq;
+  window.AevalGlass.painted(() => {
+    if (seq === foldSeq && state.mode === 'pill') window.aeval.invoke('bar:folded').catch(() => {});
+  });
+}
+
 function foldIntoOrb() {
   if (!motionOn() || panel.hidden) return false;
   const v = orbInsets();
@@ -294,6 +312,7 @@ function endFold() {
   delete panel.dataset.morph;
   delete document.body.dataset.folding;
   if (state.mode !== 'panel') panel.hidden = true;
+  if (state.mode === 'pill') sayFolded();
 }
 
 // The chip is the only thing telling the user that "what about now?" is
@@ -359,9 +378,9 @@ new ResizeObserver(requestResize).observe(panel);
 // ------------------------------------------------------------------ state
 
 window.aeval.on('overlay:state', (next) => {
-  const prevMode = state.mode;
+  const prev = state;
   state = { ...state, ...next };
-  render(prevMode);
+  render(prev.mode, !!prev.button);
 });
 
 let snapFlashTimer = null;

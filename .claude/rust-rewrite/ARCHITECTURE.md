@@ -501,7 +501,7 @@ breaks while the ports land.
 No new listen channels.
 
 The per-lane blocks (BACKLOG "Hotspots") follow the split (d) channels in both allowlists, in the order windows, capture, llm, agent, each between `// ---- lane: <name> ----` and `// ---- end: <name> ----`. `ipc::tests::lane_blocks_match_preload` keeps the two files' markers identical.
-Windows lane, invoke: `settings:set-text-scale`, `output:blur`, `output:cycle-target`, `output:close-all`, `output:last-answer`, `output:undo-reset`, `output:glass`, `window:nudge`, `bar:dirty`, `bar:ready`, `bar:prefill-open`, `a11y:announce`. Listen: `output:meta`, `ui:text-scale`, `bar:clear`, `bar:note`, `a11y:say`.
+Windows lane, invoke: `settings:set-text-scale`, `output:blur`, `output:cycle-target`, `output:close-all`, `output:last-answer`, `output:undo-reset`, `output:glass`, `output:gone`, `window:nudge`, `bar:dirty`, `bar:ready`, `bar:folded`, `bar:prefill-open`, `a11y:announce`. Listen: `output:meta`, `output:away`, `ui:text-scale`, `bar:clear`, `bar:note`, `a11y:say`.
 
 ### 10.2 Extended payloads (fields added, none renamed)
 
@@ -528,6 +528,7 @@ Windows lane, invoke: `settings:set-text-scale`, `output:blur`, `output:cycle-ta
 - `output:last-answer {label?}` -> `{text}`: the window's last answer, '' if none. `output:undo-reset {label?}` -> `{ok}`. `output:cycle-target {dir: 1|-1}` -> `{label}`: the new target, or null. `output:blur`: the calling window gives the foreground back. `output:glass {top, height}`: the visible sheet inside the glass, in glass DIPs (K-23).
 - `window:nudge {dx, dy, dw, dh}` -> `{ok}`: the calling window moves or resizes by DIPs inside its work area and size limits; false for the bar, which moves with `hud:nudge` (K-23).
 - `bar:dirty {dirty}`, `bar:ready` (the bar's field has focus after a hotkey), `bar:prefill-open {text}` (K-23).
+- **A window hides only after its page says it is empty.** A hidden WebView keeps its last frame and shows it for a moment when the window comes back, and a window that hides on a timer can go with half a surface on it. So no page surface is hidden on a fixed sleep: Rust sends the state (or asks), the page plays its exit, waits until the frame without the surface is on screen (`AevalGlass.painted`: the frame after next, or 80 ms where no frames come) and answers; Rust hides or shrinks the window on the answer. A wait that only runs out when the page cannot answer backs each one, and opening again cancels it. The three pairs: `overlay:state {mode: 'pill'}` answered by `bar:folded` (`windows::collapse_panel`, wait 450 ms; a second collapse while one fold is pending leaves it alone, and the page lets a fold play out when another pill state arrives during it); `output:away {away: true}` answered by `output:gone` (`outputs::hide_window`, wait 300 ms; `output:away {away: false}` from `outputs::show` makes a blank sheet draw again); `agents:hide` answered by `agents:hidden` (`agents::hide_card`, wait 600 ms).
 - `a11y:announce {text, priority}` -> `{to}`: relayed as `a11y:say {text, priority}` to the focused AevalBuddy window, else the open bar; `priority` is `polite` or `assertive`, text at most 300 characters (K-23).
 - `bar:clear {}`: the bar empties its field. `bar:note {text}`: a one-line note under the bar.
 - `chat:reset {undoMs}`: how long Undo is offered, 0 when there was nothing to undo.

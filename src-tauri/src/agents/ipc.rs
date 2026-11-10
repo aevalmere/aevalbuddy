@@ -14,6 +14,8 @@ pub async fn route(app: &AppHandle, channel: &str, p: &Value) -> Option<Result<V
             json!({ "ok": true })
         }
         "agents:size" => super::page_size(app, p),
+        // The card has folded away: the window may hide.
+        "agents:hidden" => super::page_hidden(app),
         // The countdown waits while the pointer is on the card.
         "agents:hover" => {
             let on = p.get("on").and_then(Value::as_bool).unwrap_or(false);

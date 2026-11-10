@@ -3,7 +3,8 @@
 // The agents card (src-tauri/src/agents/mod.rs). Rust sends `agents:card`
 // with everything to draw; the page draws it out of sight, tells Rust how
 // tall it is (`agents:size`, which places and shows the window), and only
-// then lets it grow out of the bar. `agents:hide` folds it back.
+// then lets it grow out of the bar. `agents:hide` folds it back, and the
+// page says `agents:hidden` once the frame without it is on screen.
 (() => {
   const card = document.getElementById('card');
   const jump = document.getElementById('jump');
@@ -20,9 +21,12 @@
   // Room round the card for its shadow, both sides.
   const MARGIN = 16;
   const OPEN_AFTER_MS = 150;
+  // The fold's length (agents.css, --d-glob-close).
+  const FOLD_MS = 260;
   let data = null;
   let shown = '';
   let openTimer = null;
+  let hideSeq = 0;
 
   const send = (channel, payload) => {
     try {
@@ -104,6 +108,7 @@
     if (!p) return;
     const key = [p.session, p.kind, p.title, p.detail].join('\n');
     const fresh = key !== shown || card.hidden || card.classList.contains('out');
+    hideSeq += 1;
     draw(p);
     card.hidden = false;
     if (!fresh) {
@@ -125,6 +130,19 @@
     card.classList.remove('in', 'open');
     card.classList.add('out');
     shown = '';
+    // The window hides when the fold is over and painted, so it never goes
+    // with a card on it and never comes back showing the old one.
+    const seq = ++hideSeq;
+    const gone = () => {
+      if (seq !== hideSeq || card.hidden || !card.classList.contains('out')) return;
+      card.hidden = true;
+      window.AevalGlass.painted(() => {
+        if (seq === hideSeq && card.hidden) send('agents:hidden');
+      });
+    };
+    Promise.all(card.getAnimations().map((a) => a.finished)).then(gone, gone);
+    // A page that is not being painted never finishes an animation.
+    setTimeout(gone, FOLD_MS + 60);
   });
 
   // The pointer on the card holds the countdown, and after a moment opens

@@ -121,9 +121,11 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     "output:last-answer",
     "output:undo-reset",
     "output:glass",
+    "output:gone",
     "window:nudge",
     "bar:dirty",
     "bar:ready",
+    "bar:folded",
     "bar:prefill-open",
     "a11y:announce",
     // ---- end: windows ----
@@ -152,6 +154,7 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     // agents lane
     "agents:ready",
     "agents:size",
+    "agents:hidden",
     "agents:hover",
     "agents:open",
     "agents:dismiss",
@@ -200,6 +203,7 @@ pub const LISTEN_CHANNELS: &[&str] = &[
     "lens:loupe",
     // ---- lane: windows (do not edit outside your lane) ----
     "output:meta",
+    "output:away",
     "ui:text-scale",
     "bar:clear",
     "bar:note",
@@ -750,6 +754,9 @@ async fn route(
         // `{top, height}`: the visible sheet as the page measures it, `top`
         // from the window's edge; `set_sheet` keeps it in glass DIPs.
         "output:glass" => outputs::set_sheet(app, &label, p_num(&p, "top"), p_num(&p, "height")),
+        // The sheet has faded and the frame without it is painted: the
+        // window may hide.
+        "output:gone" => outputs::page_gone(app, &label),
         // `{dx, dy, dw, dh}` in DIPs -> `{ok}`.
         "window:nudge" => {
             let d = (
@@ -767,6 +774,9 @@ async fn route(
         }
         // The bar's field has focus after a hotkey (B-104).
         "bar:ready" => windows::bar_ready(),
+        // The bar has folded and painted the frame without it: the window
+        // may shrink or go.
+        "bar:folded" => windows::bar_folded(app),
         // `{text}`: opens the bar with the text in it.
         "bar:prefill-open" => windows::open_bar(app, None, Some(p_str(&p, "text"))),
         // `{text, priority}` -> `{to}`: relayed as `a11y:say` (B-023).

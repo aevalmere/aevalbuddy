@@ -655,7 +655,7 @@ function closeRetryMenu(refocus) {
   if (!menu) return;
   const { el, anchor } = menu;
   menu = null;
-  el.remove();
+  window.AevalGlass.menuOut(el, () => el.remove());
   anchor.setAttribute('aria-expanded', 'false');
   if (refocus) anchor.focus();
   document.removeEventListener('pointerdown', outsideMenu, true);
@@ -988,16 +988,51 @@ function playEntrance() {
 }
 
 // A hidden window keeps its last frame and shows it for a moment when it
-// comes back. The sheet goes blank as the window hides, and grows in again
-// when it is shown.
+// comes back. So Rust asks first (output:away): the sheet fades, the frame
+// without it is painted, and only then does the page say the window may go
+// (output:gone). Shown again, the sheet grows in from that empty frame.
+const AWAY_MS = 120;
+let awaySeq = 0;
+function goAway() {
+  const seq = ++awaySeq;
+  opanel.classList.add('fading-out');
+  setTimeout(
+    () => {
+      if (seq !== awaySeq) return;
+      opanel.classList.add('away');
+      opanel.classList.remove('fading-out');
+      if (window.AevalGlass) window.AevalGlass.resetPassthrough();
+      window.AevalGlass.painted(() => {
+        if (seq === awaySeq) send('output:gone');
+      });
+    },
+    opanel.hidden ? 0 : AWAY_MS
+  );
+}
+
+// Back on screen, or never left: a sheet that went blank grows in again,
+// one caught mid-fade simply stays.
+function comeBack() {
+  awaySeq += 1;
+  opanel.classList.remove('fading-out');
+  if (!opanel.classList.contains('away')) return;
+  if (opanel.hidden) opanel.classList.remove('away');
+  else playEntrance();
+}
+
+window.aeval.on('output:away', (m) => {
+  if (m && m.away) goAway();
+  else comeBack();
+});
+
+// A window hidden without being asked (the wait for the page ran out)
+// still goes blank, so the next show starts from as little as possible.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     opanel.classList.add('away');
     if (window.AevalGlass) window.AevalGlass.resetPassthrough();
-  } else if (!opanel.hidden) {
-    playEntrance();
   } else {
-    opanel.classList.remove('away');
+    comeBack();
   }
 });
 

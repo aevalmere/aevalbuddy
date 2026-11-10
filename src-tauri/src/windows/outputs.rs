@@ -15,7 +15,9 @@
 
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use parking_lot::Mutex;
 use serde_json::{json, Value};
@@ -23,9 +25,9 @@ use tauri::AppHandle;
 
 use super::layout::{self, Anchor};
 use super::{
-    app_driven, bar_rect, create_page, drop_held, emit, flags, hold_events, hwnd, mark_app, motion,
-    overlay_state, release_held, screen, send_now, send_overlay_state, stage, take_held, window,
-    Meta, Resize, OVERLAY,
+    app_driven, bar_rect, claim_fold, create_page, drop_held, emit, flags, hold_events, hwnd,
+    mark_app, motion, overlay_state, release_held, screen, send_now, send_overlay_state, stage,
+    take_held, window, Meta, Resize, OVERLAY,
 };
 use crate::state::{now_ms, shared, AppState, Chat, Output, OutputKind, Rect};
 use crate::store;
@@ -35,6 +37,30 @@ pub const PAGE: &str = "renderer/output.html";
 pub const MAX_OPEN: usize = 6;
 /// D-31: how long "Start over" can be undone.
 pub const UNDO_MS: u64 = 10_000;
+
+/// How long a window waits for its page to say `output:gone` before it
+/// hides anyway. The page's fade takes 120 ms and two frames; this only
+/// runs out when the page cannot answer.
+const LEAVE_WAIT_MS: u64 = 300;
+
+/// The windows on their way out: each page was told `output:away` and the
+/// window hides when it answers. Label to the ticket of that hide.
+fn leaving() -> &'static Mutex<HashMap<String, u64>> {
+    static L: OnceLock<Mutex<HashMap<String, u64>>> = OnceLock::new();
+    L.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Takes `label`'s pending hide: any for the page (`ticket` None), only
+/// its own for a timer.
+fn claim_leave(label: &str, ticket: Option<u64>) -> bool {
+    let mut map = leaving().lock();
+    let mut pending = map.get(label).copied();
+    let hit = claim_fold(&mut pending, ticket);
+    if hit {
+        map.remove(label);
+    }
+    hit
+}
 
 pub fn is_output(label: &str) -> bool {
     label.starts_with("output-")
@@ -242,6 +268,9 @@ pub fn show(app: &AppHandle, label: &str) {
         }
         return;
     }
+    // A window still on its way out stays, and one that had gone comes
+    // back: either way its page went blank and is told to draw again.
+    let was_away = leaving().lock().remove(label).is_some() || !flags::is_visible(h);
     // B-025: a placed window stays on its own display; a new one opens on
     // the display the person is on.
     let display = if o.rect.is_some() {
@@ -291,6 +320,9 @@ pub fn show(app: &AppHandle, label: &str) {
         motion::animate(h, o.rect, to, layout::T_OUT_GROW, None);
     }
     emit(app, label, "overlay:state", overlay_state(app, Some(label)));
+    if was_away {
+        emit(app, label, "output:away", json!({ "away": false }));
+    }
     if opening {
         enforce_cap(app, label);
     }
@@ -365,11 +397,44 @@ pub fn hide_all(app: &AppHandle) {
     }
 }
 
+/// Hides a window once its page has painted the sheet away
+/// (`output:away`, answered with `output:gone`). A hidden window keeps its
+/// last frame and shows it for a moment when it comes back, so that frame
+/// has to be an empty one.
 fn hide_window(app: &AppHandle, label: &str) {
+    let Some(w) = window(app, label) else {
+        return;
+    };
+    let shown = flags::hwnd_of(&w).is_some_and(|h| {
+        motion::stop(h);
+        flags::is_visible(h)
+    });
+    if !shown {
+        leaving().lock().remove(label);
+        flags::hide(&w);
+        return;
+    }
+    static TICKET: AtomicU64 = AtomicU64::new(0);
+    let ticket = TICKET.fetch_add(1, Ordering::Relaxed) + 1;
+    leaving().lock().insert(label.to_string(), ticket);
+    emit(app, label, "output:away", json!({ "away": true }));
+    let (a, l) = (app.clone(), label.to_string());
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(LEAVE_WAIT_MS)).await;
+        finish_leave(&a, &l, Some(ticket));
+    });
+}
+
+/// `output:gone`: the page has painted the frame without its sheet.
+pub fn page_gone(app: &AppHandle, label: &str) {
+    finish_leave(app, label, None);
+}
+
+fn finish_leave(app: &AppHandle, label: &str, ticket: Option<u64>) {
+    if !claim_leave(label, ticket) {
+        return;
+    }
     if let Some(w) = window(app, label) {
-        if let Some(h) = flags::hwnd_of(&w) {
-            motion::stop(h);
-        }
         flags::hide(&w);
     }
 }
@@ -1038,6 +1103,7 @@ pub fn on_destroyed(app: &AppHandle, label: &str) {
         }
     }
     sent_meta().lock().remove(label);
+    leaving().lock().remove(label);
     let a = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = create_spare(&a);
@@ -1092,6 +1158,18 @@ mod tests {
             s.outputs.insert(o.label.clone(), o);
         }
         s
+    }
+
+    #[test]
+    fn a_window_leaves_once() {
+        leaving().lock().insert("output-901".into(), 7);
+        // A timer from an earlier hide does not take this one.
+        assert!(!claim_leave("output-901", Some(6)));
+        // The page answers; the timer for the same hide finds nothing.
+        assert!(claim_leave("output-901", None));
+        assert!(!claim_leave("output-901", Some(7)));
+        // A window that was shown again meanwhile is not hidden.
+        assert!(!claim_leave("output-902", None));
     }
 
     #[test]

@@ -153,9 +153,16 @@ export const scenes = [
       t.check('watchRowOpensItsSession', opened.join() === 'a', JSON.stringify(opened));
       await t.page.mouse.move(0, 0);
       await t.emit('card', 'agents:hide', null);
+      await t.settle(100);
+      const early = (await t.calls('card', 'agents:hidden')).length;
       await t.settle(400);
       const out = await f.evaluate(() => document.getElementById('card').classList.contains('out'));
       t.check('watchCardFoldsAway', out, 'agents:hide did not fold the card');
+      // The window hides when the page says the card is gone, not on a
+      // timer: said once, after the fold, with the card out of the page.
+      const gone = await f.evaluate(() => document.getElementById('card').hidden);
+      const said = (await t.calls('card', 'agents:hidden')).length;
+      t.check('watchCardSaysHidden', early === 0 && gone && said === 1, `early=${early} hidden=${gone} said=${said}`);
     },
   },
   cardScene(

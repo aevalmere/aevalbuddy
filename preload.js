@@ -108,9 +108,11 @@ const INVOKE_CHANNELS = new Set([
   'output:last-answer',
   'output:undo-reset',
   'output:glass',
+  'output:gone',
   'window:nudge',
   'bar:dirty',
   'bar:ready',
+  'bar:folded',
   'bar:prefill-open',
   'a11y:announce',
   // ---- end: windows ----
@@ -139,6 +141,7 @@ const INVOKE_CHANNELS = new Set([
   // agents lane
   'agents:ready',
   'agents:size',
+  'agents:hidden',
   'agents:hover',
   'agents:open',
   'agents:dismiss',
@@ -186,6 +189,7 @@ const LISTEN_CHANNELS = new Set([
   'lens:loupe',
   // ---- lane: windows (do not edit outside your lane) ----
   'output:meta',
+  'output:away',
   'ui:text-scale',
   'bar:clear',
   'bar:note',

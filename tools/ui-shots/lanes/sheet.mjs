@@ -667,6 +667,43 @@ export const scenes = [
     },
   },
 
+  // The closing flicker: a hidden window keeps its last frame, so the sheet
+  // goes blank and says so before Rust hides the window, and draws again
+  // when the window is wanted back.
+  {
+    name: 'sheet-away',
+    backdrop: 'wallpaper',
+    scales: [1],
+    windows: [win('overlay', '/renderer/index.html', BAR, 1), outWin('out1', OUT1)],
+    async run(t) {
+      const { out } = await barAndAnswer(t);
+      const look = () =>
+        out.evaluate(() => {
+          const p = document.getElementById('opanel');
+          return { away: p.classList.contains('away'), fading: p.classList.contains('fading-out'), opacity: Number(getComputedStyle(p).opacity) };
+        });
+      await t.emit('out1', 'output:away', { away: true });
+      await t.settle(40);
+      const early = (await t.calls('out1', 'output:gone')).length;
+      await t.settle(300);
+      const gone = await look();
+      const said = (await t.calls('out1', 'output:gone')).length;
+      t.check('sheetBlankBeforeItSaysGone', early === 0 && said === 1 && gone.away && gone.opacity === 0, JSON.stringify([early, said, gone]));
+      await t.emit('out1', 'output:away', { away: false });
+      await t.settle(900);
+      const back = await look();
+      t.check('sheetDrawsAgainWhenShown', !back.away && !back.fading && back.opacity === 1, JSON.stringify(back));
+      // Wanted back while it was still fading: it stays, and says nothing.
+      await t.emit('out1', 'output:away', { away: true });
+      await t.settle(40);
+      await t.emit('out1', 'output:away', { away: false });
+      await t.settle(400);
+      const kept = await look();
+      const saidAfter = (await t.calls('out1', 'output:gone')).length;
+      t.check('sheetCaughtMidFadeStays', !kept.away && !kept.fading && kept.opacity === 1 && saidAfter === 1, JSON.stringify([kept, saidAfter]));
+    },
+  },
+
   // B-062 (§4 state 40, F25): a cascaded sheet away from the bar scales in
   // from the bar's side instead of drawing a neck across the desktop.
   {

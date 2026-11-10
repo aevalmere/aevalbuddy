@@ -703,7 +703,25 @@ fn page_size(app: &AppHandle, p: &Value) -> Value {
     json!({ "from": from })
 }
 
-/// Takes the card down; the page fades it first.
+/// How long the window waits for the page to say `agents:hidden` before it
+/// goes anyway. The fold takes 260 ms and two frames; this only runs out
+/// when the page cannot answer.
+const HIDE_WAIT_MS: u64 = 600;
+
+/// `agents:hidden`: the page has folded the card and painted the frame
+/// without it, so the window can go with nothing on it.
+fn page_hidden(app: &AppHandle) -> Value {
+    // Unless another card came up meanwhile.
+    if state().lock().showing.is_none() {
+        if let Some(w) = app.get_webview_window(LABEL) {
+            win::hide(capture::hwnd_of(&w));
+        }
+    }
+    json!({ "ok": true })
+}
+
+/// Takes the card down. The page folds it first and says when it is gone
+/// (`agents:hidden`); the window hides then.
 fn hide_card() {
     let Some(app) = APP.get() else { return };
     {
@@ -716,7 +734,7 @@ fn hide_card() {
     crate::windows::emit(app, LABEL, "agents:hide", Value::Null);
     let a = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(280));
+        std::thread::sleep(Duration::from_millis(HIDE_WAIT_MS));
         // Unless another card came up meanwhile.
         if state().lock().showing.is_some() {
             return;
