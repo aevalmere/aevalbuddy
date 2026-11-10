@@ -1208,6 +1208,18 @@ function barOpened() {
   window.aeval.invoke('bar:history').then((h) => {
     if (Array.isArray(h)) bar.history = h;
   });
+  // A menu or the key hints left open when the bar closed (the minimize
+  // button, the shortcut) do not come back with it: the window opens at the
+  // bar's own height, so they would be cut off until it grew.
+  for (const m of [intentMenu, modelMenu]) {
+    window.AevalGlass.menuIn(m);
+    m.hidden = true;
+  }
+  token.setAttribute('aria-expanded', 'false');
+  input.removeAttribute('aria-activedescendant');
+  input.removeAttribute('aria-controls');
+  input.removeAttribute('aria-autocomplete');
+  hideTip();
   renderToken();
   renderExamplesShown();
 }

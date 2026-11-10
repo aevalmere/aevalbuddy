@@ -285,6 +285,18 @@ export const scenes = [
       });
       t.check('tokenMenuIsGMenu', menu === 3, `menu=${menu}`);
       await t.shot('bar-menu', TALL_CLIP);
+      // Closed with its menu open (the minimize button, the shortcut), the
+      // bar comes back without it and with the field focused.
+      await f.evaluate((st) => window.__emit('overlay:state', st), barState({ mode: 'pill' }));
+      await t.settle(500);
+      await openBar(f);
+      await t.settle(100);
+      const back = await f.evaluate(() => ({
+        menu: document.getElementById('intent-menu').hidden,
+        expanded: document.getElementById('intent').getAttribute('aria-expanded'),
+        focus: document.activeElement && document.activeElement.id,
+      }));
+      t.check('reopenedBarHasNoMenu', back.menu && back.expanded === 'false' && back.focus === 'query-input', JSON.stringify(back));
     },
   },
 
