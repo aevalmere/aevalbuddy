@@ -113,7 +113,7 @@ jobs:
       - name: Name the installer and write latest.yml
         run: |
           mkdir -p dist
-          src=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n 1)
+          src=$(ls src-tauri/target/release/bundle/nsis/Aevaleron_*-setup.exe | head -n 1)
           [ -n "$src" ] || { echo "::error::no NSIS installer was built"; exit 1; }
           cp "$src" dist/Aevaleron-Setup.exe
           node - <<'EOF'
