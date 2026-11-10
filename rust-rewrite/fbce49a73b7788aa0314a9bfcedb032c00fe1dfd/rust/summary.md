@@ -1,11 +1,11 @@
-# rust: cancelled
+# rust: success
 
 - Workflow: rust
-- Run: [42514861592](https://github.com/aevalmere/aevalbuddy/actions/runs/42514861592), attempt 1, on push
-- Commit: f90f883c79d02c58de46064bbe4145b7239eb95d
+- Run: [42786394726](https://github.com/aevalmere/aevalbuddy/actions/runs/42786394726), attempt 1, on push
+- Commit: fbce49a73b7788aa0314a9bfcedb032c00fe1dfd
 - Ref: rust-rewrite
-- Conclusion: **cancelled**
-- Finished: 2026-11-08T19:27:52Z
+- Conclusion: **success**
+- Finished: 2026-11-10T09:09:04Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -22,10 +22,10 @@
 | Restore NSIS toolset | success |  |
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
 | Save NSIS toolset | skipped |  |
-| Build installer | cancelled | [build.log](build.log) |
-| Smoke | skipped |  |
-| Capture check | skipped |  |
-| Desktop selfcheck | skipped |  |
-| Upload installer | skipped |  |
+| Build installer | success | [build.log](build.log) |
+| Smoke | success | [smoke.log](smoke.log) |
+| Capture check | success | [capture.log](capture.log) |
+| Desktop selfcheck | success | [desktop.log](desktop.log) |
+| Upload installer | success |  |
 
 errors.txt: 0 error and warning lines from the logs.
