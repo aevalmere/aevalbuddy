@@ -1,12 +1,12 @@
 # rust: failure
 
 - Workflow: rust
-- Run: [42885440546](https://github.com/aevalmere/aevaleron/actions/runs/42885440546), attempt 1, on push
-- Commit: 4ef0eea0447909a6fa39a70ca7fa60839f21f907
+- Run: [42888578279](https://github.com/aevalmere/aevaleron/actions/runs/42888578279), attempt 1, on push
+- Commit: 4d057ab3b52db3b1adccfcbdbc200242dcb71b62
 - Ref: rust-rewrite
 - Conclusion: **failure**
 - Failed: Smoke
-- Finished: 2026-11-10T19:42:33Z
+- Finished: 2026-11-10T20:00:19Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -29,4 +29,4 @@
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | skipped |  |
 
-errors.txt: 10 error and warning lines from the logs.
+errors.txt: 4 error and warning lines from the logs.

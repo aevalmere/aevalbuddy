@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] earlyKeys=FAIL:Ctrl+Alt+Space=Ok(()) text=Ok(()) field="" foreground=true
+[SMOKE] failed: earlyKeys
+[GATE] fail earlyKeys=FAIL:Ctrl+Alt+Space=Ok(()) text=Ok(()) field="" foreground=true
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: earlyKeys; 1 listed label(s) never printed

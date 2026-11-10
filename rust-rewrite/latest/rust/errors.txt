@@ -1,11 +1,5 @@
 == smoke.log ==
-[SMOKE] transcriptScroll=FAIL:Ok(String("0:0:0:auto"))
-[SMOKE] transcriptWheel=FAIL:at (192, 84) moved Ok(()) sent Ok(())
-[SMOKE] moreIndicator=FAIL:Ok(String("0:0"))
-[SMOKE] readingMeasure=FAIL:Ok(Number(0))
-[SMOKE] failed: transcriptScroll, transcriptWheel, moreIndicator, readingMeasure
-[GATE] fail transcriptScroll=FAIL:Ok(String("0:0:0:auto"))
-[GATE] fail transcriptWheel=FAIL:at (192, 84) moved Ok(()) sent Ok(())
-[GATE] fail moreIndicator=FAIL:Ok(String("0:0"))
-[GATE] fail readingMeasure=FAIL:Ok(Number(0))
-[GATE] verdict=FAIL:4 FAIL line(s); no "done" line; failed: transcriptScroll, transcriptWheel, moreIndicator, readingMeasure; 1 listed label(s) never printed
+[SMOKE] earlyKeys=FAIL:Ctrl+Alt+Space=Ok(()) text=Ok(()) field="" foreground=true
+[SMOKE] failed: earlyKeys
+[GATE] fail earlyKeys=FAIL:Ctrl+Alt+Space=Ok(()) text=Ok(()) field="" foreground=true
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: earlyKeys; 1 listed label(s) never printed
