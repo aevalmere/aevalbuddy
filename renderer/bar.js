@@ -699,7 +699,16 @@ function renderStatus() {
   let text = '';
   let action = null;
   if (bar.findOn && barIntent() === 'find' && findState && findState.open) {
-    text = [findState.status, ...(findState.lines || [])].filter(Boolean).join('\n');
+    // Where the ring is among the matches, as a browser's find says it.
+    let head = findState.status;
+    if (findState.total > 0 && findState.current >= 0) {
+      const c = findState.counts || {};
+      const st = findState.stage || {};
+      head = `${findState.current + 1} of ${findState.total}${findState.more ? '+' : ''}`;
+      if (c.related) head += ` · ${c.related} related`;
+      if (st.related === 'running' || st.concept === 'running') head += ' · looking…';
+    }
+    text = [head, ...(findState.lines || [])].filter(Boolean).join('\n');
     if (findState.action === 'related') {
       action = { label: 'Look for related', run: () => window.aeval.invoke('find:related') };
     } else if (findState.action === 'ask' || (findState.hits === 0 && input.value.trim())) {

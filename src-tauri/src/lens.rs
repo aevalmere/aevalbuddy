@@ -39,6 +39,9 @@ struct State {
     current: i64,
     frame: Option<(u32, String)>,
     hidden: bool,
+    /// Find is open: a lens with no hits for the moment stays up, empty, so
+    /// the next hit does not wait for a new window to be built.
+    keep: bool,
     loupe_for: String,
     ready: HashSet<String>,
     /// Windows on their way out; each still holds its label until it is gone.
@@ -183,13 +186,14 @@ static DRAW: Mutex<()> = Mutex::new(());
 /// Brings every display's lens in line with the current hits and frame.
 pub fn draw(app: &AppHandle) {
     let _one = DRAW.lock().unwrap_or_else(|e| e.into_inner());
-    let (hits, current, frame, hidden, ready) = with(|s| {
+    let (hits, current, frame, hidden, ready, keep) = with(|s| {
         (
             s.hits.clone(),
             s.current,
             s.frame.clone(),
             s.hidden,
             s.ready.clone(),
+            s.keep,
         )
     });
     let mut wanted: HashSet<u32> = hits.iter().map(|(_, d)| *d).collect();
@@ -205,6 +209,16 @@ pub fn draw(app: &AppHandle) {
         let existing = app.get_webview_window(&label);
         if !drawn {
             if let Some(w) = existing {
+                // While Find is open the window stays and is told to draw
+                // nothing: typing past the last match and back must not
+                // cost a window each way.
+                if keep && !hidden {
+                    if ready.contains(&label) {
+                        let empty = draw_payload(&hits, current, frame.as_ref(), &d);
+                        let _ = app.emit_to(label.as_str(), "lens:draw", empty);
+                    }
+                    continue;
+                }
                 // Dropped, not hidden: a hidden page keeps the last frame it
                 // painted and shows it for a moment when the window comes
                 // back (ARCHITECTURE.md 10.2). The next draw waits for the
@@ -306,6 +320,7 @@ pub fn set_hits(app: &AppHandle, list: Vec<Hit>, current: i64) {
     with(|s| {
         s.hits = hits;
         s.current = current;
+        s.keep = true;
     });
     redraw(app);
 }
@@ -322,6 +337,7 @@ pub fn clear(app: &AppHandle) {
     let nothing = with(|s| {
         s.hits.clear();
         s.current = -1;
+        s.keep = false;
         s.loupe_for.clear();
         s.frame.is_none()
     });

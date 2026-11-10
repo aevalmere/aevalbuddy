@@ -39,6 +39,14 @@ pub const NUDGE_MS: u64 = 250;
 /// Characters, about 6k tokens.
 pub const CORRELATE_BUDGET: usize = 24000;
 pub const SCREEN_WINDOW_CAP: usize = 6;
+/// The pause before a typed query is searched through whole documents.
+pub const DOC_WAIT_MS: u64 = 120;
+/// Matches asked of one window's documents.
+pub const DOC_MAX: usize = 400;
+/// Failed re-reads in a row a readable window is forgiven.
+const READ_RETRIES: u32 = 3;
+/// A query sent while Find was still opening is kept this long.
+const PENDING_MS: u64 = 1500;
 
 // ----------------------------------------------------------------- text
 
@@ -368,7 +376,19 @@ pub fn sub_rect(span: &Span, start: usize, end: usize) -> Option<Rect> {
 }
 
 pub fn snippet(span: &Span, start: usize, _end: usize) -> String {
-    let t = collapse_ws(&span.text);
+    cut_snippet(collapse_ws(&span.text), start)
+}
+
+/// A document match's line, cut around the match like any snippet.
+fn doc_snippet(line: &str, matched: &str) -> String {
+    let t = collapse_ws(line);
+    let hay = utf16(&t.to_lowercase());
+    let needle = utf16(&collapse_ws(matched).to_lowercase());
+    let at = index_of(&hay, &needle, 0).unwrap_or(0);
+    cut_snippet(t, at)
+}
+
+fn cut_snippet(t: String, start: usize) -> String {
     let units = utf16(&t);
     if units.len() <= 90 {
         return t;
@@ -396,6 +416,11 @@ pub struct Hit {
     pub score: Option<f64>,
     pub why: Option<String>,
     pub span_text: Option<String>,
+    /// The model's own reason, before it was made into `why`.
+    pub raw_why: Option<String>,
+    /// A whole-document match: the document's ref and the match's number
+    /// in it, as the helper's findText counted.
+    pub doc: Option<(String, usize)>,
 }
 
 impl Hit {
@@ -472,6 +497,8 @@ pub fn match_literal(
             score: None,
             why: None,
             span_text: None,
+            raw_why: None,
+            doc: None,
         });
     };
     let single = !q.chars().any(js_space);
@@ -483,7 +510,26 @@ pub fn match_literal(
             found = true;
             at = index_of(&span.hay, &q16, i + q16.len().max(1));
         }
-        if found || !single {
+        if found {
+            continue;
+        }
+        if !single {
+            // The words are all here, only not side by side: each is a hit.
+            let words: Vec<Vec<u16>> = q
+                .split(js_space)
+                .filter(|w| !w.is_empty())
+                .map(utf16)
+                .collect();
+            let all = words.len() > 1 && words.iter().all(|w| index_of(&span.hay, w, 0).is_some());
+            if all {
+                for w in words.iter().filter(|w| w.len() >= 2) {
+                    let mut at = index_of(&span.hay, w, 0);
+                    while let Some(i) = at {
+                        push(span, i, i + w.len());
+                        at = index_of(&span.hay, w, i + w.len());
+                    }
+                }
+            }
             continue;
         }
         for t in &span.tokens {
@@ -711,6 +757,13 @@ struct State {
     allow_models: bool,
     literal_only: bool,
     taken: HashSet<String>,
+    /// Whole-document matches, and the documents they came from.
+    doc: Vec<Hit>,
+    doc_refs: HashSet<String>,
+    doc_more: bool,
+    doc_seq: u64,
+    /// Re-reads that failed since the last good one.
+    fails: u32,
 }
 
 impl Default for State {
@@ -742,11 +795,19 @@ impl Default for State {
             allow_models: false,
             literal_only: false,
             taken: HashSet::new(),
+            doc: Vec::new(),
+            doc_refs: HashSet::new(),
+            doc_more: false,
+            doc_seq: 0,
+            fails: 0,
         }
     }
 }
 
 fn hit_key(h: &Hit) -> String {
+    if let Some((r, n)) = &h.doc {
+        return format!("doc:{r}:{n}");
+    }
     format!("{}:{}:{}:{}", h.kind, h.span_id, h.start, h.matched)
 }
 
@@ -761,10 +822,82 @@ impl State {
             let (sa, sb) = (a.score.unwrap_or(0.0), b.score.unwrap_or(0.0));
             sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
         });
-        let mut out = self.literal.clone();
+        // A document the helper searched whole speaks for itself: its
+        // matches replace the snapshot's estimate of the same words.
+        let q = js_trim(&self.query).to_lowercase();
+        let covered = |h: &Hit| {
+            let known = h.r#ref.as_str().is_some_and(|r| self.doc_refs.contains(r));
+            known && h.matched.to_lowercase() == q
+        };
+        let mine = self.literal.iter().filter(|h| !covered(*h));
+        let mut out: Vec<Hit> = mine.cloned().collect();
+        out.extend(self.doc.iter().cloned());
         out.extend(related);
         out.extend(self.concept.iter().cloned());
         out
+    }
+
+    /// Exact matches: the snapshot's and the documents'.
+    fn exact(&self) -> usize {
+        self.hits().iter().filter(|h| h.kind == "literal").count()
+    }
+
+    /// The helper's whole-document matches for the query, per window.
+    /// Returns whether anything changed.
+    fn set_doc(&mut self, found: &[(Value, Vec<Value>)]) -> bool {
+        let had = !self.doc.is_empty() || !self.doc_refs.is_empty();
+        self.doc.clear();
+        self.doc_refs.clear();
+        self.doc_more = false;
+        let q = js_trim(&self.query).to_lowercase();
+        for (window, docs) in found {
+            for d in docs {
+                let Some(r) = d["ref"].as_str() else { continue };
+                let Some(matches) = d["matches"].as_array() else {
+                    continue;
+                };
+                // A document that reports fewer matches than can be seen in
+                // it is not searching properly; the snapshot stays in charge.
+                let same = |h: &&Hit| h.r#ref.as_str() == Some(r) && h.matched.to_lowercase() == q;
+                let seen = self.literal.iter().filter(same).count();
+                if matches.is_empty() || matches.len() < seen {
+                    continue;
+                }
+                for m in matches {
+                    let rect = Rect::from_value(&m["rect"]);
+                    if let Some(area) = self.region {
+                        if !rect.is_some_and(|x| x.overlaps(&area)) {
+                            continue;
+                        }
+                    }
+                    let matched = js_text(m.get("match"));
+                    let line = js_text(m.get("text"));
+                    let n = m["n"].as_u64().unwrap_or(0) as usize;
+                    self.doc.push(Hit {
+                        kind: "literal",
+                        span_id: usize::MAX,
+                        start: 0,
+                        end: len16(&matched),
+                        text: doc_snippet(text_or(&line, &matched), &matched),
+                        matched,
+                        rect,
+                        r#ref: json!(r),
+                        window: window.clone(),
+                        term: None,
+                        score: None,
+                        why: None,
+                        span_text: None,
+                        raw_why: None,
+                        doc: Some((r.to_string(), n)),
+                    });
+                }
+                self.doc_refs.insert(r.to_string());
+                if d["truncated"] == true {
+                    self.doc_more = true;
+                }
+            }
+        }
+        had || !self.doc_refs.is_empty()
     }
 
     /// Points the ring at hit i and remembers which hit that is.
@@ -791,7 +924,11 @@ impl State {
         };
         match at {
             Some(i) => self.current = i as i64,
-            None => self.pin(0),
+            // Like a browser's find: start with the first match in view.
+            None => {
+                let first = hits.iter().position(|h| self.visible(h.rect));
+                self.pin(first.unwrap_or(0) as i64);
+            }
         }
     }
 
@@ -818,7 +955,7 @@ impl State {
         if q.is_empty() {
             return (String::new(), lines, None);
         }
-        let exact = self.literal.len();
+        let exact = self.exact();
         let related = self.related.len() + self.concept.len();
         let running = self.stage_b == Stage::Running || self.stage_c == Stage::Running;
         let text = if exact == 0 && related == 0 {
@@ -829,8 +966,11 @@ impl State {
             }
             format!("Nothing on screen matches \"{q}\".")
         } else {
-            let quiet = matches!(self.stage_b, Stage::Off | Stage::Ask);
-            let mut text = format!("{exact} exact");
+            // Exact-only (`//`) never looks for related words, so it does
+            // not count them either.
+            let quiet = self.literal_only || matches!(self.stage_b, Stage::Off | Stage::Ask);
+            let more = if self.doc_more { "+" } else { "" };
+            let mut text = format!("{exact}{more} exact");
             if related > 0 || !quiet {
                 text.push_str(&format!(" \u{b7} {related} related"));
             }
@@ -882,6 +1022,7 @@ impl State {
             h.score = Some(score_or(score, 0.7));
             let because = text_or(why, "a related term");
             h.why = Some(format!("\"{}\" relates to \"{q}\": {because}", h.matched));
+            h.raw_why = Some(why.to_string());
             self.related.push(h);
         }
         self.taken = taken;
@@ -910,6 +1051,8 @@ impl State {
             score: Some(score_or(score, 0.6)),
             why: Some(why.to_string()),
             span_text: Some(span.text.clone()),
+            raw_why: None,
+            doc: None,
         });
     }
 
@@ -926,7 +1069,8 @@ impl State {
         if !restart_models {
             for k in keep_related {
                 let term = k.term.unwrap_or_default();
-                let why = k.why.unwrap_or_default();
+                // The model's reason, not the sentence already built on it.
+                let why = k.raw_why.or(k.why).unwrap_or_default();
                 self.add_related(&term, &why, k.score.unwrap_or(0.0));
             }
             for k in keep_concept {
@@ -1000,6 +1144,8 @@ struct Inner {
     host: Arc<dyn FindHost>,
     rt: Handle,
     expand_cache: Mutex<HashMap<String, Vec<(String, String)>>>,
+    /// A query that arrived before Find had opened: text, exact-only, when.
+    pending: Mutex<Option<(String, bool, Instant)>>,
 }
 
 /// Smart Find. Cheap to clone; every clone is the same Find.
@@ -1022,6 +1168,7 @@ impl Find {
             host,
             rt,
             expand_cache: Mutex::new(HashMap::new()),
+            pending: Mutex::new(None),
         };
         Find {
             inner: Arc::new(inner),
@@ -1039,9 +1186,17 @@ impl Find {
         }
         {
             let mut s = self.inner.st.lock();
-            let keep = (s.idle_seq, s.nudge_seq, s.poll_seq);
+            let keep = (s.idle_seq, s.nudge_seq, s.poll_seq, s.doc_seq);
             *s = State::default();
-            (s.idle_seq, s.nudge_seq, s.poll_seq) = keep;
+            (s.idle_seq, s.nudge_seq, s.poll_seq, s.doc_seq) = keep;
+            // The bar sends its first query alongside the request to open;
+            // whichever lands first, the words are searched.
+            if let Some((q, literal, at)) = self.inner.pending.lock().take() {
+                if at.elapsed() < Duration::from_millis(PENDING_MS) {
+                    s.query = q;
+                    s.literal_only = literal;
+                }
+            }
             s.open = true;
             s.gen = now_ms();
             s.snap_gen = s.gen;
@@ -1063,18 +1218,24 @@ impl Find {
         };
         let inner = self.inner.clone();
         self.inner.rt.spawn(async move {
+            let mut tick = 0u32;
             loop {
                 tokio::time::sleep(Duration::from_millis(POLL_MS)).await;
-                let reading = {
+                tick = tick.wrapping_add(1);
+                let (reading, recognised) = {
                     let s = inner.st.lock();
                     if !s.open || s.poll_seq != seq {
                         return;
                     }
-                    s.reading
+                    let source = s.snapshot.as_ref().map(|x| x.source.as_str());
+                    (s.reading, source.is_some_and(|x| x != "uia"))
                 };
-                if !reading {
-                    inner.refresh("poll").await;
+                // Text recognition is a screenshot and a model run: a window
+                // read that way is looked at again a third as often.
+                if reading || (recognised && tick % 3 != 0) {
+                    continue;
                 }
+                inner.refresh("poll").await;
             }
         });
         self.state()
@@ -1133,14 +1294,29 @@ impl Find {
             }
             let h = hits[s.current as usize].clone();
             let away = !s.visible(h.rect) && !h.r#ref.is_null();
-            away.then_some(h)
+            let q = js_trim(&s.query).to_string();
+            away.then_some((h, q))
         };
         // A hit scrolled out of view is brought back first, then the ring
         // goes to it once the window has been re-read.
-        if let Some(h) = target {
-            let args = json!({ "ref": h.r#ref });
-            if inner.desktop.op("scrollTo", args).await.is_ok() {
+        if let Some((h, q)) = target {
+            let sent = match &h.doc {
+                Some((r, n)) => {
+                    let args = json!({ "ref": r, "query": q, "n": n });
+                    inner.desktop.op("scrollToText", args).await
+                }
+                None => {
+                    let args = json!({ "ref": h.r#ref });
+                    inner.desktop.op("scrollTo", args).await
+                }
+            };
+            if sent.is_ok() {
                 inner.refresh("scroll").await;
+                if h.doc.is_some() {
+                    // Where the match is now, before the ring goes to it.
+                    let seq = inner.next_doc_seq();
+                    inner.run_doc(seq).await;
+                }
                 let mut s = inner.st.lock();
                 let all = s.hits();
                 let key = hit_key(&h);
@@ -1204,6 +1380,7 @@ impl Find {
             s.idle_seq += 1;
             s.nudge_seq += 1;
             s.poll_seq += 1;
+            s.doc_seq += 1;
             let was_open = s.open;
             s.open = false;
             s.gen += 1;
@@ -1282,8 +1459,11 @@ impl Inner {
                 "status": text,
                 "lines": lines,
                 "action": action,
-                "counts": { "exact": s.literal.len(), "related": s.related.len() + s.concept.len() },
+                "counts": { "exact": s.exact(), "related": s.related.len() + s.concept.len() },
                 "stage": { "related": s.stage_b.as_str(), "concept": s.stage_c.as_str() },
+                "current": s.current,
+                "total": all.len(),
+                "more": s.doc_more,
             });
             (hits, state, lens, s.current)
         };
@@ -1384,10 +1564,14 @@ impl Inner {
             self.emit_all();
         }
         let result = self.take_snapshot().await;
-        let requery = {
+        let quiet = reason == "poll" || reason == "scroll";
+        let (requery, say, redo_doc) = {
             let mut s = self.st.lock();
             let current = gen == s.snap_gen;
             let mut requery = None;
+            let mut changed_now = false;
+            let mut redo_doc = false;
+            let before = s.read_error.clone();
             match result {
                 Ok(_) if !current || !s.open => {
                     if current {
@@ -1400,6 +1584,8 @@ impl Inner {
                         Some(old) => old.text != snap.text,
                         None => true,
                     };
+                    changed_now = changed;
+                    s.fails = 0;
                     let empty = snap.spans.is_empty();
                     let ocr = snap.source == "ocr";
                     let ocr_used = snap.ocr_used;
@@ -1415,35 +1601,116 @@ impl Inner {
                     }
                     let fresh = reason == "open" || reason == "scope";
                     if changed && fresh && !js_trim(&s.query).is_empty() {
-                        requery = Some(s.query.clone());
+                        requery = Some((s.query.clone(), s.literal_only));
                     } else if changed {
                         s.rematch(false);
+                        redo_doc = !js_trim(&s.query).is_empty();
                     }
                 }
                 Err(_) if !current => return,
                 Err(e) => {
                     let down = e.code == "HELPER_DOWN";
-                    let msg = if down { HELPER_DOWN } else { NO_TEXT };
-                    s.read_error = msg.to_string();
-                    s.read_action = Some("ask");
+                    s.fails += 1;
+                    // A window that was readable a moment ago and misses one
+                    // read is busy, not blank: what was found stays up.
+                    let ride = quiet && !down && s.snapshot.is_some() && s.fails < READ_RETRIES;
+                    if !ride {
+                        let msg = if down { HELPER_DOWN } else { NO_TEXT };
+                        s.read_error = msg.to_string();
+                        s.read_action = Some("ask");
+                    }
                 }
             }
             if current {
                 s.reading = false;
             }
-            requery
+            // A re-read that found the same window has nothing new to say,
+            // and saying it again would redraw the list under the reader.
+            let say = !quiet || first || changed_now || s.read_error != before;
+            (requery, say, redo_doc)
         };
-        // main.js re-ran `query(s.query)`, which also cleared literal-only.
         match requery {
-            Some(q) => {
-                self.query(&q, false);
+            Some((q, literal)) => {
+                self.query(&q, literal);
             }
-            None => self.emit_all(),
+            None => {
+                if say {
+                    self.emit_all();
+                }
+                if redo_doc {
+                    self.spawn_doc(0);
+                }
+            }
+        }
+    }
+
+    fn next_doc_seq(&self) -> u64 {
+        let mut s = self.st.lock();
+        s.doc_seq += 1;
+        s.doc_seq
+    }
+
+    /// Searches the window's documents whole for the query, after `wait_ms`.
+    /// A later call takes this one's place.
+    fn spawn_doc(self: &Arc<Self>, wait_ms: u64) {
+        let seq = self.next_doc_seq();
+        let inner = self.clone();
+        self.rt.spawn(async move {
+            if wait_ms > 0 {
+                tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+            }
+            inner.run_doc(seq).await;
+        });
+    }
+
+    /// Stage A's second half: the helper asks each document and editor in
+    /// the window for every place the words occur, in view or scrolled
+    /// away, and where exactly a match in view sits. What a browser's own
+    /// find knows, in any app that exposes its text.
+    async fn run_doc(&self, seq: u64) {
+        let (q, gen, windows) = {
+            let s = self.st.lock();
+            if !s.open || s.doc_seq != seq {
+                return;
+            }
+            let q = js_trim(&s.query).to_string();
+            let Some(snap) = s.snapshot.as_ref() else {
+                return;
+            };
+            if len16(&q) < 2 || snap.source == "ocr" {
+                return;
+            }
+            (q, s.gen, snap.windows.clone())
+        };
+        let mut found: Vec<(Value, Vec<Value>)> = Vec::new();
+        for w in &windows {
+            let args = json!({ "windowHandle": w["handle"], "query": q, "max": DOC_MAX });
+            let Ok(r) = self.desktop.op("findText", args).await else {
+                continue;
+            };
+            let docs = r["docs"].as_array().cloned().unwrap_or_default();
+            found.push((w["handle"].clone(), docs));
+        }
+        let changed = {
+            let mut s = self.st.lock();
+            if !s.open || s.gen != gen || s.doc_seq != seq {
+                return;
+            }
+            s.set_doc(&found)
+        };
+        if changed {
+            self.emit_all();
         }
     }
 
     fn query(self: &Arc<Self>, q: &str, literal_only: bool) -> Value {
         let t0 = Instant::now();
+        let open = self.st.lock().open;
+        if !open {
+            // Find is still on its way up; `open` picks the words up.
+            *self.pending.lock() = Some((q.to_string(), literal_only, Instant::now()));
+            return json!({ "hits": 0, "literal": 0, "ms": 0 });
+        }
         let (gen, run, literal, hits, ms) = {
             let mut s = self.st.lock();
             s.query = q.to_string();
@@ -1455,6 +1722,9 @@ impl Inner {
             s.stage_c = Stage::Idle;
             s.related.clear();
             s.concept.clear();
+            s.doc.clear();
+            s.doc_refs.clear();
+            s.doc_more = false;
             s.current = -1;
             s.current_key.clear();
             s.allow_models = false;
@@ -1466,6 +1736,9 @@ impl Inner {
             (s.gen, run, s.literal.len(), s.hits().len(), s.last_ms)
         };
         self.emit_all();
+        if !js_trim(q).is_empty() {
+            self.spawn_doc(DOC_WAIT_MS);
+        }
         if run {
             if self.model_state().is_some() {
                 self.spawn_models(gen);
@@ -1708,7 +1981,9 @@ impl Inner {
                 None
             } else {
                 s.stage_c = Stage::Running;
-                let anchors: Vec<usize> = s.hits().iter().map(|h| h.span_id).collect();
+                let hits = s.hits();
+                let near = hits.iter().filter(|h| h.doc.is_none());
+                let anchors: Vec<usize> = near.map(|h| h.span_id).collect();
                 let rows: Vec<String> = budget_spans(untouched, &anchors)
                     .iter()
                     .map(|sp| {
@@ -2132,6 +2407,78 @@ mod tests {
             assert_eq!(step["current"], json!(1));
             find.close();
         });
+    }
+
+    #[test]
+    fn document_matches_take_over_and_reach_past_the_window() {
+        run(async {
+            let (find, _, desktop) = engine(Related::Off, &BILL);
+            let rect = |x: i64| json!({ "x": x, "y": 0, "width": 30, "height": 20 });
+            let matches = json!([
+                { "n": 0, "match": "due", "text": "Amount due 42.00", "rect": rect(60) },
+                { "n": 1, "match": "due", "text": "total due 42.00", "rect": rect(50) },
+                { "n": 2, "match": "Due", "text": "Due on receipt", "rect": null },
+            ]);
+            let doc = json!({ "ref": "r1", "truncated": false, "matches": matches });
+            desktop.reply("findText", json!({ "docs": [doc] }));
+            find.open(None, None).await;
+            let r = find.query("due", false);
+            assert_eq!(r["literal"], json!(2));
+            settle(400).await;
+            let st = find.state();
+            assert_eq!(st["status"]["text"], json!("3 exact"));
+            assert_eq!(st["hits"][0]["rect"]["x"], json!(60));
+            assert!(st["hits"][2]["rect"].is_null());
+            assert_eq!(st["current"], json!(0));
+            // The one scrolled away is brought into view by its document.
+            let step = find.step(&json!({ "index": 2 })).await;
+            assert_eq!(step["current"], json!(2));
+            assert!(desktop.methods().contains(&"scrollToText".to_string()));
+            find.close();
+        });
+    }
+
+    #[test]
+    fn a_query_sent_before_find_opened_is_searched() {
+        run(async {
+            let (find, _, _) = engine(Related::Off, &BILL);
+            let r = find.query("due", true);
+            assert_eq!(r["hits"], json!(0));
+            find.open(None, None).await;
+            let st = find.state();
+            assert_eq!(st["status"]["text"], json!("2 exact"));
+            find.close();
+        });
+    }
+
+    #[test]
+    fn a_reread_keeps_the_reason_as_it_was() {
+        run(async {
+            let (find, _, desktop) = engine(Related::Auto, &BILL);
+            find.open(None, None).await;
+            find.query("payment", false);
+            settle(700).await;
+            let mut texts = BILL.to_vec();
+            texts.push("Zebra crossing");
+            let spans: Vec<Value> = texts.iter().map(|t| span(t)).collect();
+            desktop.reply("getText", json!({ "source": "uia", "spans": spans }));
+            find.nudge();
+            settle(600).await;
+            let st = find.state();
+            assert_eq!(st["spans"], json!(5));
+            let want = "\"Invoice\" relates to \"payment\": an invoice is a request for payment";
+            assert_eq!(st["hits"][0]["why"], json!(want));
+            find.close();
+        });
+    }
+
+    #[test]
+    fn words_apart_in_one_line_are_each_a_hit() {
+        let spans = index_spans(&[span("total for this invoice"), span("invoice only")]);
+        let mut taken = HashSet::new();
+        let hits = match_literal(&spans, "invoice total", "literal", &mut taken);
+        let found: Vec<(usize, &str)> = hits.iter().map(|h| (h.span_id, &h.matched[..])).collect();
+        assert_eq!(found, [(0, "invoice"), (0, "total")]);
     }
 
     #[test]

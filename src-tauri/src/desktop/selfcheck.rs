@@ -501,6 +501,35 @@ async fn steps(desktop: &Arc<Desktop>, rep: &Report, win: &Value) {
             &format!("via={}", s(&sv["via"])),
         );
         rep.log("getTextSpans", list(&g["spans"]).len());
+        // Find's whole-document search, on the text just set. Logged, not
+        // required: an editor may not offer TextPattern.FindText.
+        let t = Instant::now();
+        let found = match desktop.find_text(Some(&h), "setValue", 50).await {
+            Ok(v) => v,
+            Err(e) => {
+                rep.log("findText", format!("error={}", e.code));
+                Value::Null
+            }
+        };
+        let docs = list(&found["docs"]);
+        let first = docs
+            .first()
+            .map(|d| list(&d["matches"]))
+            .unwrap_or_default();
+        let rect = first
+            .first()
+            .map(|m| m["rect"].to_string())
+            .unwrap_or_default();
+        rep.log(
+            "findText",
+            format!(
+                "docs={} matches={} rect={} ms={}",
+                docs.len(),
+                first.len(),
+                rect,
+                t.elapsed().as_millis()
+            ),
+        );
         Ok::<_, DesktopError>(())
     });
 

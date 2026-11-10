@@ -1128,6 +1128,47 @@ impl Desktop {
         Ok(p::point_out(self.op("scroll", args).await?))
     }
 
+    /// Every place `query` occurs in the window's documents and editors, in
+    /// view or scrolled away: `{docs: [{ref, truncated, matches: [{n, match,
+    /// text, rect}]}]}`. A match's rect is null while it is out of view.
+    pub async fn find_text(
+        self: &Arc<Self>,
+        window_handle: Option<&Value>,
+        query: &str,
+        max: u64,
+    ) -> DResult<Value> {
+        let args = json!({
+            "windowHandle": arg_window(window_handle),
+            "query": query,
+            "max": max,
+            "budgetMs": 700,
+        });
+        let mut r = self.op("findText", args).await?;
+        if let Some(docs) = r.get_mut("docs").and_then(Value::as_array_mut) {
+            for d in docs {
+                let Some(matches) = d.get_mut("matches").and_then(Value::as_array_mut) else {
+                    continue;
+                };
+                for m in matches {
+                    let rect = p::rect_obj(&m["rect"]);
+                    m["rect"] = rect;
+                }
+            }
+        }
+        Ok(r)
+    }
+
+    /// Brings match `n` of a document (as `find_text` numbered it) into view.
+    pub async fn scroll_to_text(
+        self: &Arc<Self>,
+        r#ref: &str,
+        query: &str,
+        n: u64,
+    ) -> DResult<Value> {
+        let args = json!({ "ref": r#ref, "query": query, "n": n });
+        self.op("scrollToText", args).await
+    }
+
     pub async fn scroll_to(self: &Arc<Self>, r#ref: &str) -> DResult<Value> {
         let r = self.op("scrollTo", json!({ "ref": r#ref })).await?;
         Ok(json!({ "ok": r["ok"], "node": p::node_shape(&r["node"]) }))

@@ -159,6 +159,16 @@ impl DesktopAdapter {
                 d.key(keys, repeat, opt(&a, "windowHandle")).await
             }
             "scrollTo" => d.scroll_to(str_of(&a, "ref").unwrap_or("")).await,
+            "findText" => {
+                let query = str_of(&a, "query").unwrap_or("");
+                let max = uint(&a["max"], 400);
+                d.find_text(opt(&a, "windowHandle"), query, max).await
+            }
+            "scrollToText" => {
+                let r = str_of(&a, "ref").unwrap_or("");
+                let query = str_of(&a, "query").unwrap_or("");
+                d.scroll_to_text(r, query, uint(&a["n"], 0)).await
+            }
             "setValue" => {
                 let value = a.get("value").cloned().unwrap_or(Value::Null);
                 d.set_value(str_of(&a, "ref").unwrap_or(""), value).await

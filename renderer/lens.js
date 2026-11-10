@@ -18,6 +18,7 @@ const PAD = 3;
 let drawnKey = '';
 let lastDisplayed = -1;
 let shown = []; // the hits on this display, for keeping the why chip off them
+let drawnRects = new Set(); // the marks already up, so they do not fade in again
 
 // Where the why chip goes: below the ring, above it, or level with it on
 // the right or the left; the first of those that stays on the display and
@@ -120,16 +121,29 @@ window.aeval.on('lens:draw', ({ hits, current, frame }) => {
   if (key !== drawnKey) {
     drawnKey = key;
     hitsEl.innerHTML = '';
-    hits.forEach((h, n) => {
+    // A mark that was already there stays put: only new ones fade in, so
+    // typing another letter does not make the whole page blink.
+    const next = new Set();
+    let fresh = 0;
+    hits.forEach((h) => {
       const el = document.createElement('div');
       el.className = `hit ${h.kind}`;
       el.dataset.i = String(h.i);
       el.style.transform = `translate(${h.x}px, ${h.y}px)`;
       el.style.width = `${h.w}px`;
       el.style.height = `${h.h}px`;
-      el.style.animationDelay = `${Math.min(STAGGER_CAP, n * STAGGER_MS)}ms`;
+      const at = `${h.kind}:${h.x},${h.y},${h.w},${h.h}`;
+      next.add(at);
+      if (drawnRects.has(at)) {
+        el.style.animation = 'none';
+        el.style.opacity = '1';
+      } else {
+        el.style.animationDelay = `${Math.min(STAGGER_CAP, fresh * STAGGER_MS)}ms`;
+        fresh += 1;
+      }
       hitsEl.appendChild(el);
     });
+    drawnRects = next;
   }
   const cur = hits.find((h) => h.i === current);
   if (cur) {

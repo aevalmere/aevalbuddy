@@ -185,7 +185,7 @@ fn stored_label(app: &AppHandle) -> Option<String> {
 }
 
 /// The output to show results in: the stored one while it is open, else
-/// `outputs::target`. The flag is true when the window changed.
+/// `outputs::fresh`. The flag is true when the window changed.
 fn ensure_label(app: &AppHandle) -> Option<(String, bool)> {
     let cur = stored_label(app);
     if let Some(l) = &cur {
@@ -193,7 +193,8 @@ fn ensure_label(app: &AppHandle) -> Option<(String, bool)> {
             return Some((l.clone(), false));
         }
     }
-    let label = outputs::target(app)?;
+    // Never the chat in front: results get a window of their own (B-020).
+    let label = outputs::fresh(app)?;
     let fresh = cur.as_deref() != Some(label.as_str());
     out().label = Some(label.clone());
     Some((label, fresh))

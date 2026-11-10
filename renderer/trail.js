@@ -156,16 +156,25 @@ function findRow(h) {
   return row;
 }
 
+// What the list last followed: the row is brought into view when the query
+// or the current match changes, never because the same list came again.
+let findFollowed = '';
+
 function renderFind() {
   const hadFocus = findView.contains(document.activeElement);
+  const top = findView.scrollTop;
   findView.innerHTML = '';
   findView.setAttribute('aria-label', findQuery ? `Matches for ${findQuery}` : 'Matches');
   if (!findHits.length) renderEmpty();
   for (const h of findHits) findView.appendChild(findRow(h));
   const cur = findView.querySelector('.find-row.current') || findView.querySelector('.find-row');
+  findView.scrollTop = top;
   if (cur) {
     cur.tabIndex = 0;
-    cur.scrollIntoView({ block: 'nearest' });
+    const follow = `${findQuery}
+${findCurrent}`;
+    if (follow !== findFollowed) cur.scrollIntoView({ block: 'nearest' });
+    findFollowed = follow;
     if (hadFocus) cur.focus({ preventScroll: true });
   }
   requestResize();
@@ -202,7 +211,13 @@ findView.addEventListener('keydown', (e) => {
   if (to >= 0 && to !== at) goTo(Number(rows[to].dataset.i), true);
 });
 
+let findDrawn = '';
+
 listen('find:hits', ({ hits, current, query }) => {
+  // The same list again (a re-read that changed nothing) is not redrawn.
+  const same = JSON.stringify([hits, current, query]);
+  if (same === findDrawn && view === 'find') return;
+  findDrawn = same;
   findQuery = String(query || findQuery || '');
   if (view === 'find' && query) window.setSheetTitle('Find', query, true);
   findHits = hits || [];

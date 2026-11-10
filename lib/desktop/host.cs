@@ -470,6 +470,8 @@ namespace AevalDesktop
                 case "key": return KeyCmd(a);
                 case "scroll": return ScrollCmd(a);
                 case "scrollTo": return ScrollTo(a);
+                case "findText": return FindTextCmd(a);
+                case "scrollToText": return ScrollToText(a);
                 case "invoke": return InvokeCmd(a);
                 case "setValue": return SetValueCmd(a);
                 case "restoreCursor": return RestoreCursor();
@@ -1644,6 +1646,145 @@ namespace AevalDesktop
             res["source"] = "uia";
             res["truncated"] = w.Truncated;
             res["readMs"] = sw.ElapsedMilliseconds;
+            return res;
+        }
+
+        // Find's whole-document search. getText reads what is visible; this
+        // asks each document or editor for every place the words occur, on
+        // screen or scrolled away, with the rectangle the application itself
+        // reports for a match that is showing. Matches come in document
+        // order and are numbered, so scrollToText can go to one again.
+        const int FindLineContext = 120;
+
+        static Dictionary<string, object> FindInText(AutomationElement el, int r, int[] box, string query, int max, Stopwatch sw, int budget, out int found, out bool cut)
+        {
+            found = 0;
+            cut = false;
+            TextPattern tp;
+            try { tp = el.GetCurrentPattern(TextPattern.Pattern) as TextPattern; }
+            catch (InvalidOperationException) { return null; }
+            if (tp == null) return null;
+            var matches = new List<object>();
+            TextPatternRange rest = tp.DocumentRange.Clone();
+            TextPatternRange last = null;
+            while (true)
+            {
+                if (found >= max || sw.ElapsedMilliseconds > budget) { cut = true; break; }
+                TextPatternRange m = rest.FindText(query, false, true);
+                if (m == null) break;
+                // A provider that does not move forward would loop for ever.
+                if (last != null && m.CompareEndpoints(TextPatternRangeEndpoint.Start, last, TextPatternRangeEndpoint.Start) <= 0) break;
+                last = m;
+                string hit = m.GetText(200);
+                if (string.IsNullOrEmpty(hit)) break;
+                int[] rect = null;
+                System.Windows.Rect[] rs = m.GetBoundingRectangles();
+                if (rs != null)
+                {
+                    foreach (var x in rs)
+                    {
+                        if (x.IsEmpty || x.Width <= 0 || x.Height <= 0) continue;
+                        rect = new int[] { (int)Math.Round(x.Left), (int)Math.Round(x.Top), (int)Math.Round(x.Width), (int)Math.Round(x.Height) };
+                        break;
+                    }
+                }
+                if (rect != null && box != null && !Intersects(rect, box)) rect = null;
+                string text = hit;
+                if (found < FindLineContext)
+                {
+                    try
+                    {
+                        TextPatternRange ln = m.Clone();
+                        ln.ExpandToEnclosingUnit(TextUnit.Line);
+                        string t = ln.GetText(400);
+                        if (t != null)
+                        {
+                            t = t.TrimEnd('\r', '\n');
+                            if (t.IndexOf(hit, StringComparison.OrdinalIgnoreCase) >= 0) text = t;
+                        }
+                    }
+                    catch (Exception) { }
+                }
+                var d = new Dictionary<string, object>();
+                d["n"] = found;
+                d["match"] = hit;
+                d["text"] = text;
+                d["rect"] = rect;
+                matches.Add(d);
+                found++;
+                rest.MoveEndpointByRange(TextPatternRangeEndpoint.Start, m, TextPatternRangeEndpoint.End);
+                if (rest.CompareEndpoints(TextPatternRangeEndpoint.Start, rest, TextPatternRangeEndpoint.End) >= 0) break;
+            }
+            var res = new Dictionary<string, object>();
+            res["ref"] = RefStr(r);
+            res["matches"] = matches;
+            res["truncated"] = cut;
+            return res;
+        }
+
+        static object FindTextCmd(Dictionary<string, object> a)
+        {
+            string query = Str(a, "query", "");
+            if (query.Trim().Length == 0) throw new DesktopError("BAD_ARGS", "findText needs a query");
+            int max = Math.Max(1, Int(a, "max", 400));
+            int budget = Math.Max(50, Int(a, "budgetMs", 700));
+            var sw = Stopwatch.StartNew();
+            var docs = new List<object>();
+            int total = 0;
+            bool truncated = false;
+            a["depth"] = Int(a, "depth", 60);
+            int gen;
+            Walk w = RunWalk(a, "visible", delegate (AutomationElement el, Info i, int r, string parentName)
+            {
+                if (truncated) return false;
+                if (!i.Text || i.Password || r <= 0) return true;
+                if (i.ControlTypeId != ControlType.Document.Id && i.ControlTypeId != ControlType.Edit.Id) return true;
+                Dictionary<string, object> d = null;
+                int found = 0;
+                bool cut = false;
+                try { d = FindInText(el, r, i.Rect, query, max - total, sw, budget, out found, out cut); }
+                catch (Exception) { d = null; }
+                if (d == null) return true;
+                docs.Add(d);
+                total += found;
+                if (cut) truncated = true;
+                // The document's own text covers its children.
+                return false;
+            }, out gen);
+            var res = new Dictionary<string, object>();
+            res["windowHandle"] = HandleStr(w.Top);
+            res["docs"] = docs;
+            res["total"] = total;
+            res["truncated"] = truncated;
+            res["findMs"] = sw.ElapsedMilliseconds;
+            return res;
+        }
+
+        // Brings match n of a document (as findText numbered it) into view.
+        static object ScrollToText(Dictionary<string, object> a)
+        {
+            var e = GetRef(Arg(a, "ref"));
+            RefuseElevated(e.Top);
+            string query = Str(a, "query", "");
+            if (query.Trim().Length == 0) throw new DesktopError("BAD_ARGS", "scrollToText needs a query");
+            int n = Math.Max(0, Int(a, "n", 0));
+            TextPattern tp;
+            try { tp = e.El.GetCurrentPattern(TextPattern.Pattern) as TextPattern; }
+            catch (InvalidOperationException) { tp = null; }
+            if (tp == null) throw new DesktopError("NO_PATTERN", "that element has no text to scroll through (no TextPattern)");
+            TextPatternRange rest = tp.DocumentRange.Clone();
+            TextPatternRange m = null;
+            for (int k = 0; k <= n; k++)
+            {
+                m = rest.FindText(query, false, true);
+                if (m == null) throw new DesktopError("NOT_FOUND", "that match is no longer in the document");
+                rest.MoveEndpointByRange(TextPatternRangeEndpoint.Start, m, TextPatternRangeEndpoint.End);
+            }
+            CheckCancel();
+            m.ScrollIntoView(true);
+            Thread.Sleep(80);
+            var res = new Dictionary<string, object>();
+            res["ok"] = true;
             return res;
         }
 
