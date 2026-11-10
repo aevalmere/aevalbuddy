@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "AevalBuddy",
-  "mainBinaryName": "AevalBuddy",
+  "productName": "Aevaleron",
+  "mainBinaryName": "Aevaleron",
   "version": "../package.json",
-  "identifier": "com.aevalbuddy.app",
+  "identifier": "com.aevaleron.app",
   "build": {
     "frontendDist": "ui"
   },

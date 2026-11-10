@@ -41,12 +41,12 @@ thread_local! {
 }
 
 pub const STILL_RUNNING: (&str, &str) = (
-    "AevalBuddy hit an error",
+    "Aevaleron hit an error",
     "It is still running. The details were written to errors.log in its settings folder.",
 );
 
 pub const HAS_TO_RESTART: (&str, &str) = (
-    "AevalBuddy hit a problem and has to restart.",
+    "Aevaleron hit a problem and has to restart.",
     "Open it again from the Start menu. The details were written to errors.log in its settings folder.",
 );
 
@@ -72,7 +72,7 @@ pub fn write_to(path: &Path, scope: &str, detail: &str) {
     if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = f.write_all(line.as_bytes());
     }
-    eprintln!("[aevalbuddy] {scope}: {detail}");
+    eprintln!("[aevaleron] {scope}: {detail}");
 }
 
 /// Logs to errors.log in the user-data folder.
@@ -80,7 +80,7 @@ pub fn write(scope: &str, detail: &str) {
     if let Some(p) = LOG.get() {
         write_to(p, scope, detail);
     } else {
-        eprintln!("[aevalbuddy] {scope}: {detail}");
+        eprintln!("[aevaleron] {scope}: {detail}");
     }
 }
 
@@ -359,7 +359,7 @@ mod webview {
                         guard("renderer.recreate", || f(&a, &l));
                     });
                 }
-                Failure::Other => eprintln!("[aevalbuddy] renderer: {detail}"),
+                Failure::Other => eprintln!("[aevaleron] renderer: {detail}"),
             });
             Ok(())
         }));
@@ -449,7 +449,7 @@ mod tests {
         assert_eq!(toast_for(false, false), Toast::StillRunning);
         assert_eq!(
             HAS_TO_RESTART.0,
-            "AevalBuddy hit a problem and has to restart."
+            "Aevaleron hit a problem and has to restart."
         );
     }
 

@@ -1,11 +1,11 @@
 //! Silent toasts with click handlers (PARITY SYS-01, UPD-08, UPD-11,
-//! ARCHITECTURE.md D9). They carry the app's AUMID, `com.aevalbuddy.app`,
+//! ARCHITECTURE.md D9). They carry the app's AUMID, `com.aevaleron.app`,
 //! which the installer puts on the Start Menu shortcut; without it Windows
 //! shows them under a generic name or drops them.
 
 use tauri_winrt_notification::Toast;
 
-pub const AUMID: &str = "com.aevalbuddy.app";
+pub const AUMID: &str = "com.aevaleron.app";
 
 pub type OnClick = Box<dyn FnMut() + Send + 'static>;
 
@@ -23,7 +23,7 @@ pub fn show(title: &str, body: &str, on_click: Option<OnClick>) {
             });
         }
         if let Err(e) = toast.show() {
-            eprintln!("[aevalbuddy] toast not shown: {e}");
+            eprintln!("[aevaleron] toast not shown: {e}");
         }
     });
 }
@@ -37,7 +37,7 @@ pub fn show_and_wait(title: &str, body: &str, timeout: std::time::Duration) {
     std::thread::spawn(move || {
         let toast = Toast::new(AUMID).title(&title).text1(&body).sound(None);
         if let Err(e) = toast.show() {
-            eprintln!("[aevalbuddy] toast not shown: {e}");
+            eprintln!("[aevaleron] toast not shown: {e}");
         }
         let _ = done.send(());
     });

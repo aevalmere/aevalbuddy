@@ -647,7 +647,7 @@ namespace AevalDesktop
 
         static void RefuseExcluded(IntPtr h)
         {
-            if (IsExcludedWindow(h)) throw new DesktopError("BLOCKED_OWN_WINDOW", "refusing to read or act on AevalBuddy's own window");
+            if (IsExcludedWindow(h)) throw new DesktopError("BLOCKED_OWN_WINDOW", "refusing to read or act on Aevaleron's own window");
         }
 
         // Any input whose point lands inside one of our visible windows is
@@ -667,7 +667,7 @@ namespace AevalDesktop
                 Native.RECT r;
                 if (!Native.GetWindowRect(h, out r)) continue;
                 if (x >= r.Left && x < r.Right && y >= r.Top && y < r.Bottom)
-                    throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on AevalBuddy's own window");
+                    throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on Aevaleron's own window");
             }
             IntPtr hit = Native.WindowFromPoint(new Native.POINT { X = x, Y = y });
             if (hit != IntPtr.Zero && IsExcludedWindow(hit))
@@ -675,7 +675,7 @@ namespace AevalDesktop
                 bool exempt = false;
                 IntPtr root = Native.GetAncestor(hit, Native.GA_ROOT);
                 lock (exLock) { foreach (var w in exWins) if (w.Handle == root.ToInt64() && !w.Block) exempt = true; }
-                if (!exempt) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on AevalBuddy's own window");
+                if (!exempt) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on Aevaleron's own window");
             }
         }
 
@@ -834,7 +834,7 @@ namespace AevalDesktop
         }
 
         // The app the person was in: the foreground window, unless that is
-        // AevalBuddy itself (it usually is, at the moment someone asks), in
+        // Aevaleron itself (it usually is, at the moment someone asks), in
         // which case the topmost ordinary window under it.
         static IntPtr UserForeground()
         {
@@ -1216,7 +1216,7 @@ namespace AevalDesktop
             {
                 if (!refs.TryGetValue(r, out e)) throw Stale(r);
             }
-            if (IsExcludedPid(e.Pid) || IsExcludedWindow(e.Top)) throw new DesktopError("BLOCKED_OWN_WINDOW", "refusing to act on AevalBuddy's own window");
+            if (IsExcludedPid(e.Pid) || IsExcludedWindow(e.Top)) throw new DesktopError("BLOCKED_OWN_WINDOW", "refusing to act on Aevaleron's own window");
             try { var probe = e.El.Current.ControlType; }
             catch (ElementNotAvailableException) { throw Stale(r); }
             return e;
@@ -1652,12 +1652,12 @@ namespace AevalDesktop
             int x = RequireInt(a, "x"), y = RequireInt(a, "y");
             IntPtr hit = Native.WindowFromPoint(new Native.POINT { X = x, Y = y });
             IntPtr top = Native.GetAncestor(hit, Native.GA_ROOT);
-            if (IsExcludedWindow(hit)) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on AevalBuddy's own window");
+            if (IsExcludedWindow(hit)) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on Aevaleron's own window");
             AutomationElement el;
             var cr = MakeCache(TreeScope.Element);
             using (cr.Activate()) { el = AutomationElement.FromPoint(new System.Windows.Point(x, y)); }
             Info i = Read(el, true);
-            if (IsExcludedPid(i.Pid)) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on AevalBuddy's own window");
+            if (IsExcludedPid(i.Pid)) throw new DesktopError("BLOCKED_OWN_WINDOW", "that point is on Aevaleron's own window");
             var res = new Dictionary<string, object>();
             res["node"] = NodeDict(i, RefFor(el, i, top), 0, 0, 300);
             res["windowHandle"] = HandleStr(top);
@@ -1981,7 +1981,7 @@ namespace AevalDesktop
         // Keyboard input goes wherever focus is, so it is only sent while the
         // intended window is in front. With a window that window is brought
         // forward first; without one, the foreground window is the target
-        // unless it is AevalBuddy.
+        // unless it is Aevaleron.
         // A locked session (LockApp in front) or a UAC prompt (the input
         // desktop is not ours) takes no input from us, and must not: typing
         // at a lock screen is typing into a password box.
@@ -2077,7 +2077,7 @@ namespace AevalDesktop
             }
             IntPtr fg = ForegroundRoot();
             if (fg == IntPtr.Zero) throw new DesktopError("NOT_FOUND", "no foreground window");
-            if (IsExcludedWindow(fg)) throw new DesktopError("BLOCKED_OWN_WINDOW", "the foreground window is AevalBuddy's own; focus the target first");
+            if (IsExcludedWindow(fg)) throw new DesktopError("BLOCKED_OWN_WINDOW", "the foreground window is Aevaleron's own; focus the target first");
             RefuseElevated(fg);
             return fg;
         }

@@ -19,6 +19,11 @@
   padding: 0;
 }
 
+/* Put away (buddy:reset): gone in one frame, with no fade. */
+html.away body {
+  visibility: hidden;
+}
+
 html,
 body {
   background: transparent;

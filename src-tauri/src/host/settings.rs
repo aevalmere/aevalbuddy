@@ -40,7 +40,7 @@ impl LlmSettings for StoreSettings {
         (!k.trim().is_empty()).then_some(k)
     }
 
-    /// `provider` in aevalbuddy.json, the override from before
+    /// `provider` in aevaleron.json, the override from before
     /// `providerOrder`.
     fn provider_override(&self) -> Option<Provider> {
         store::get()
@@ -48,7 +48,7 @@ impl LlmSettings for StoreSettings {
             .and_then(|v| v.as_str().and_then(Provider::from_id))
     }
 
-    /// `providerOrder` in aevalbuddy.json: provider ids, first tried first.
+    /// `providerOrder` in aevaleron.json: provider ids, first tried first.
     fn provider_order(&self) -> Vec<Provider> {
         let Some(Value::Array(ids)) = store::get().raw("providerOrder") else {
             return Vec::new();
@@ -85,7 +85,7 @@ impl LlmSettings for StoreSettings {
         }
     }
 
-    /// `nativeModels.<provider>.<kind>` in aevalbuddy.json, when set.
+    /// `nativeModels.<provider>.<kind>` in aevaleron.json, when set.
     fn native_model(&self, provider: Provider, kind: Kind) -> Option<String> {
         let v = store::get().raw("nativeModels")?;
         let id = v.get(provider.id())?.get(kind.as_str())?.as_str()?.trim();
@@ -243,14 +243,14 @@ fn record_answer(
     match errors::code_of(provider, err, model) {
         errors::codes::BAD_KEY => {
             let text = format!(
-                "{p} rejected this key. It may have been revoked or mistyped. AevalBuddy is \
+                "{p} rejected this key. It may have been revoked or mistyped. Aevaleron is \
 skipping {p} until you replace it."
             );
             t.mark_rejected(provider, key, &text)
         }
         errors::codes::NO_CREDIT if provider.is_native() => {
             let text = format!(
-                "The key works, but the {p} account has no credit. AevalBuddy is skipping {p}."
+                "The key works, but the {p} account has no credit. Aevaleron is skipping {p}."
             );
             t.mark_no_credit(provider, key, now, &text)
         }
@@ -335,7 +335,7 @@ async fn tested_save(
     store_key();
     let message = if check.status == Status::Unchecked {
         format!(
-            "Can't reach {p} right now. The key is saved; AevalBuddy checks again when you're \
+            "Can't reach {p} right now. The key is saved; Aevaleron checks again when you're \
 online."
         )
     } else {
@@ -700,7 +700,7 @@ mod tests {
         assert!(!v.to_string().contains(key), "the key never reaches a page");
 
         // Unreachable, or the provider is having a bad minute: kept.
-        let want = "Can't reach Anthropic right now. The key is saved; AevalBuddy checks again \
+        let want = "Can't reach Anthropic right now. The key is saved; Aevaleron checks again \
 when you're online.";
         for status in [0, 503] {
             let stored = Cell::new(false);

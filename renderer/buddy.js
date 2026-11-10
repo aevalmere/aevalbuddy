@@ -181,6 +181,7 @@ function actionButton(label, primary, onClick) {
 }
 
 window.aeval.on('buddy:show', (payload) => {
+  document.documentElement.classList.remove('away');
   const { x, y, message: msg, kind, stepIndex, stepCount } = payload;
   // Model-directed points are stepped through by clicking the bubble;
   // walkthrough steps advance on the app action they describe.
@@ -289,6 +290,10 @@ window.aeval.on('buddy:reset', () => {
   calloutActions.innerHTML = '';
   calloutActions.hidden = true;
   setPips(-1, 0);
+  // Nothing fades: the window hides once this empty page is on screen, so
+  // the next session never opens on this one's pointer.
+  document.documentElement.classList.add('away');
+  window.AevalGlass.painted(() => window.aeval.invoke('buddy:cleared'));
 });
 
 // The window is click-through by default. While the cursor is over the

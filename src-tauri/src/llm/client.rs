@@ -121,7 +121,7 @@ impl ReqwestTransport {
     fn builder() -> reqwest::ClientBuilder {
         reqwest::Client::builder()
             .use_rustls_tls()
-            .user_agent(concat!("AevalBuddy/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("Aevaleron/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(10))
             .tcp_keepalive(Duration::from_secs(30))
     }
@@ -282,7 +282,7 @@ impl KeyCheck {
     fn unreachable(provider: Provider) -> KeyCheck {
         let p = provider.name();
         let text = format!(
-            "Can't reach {p} right now. The key is saved; AevalBuddy checks again when you're \
+            "Can't reach {p} right now. The key is saved; Aevaleron checks again when you're \
 online."
         );
         Self::failed(Status::Unchecked, text)
@@ -291,7 +291,7 @@ online."
     fn rejected(provider: Provider) -> KeyCheck {
         let p = provider.name();
         let text = format!(
-            "{p} rejected this key. It may have been revoked or mistyped. AevalBuddy is \
+            "{p} rejected this key. It may have been revoked or mistyped. Aevaleron is \
 skipping {p} until you replace it."
         );
         Self::failed(Status::Rejected, text)
@@ -302,7 +302,7 @@ skipping {p} until you replace it."
             "The key works, but the account has no credit, so only free models answer.".to_string()
         } else {
             let p = provider.name();
-            format!("The key works, but the {p} account has no credit. AevalBuddy is skipping {p}.")
+            format!("The key works, but the {p} account has no credit. Aevaleron is skipping {p}.")
         };
         KeyCheck {
             ok: true,
@@ -1130,9 +1130,9 @@ mod tests {
     }
 
     const REJECTED: &str = "OpenRouter rejected this key. It may have been revoked or mistyped. \
-AevalBuddy is skipping OpenRouter until you replace it.";
+Aevaleron is skipping OpenRouter until you replace it.";
 
-    const UNREACHABLE: &str = "Can't reach OpenRouter right now. The key is saved; AevalBuddy \
+    const UNREACHABLE: &str = "Can't reach OpenRouter right now. The key is saved; Aevaleron \
 checks again when you're online.";
 
     #[test]
@@ -1196,7 +1196,7 @@ checks again when you're online.";
         let (llm, _) = client(vec![Ok((400, "{}".into()))]);
         let got = block(llm.test_key(Provider::Gemini, "AIzaX"));
         let want = "Google Gemini rejected this key. It may have been revoked or mistyped. \
-AevalBuddy is skipping Google Gemini until you replace it.";
+Aevaleron is skipping Google Gemini until you replace it.";
         assert_eq!(got.message, want);
         assert_eq!(got.status, Status::Rejected);
     }

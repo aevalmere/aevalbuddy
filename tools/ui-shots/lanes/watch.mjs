@@ -72,7 +72,7 @@ const ROWS = [
 
 const DONE = {
   kind: 'done',
-  title: 'aevalbuddy finished',
+  title: 'aevaleron finished',
   place: 'VS Code',
   detail: 'The tour card is redesigned and the checks pass. Two things are left for you to decide before the release.',
   session: 's1',
@@ -176,7 +176,7 @@ export const scenes = [
       kind: 'info',
       title: 'Watch your coding agents?',
       place: '',
-      detail: 'AevalBuddy can keep this PC awake while Claude Code, Codex and the others work, and tell you when one finishes or needs you.',
+      detail: 'Aevaleron can keep this PC awake while Claude Code, Codex and the others work, and tell you when one finishes or needs you.',
       session: null,
       canJump: false,
       altTab: false,

@@ -192,7 +192,7 @@ short lists. Markdown is rendered.";
 /// with the skill appended as `--- <name> ---`.
 pub fn make_system_prompt(o: SystemPromptOpts, skill: Option<&SkillText>) -> String {
     let mut lines: Vec<&str> = vec![
-        "You are AevalBuddy, an assistant built into the user's Windows desktop.",
+        "You are Aevaleron, an assistant built into the user's Windows desktop.",
         "This is an ongoing conversation; the user may follow up on earlier answers.",
     ];
     if o.via_reader {

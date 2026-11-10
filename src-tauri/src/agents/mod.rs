@@ -50,7 +50,7 @@ const TAIL_BYTES: u64 = 256 * 1024;
 /// How long after the last agent stops a PC with its lid shut goes to sleep.
 const LID_SLEEP_AFTER_MS: u64 = 60_000;
 
-/// `agents` in aevalbuddy.json.
+/// `agents` in aevaleron.json.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Prefs {
@@ -552,7 +552,7 @@ fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     }
     let built =
         WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/agents.html".into()))
-            .title("AevalBuddy agents")
+            .title("Aevaleron agents")
             .decorations(false)
             .transparent(true)
             .shadow(false)
@@ -988,7 +988,7 @@ fn replace_file(file: &Path, text: &str) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
     let mut tmp = file.as_os_str().to_owned();
-    tmp.push(".aevalbuddy.tmp");
+    tmp.push(".aevaleron.tmp");
     std::fs::write(&tmp, text)?;
     std::fs::rename(&tmp, file)
 }
@@ -999,6 +999,10 @@ fn replace_file(file: &Path, text: &str) -> std::io::Result<()> {
 fn sync_one(a: &specs::AgentSpec, home: &Path, base: &str, want: bool) -> Result<bool, String> {
     if !home.join(a.dir).is_dir() {
         return Ok(false);
+    }
+    // The hooks file this app wrote for the agent while it was AevalBuddy.
+    if let Some(old) = specs::old_file(a) {
+        let _ = std::fs::remove_file(home.join(old));
     }
     let file = home.join(a.file);
     let text = std::fs::read_to_string(&file).ok();
@@ -1016,7 +1020,7 @@ fn sync_one(a: &specs::AgentSpec, home: &Path, base: &str, want: bool) -> Result
     // The person's file, as it was before this app first touched it.
     if let (Some(old), true) = (&text, a.layout != specs::Layout::Own) {
         let mut bak = file.as_os_str().to_owned();
-        bak.push(".aevalbuddy.bak");
+        bak.push(".aevaleron.bak");
         if !Path::new(&bak).exists() {
             std::fs::write(&bak, old).map_err(|e| e.to_string())?;
         }
@@ -1178,7 +1182,7 @@ fn offer_later() {
             });
             let card = info(
                 "Watch your coding agents?",
-                "AevalBuddy can keep this PC awake while Claude Code, Codex and the others work, and tell you when one finishes or needs you.",
+                "Aevaleron can keep this PC awake while Claude Code, Codex and the others work, and tell you when one finishes or needs you.",
             );
             let actions = vec![("enable", "Turn on"), ("later", "Not now")];
             show_card(card, actions, &p);
@@ -1371,7 +1375,7 @@ mod tests {
         std::fs::create_dir_all(home.join(".claude")).unwrap();
         let theirs = r#"{"model":"opus"}"#;
         std::fs::write(home.join(".claude").join("settings.json"), theirs).unwrap();
-        let base = "C:/Apps/AevalBuddy/AevalBuddy.exe --hook";
+        let base = "C:/Apps/Aevaleron/Aevaleron.exe --hook";
         let claude = specs::get("claude");
         // Codex is not installed here: nothing is created for it.
         assert_eq!(sync_one(specs::get("codex"), &home, base, true), Ok(false));
@@ -1380,7 +1384,7 @@ mod tests {
         let file = home.join(".claude").join("settings.json");
         let text = std::fs::read_to_string(&file).unwrap();
         assert!(specs::is_installed(claude, Some(&text), base));
-        let bak = home.join(".claude").join("settings.json.aevalbuddy.bak");
+        let bak = home.join(".claude").join("settings.json.aevaleron.bak");
         assert_eq!(std::fs::read_to_string(&bak).unwrap(), theirs);
         // Already in place: the file is not rewritten.
         let stamp = std::fs::metadata(&file).unwrap().modified().unwrap();

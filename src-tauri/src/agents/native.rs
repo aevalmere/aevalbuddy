@@ -609,7 +609,7 @@ mod tests {
     fn tree() -> (HashMap<u32, u32>, HashMap<u32, String>) {
         // hook(1) <- bash(2) <- claude(3) <- bash(4) <- node(5) <- Code(6) <- explorer(7)
         let names = [
-            "AevalBuddy.exe",
+            "Aevaleron.exe",
             "bash.exe",
             "claude.exe",
             "bash.exe",

@@ -655,7 +655,7 @@ function renderGuess() {
   if (guess.hidden === !show) return;
   guess.hidden = !show;
   if (show) {
-    guessText.textContent = 'This sounds like a task. Enter just answers it; AevalBuddy can also do it on your computer.';
+    guessText.textContent = 'This sounds like a task. Enter just answers it; Aevaleron can also do it on your computer.';
     announce('This sounds like a task. Enter answers it. Alt+Enter does it for you.');
   }
   requestResize();

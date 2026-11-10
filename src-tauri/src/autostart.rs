@@ -15,7 +15,10 @@ use winreg::RegKey;
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const APPROVED_KEY: &str =
     r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
-pub const VALUE_NAME: &str = "com.aevalbuddy.app";
+pub const VALUE_NAME: &str = "com.aevaleron.app";
+/// The value's name while the app was AevalBuddy. Its exe is gone after the
+/// upgrade, so the entry is removed whatever the setting says.
+const OLD_VALUE_NAME: &str = "com.aevalbuddy.app";
 /// Task Manager's "Enabled": 02 then eleven zero bytes.
 pub const APPROVED_ON: [u8; 12] = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -54,6 +57,10 @@ fn write(explicit: bool) -> bool {
     let Ok(run) = hkcu.open_subkey_with_flags(RUN_KEY, KEY_SET_VALUE | KEY_READ) else {
         return on;
     };
+    let _ = run.delete_value(OLD_VALUE_NAME);
+    if let Ok(approved) = hkcu.open_subkey_with_flags(APPROVED_KEY, KEY_SET_VALUE) {
+        let _ = approved.delete_value(OLD_VALUE_NAME);
+    }
     if on {
         if let Ok(exe) = std::env::current_exe() {
             let _ = run.set_value(VALUE_NAME, &run_value(&exe));
@@ -98,7 +105,7 @@ mod tests {
 
     #[test]
     fn value_is_the_quoted_exe() {
-        let v = run_value(std::path::Path::new(r"C:\Apps\AevalBuddy\AevalBuddy.exe"));
-        assert_eq!(v, r#""C:\Apps\AevalBuddy\AevalBuddy.exe""#);
+        let v = run_value(std::path::Path::new(r"C:\Apps\Aevaleron\Aevaleron.exe"));
+        assert_eq!(v, r#""C:\Apps\Aevaleron\Aevaleron.exe""#);
     }
 }

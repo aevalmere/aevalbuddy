@@ -97,7 +97,7 @@ pub fn draw_payload(
 fn create(app: &AppHandle, d: &screen::Display) -> tauri::Result<tauri::WebviewWindow> {
     let label = label_for(d.id);
     let win = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("renderer/lens.html".into()))
-        .title("AevalBuddy")
+        .title("Aevaleron")
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -205,14 +205,15 @@ pub fn draw(app: &AppHandle) {
         let existing = app.get_webview_window(&label);
         if !drawn {
             if let Some(w) = existing {
-                let _ = w.emit_to(
-                    label.as_str(),
-                    "lens:draw",
-                    json!({ "hits": [], "current": -1, "frame": null }),
-                );
-                // Win32, not `w.hide()`: a queued hide could land after the
-                // next draw's show.
-                win::hide(capture::hwnd_of(&w));
+                // Dropped, not hidden: a hidden page keeps the last frame it
+                // painted and shows it for a moment when the window comes
+                // back (ARCHITECTURE.md 10.2). The next draw waits for the
+                // label (`wait_out_close`) and builds a new one.
+                with(|s| {
+                    s.ready.remove(&label);
+                    s.closing.insert(label.clone());
+                });
+                let _ = w.destroy();
             }
             continue;
         }

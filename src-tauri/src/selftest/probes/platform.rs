@@ -30,7 +30,7 @@ use crate::windows::{self, flags, OVERLAY};
 use crate::{autostart, crash, history, hotkeys, paths, store, updater};
 
 const SECOND: Duration = Duration::from_secs(1);
-const AUMID: &str = "com.aevalbuddy.app";
+const AUMID: &str = "com.aevaleron.app";
 const MAIN_CHORD: &str = "Ctrl+Alt+Space";
 const ACTIONS: [&str; 5] = [
     "captureQuery",
@@ -173,7 +173,7 @@ unsafe extern "system" fn collect(hwnd: HWND, data: LPARAM) -> BOOL {
     GetWindowThreadProcessId(hwnd, &mut pid);
     let mut title = [0u16; 64];
     let len = GetWindowTextW(hwnd, title.as_mut_ptr(), 64).max(0) as usize;
-    if pid == found.pid && String::from_utf16_lossy(&title[..len]).starts_with("AevalBuddy") {
+    if pid == found.pid && String::from_utf16_lossy(&title[..len]).starts_with("Aevaleron") {
         found.windows.push(hwnd);
     }
     TRUE
@@ -417,7 +417,7 @@ fn tray_data(cx: &Cx) {
         "Help and feedback…",
         "Check for updates",
         "-",
-        "Quit AevalBuddy",
+        "Quit Aevaleron",
     ];
     let with = |first: &str| {
         let mut all = vec![first.to_string(), "-".to_string()];
@@ -481,10 +481,10 @@ fn tray_data(cx: &Cx) {
         tray::tooltip(&plain, false, &Map::new()),
     ];
     let want = [
-        "AevalBuddy · 9.9.9 is ready, restart to update",
-        "AevalBuddy is using your computer · Esc to stop",
-        "AevalBuddy · Ctrl+Alt+Space",
-        "AevalBuddy",
+        "Aevaleron · 9.9.9 is ready, restart to update",
+        "Aevaleron is using your computer · Esc to stop",
+        "Aevaleron · Ctrl+Alt+Space",
+        "Aevaleron",
     ];
     cx.must("trayTooltip", tips == want, tips.join(" | "));
 }
@@ -783,7 +783,7 @@ fn update_labels(cx: &Cx) {
     let feed = updater::feed_config();
     let ok = feed["provider"] == "github"
         && feed["owner"] == "aevalmere"
-        && feed["repo"] == "aevalbuddy"
+        && feed["repo"] == "aevaleron"
         && feed["private"] == false;
     cx.must("updateConfig", ok, &feed);
 

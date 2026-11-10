@@ -205,7 +205,7 @@ fn open_window(app: &AppHandle, phys: screen::PxRect, gen: u64) -> tauri::Result
     // Unlike every other surface this one wants the keyboard and the mouse:
     // it is a modal gesture, not an overlay.
     let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/region.html".into()))
-        .title("AevalBuddy")
+        .title("Aevaleron")
         .decorations(false)
         .transparent(true)
         .shadow(false)

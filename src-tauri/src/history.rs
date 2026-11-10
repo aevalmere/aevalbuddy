@@ -254,7 +254,7 @@ impl History {
         self.leave_write();
         if let Err(e) = result {
             self.inner.lock().dirty = true;
-            eprintln!("[aevalbuddy] history not saved: {e}");
+            eprintln!("[aevaleron] history not saved: {e}");
         }
     }
 

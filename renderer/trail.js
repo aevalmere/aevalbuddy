@@ -800,10 +800,10 @@ listen('agent:consent-request', (p) => {
   const task = p && p.task;
   showSheet();
   const sheet = el('div', 'msg consent');
-  sheet.appendChild(el('p', 'consent-title', 'Let AevalBuddy use your computer?'));
+  sheet.appendChild(el('p', 'consent-title', 'Let Aevaleron use your computer?'));
   const ul = el('ul', 'consent-list');
   ul.appendChild(el('li', '', 'It can see, click and type in any app, the way you would.'));
-  ul.appendChild(el('li', '', 'It asks first before anything that sends, deletes, buys, signs or opens a link.'));
+  ul.appendChild(el('li', '', 'Anything that sends, deletes, buys, signs or opens a link is checked first, and asks you unless it is clearly what you wanted.'));
   ul.appendChild(el('li', '', 'Move the mouse to pause it. Press Esc to stop it.'));
   const sends = `Each step sends a screenshot and the window's text to ${joinNames(recipientsOf(p || {}))}.`;
   const free = p && (p.free === true || (Array.isArray(p.recipients) && p.recipients.some((r) => r && r.free === true)));
@@ -811,7 +811,7 @@ listen('agent:consent-request', (p) => {
   sheet.appendChild(ul);
   sheet.tabIndex = -1;
   sheet.setAttribute('role', 'dialog');
-  sheet.setAttribute('aria-label', 'Let AevalBuddy use your computer?');
+  sheet.setAttribute('aria-label', 'Let Aevaleron use your computer?');
   const actions = el('div', 'confirm-actions');
   const later = el('button', 'link-btn', 'Not now');
   later.type = 'button';
@@ -829,7 +829,7 @@ listen('agent:consent-request', (p) => {
   chatEl.appendChild(sheet);
   // Focus on the sheet, not on Allow: Enter alone must not grant this.
   setTimeout(() => sheet.focus(), 30);
-  say('Let AevalBuddy use your computer? Tab to Not now or Allow.', 'assertive');
+  say('Let Aevaleron use your computer? Tab to Not now or Allow.', 'assertive');
   scrollToBottom(true);
   requestResize();
 });

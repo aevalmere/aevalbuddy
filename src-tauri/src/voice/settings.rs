@@ -1,4 +1,4 @@
-//! Voice settings, kept under `voice` in aevalbuddy.json:
+//! Voice settings, kept under `voice` in aevaleron.json:
 //!
 //! ```json
 //! "voice": { "dictation": true, "hotkey": "Ctrl+Super", "aiCleanup": false,
@@ -146,7 +146,7 @@ pub fn merge(
             .any(|t| ptt::parse(t).is_ok_and(|o| o == chord));
         if clash {
             return Err(format!(
-                "{} already opens AevalBuddy. Choose another.",
+                "{} already opens Aevaleron. Choose another.",
                 ptt::label(h)
             ));
         }
@@ -176,7 +176,7 @@ pub fn merge(
                 .any(|t| ptt::parse(t).is_ok_and(|o| o == chord))
             {
                 return Err(format!(
-                    "{} already opens AevalBuddy. Choose another dictation shortcut.",
+                    "{} already opens Aevaleron. Choose another dictation shortcut.",
                     ptt::label(&next.hotkey)
                 ));
             }

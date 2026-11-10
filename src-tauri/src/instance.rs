@@ -26,12 +26,12 @@ const KNOCK_FOR: Duration = Duration::from_secs(15);
 /// How long the first copy waits for a client to say what it wants.
 const READ_FOR: Duration = Duration::from_secs(2);
 
-/// `aevalbuddy-<first 16 hex of sha256(lowercased path)>`.
+/// `aevaleron-<first 16 hex of sha256(lowercased path)>`.
 pub fn lock_name(user_data: &Path) -> String {
     let path = user_data.to_string_lossy().to_lowercase();
     let digest = Sha256::digest(path.as_bytes());
     let hex: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
-    format!("aevalbuddy-{hex}")
+    format!("aevaleron-{hex}")
 }
 
 pub fn pipe_path(name: &str) -> String {
@@ -76,7 +76,7 @@ fn signal(name: &str) {
     // SAFETY: takes a process id only.
     unsafe { AllowSetForegroundWindow(ASFW_ANY) };
     if !knock(name, KNOCK_FOR) {
-        eprintln!("[aevalbuddy] the running copy did not answer");
+        eprintln!("[aevaleron] the running copy did not answer");
     }
 }
 
@@ -180,7 +180,7 @@ async fn create(path: &str, first: bool) -> NamedPipeServer {
         match made {
             Ok(server) => return server,
             Err(e) => {
-                eprintln!("[aevalbuddy] instance pipe not created: {e}");
+                eprintln!("[aevaleron] instance pipe not created: {e}");
                 tokio::time::sleep(wait).await;
                 wait = (wait * 2).min(Duration::from_secs(5));
             }
@@ -203,12 +203,12 @@ mod tests {
 
     #[test]
     fn lock_is_per_folder_and_case_blind() {
-        let a = lock_name(Path::new(r"C:\Users\a\AppData\Roaming\aevalbuddy"));
-        let b = lock_name(Path::new(r"C:\USERS\A\AppData\Roaming\aevalbuddy"));
+        let a = lock_name(Path::new(r"C:\Users\a\AppData\Roaming\aevaleron"));
+        let b = lock_name(Path::new(r"C:\USERS\A\AppData\Roaming\aevaleron"));
         let c = lock_name(Path::new(r"D:\scratch"));
         assert_eq!(a, b);
         assert_ne!(a, c);
-        assert_eq!(a.len(), "aevalbuddy-".len() + 16);
+        assert_eq!(a.len(), "aevaleron-".len() + 16);
         assert_eq!(pipe_path("x"), r"\\.\pipe\x");
     }
 
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn stalled_client_does_not_block_server() {
-        let name = format!("aevalbuddy-test-{}-stall", std::process::id());
+        let name = format!("aevaleron-test-{}-stall", std::process::id());
         let bell = serve(name.clone());
         let (tx, rx) = std::sync::mpsc::channel();
         bell.answer(move || {

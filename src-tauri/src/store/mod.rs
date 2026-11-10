@@ -1,6 +1,6 @@
 //! Settings store compatible with electron-store (PARITY STORE-01..44).
 //!
-//! The file is `%APPDATA%\aevalbuddy\aevalbuddy.json` (or under
+//! The file is `%APPDATA%\aevaleron\aevaleron.json` (or under
 //! `AEVAL_USERDATA`), the same keys, defaults and sanitisers as lib/store.js.
 //! Defaults are merged on open and written back, as electron-store does;
 //! unknown keys are kept; every write is atomic (temp + rename) and uses
@@ -139,7 +139,10 @@ pub fn defaults() -> Map<String, Value> {
         "findScope": "window",
         "findRelatedMode": "ask",
         "findOcr": true,
-        "agentPermission": "risky",
+        "agentPermission": "auto",
+        // Which default the profile has been offered: one from before
+        // automatic mode existed holds "risky" without anyone choosing it.
+        "permissionDefault": "auto",
         "agentMaxSteps": 25,
         "agentScreenshots": true,
         "agentReturnCursor": true,
@@ -273,7 +276,7 @@ pub struct Store {
     /// over it this session; settings live in memory only.
     saving_disabled: bool,
     /// Whether the file on disk is one this session read or wrote whole, so
-    /// it may become `aevalbuddy.json.bak` before the next replace.
+    /// it may become `aevaleron.json.bak` before the next replace.
     disk_good: AtomicBool,
 }
 
@@ -372,7 +375,7 @@ fn load(path: &Path, read: Reader<'_>) -> Loaded {
         .ok()
         .and_then(|b| parse_object(&b));
     let note = if backup.is_some() {
-        "settings file unreadable; restored aevalbuddy.json.bak"
+        "settings file unreadable; restored aevaleron.json.bak"
     } else {
         "settings file unreadable; starting from defaults"
     };
@@ -410,7 +413,7 @@ pub fn get() -> &'static Store {
 }
 
 impl Store {
-    /// Reads `aevalbuddy.json`, merges defaults over it, runs the migrations
+    /// Reads `aevaleron.json`, merges defaults over it, runs the migrations
     /// and writes the result back.
     pub fn open(user_data: &Path) -> Store {
         let crypt = OsCrypt::load_or_create(user_data);
@@ -422,7 +425,7 @@ impl Store {
     }
 
     fn open_reading(user_data: &Path, crypt: OsCrypt, read: Reader<'_>) -> Store {
-        let path = user_data.join("aevalbuddy.json");
+        let path = user_data.join("aevaleron.json");
         durable::sweep_temps(&path);
         let Loaded {
             file,
@@ -435,6 +438,10 @@ impl Store {
             && file.get("surface").and_then(Value::as_str) == Some("solid");
         // A level stored on the v2.1 glass scale moves to the v2.2 one.
         let glass_v1 = file.contains_key("glassIntensity") && !file.contains_key("glassScale");
+        // A profile from before automatic mode was the default moves to it,
+        // once; "every" was always a choice and stays.
+        let pre_auto = !file.contains_key("permissionDefault")
+            && file.get("agentPermission").and_then(Value::as_str) == Some("risky");
         // Object.assign({}, defaults, file): defaults' order, file values.
         let mut data = defaults();
         if was_solid {
@@ -447,6 +454,9 @@ impl Store {
             let v = glass_v1_to_v2(js_number(data.get("glassIntensity")));
             data.insert("glassIntensity".into(), json!(v));
             data.insert("glassScale".into(), json!(GLASS_SCALE));
+        }
+        if pre_auto {
+            data.insert("agentPermission".into(), json!("auto"));
         }
         let store = Store {
             path,
@@ -487,7 +497,7 @@ impl Store {
 
     fn save_failed(&self, why: &str) {
         // Always on stderr, so a smoke log shows it; errors.log once.
-        eprintln!("[aevalbuddy] store: settings not saved: {why}");
+        eprintln!("[aevaleron] store: settings not saved: {why}");
         if !SAVE_FAILURE_LOGGED.swap(true, Ordering::SeqCst) {
             crate::crash::write("store", &format!("settings not saved: {why}"));
         }
@@ -1249,7 +1259,7 @@ mod tests {
     }
 
     fn file(dir: &Path) -> Map<String, Value> {
-        let text = fs::read_to_string(dir.join("aevalbuddy.json")).unwrap();
+        let text = fs::read_to_string(dir.join("aevaleron.json")).unwrap();
         serde_json::from_str(&text).unwrap()
     }
 
@@ -1271,7 +1281,7 @@ mod tests {
         assert_eq!(s.get_input_width(), 600);
         assert_eq!(f["outputWidth"], 420);
         // electron-store writes tabs.
-        let text = fs::read_to_string(dir.join("aevalbuddy.json")).unwrap();
+        let text = fs::read_to_string(dir.join("aevaleron.json")).unwrap();
         assert!(text.contains("\n\t\"apiKeyEncrypted\": \"\""));
     }
 
@@ -1282,7 +1292,7 @@ mod tests {
         let dir = temp("fresh-set");
         let s = open(&dir);
         assert!(!s.saving_disabled);
-        let held = fs::File::open(dir.join("aevalbuddy.json")).unwrap();
+        let held = fs::File::open(dir.join("aevaleron.json")).unwrap();
         s.mark_first_request_sent();
         drop(held);
         assert_eq!(file(&dir)["hasSentFirstRequest"], true);
@@ -1317,7 +1327,7 @@ mod tests {
     fn unknown_keys_survive_and_values_win_over_defaults() {
         let dir = temp("unknown");
         fs::write(
-            dir.join("aevalbuddy.json"),
+            dir.join("aevaleron.json"),
             r#"{"future":{"a":1},"inputWidth":700,"shortcutsVersion":2}"#,
         )
         .unwrap();
@@ -1333,7 +1343,7 @@ mod tests {
     fn v2_shortcut_migration() {
         let dir = temp("migrate");
         fs::write(
-            dir.join("aevalbuddy.json"),
+            dir.join("aevaleron.json"),
             r#"{"shortcuts":{"captureQuery":"Ctrl+Shift+Space","captureRegion":"Ctrl+Alt+R","findOnScreen":"Ctrl+Shift+G"},"findRelated":false,"lastMode":"ask"}"#,
         )
         .unwrap();
@@ -1475,7 +1485,7 @@ mod tests {
         let dir = temp("legacy");
         let blob = crypto::seal(&[3u8; 32], &[5u8; 12], "sk-or-old").unwrap();
         let text = json!({ "apiKeyEncrypted": B64.encode(blob), "shortcutsVersion": 2 });
-        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        fs::write(dir.join("aevaleron.json"), text.to_string()).unwrap();
         let s = open(&dir);
         assert_eq!(s.get_api_key(), "sk-or-old");
         let f = file(&dir);
@@ -1502,7 +1512,7 @@ mod tests {
             "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
             "apiKeysVersion": 1
         });
-        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        fs::write(dir.join("aevaleron.json"), text.to_string()).unwrap();
         let s = open(&dir);
         assert_eq!(s.get_api_key(), "sk-or-b");
         assert_eq!(file(&dir)["apiKeys"]["openrouter"]["encrypted"], b);
@@ -1513,7 +1523,7 @@ mod tests {
             "apiKeys": { "openrouter": { "encrypted": a, "plain": "" } },
             "apiKeysVersion": 1
         });
-        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        fs::write(dir.join("aevaleron.json"), text.to_string()).unwrap();
         let s = open(&dir);
         assert_eq!(s.get_api_key(), "");
         assert!(!s.has_provider_key("openrouter"));
@@ -1525,7 +1535,7 @@ mod tests {
         let dir = temp("badkey");
         let blob = crypto::seal(&[8u8; 32], &[5u8; 12], "sk-or-old").unwrap();
         let text = json!({ "apiKeyEncrypted": B64.encode(blob) });
-        fs::write(dir.join("aevalbuddy.json"), text.to_string()).unwrap();
+        fs::write(dir.join("aevaleron.json"), text.to_string()).unwrap();
         let s = open(&dir);
         assert_eq!(s.get_api_key(), "");
         assert!(!s.has_api_key());
@@ -1549,13 +1559,28 @@ mod tests {
     }
 
     #[test]
+    fn automatic_becomes_the_default_once() {
+        let dir = temp("auto-default");
+        assert_eq!(open(&dir).get_agent_settings()["permission"], "auto");
+        // From before automatic mode: the old default moves, a choice stays.
+        fs::write(dir.join("aevaleron.json"), r#"{"agentPermission":"risky"}"#).unwrap();
+        let s = open(&dir);
+        assert_eq!(s.get_agent_settings()["permission"], "auto");
+        s.set_agent_settings(&json!({"permission": "risky"}));
+        drop(s);
+        assert_eq!(open(&dir).get_agent_settings()["permission"], "risky");
+        fs::write(dir.join("aevaleron.json"), r#"{"agentPermission":"every"}"#).unwrap();
+        assert_eq!(open(&dir).get_agent_settings()["permission"], "every");
+    }
+
+    #[test]
     fn solid_profiles_start_with_no_glass() {
         let dir = temp("solid");
-        fs::write(dir.join("aevalbuddy.json"), r#"{"surface":"solid"}"#).unwrap();
+        fs::write(dir.join("aevaleron.json"), r#"{"surface":"solid"}"#).unwrap();
         assert_eq!(open(&dir).get_glass_intensity(), 0.0);
         let dir = temp("solid-set");
         let text = r#"{"surface":"solid","glassIntensity":0.7,"glassScale":2}"#;
-        fs::write(dir.join("aevalbuddy.json"), text).unwrap();
+        fs::write(dir.join("aevaleron.json"), text).unwrap();
         assert_eq!(open(&dir).get_glass_intensity(), 0.7);
     }
 
@@ -1564,7 +1589,7 @@ mod tests {
         for (stored, want) in [("0.5", 0.75), ("0", 0.0), ("0.25", 0.31), ("1", 0.86)] {
             let dir = temp(&format!("glass-v1-{stored}"));
             let text = format!(r#"{{"glassIntensity":{stored}}}"#);
-            fs::write(dir.join("aevalbuddy.json"), text).unwrap();
+            fs::write(dir.join("aevaleron.json"), text).unwrap();
             let s = open(&dir);
             assert_eq!(s.get_glass_intensity(), want, "v2.1 {stored}");
             assert_eq!(file(&dir)["glassScale"], GLASS_SCALE);
@@ -1576,10 +1601,10 @@ mod tests {
     #[test]
     fn corrupt_file_is_kept_aside() {
         let dir = temp("corrupt");
-        fs::write(dir.join("aevalbuddy.json"), "{not json").unwrap();
+        fs::write(dir.join("aevaleron.json"), "{not json").unwrap();
         let s = open(&dir);
         assert_eq!(s.get_input_width(), DEFAULT_INPUT_WIDTH);
-        assert!(dir.join("aevalbuddy.json.corrupt").exists());
+        assert!(dir.join("aevaleron.json.corrupt").exists());
     }
 
     #[test]
@@ -1603,7 +1628,7 @@ mod tests {
             }
         }
         // The last good file before the final save is kept beside it.
-        let bak = text(&dir, "aevalbuddy.json.bak");
+        let bak = text(&dir, "aevaleron.json.bak");
         assert!(serde_json::from_str::<Map<String, Value>>(&bak).is_ok());
         let left: Vec<String> = fs::read_dir(&dir)
             .unwrap()
@@ -1622,15 +1647,15 @@ mod tests {
         // .bak holds the file as it was before the latest save.
         s.set_output_width(500.0);
         drop(s);
-        assert!(dir.join("aevalbuddy.json.bak").exists());
-        fs::write(dir.join("aevalbuddy.json"), "{\"inputWidth\": 7").unwrap();
+        assert!(dir.join("aevaleron.json.bak").exists());
+        fs::write(dir.join("aevaleron.json"), "{\"inputWidth\": 7").unwrap();
         let s = open(&dir);
         assert_eq!(s.get_input_width(), 700);
         assert!(!s.get_save_history());
-        assert_eq!(text(&dir, "aevalbuddy.json.corrupt"), "{\"inputWidth\": 7");
+        assert_eq!(text(&dir, "aevaleron.json.corrupt"), "{\"inputWidth\": 7");
         // The torn file never becomes the backup.
         s.set_input_width(500.0);
-        let bak = text(&dir, "aevalbuddy.json.bak");
+        let bak = text(&dir, "aevaleron.json.bak");
         let bak: Map<String, Value> = serde_json::from_str(&bak).unwrap();
         assert_eq!(bak["inputWidth"], 700);
         assert_eq!(file(&dir)["inputWidth"], 500);
@@ -1642,11 +1667,11 @@ mod tests {
         let mut bytes = br#"{"inputWidth":700,"shortcutsVersion":2,"note":"a"#.to_vec();
         bytes.push(0xff);
         bytes.extend_from_slice(br#"b"}"#);
-        fs::write(dir.join("aevalbuddy.json"), &bytes).unwrap();
+        fs::write(dir.join("aevaleron.json"), &bytes).unwrap();
         let s = open(&dir);
         assert_eq!(s.get_input_width(), 700);
         assert_eq!(s.raw("note"), Some(json!("a\u{fffd}b")));
-        assert!(!dir.join("aevalbuddy.json.corrupt").exists());
+        assert!(!dir.join("aevaleron.json.corrupt").exists());
     }
 
     fn denied(_: &Path) -> io::Result<Vec<u8>> {
@@ -1657,20 +1682,20 @@ mod tests {
     fn unreadable_file_disables_saving() {
         let dir = temp("denied");
         let original = br#"{"inputWidth":700,"apiKeyPlain":"sk-keep"}"#;
-        fs::write(dir.join("aevalbuddy.json"), original).unwrap();
+        fs::write(dir.join("aevaleron.json"), original).unwrap();
         let s = Store::open_reading(&dir, OsCrypt::with_key([3u8; 32]), &denied);
         assert_eq!(s.get_input_width(), DEFAULT_INPUT_WIDTH);
         s.set_save_history(false);
         s.set_api_key("sk-new");
         assert!(!s.get_save_history(), "settings still work in memory");
-        assert_eq!(fs::read(dir.join("aevalbuddy.json")).unwrap(), original);
-        assert!(!dir.join("aevalbuddy.json.bak").exists());
+        assert_eq!(fs::read(dir.join("aevaleron.json")).unwrap(), original);
+        assert!(!dir.join("aevaleron.json.bak").exists());
     }
 
     #[test]
     fn stored_input_width_is_kept() {
         let dir = temp("width");
-        fs::write(dir.join("aevalbuddy.json"), r#"{"inputWidth":420}"#).unwrap();
+        fs::write(dir.join("aevaleron.json"), r#"{"inputWidth":420}"#).unwrap();
         assert_eq!(open(&dir).get_input_width(), 420);
     }
 

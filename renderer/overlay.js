@@ -44,9 +44,9 @@ function replayAnim(el, cls) {
 
 // The orb's name carries what its rim and badge show (a11y N9).
 const ORB_SAYS = {
-  idle: 'Open AevalBuddy',
-  chat: 'Open AevalBuddy, a conversation is waiting',
-  busy: 'AevalBuddy is answering',
+  idle: 'Open Aevaleron',
+  chat: 'Open Aevaleron, a conversation is waiting',
+  busy: 'Aevaleron is answering',
 };
 
 function render(prevMode, prevButton) {
@@ -333,7 +333,7 @@ function renderNotice() {
   // Notices name what is needed, never one vendor (copy deck C-1..C-5).
   if (state.hotkeyFailed) {
     urgent = true;
-    noticeText.textContent = `Another app already uses ${state.hotkeyFailed}, so it can't open AevalBuddy. Choose another shortcut.`;
+    noticeText.textContent = `Another app already uses ${state.hotkeyFailed}, so it can't open Aevaleron. Choose another shortcut.`;
     noticeSettings.textContent = 'Change shortcut';
     noticeSettings.dataset.section = 'pg-shortcuts';
     noticeSettings.hidden = false;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://aeval-frame.localhost aeval-frame:; connect-src ipc: http://ipc.localhost http://aeval-frame.localhost aeval-frame:" />
-  <title>AevalBuddy settings</title>
+  <title>Aevaleron settings</title>
   <link rel="stylesheet" href="../renderer/glass.css" />
   <link rel="stylesheet" href="settings.css" />
 </head>
@@ -44,7 +44,7 @@
           <p class="lede">Answers come from the first ready provider in this list. Drag to change the order.</p>
           <!-- sec-key: the first-run tour's scope until it points at Providers. -->
           <div id="sec-key">
-            <ol id="providers" class="group" aria-label="Providers, in the order AevalBuddy tries them"></ol>
+            <ol id="providers" class="group" aria-label="Providers, in the order Aevaleron tries them"></ol>
           </div>
           <p id="prov-live" class="live" role="status"></p>
           <div class="group" id="failover-group" hidden>
@@ -69,7 +69,7 @@
           <div class="group" id="models-mode" role="radiogroup" aria-label="Choose models">
             <button type="button" class="choice-row" role="radio" data-models-mode="auto">
               <span class="choice-name">Automatic (recommended)</span>
-              <span class="choice-note">AevalBuddy picks a model for each job: free ones on OpenRouter, the recommended one elsewhere.</span>
+              <span class="choice-note">Aevaleron picks a model for each job: free ones on OpenRouter, the recommended one elsewhere.</span>
             </button>
             <button type="button" class="choice-row" role="radio" data-models-mode="custom">
               <span class="choice-name">Choose for each job</span>
@@ -602,7 +602,7 @@
             </section>
           </div>
 
-          <h2 class="group-title" id="local-keys-heading">In AevalBuddy windows</h2>
+          <h2 class="group-title" id="local-keys-heading">In Aevaleron windows</h2>
           <ul class="group keys" id="local-keys" aria-labelledby="local-keys-heading">
             <li class="row line key-row"><span>New conversation</span><span class="keys-of"><kbd>Ctrl+N</kbd></span></li>
             <li class="row line key-row"><span>Next or previous answer window</span><span class="keys-of"><kbd>Ctrl+Tab</kbd><kbd>Ctrl+Shift+Tab</kbd></span></li>
@@ -652,7 +652,7 @@
               <div class="body" id="sec-startup-body">
                 <div class="body-in">
                   <label class="switch">
-                    <span>Start AevalBuddy when I sign in to Windows</span>
+                    <span>Start Aevaleron when I sign in to Windows</span>
                     <input id="launch-at-login" type="checkbox" role="switch" />
                   </label>
                   <p id="startup-note" class="note"></p>
@@ -748,7 +748,7 @@
     </div>
 
     <footer>
-      <span id="about">AevalBuddy <span id="app-version"></span>
+      <span id="about">Aevaleron <span id="app-version"></span>
         <button id="update-btn" type="button" class="text-link" hidden>Restart to update</button>
       </span>
       <button id="quit-app" type="button" class="text-link">Quit</button>

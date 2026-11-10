@@ -293,12 +293,9 @@ mod tests {
 
     #[test]
     fn folder_path_is_exe_relative() {
-        let exe = Path::new(r"C:\Program Files\AevalBuddy\AevalBuddy.exe");
+        let exe = Path::new(r"C:\Program Files\Aevaleron\Aevaleron.exe");
         let dir = folder_of(exe).unwrap();
-        assert_eq!(
-            dir,
-            Path::new(r"C:\Program Files\AevalBuddy").join("skills")
-        );
+        assert_eq!(dir, Path::new(r"C:\Program Files\Aevaleron").join("skills"));
         assert!(folder_of(Path::new("")).is_none());
     }
 

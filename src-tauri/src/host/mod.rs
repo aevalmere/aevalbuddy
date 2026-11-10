@@ -180,17 +180,11 @@ pub async fn live_models(wait: bool) -> (String, String) {
         )
     };
     if model != stored.0 {
-        eprintln!(
-            "[aevalbuddy] {} left the catalogue; using {model}",
-            stored.0
-        );
+        eprintln!("[aevaleron] {} left the catalogue; using {model}", stored.0);
         sv.settings.heal_model(Kind::Vision, &model);
     }
     if brain != stored.1 {
-        eprintln!(
-            "[aevalbuddy] {} left the catalogue; using {brain}",
-            stored.1
-        );
+        eprintln!("[aevaleron] {} left the catalogue; using {brain}", stored.1);
         sv.settings.heal_model(Kind::Text, &brain);
     }
     (model, brain)

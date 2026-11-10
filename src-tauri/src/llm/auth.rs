@@ -36,8 +36,8 @@ const REQUEST_WAIT: Duration = Duration::from_secs(3);
 const EXCHANGE_WAIT: Duration = Duration::from_secs(20);
 const MAX_REQUEST: usize = 8 * 1024;
 
-const CONNECTED_PAGE: &str = "AevalBuddy is connected. You can close this tab.";
-const FAILED_PAGE: &str = "AevalBuddy couldn't connect. Go back to it and try again.";
+const CONNECTED_PAGE: &str = "Aevaleron is connected. You can close this tab.";
+const FAILED_PAGE: &str = "Aevaleron couldn't connect. Go back to it and try again.";
 
 const TIMED_OUT: &str = "Didn't hear back from OpenRouter. Try again, or paste a key instead.";
 const FAILED: &str = "OpenRouter didn't finish connecting. Try again, or paste a key instead.";

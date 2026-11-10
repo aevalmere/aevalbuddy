@@ -132,6 +132,7 @@ pub const INVOKE_CHANNELS: &[&str] = &[
     // ---- lane: capture ----
     "lens:ready",
     "buddy:ready",
+    "buddy:cleared",
     // ---- end: capture ----
     // ---- lane: llm ----
     "settings:set-provider-order",

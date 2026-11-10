@@ -29,7 +29,7 @@ use crate::{buddy, lens, store};
 
 use super::settings::StoreSettings;
 
-const FRAME_CHIP: &str = "AevalBuddy is using your computer \u{00b7} Esc to stop";
+const FRAME_CHIP: &str = "Aevaleron is using your computer \u{00b7} Esc to stop";
 const OFFLINE: &str = "No connection. The agent did not start; nothing was done.";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 

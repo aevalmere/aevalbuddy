@@ -212,7 +212,7 @@ function setTitle(kind, text) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   sheetTitle.textContent = t || k;
   sheetTitle.title = t;
-  document.title = t ? `${t} · AevalBuddy` : 'AevalBuddy answer';
+  document.title = t ? `${t} · Aevaleron` : 'Aevaleron answer';
 }
 window.setSheetTitle = (kind, text, force) => {
   if (titled && !force) return;

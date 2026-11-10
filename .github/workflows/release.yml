@@ -1,6 +1,6 @@
 # Cuts a release. Push a tag like v1.1.0 and this builds the Tauri app's
 # Windows installer and publishes a GitHub release of the same name holding
-# two files: AevalBuddy-Setup.exe and latest.yml (electron-builder's feed
+# two files: Aevaleron-Setup.exe and latest.yml (electron-builder's feed
 # format, which both the Rust updater and installed Electron copies read).
 # The README's download link serves the exe, so its name never carries a
 # version. Bump the version in package.json first; the tag has to match it
@@ -69,7 +69,7 @@ jobs:
             echo
             echo "## Installing"
             echo
-            echo '**Download `AevalBuddy-Setup.exe` below and run it.** It installs in a few seconds, with no admin prompt, and opens the app.'
+            echo '**Download `Aevaleron-Setup.exe` below and run it.** It installs in a few seconds, with no admin prompt, and opens the app.'
             echo
             echo 'If Windows says "Windows protected your PC", click **More info**, then **Run anyway**. The installer is not code-signed; this is not a virus warning.'
             echo
@@ -88,7 +88,7 @@ jobs:
             fi
             gh release edit "$TAG" --notes-file notes.md
           else
-            gh release create "$TAG" --draft --verify-tag --title "AevalBuddy ${TAG#v}" --notes-file notes.md
+            gh release create "$TAG" --draft --verify-tag --title "Aevaleron ${TAG#v}" --notes-file notes.md
           fi
       # The desktop helper ships prebuilt (DESK-12): compile host.cs once,
       # bundle build/desktop-<hash>.dll, and pin its SHA-256 into the exe so
@@ -108,18 +108,18 @@ jobs:
       - name: Build the installer
         working-directory: src-tauri
         run: npx --yes "@tauri-apps/cli@$TAURI_CLI" build --bundles nsis
-      # Tauri names the installer AevalBuddy_<version>_x64-setup.exe; the
-      # README link and every installed copy want AevalBuddy-Setup.exe.
+      # Tauri names the installer Aevaleron_<version>_x64-setup.exe; the
+      # README link and every installed copy want Aevaleron-Setup.exe.
       - name: Name the installer and write latest.yml
         run: |
           mkdir -p dist
           src=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n 1)
           [ -n "$src" ] || { echo "::error::no NSIS installer was built"; exit 1; }
-          cp "$src" dist/AevalBuddy-Setup.exe
+          cp "$src" dist/Aevaleron-Setup.exe
           node - <<'EOF'
           const fs = require('fs');
           const crypto = require('crypto');
-          const file = 'AevalBuddy-Setup.exe';
+          const file = 'Aevaleron-Setup.exe';
           const buf = fs.readFileSync(`dist/${file}`);
           const sha512 = crypto.createHash('sha512').update(buf).digest('base64');
           const version = process.env.TAG.replace(/^v/, '');
@@ -138,7 +138,7 @@ jobs:
           console.log(yml);
           EOF
       - name: Attach the files
-        run: gh release upload "$TAG" dist/AevalBuddy-Setup.exe dist/latest.yml --clobber
+        run: gh release upload "$TAG" dist/Aevaleron-Setup.exe dist/latest.yml --clobber
       # Every file latest.yml names must be attached, under that name, with
       # the bytes it describes. An installed copy that finds latest.yml but
       # 404s on the exe, or gets bytes whose sha512 differs, fails every
@@ -159,7 +159,7 @@ jobs:
           const names = process.env.NAMES.split(/\r?\n/);
           const fail = (m) => { console.log(`::error::${m}`); process.exitCode = 1; };
           if (version !== process.env.TAG.replace(/^v/, '')) fail(`latest.yml says ${version}, tag is ${process.env.TAG}`);
-          if (file !== 'AevalBuddy-Setup.exe') fail(`latest.yml points at ${file}, not AevalBuddy-Setup.exe`);
+          if (file !== 'Aevaleron-Setup.exe') fail(`latest.yml points at ${file}, not Aevaleron-Setup.exe`);
           for (const n of [file, 'latest.yml']) {
             if (!names.includes(n)) fail(`${n} is missing from the ${process.env.TAG} release`);
           }
@@ -191,6 +191,6 @@ jobs:
           fi
           curl -sfL "$base/latest/download/latest.yml" | grep -qx "version: ${TAG#v}" ||
             { echo "::error::releases/latest/download/latest.yml is not ${TAG#v}"; exit 1; }
-          curl -sfIL "$base/latest/download/AevalBuddy-Setup.exe" >/dev/null ||
+          curl -sfIL "$base/latest/download/Aevaleron-Setup.exe" >/dev/null ||
             { echo "::error::the README download link does not resolve"; exit 1; }
           echo "public feed serves $TAG"

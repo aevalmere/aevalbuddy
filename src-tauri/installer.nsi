@@ -1,4 +1,4 @@
-; AevalBuddy's copy of tauri-bundler 2.10.4's installer.nsi (tauri-cli 2.12.4,
+; Aevaleron's copy of tauri-bundler 2.10.4's installer.nsi (tauri-cli 2.12.4,
 ; TAURI_CLI in rust.yml). Re-copy it when the CLI moves.
 ;
 ; PKG-01, D-03 (B-085): an interactive install is one click, like Electron's

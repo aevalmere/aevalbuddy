@@ -32,7 +32,7 @@ use layout::Anchor;
 pub const OVERLAY: &str = "overlay";
 pub const SETTINGS: &str = "settings";
 pub const HISTORY: &str = "history";
-pub const HELP_URL: &str = "https://github.com/aevalmere/aevalbuddy/issues/new/choose";
+pub const HELP_URL: &str = "https://github.com/aevalmere/aevaleron/issues/new/choose";
 
 /// The windows a session opens at boot: the overlay and one warm, hidden
 /// output window, so the first answer globs out with no page load. The
@@ -221,7 +221,7 @@ pub fn create_page(
 ) -> tauri::Result<WebviewWindow> {
     let bridge = ipc::bridge_script();
     let w = WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()))
-        .title("AevalBuddy")
+        .title("Aevaleron")
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -1097,7 +1097,7 @@ pub fn overlay_set_ignore(app: &AppHandle, ignore: bool) {
 
 // ------------------------------------------------- keyboard and a11y
 
-/// Where an announcement goes: the AevalBuddy window with focus, else the
+/// Where an announcement goes: the Aevaleron window with focus, else the
 /// open bar, else nowhere.
 pub fn announce_target(focused: Option<&str>, bar_open: bool) -> Option<String> {
     match focused {

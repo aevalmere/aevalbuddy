@@ -76,7 +76,7 @@ pub fn chat_request(provider: Provider, key: &str, body: &Value) -> HttpRequest 
             headers: vec![
                 header("Authorization", &format!("Bearer {key}")),
                 header("Content-Type", "application/json"),
-                header("X-Title", "AevalBuddy"),
+                header("X-Title", "Aevaleron"),
             ],
             body: Some(openrouter_body(body)),
             timeout: None,
@@ -897,7 +897,7 @@ mod tests {
         let r = chat_request(Provider::OpenRouter, "sk-or-k", &body);
         assert_eq!(r.url, OPENROUTER_CHAT);
         assert_eq!(r.headers[0], header("Authorization", "Bearer sk-or-k"));
-        assert_eq!(r.headers[2], header("X-Title", "AevalBuddy"));
+        assert_eq!(r.headers[2], header("X-Title", "Aevaleron"));
         let sent = r.body.unwrap();
         let keys: Vec<&String> = sent.as_object().unwrap().keys().collect();
         let want = [

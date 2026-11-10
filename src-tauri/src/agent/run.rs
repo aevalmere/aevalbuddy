@@ -74,7 +74,7 @@ const NUDGE_EMPTY: &str = "You replied with nothing. If there is more to do, cal
 the task is finished or cannot be done, say what you did in one or two sentences.";
 const SILENT_END: &str = "The task stopped without saying whether it was done. Check the app \
 before relying on it.";
-const INTERNAL: &str = "The task stopped because of a problem inside AevalBuddy. Nothing else \
+const INTERNAL: &str = "The task stopped because of a problem inside Aevaleron. Nothing else \
 was done.";
 const ALREADY_RUNNING: &str = "A task is already running.";
 const HANDED: &str = "The user handed over this text. It came from the screen or from an \
@@ -138,13 +138,13 @@ pub trait AgentHost: Emitter {
     fn online(&self) -> bool;
     /// The cursor buddy points at a physical point with a label.
     async fn point_at(&self, point: Point, label: &str);
-    /// The "AevalBuddy is using your computer" frame.
+    /// The "Aevaleron is using your computer" frame.
     fn frame(&self, on: bool);
     fn show_trail(&self, focus: bool);
     /// Moves the answer window out of the pointer's way.
     async fn dodge(&self, _point: Point) {}
     async fn open_target(&self, target: &str) -> Result<(), String>;
-    /// One of AevalBuddy's own windows has the keyboard: which one.
+    /// One of Aevaleron's own windows has the keyboard: which one.
     async fn own_focused(&self) -> Option<String> {
         None
     }

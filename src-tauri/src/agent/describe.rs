@@ -284,9 +284,9 @@ pub fn redact(text: &str) -> String {
 /// A desktop error as the model reads it.
 pub fn friendly(code: &str, message: &str) -> String {
     match code {
-        "BLOCKED_OWN_WINDOW" => "Refused: that is AevalBuddy's own window.".into(),
+        "BLOCKED_OWN_WINDOW" => "Refused: that is Aevaleron's own window.".into(),
         "ELEVATED_TARGET" => {
-            "Refused: that window runs as administrator, and AevalBuddy does not.".into()
+            "Refused: that window runs as administrator, and Aevaleron does not.".into()
         }
         "STALE_REF" => message.to_string(),
         "" => message.to_string(),
@@ -360,7 +360,7 @@ mod tests {
                     edit \"User\" value=\"me\"";
         assert_eq!(redact(tree), want);
         let own = friendly("BLOCKED_OWN_WINDOW", "x");
-        assert_eq!(own, "Refused: that is AevalBuddy's own window.");
+        assert_eq!(own, "Refused: that is Aevaleron's own window.");
         let named = friendly("NOT_FOUND", "no such ref");
         assert_eq!(named, "NOT_FOUND: no such ref");
         assert_eq!(seconds(&json!("x")), 1.0);

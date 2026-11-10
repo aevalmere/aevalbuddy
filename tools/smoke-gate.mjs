@@ -1,4 +1,4 @@
-// The rust workflow's smoke gate. Reads what `AEVAL_SMOKE=1 AevalBuddy.exe`
+// The rust workflow's smoke gate. Reads what `AEVAL_SMOKE=1 Aevaleron.exe`
 // printed and fails when:
 //   - any `[SMOKE] <label>=FAIL...` line is there,
 //   - the run never printed `[SMOKE] done` (or printed `failed:`/`error=`),

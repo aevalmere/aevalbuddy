@@ -443,7 +443,7 @@ fn on_main_wait<R: Send + 'static>(
         }
     };
     if let Err(e) = app.run_on_main_thread(task) {
-        eprintln!("[aevalbuddy] shortcuts: not run on the main thread: {e}");
+        eprintln!("[aevaleron] shortcuts: not run on the main thread: {e}");
         return None;
     }
     rx.recv_timeout(MAIN_WAIT).ok()
@@ -458,7 +458,7 @@ pub fn apply(app: &AppHandle) {
         crate::crash::guard("hotkeys.apply", || apply_now(&a));
     };
     if let Err(e) = app.run_on_main_thread(task) {
-        eprintln!("[aevalbuddy] shortcuts: not applied: {e}");
+        eprintln!("[aevaleron] shortcuts: not applied: {e}");
     }
 }
 
@@ -518,7 +518,7 @@ pub fn report_failures(app: &AppHandle) {
     let store = store::get();
     for action in failed {
         let acc = store.shortcut(&action);
-        eprintln!("[aevalbuddy] shortcut {acc} ({action}) could not be registered");
+        eprintln!("[aevaleron] shortcut {acc} ({action}) could not be registered");
     }
 }
 

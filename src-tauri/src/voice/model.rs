@@ -213,7 +213,7 @@ pub async fn ensure(
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .use_rustls_tls()
-        .user_agent(concat!("AevalBuddy/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("Aevaleron/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(15))
         .build()
         .map_err(|_| DOWNLOAD_FAILED.to_string())

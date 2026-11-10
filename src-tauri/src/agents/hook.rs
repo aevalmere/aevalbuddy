@@ -1,4 +1,4 @@
-//! `AevalBuddy.exe --hook [agent] [event]`: what a coding agent runs on each
+//! `Aevaleron.exe --hook [agent] [event]`: what a coding agent runs on each
 //! lifecycle event, with its hook payload on stdin. It adds which window and
 //! which agent process the call came from, hands everything to the running
 //! app over a named pipe, and exits 0. It runs before anything else in the
@@ -25,7 +25,7 @@ pub fn pipe_name() -> String {
         .chars()
         .filter(|c| c.is_alphanumeric() || matches!(c, '.' | '_' | '-'))
         .collect();
-    format!(r"\\.\pipe\aevalbuddy.agents.{user}")
+    format!(r"\\.\pipe\aevaleron.agents.{user}")
 }
 
 /// The arguments after the exe, when this is a hook call: the agent
@@ -188,6 +188,6 @@ mod tests {
         assert_eq!((e.hwnd, e.pid, e.pid_start), (99, 4, 5));
         assert_eq!((e.outer_pid, e.outer_start, e.at), (6, 7, 11));
         assert_eq!(e.host, "Terminal");
-        assert!(pipe_name().starts_with(r"\\.\pipe\aevalbuddy.agents."));
+        assert!(pipe_name().starts_with(r"\\.\pipe\aevaleron.agents."));
     }
 }

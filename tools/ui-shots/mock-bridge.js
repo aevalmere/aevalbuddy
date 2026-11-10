@@ -1,6 +1,6 @@
 // A stand-in for window.aeval in the renderer screenshot run (shots.mjs). It
 // runs in every page the scene frames, before the page's own scripts, the way
-// the Tauri bridge does. Each frame is one AevalBuddy window: its offset in
+// the Tauri bridge does. Each frame is one Aevaleron window: its offset in
 // the scene is its screen position (window.screenX/Y), the scene is one
 // display, and Rust's answers come from the scene page:
 //   window.top.__MOCK__[frame name].responses   that window's own answers

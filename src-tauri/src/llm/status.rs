@@ -1,4 +1,4 @@
-//! What AevalBuddy knows about each provider right now (design-ux section
+//! What Aevaleron knows about each provider right now (design-ux section
 //! 3.2): ready, busy until a time, key rejected, no credit, free models off.
 //! In memory only, so a restart starts every provider as unchecked.
 //! Failover skips the providers that cannot answer (B-046), and Settings and

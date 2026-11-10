@@ -296,7 +296,7 @@ fn last_question() -> String {
 /// `hasSentFirstRequest` as the settings file on disk has it: what the next
 /// start reads.
 fn saved_flag() -> bool {
-    let file = paths::user_data_dir().join("aevalbuddy.json");
+    let file = paths::user_data_dir().join("aevaleron.json");
     let body = std::fs::read_to_string(file).unwrap_or_default();
     let body = body.trim_start_matches('\u{feff}');
     let v: Value = serde_json::from_str(body).unwrap_or_default();

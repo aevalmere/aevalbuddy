@@ -3,7 +3,7 @@
 //! Aevalsistant's `Agents.cs`.
 //!
 //! Every agent with a hook system gets the same treatment: one entry per
-//! lifecycle event that runs `AevalBuddy.exe --hook <agent>`. The config
+//! lifecycle event that runs `Aevaleron.exe --hook <agent>`. The config
 //! formats differ in three ways:
 //!
 //! - Grouped: `event -> [ { matcher?, hooks: [ {type, command, ..} ] } ]`
@@ -96,7 +96,7 @@ pub static ALL: [AgentSpec; 7] = [
         id: "copilot",
         name: "Copilot CLI",
         dir: ".copilot",
-        file: ".copilot\\hooks\\aevalbuddy.json",
+        file: ".copilot\\hooks\\aevaleron.json",
         layout: Layout::Own,
         events: &COPILOT_EVENTS,
         note: "Restart open sessions once.",
@@ -128,7 +128,7 @@ pub static ALL: [AgentSpec; 7] = [
         id: "opencode",
         name: "OpenCode",
         dir: ".config\\opencode",
-        file: ".config\\opencode\\plugins\\aevalbuddy.js",
+        file: ".config\\opencode\\plugins\\aevaleron.js",
         layout: Layout::Own,
         events: &[],
         note: "Restart OpenCode once.",
@@ -157,7 +157,7 @@ fn entry(a: &AgentSpec, event: &str, cmd: &str) -> Value {
         }
         // Milliseconds.
         "gemini" => {
-            json!({ "name": "aevalbuddy", "type": "command", "command": cmd, "timeout": 5000 })
+            json!({ "name": "aevaleron", "type": "command", "command": cmd, "timeout": 5000 })
         }
         // On Windows Windsurf runs the "powershell" field.
         "windsurf" => {
@@ -260,9 +260,20 @@ pub fn place(agent: &str, host: &str) -> String {
     }
 }
 
-/// Whether a hook command is one this app wrote.
+/// Whether a hook command is one this app wrote, under its name now or as
+/// AevalBuddy (`OLD_NAME`): an upgrade replaces those instead of leaving a
+/// hook that runs an exe which is gone.
 pub fn is_ours(command: &str) -> bool {
-    command.to_lowercase().contains("aevalbuddy") && command.contains("--hook")
+    let lower = command.to_lowercase();
+    (lower.contains("aevaleron") || lower.contains(OLD_NAME)) && command.contains("--hook")
+}
+
+/// The app's name before 2.0, as it appears in hook commands and file names.
+pub const OLD_NAME: &str = "aevalbuddy";
+
+/// Where an agent's own-file hooks were while the app was AevalBuddy.
+pub fn old_file(a: &AgentSpec) -> Option<String> {
+    (a.layout == Layout::Own).then(|| a.file.replace("aevaleron", OLD_NAME))
 }
 
 fn entry_is_ours(entry: &Value) -> bool {
@@ -572,17 +583,17 @@ fn opencode_plugin(command: &str) -> String {
     OPENCODE_PLUGIN.replace("__EXE__", &exe)
 }
 
-const OPENCODE_PLUGIN: &str = r#"// AevalBuddy: tells the app when an OpenCode session starts and stops working.
-// Written by AevalBuddy; removed by turning off "Connect coding agents" in its Settings.
+const OPENCODE_PLUGIN: &str = r#"// Aevaleron: tells the app when an OpenCode session starts and stops working.
+// Written by Aevaleron; removed by turning off "Connect coding agents" in its Settings.
 const EXE = __EXE__;
 
-export const AevalBuddy = async ({ directory }) => {
+export const Aevaleron = async ({ directory }) => {
   const send = (event, session, message) => {
     try {
       const body = JSON.stringify({ event, session: session || "", cwd: directory || "", message: message || "" });
       Bun.spawn([EXE, "--hook", "opencode"], { stdin: new Blob([body]), stdout: "ignore", stderr: "ignore" });
     } catch (e) {
-      // AevalBuddy is not installed or not reachable; OpenCode carries on.
+      // Aevaleron is not installed or not reachable; OpenCode carries on.
     }
   };
   // session.status and the older session.idle both report a finish, so a finish is sent only
@@ -609,7 +620,7 @@ export const AevalBuddy = async ({ directory }) => {
 mod tests {
     use super::*;
 
-    const CMD: &str = "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe --hook";
+    const CMD: &str = "C:/Users/me/AppData/Local/Aevaleron/Aevaleron.exe --hook";
 
     fn applied(a: &AgentSpec, text: Option<&str>, cmd: Option<&str>) -> (Option<String>, bool) {
         apply(a, text, cmd).unwrap()
@@ -646,7 +657,7 @@ mod tests {
         let (clean, changed) = applied(claude, Some(&text), None);
         let clean = clean.unwrap();
         assert!(changed);
-        assert!(!clean.to_lowercase().contains("aevalbuddy"));
+        assert!(!clean.to_lowercase().contains("aevaleron"));
         let v: Value = serde_json::from_str(&clean).unwrap();
         assert_eq!(v["hooks"]["Stop"].as_array().unwrap().len(), 1);
         assert!(v["hooks"].get("UserPromptSubmit").is_none());
@@ -665,6 +676,23 @@ mod tests {
         assert_eq!(v["hooks"]["Stop"][0]["hooks"][0]["command"], other);
         assert!(!is_ours(other));
         assert!(is_ours(CMD));
+    }
+
+    #[test]
+    fn hooks_from_before_the_rename_are_replaced() {
+        let claude = get("claude");
+        let old = "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe --hook claude Stop";
+        assert!(is_ours(old));
+        let before = json!({ "hooks": { "Stop": [ { "hooks": [
+            { "type": "command", "command": old } ] } ] } });
+        let (text, changed) = applied(claude, Some(&before.to_string()), Some(CMD));
+        let text = text.unwrap();
+        assert!(changed);
+        assert!(!text.contains("AevalBuddy"));
+        assert!(is_installed(claude, Some(&text), CMD));
+        let file = old_file(get("copilot"));
+        assert_eq!(file.as_deref(), Some(".copilot\\hooks\\aevalbuddy.json"));
+        assert_eq!(old_file(claude), None);
     }
 
     #[test]
@@ -714,8 +742,9 @@ mod tests {
         let opencode = get("opencode");
         let (plugin, _) = applied(opencode, None, Some(&command_for(opencode, CMD)));
         let plugin = plugin.unwrap();
-        assert!(plugin
-            .contains(r#"const EXE = "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe";"#));
+        assert!(
+            plugin.contains(r#"const EXE = "C:/Users/me/AppData/Local/Aevaleron/Aevaleron.exe";"#)
+        );
         assert!(!plugin.contains("__EXE__"));
     }
 
@@ -723,11 +752,11 @@ mod tests {
     fn hook_paths_survive_every_shell() {
         let none = |_: &str| None;
         let plain = hook_path(
-            "C:\\Users\\me\\AppData\\Local\\AevalBuddy\\AevalBuddy.exe",
+            "C:\\Users\\me\\AppData\\Local\\Aevaleron\\Aevaleron.exe",
             none,
         );
-        assert_eq!(plain, "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe");
-        let spaced = "C:\\Users\\Ada Lovelace\\AppData\\Local\\AevalBuddy\\AevalBuddy.exe";
+        assert_eq!(plain, "C:/Users/me/AppData/Local/Aevaleron/Aevaleron.exe");
+        let spaced = "C:\\Users\\Ada Lovelace\\AppData\\Local\\Aevaleron\\Aevaleron.exe";
         let short = |upto: &str| {
             upto.ends_with("Lovelace")
                 .then(|| "C:\\Users\\ADALOV~1".to_string())
@@ -735,7 +764,7 @@ mod tests {
         let fixed = hook_path(spaced, short);
         assert_eq!(
             fixed,
-            "C:/Users/ADALOV~1/AppData/Local/AevalBuddy/AevalBuddy.exe"
+            "C:/Users/ADALOV~1/AppData/Local/Aevaleron/Aevaleron.exe"
         );
         // Short names off: quoted.
         let quoted = hook_path(spaced, none);

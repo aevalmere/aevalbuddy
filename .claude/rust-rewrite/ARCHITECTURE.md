@@ -849,3 +849,18 @@ Installer size: 4.99 MiB before and after; no new files or DLLs. The exe changes
 - **Parakeet TDT 0.6B (ONNX).** Faster than Whisper base on CPU and more accurate in English, and what Handy defaults to. Not done here: it needs ONNX Runtime, whose Windows builds link the dynamic VC++ runtime (msvcp140/vcruntime140), which `voiceNoCppRuntime` forbids; shipping or downloading onnxruntime.dll plus the runtime DLLs beside the exe, and a 0.5-0.7 GB model download, is a decision for Andy. With the changes above Whisper base already meets the budget on the runner.
 - **Vulkan for whisper.cpp.** Would need the Vulkan SDK on the runner and links `vulkan-1.dll` at load time, which a PC without a Vulkan driver does not have, so the exe would not start there. Doing it right means building ggml's Vulkan backend as a separately loaded DLL (GGML_BACKEND_DL) and shipping it beside the exe; whisper-rs 0.14 does not expose that.
 - whisper.cpp's Silero VAD, with a whisper-rs 0.15 bump.
+
+## The rename to Aevaleron (2.0)
+
+The app was AevalBuddy through 1.x and in the 2.0 test builds. The documents in this folder were written under that name and keep it; the code, the pages, the installer and the release files say Aevaleron. What changed, and what an upgrade from an AevalBuddy install does:
+
+- **Names.** Product, exe and install folder: `Aevaleron`, `Aevaleron.exe`, `%LOCALAPPDATA%\Aevaleron`. Identifier and AppUserModelID: `com.aevaleron.app`. Release asset: `Aevaleron-Setup.exe`. Feed repo: `aevalmere/aevaleron` (GitHub redirects the old repo name, which is how installed 1.x copies still find `latest.yml`). The `AEVAL_*` variables and the `window.aeval` bridge keep their names.
+- **Profile.** `%APPDATA%\aevalbuddy` moves to `%APPDATA%\aevaleron` on the first start (`paths::adopt_old_name`, before anything reads the folder), and `aevalbuddy.json` and its `.bak` become `aevaleron.json`. A folder that cannot be moved is copied. Nothing happens once the new folder exists.
+- **Installer** (`installer-hooks.nsh`). Removes an Electron AevalBuddy as before, and a Tauri AevalBuddy test build (its `uninstall.exe`, then the browser profile and update downloads left in its install folder).
+- **Autostart.** The Run value is named after the identifier; the value named `com.aevalbuddy.app` is deleted at boot.
+- **Coding agents' hooks** (`agents/specs.rs`). A hook command counts as ours under either name, so the first sync replaces AevalBuddy's entries; the Copilot and OpenCode files it wrote under its own name are deleted.
+- **Not renamed.** The Electron tree (`main.js`, `lib/`, `electron-builder.yml`, `package.json`, the installer and update-check workflows and tools) is the 1.x app and keeps its name.
+
+Automatic is the default permission from 2.0 (`agentPermission: "auto"`). A profile that held the old default, `risky`, with no `permissionDefault` key moves to it once; `every` and a later choice of `risky` stay.
+
+The find lens no longer hides a display's window; it drops it, and the tour pointer hides only after its page has painted itself empty (`buddy:cleared`, 300 ms fallback), both for 10.2's reason: a hidden page shows its last frame when it comes back.

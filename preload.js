@@ -119,6 +119,7 @@ const INVOKE_CHANNELS = new Set([
   // ---- lane: capture ----
   'lens:ready',
   'buddy:ready',
+  'buddy:cleared',
   // ---- end: capture ----
   // ---- lane: llm ----
   'settings:set-provider-order',

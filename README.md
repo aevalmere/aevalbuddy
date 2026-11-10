@@ -1,20 +1,39 @@
-# AevalBuddy
+# Aevaleron
 
-A small always-on-top overlay for Windows that talks about whatever is on your screen. Press a hotkey, type a question, and the answer streams into a floating conversation window; follow-ups continue the same conversation, and every message sees the screen as it is right then. The assistant can even point: when an answer involves a specific spot on screen, an animated pointer glides there with a label. The overlay is excluded from screen capture, so it stays invisible in screen shares and recordings.
+**One shortcut, and your PC answers back.** Press `Ctrl+Alt+Space` in any app and type. Aevaleron sees what is on your screen, so you can ask about it, find things in it, or hand it the task and watch it work.
+
+[![Download Aevaleron for Windows](https://img.shields.io/badge/Download-Aevaleron%20for%20Windows-0a84ff?style=for-the-badge)](https://github.com/aevalmere/aevaleron/releases/latest/download/Aevaleron-Setup.exe)
+
+Free to use with free models. Windows 10 or 11. No account with us, no admin prompt.
+
+## What it does
+
+- **Ask about what you are looking at.** "What does this error mean?" "Summarise this page." The answer streams into a small glass window beside your work, and follow-ups keep the conversation. When the answer is about one spot on screen, a pointer glides there and shows you.
+- **Find anything on screen.** Type a word and every match lights up, in any app, including text inside images. Ask for an idea instead of a word ("what do I owe?") and it highlights the lines that mean it, each with a one-line reason.
+- **Let it do the task.** "Rename these files", "fill in this form", "turn on dark mode". Aevaleron shows its plan, then clicks and types for you, one visible step at a time. A safety check reads every risky step against what you asked for; money, passwords, sign-ins, installs and command lines always wait for your Allow. Move the mouse or press Esc and it stops.
+- **Talk instead of typing.** Hold a key and dictate into any app; the words are cleaned up as they land.
+- **Keep an eye on your coding agents.** Claude Code, Codex, Gemini CLI, Cursor and others report in. A card tells you when one finishes or needs you, and the PC stays awake while they work.
+
+## Why people keep it
+
+- **It stays out of the way.** No window in the taskbar and nothing on screen until you call it. One input works out whether you are asking, finding or giving a task.
+- **It is private where it counts.** Your keys are encrypted on your PC. Aevaleron's windows are left out of screen shares and recordings, so nobody on a call sees your questions.
+- **It costs nothing to start.** The default models are free on OpenRouter. Bring a key from Anthropic, OpenAI or Google when you want more.
+- **It is small and fast.** Version 2 is rebuilt in Rust, for a much smaller download and a bar that opens the moment you press the shortcut.
 
 ## Download
 
-[![Download AevalBuddy for Windows](https://img.shields.io/badge/Download-AevalBuddy%20for%20Windows-0a84ff?style=for-the-badge)](https://github.com/aevalmere/aevalbuddy/releases/latest/download/AevalBuddy-Setup.exe)
+**[Aevaleron-Setup.exe](https://github.com/aevalmere/aevaleron/releases/latest/download/Aevaleron-Setup.exe)** for Windows 10 or 11. That link is always the newest version. Older versions are on the [releases page](https://github.com/aevalmere/aevaleron/releases).
 
-**[AevalBuddy-Setup.exe](https://github.com/aevalmere/aevalbuddy/releases/latest/download/AevalBuddy-Setup.exe)**, Windows 10 or 11, about 90 MB. That link is always the newest version. Older versions are on the [releases page](https://github.com/aevalmere/aevalbuddy/releases).
+Aevaleron was called AevalBuddy before version 2. Installing it over AevalBuddy keeps your settings, keys, history and shortcuts.
 
 1. **Run it.** It installs in a few seconds and opens the app. No admin prompt, no wizard, nothing to choose.
 2. **If Windows says "Windows protected your PC"**, click **More info**, then **Run anyway**. That screen appears for any installer that has not paid for a code-signing certificate; it is not a virus warning. Your browser may also say the file is not commonly downloaded: choose **Keep**.
 3. **Paste an API key.** A pointer walks you to the settings panel. Get a key free at [openrouter.ai/keys](https://openrouter.ai/keys); the default models cost nothing, so you do not need to add credit. Copy the key and Settings offers to use it. Free models also need **Free model publication** on at [openrouter.ai/settings/privacy](https://openrouter.ai/settings/privacy), which lets their providers keep and train on what they receive, your screen included.
 
-Then press `Ctrl+Alt+Space` and type. AevalBuddy starts with Windows from then on (turn that off in Settings, General). There is no window in the taskbar; the tray icon by the clock is how you find AevalBuddy again.
+Then press `Ctrl+Alt+Space` and type. Aevaleron starts with Windows from then on (turn that off in Settings, General). There is no window in the taskbar; the tray icon by the clock is how you find Aevaleron again.
 
-It updates itself from then on. To remove it: Windows Settings, Apps, Installed apps, AevalBuddy, Uninstall.
+It updates itself from then on. To remove it: Windows Settings, Apps, Installed apps, Aevaleron, Uninstall.
 
 On the very first launch a pointer appears and walks you to the settings panel, where you paste an OpenRouter API key (create one free at openrouter.ai/keys). The walkthrough auto-runs only that once; dismiss it any time with its close button, Esc, or a click elsewhere, and replay it by typing `help me` in the query box. The key is stored on this machine only, encrypted through Windows credential storage when available; if encryption is unavailable it falls back to plain JSON in your user profile.
 
@@ -48,15 +67,19 @@ kept.
 the pixels where it does not), so exact matches work offline and without a
 key. Related matches explain themselves: `"refund" relates to "chargeback":
 both are payment reversals`. The highlights are hidden from screen shares like
-every other AevalBuddy window.
+every other Aevaleron window.
 
 **Do** (tasks) works with any OpenRouter model you pick; ones that support tool
 calls use them, others write their actions out as JSON. It shows a plan, then
 each step in the answer window, and the pointer glides to whatever it is
 about to click. Anything that sends, deletes, buys, signs, types a password or
-opens a link waits for you to Allow it, and so does any Enter, Delete, Alt
+opens a link is a risky step, and so is any Enter, Delete, Alt
 or Win chord, typing into a terminal, the Run box or an address bar, and any
-drag. Esc, the Stop button, the tray, or
+drag. By default a safety check reads each risky step against what you asked
+for: it runs the step when it is clearly part of your request, blocks it when
+it works against you, and asks you when it is not sure. Money, passwords,
+sign-ins, installs and command lines always wait for your Allow. Settings,
+Tasks can make every risky step, or every action, ask you first. Esc, the Stop button, the tray, or
 simply moving your mouse stops it. It asks for permission once, before its
 first task.
 
@@ -221,7 +244,7 @@ than disappearing. A window whose renderer dies is reloaded, because an
 always-on-top blank rectangle is worse than no window. None of this should
 ever fire; if it does, `errors.log` is what to send.
 
-Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. A fresh install starts AevalBuddy when you sign in to Windows, and says so once; turn it off in Settings. Upgrades keep the setting they had. The settings footer shows the app version, which is the quick way to confirm which build is running.
+Quit from the tray icon, or from the settings panel (gear icon in the query panel, then Quit). No window of this app appears in the taskbar or in Alt-Tab: every one of them is a Windows tool window, so the tray, the hotkeys and the pill are the whole interface. A fresh install starts Aevaleron when you sign in to Windows, and says so once; turn it off in Settings. Upgrades keep the setting they had. The settings footer shows the app version, which is the quick way to confirm which build is running.
 
 ### Updates
 
@@ -249,7 +272,7 @@ npm run dev
 
 This runs the app under a file watcher. Edit any source file (or have an AI assistant edit it) and the running app updates itself: changes to renderer HTML, CSS, or JS reload the windows in place; changes to main-process files restart the app in about a second. Leave it running while iterating; there is no manual quit-and-relaunch step.
 
-Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. An installed copy counts: it uses the same `%APPDATA%\aevalbuddy` folder as the source tree, so it shares the API key, settings, layout and history with `npm run dev`, and if it is running a dev launch quits at once and opens a capture in the installed copy instead. Quit it from the tray before developing. And the packaged installer in `dist/` is a snapshot from whenever `npm run build` last ran; a local build never updates itself, so rebuild it when you want the installable version to catch up.
+Two rules that save confusion. Only one copy of the app can run at a time (a second launch just pings the first one), so close any `npm start` copy before starting `npm run dev`. An installed copy counts: it uses the same `%APPDATA%\aevaleron` folder as the source tree, so it shares the API key, settings, layout and history with `npm run dev`, and if it is running a dev launch quits at once and opens a capture in the installed copy instead. Quit it from the tray before developing. And the packaged installer in `dist/` is a snapshot from whenever `npm run build` last ran; a local build never updates itself, so rebuild it when you want the installable version to catch up.
 
 ### Shipping a release
 
@@ -260,11 +283,11 @@ git push --follow-tags
 
 The tag starts `.github/workflows/release.yml`, which builds the installer on GitHub, creates a release named after the tag, and attaches the installer, its blockmap and `latest.yml`. That last file is what installed copies read to learn a newer version exists, so a release without it updates nobody. The tag has to match the version in `package.json`, which is why the version bump comes first.
 
-The workflow creates the release as a draft before the build starts, and publishes it only after checking that all three files are attached. Creating it first matters: electron-builder uploads with more than one publisher at once, and each one that finds no release creates its own, which once split v1.1.0 into two releases with the installer in one and the blockmap in the other. Publishing at the end matters too, because a draft is invisible to installed copies and to the Download link at the top of this file. That link is `releases/latest/download/AevalBuddy-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
+The workflow creates the release as a draft before the build starts, and publishes it only after checking that all three files are attached. Creating it first matters: electron-builder uploads with more than one publisher at once, and each one that finds no release creates its own, which once split v1.1.0 into two releases with the installer in one and the blockmap in the other. Publishing at the end matters too, because a draft is invisible to installed copies and to the Download link at the top of this file. That link is `releases/latest/download/Aevaleron-Setup.exe`, which GitHub redirects to the newest release's asset of that name. That only works because the installer's file name has no version in it, so do not put one back.
 
 ### Testing the real installer
 
-`.github/workflows/installer.yml` installs `AevalBuddy-Setup.exe` on a clean Windows machine in GitHub's cloud and runs the app from where it landed, not from the source tree. It checks the install (exit code, Add/Remove Programs entry and version, both shortcuts, that a silent install does not launch the app), runs the smoke test and the screenshot run against the installed exe, then uninstalls and checks the files, the registry entry and the shortcuts are gone. Every push to main tests a fresh build of that commit. Every finished release tests the file the Download link serves, after checking it against `latest.yml`.
+`.github/workflows/installer.yml` installs `Aevaleron-Setup.exe` on a clean Windows machine in GitHub's cloud and runs the app from where it landed, not from the source tree. It checks the install (exit code, Add/Remove Programs entry and version, both shortcuts, that a silent install does not launch the app), runs the smoke test and the screenshot run against the installed exe, then uninstalls and checks the files, the registry entry and the shortcuts are gone. Every push to main tests a fresh build of that commit. Every finished release tests the file the Download link serves, after checking it against `latest.yml`.
 
 Results are on the run's summary page, with the screenshots attached as an `installer-check` artifact. The script is `tools/installer-check.ps1`. Do not run it on your own machine: it installs over and then uninstalls whatever copy is there.
 
@@ -288,7 +311,7 @@ Because that is a page render rather than a screen read, the run does not need t
 npm run build
 ```
 
-This produces `dist/AevalBuddy-Setup.exe` (NSIS, one-click, per-user install, no admin prompt). The version is in the installer's metadata and in `dist/latest.yml`, not in the file name; see Shipping a release for why.
+This produces `dist/Aevaleron-Setup.exe` (NSIS, one-click, per-user install, no admin prompt). The version is in the installer's metadata and in `dist/latest.yml`, not in the file name; see Shipping a release for why.
 
 The application icon is generated, not committed. `npm run build` runs `tools/make-icon.js` first, which reads the pointer arrow straight out of `renderer/buddy.html` and `renderer/cursor-buddy.css`, rasterises it at seven sizes and writes `build/icon.ico`. So the icon is the pointer: move the path and the icon moves with it, there is no second drawing to keep in sync, and the repository stays text-only. Without it electron-builder falls back to Electron's own logo and says so on every run.
 
@@ -298,7 +321,7 @@ The installer is unsigned, so Windows SmartScreen shows "Windows protected your 
 
 The overlay, settings, and walkthrough windows all call `setContentProtection(true)`, which maps to `WDA_EXCLUDEFROMCAPTURE` on Windows. Screen shares, recordings, and screenshots taken through standard capture APIs will not include them. This is reliable on Windows 10 2004 and later, but not guaranteed for every capture backend (some hardware capture devices and older OS builds still see the window). The app keeps working either way; the overlay is just visible in those recordings.
 
-A side effect worth knowing: the screenshots AevalBuddy sends to the model also exclude its own windows, so the model sees your screen, not the assistant.
+A side effect worth knowing: the screenshots Aevaleron sends to the model also exclude its own windows, so the model sees your screen, not the assistant.
 
 Below Windows 10 build 19041 the call does nothing at all, so the app checks the build and says so in the settings footer rather than letting you believe the overlay is hidden when it is not.
 

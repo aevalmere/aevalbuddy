@@ -211,7 +211,7 @@ pub fn template(i: &Input) -> Vec<Item> {
     out.push(Item::new("help", "Help and feedback…", None));
     out.push(check_item(u, i.manual, i.now));
     out.push(Item::sep());
-    out.push(Item::new("quit", "Quit AevalBuddy", None));
+    out.push(Item::new("quit", "Quit Aevaleron", None));
     out
 }
 
@@ -272,14 +272,14 @@ pub fn labels(i: &Input) -> Vec<String> {
 pub fn tooltip(update: &Value, agent_running: bool, shortcuts: &Map<String, Value>) -> String {
     if update["status"] == "ready" {
         let v = update["version"].as_str().unwrap_or("");
-        return format!("AevalBuddy · {v} is ready, restart to update");
+        return format!("Aevaleron · {v} is ready, restart to update");
     }
     if agent_running {
-        return "AevalBuddy is using your computer · Esc to stop".into();
+        return "Aevaleron is using your computer · Esc to stop".into();
     }
     match shortcuts.get("captureQuery").and_then(Value::as_str) {
-        Some(c) if !c.is_empty() => format!("AevalBuddy · {c}"),
-        _ => "AevalBuddy".into(),
+        Some(c) if !c.is_empty() => format!("Aevaleron · {c}"),
+        _ => "Aevaleron".into(),
     }
 }
 
@@ -760,7 +760,7 @@ mod tests {
                 "Help and feedback…",
                 "Check for updates",
                 "-",
-                "Quit AevalBuddy",
+                "Quit Aevaleron",
             ]
         );
     }
@@ -953,17 +953,14 @@ mod tests {
         let ready = json!({"status": "ready", "version": "2.0.0"});
         assert_eq!(
             tooltip(&ready, true, &s),
-            "AevalBuddy · 2.0.0 is ready, restart to update"
+            "Aevaleron · 2.0.0 is ready, restart to update"
         );
         assert_eq!(
             tooltip(&json!({}), true, &s),
-            "AevalBuddy is using your computer · Esc to stop"
+            "Aevaleron is using your computer · Esc to stop"
         );
-        assert_eq!(
-            tooltip(&json!({}), false, &s),
-            "AevalBuddy · Ctrl+Alt+Space"
-        );
-        assert_eq!(tooltip(&json!({}), false, &Map::new()), "AevalBuddy");
+        assert_eq!(tooltip(&json!({}), false, &s), "Aevaleron · Ctrl+Alt+Space");
+        assert_eq!(tooltip(&json!({}), false, &Map::new()), "Aevaleron");
     }
 
     #[test]

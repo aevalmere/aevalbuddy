@@ -1,6 +1,6 @@
 //! Keeping the PC on while agents work. A named power request stops sleep
 //! (and, when asked, keeps the screen on); `powercfg /requests` shows it as
-//! "AevalBuddy: AI agents are running". Power requests do not cover closing
+//! "Aevaleron: AI agents are running". Power requests do not cover closing
 //! the lid, which is a power-plan setting: while agents run (and only if the
 //! person turned that on) the lid action is set to "Do nothing", and the
 //! values it had are written back afterwards. Port of Aevalsistant's
@@ -197,7 +197,7 @@ impl Default for Awake {
 
 impl Awake {
     pub fn new() -> Awake {
-        let reason: Vec<u16> = "AevalBuddy: AI agents are running"
+        let reason: Vec<u16> = "Aevaleron: AI agents are running"
             .encode_utf16()
             .chain(std::iter::once(0))
             .collect();

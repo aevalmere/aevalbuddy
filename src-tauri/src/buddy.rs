@@ -42,8 +42,8 @@ const NEEDS_BAR: &str = "bar";
 
 const BAR_TARGET: &str = "#pill, #query-input";
 const BAR_SCOPE: &str = "#pill, #panel";
-const TOKEN_MESSAGE: &str = "This shows what Enter will do. AevalBuddy guesses from what you \
-                             type, and a task always asks before anything risky; Esc stops it.";
+const TOKEN_MESSAGE: &str = "This shows what Enter will do. Aevaleron guesses from what you \
+                             type, and anything risky a task wants to do is checked first; Esc stops it.";
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Button {
@@ -218,6 +218,9 @@ struct State {
     focusable: bool,
     /// The window is on its way out; the next session builds a new one.
     destroying: bool,
+    /// A put-away waiting for the page to say it has painted itself empty
+    /// (`buddy:cleared`): its ticket. A new session takes it back.
+    away: Option<u64>,
     /// When click-through last changed.
     heard: Option<Instant>,
     /// The bubble, in page coordinates, when the page last took the mouse.
@@ -227,6 +230,10 @@ struct State {
 static STATE: Mutex<Option<State>> = Mutex::new(None);
 /// Bumped by every goTo / cancel, so a stale poll thread stops.
 static GEN: AtomicU64 = AtomicU64::new(0);
+/// Numbers each put-away.
+static AWAY: AtomicU64 = AtomicU64::new(0);
+/// How long a put-away waits for `buddy:cleared`.
+const AWAY_WAIT_MS: u64 = 300;
 
 fn with<T>(f: impl FnOnce(&mut State) -> T) -> T {
     let mut g = STATE.lock().unwrap_or_else(|e| e.into_inner());
@@ -315,6 +322,7 @@ fn send_show(payload: Value) {
 /// (a window left from the last sequence may be on another monitor).
 fn create_window(display: &screen::Display) {
     with(|s| {
+        s.away = None;
         s.bounds = display.bounds;
         s.scale = display.scale_factor;
         s.phys = display.phys;
@@ -343,7 +351,7 @@ fn create_window(display: &screen::Display) {
         }
         let built =
             WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("renderer/buddy.html".into()))
-                .title("AevalBuddy")
+                .title("Aevaleron")
                 .decorations(false)
                 .transparent(true)
                 .shadow(false)
@@ -431,9 +439,49 @@ fn put_away() {
         win::set_no_activate(raw, true);
     }
     set_click_through(true);
+    // The page clears itself, paints that and answers `buddy:cleared`; only
+    // then does the window go, so the next session never opens on the last
+    // one's pointer (ARCHITECTURE.md 10.2). A page that never answers is
+    // hidden anyway.
+    let ticket = AWAY.fetch_add(1, Ordering::SeqCst) + 1;
+    with(|s| s.away = Some(ticket));
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(AWAY_WAIT_MS));
+        finish_away(ticket);
+    });
+}
+
+/// `buddy:cleared`: the page is empty on screen.
+pub fn page_cleared() {
+    if let Some(ticket) = with(|s| s.away) {
+        finish_away(ticket);
+    }
+}
+
+/// Hides the window for the put-away holding `ticket`, once, unless a new
+/// session took the window back first.
+fn finish_away(ticket: u64) {
+    if !with(|s| claim_away(&mut s.away, ticket)) {
+        return;
+    }
+    let Some(w) = window() else { return };
+    let raw = capture::hwnd_of(&w);
     // Win32, not `w.hide()`: a hide queued on the event loop would land after
     // the next session's show.
     win::hide(raw);
+    // A session that began between the claim and the hide keeps its window.
+    if is_active() {
+        win::show_inactive(raw);
+    }
+}
+
+/// Whether `ticket` is the put-away still waiting; taking it ends the wait.
+fn claim_away(pending: &mut Option<u64>, ticket: u64) -> bool {
+    if *pending != Some(ticket) {
+        return false;
+    }
+    *pending = None;
+    true
 }
 
 /// Drops the window; the next session builds a new one.
@@ -1059,6 +1107,17 @@ mod tests {
         assert_eq!(first_applicable(&w, 4, true), None);
         assert_eq!(position(&w, 3, false), (2, 3));
         assert_eq!(position(&w, 2, true), (1, 3));
+    }
+
+    #[test]
+    fn a_put_away_hides_once_and_a_new_session_keeps_the_window() {
+        let mut pending = Some(4);
+        assert!(!claim_away(&mut pending, 3));
+        assert!(claim_away(&mut pending, 4));
+        assert!(!claim_away(&mut pending, 4));
+        // create_window clears it: the timer and the page both find nothing.
+        let mut taken: Option<u64> = None;
+        assert!(!claim_away(&mut taken, 5));
     }
 
     #[test]

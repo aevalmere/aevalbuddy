@@ -18,7 +18,7 @@ use super::client::Desktop;
 use super::protocol::DesktopError;
 
 pub const FIXTURE: &str = "Invoice total due 42.00";
-pub const TYPED: &str = "AevalBuddy smoke 4271";
+pub const TYPED: &str = "Aevaleron smoke 4271";
 pub const SET: &str = "Replaced by setValue 9137";
 
 /// `[SMOKE] k=v` lines and the failed invariants, as main.js's log/must.

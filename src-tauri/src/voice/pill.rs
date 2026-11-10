@@ -34,7 +34,7 @@ fn create(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
         LABEL,
         WebviewUrl::App("renderer/voice-pill.html".into()),
     )
-    .title("AevalBuddy dictation")
+    .title("Aevaleron dictation")
     .decorations(false)
     .transparent(true)
     .shadow(false)

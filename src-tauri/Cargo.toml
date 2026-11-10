@@ -1,5 +1,5 @@
 [package]
-name = "aevalbuddy"
+name = "aevaleron"
 version = "1.1.1"
 description = "Screen-aware AI overlay for Windows"
 authors = ["darkelights"]
@@ -8,7 +8,7 @@ rust-version = "1.77"
 publish = false
 
 [lib]
-name = "aevalbuddy_lib"
+name = "aevaleron_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

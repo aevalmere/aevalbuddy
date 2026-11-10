@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Every AevalBuddy page, and only what the pages call: event listening for the window.aeval bridge, and what renderer/frame.js uses (title-bar drag, edge and corner resize, double-click to maximise, the maximized state). Pages get no menu, tray, path, image or app permissions; those belong to Rust.",
+  "description": "Every Aevaleron page, and only what the pages call: event listening for the window.aeval bridge, and what renderer/frame.js uses (title-bar drag, edge and corner resize, double-click to maximise, the maximized state). Pages get no menu, tray, path, image or app permissions; those belong to Rust.",
   "windows": ["*"],
   "permissions": [
     "core:event:allow-listen",

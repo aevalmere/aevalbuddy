@@ -28,7 +28,7 @@ pub trait LlmSettings: Send + Sync {
         Vec::new()
     }
     /// The stored OpenRouter model id for a job (`model`, `brain`,
-    /// `findModel`, `agentModel` in aevalbuddy.json), default included.
+    /// `findModel`, `agentModel` in aevaleron.json), default included.
     fn model(&self, kind: Kind) -> String;
     /// Rewrites a chosen OpenRouter id that left the catalogue
     /// (`healModel`, `healBrain`, `healAgentModel`; a no-op for an id the
@@ -38,7 +38,7 @@ pub trait LlmSettings: Send + Sync {
     fn native_model(&self, provider: Provider, kind: Kind) -> Option<String>;
     /// `showPaidModels`.
     fn show_paid(&self) -> bool;
-    /// `failover` in aevalbuddy.json.
+    /// `failover` in aevaleron.json.
     fn failover(&self) -> FailoverPrefs {
         FailoverPrefs::default()
     }

@@ -200,7 +200,7 @@ jobs:
         id: smoke
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\smoke.log'
-          $exe = 'target\release\AevalBuddy.exe'
+          $exe = 'target\release\Aevaleron.exe'
           if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           node ../tools/smoke-gate.mjs --self-test 2>&1 | Tee-Object -FilePath $log
           if ($LASTEXITCODE -ne 0) { Write-Output '::error::the smoke gate failed its own self-test'; exit 1 }
@@ -245,7 +245,7 @@ jobs:
         if: success() || failure()
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\capture.log'
-          $exe = 'target\release\AevalBuddy.exe'
+          $exe = 'target\release\Aevaleron.exe'
           if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           if (-not (Test-Path 'target\release\desktop')) { Write-Output '::warning::no bundled desktop/ folder beside the exe' }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-capture'
@@ -281,7 +281,7 @@ jobs:
         if: success() || failure()
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\desktop.log'
-          $exe = 'target\release\AevalBuddy.exe'
+          $exe = 'target\release\Aevaleron.exe'
           if (-not (Test-Path $exe)) { "missing $exe" | Set-Content $log; throw "missing $exe" }
           $scratch = Join-Path $env:RUNNER_TEMP 'aeval-desktop'
           New-Item -ItemType Directory -Force $scratch | Out-Null
@@ -314,7 +314,7 @@ jobs:
       - id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: aevalbuddy-tauri-nsis
+          name: aevaleron-tauri-nsis
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 

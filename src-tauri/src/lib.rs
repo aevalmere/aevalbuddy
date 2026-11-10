@@ -1,4 +1,4 @@
-//! AevalBuddy's Rust core. ARCHITECTURE.md is the map: each module below owns
+//! Aevaleron's Rust core. ARCHITECTURE.md is the map: each module below owns
 //! one responsibility of the Electron main process, and PARITY.md lists what
 //! each must keep doing.
 
@@ -90,12 +90,12 @@ fn presence_toast(app: &tauri::AppHandle) {
     let (title, body) = if failed {
         (
             format!("{chord} is taken by another app"),
-            "Open AevalBuddy from the tray icon by the clock, then pick another shortcut in Settings."
+            "Open Aevaleron from the tray icon by the clock, then pick another shortcut in Settings."
                 .to_string(),
         )
     } else {
         (
-            "AevalBuddy is running".to_string(),
+            "Aevaleron is running".to_string(),
             format!("Press {chord} anywhere to ask, find, or do. It starts with Windows; turn that off in Settings."),
         )
     };
@@ -139,7 +139,7 @@ fn force_shot_scale() {
 }
 
 /// LIFE-10: a task still running at quit is told why it stopped.
-const QUIT_REASON: &str = "Stopped because AevalBuddy quit.";
+const QUIT_REASON: &str = "Stopped because Aevaleron quit.";
 
 /// Stops a running task with the quit reason. False when none was running.
 pub(crate) fn stop_for_exit() -> bool {
@@ -169,6 +169,8 @@ pub fn run() {
     force_shot_scale();
     windows::mark_start();
     notify::set_app_user_model_id();
+    // Before anything reads the folder: an AevalBuddy profile becomes ours.
+    paths::adopt_old_name();
     let user_data = paths::user_data_dir();
     let _ = std::fs::create_dir_all(&user_data);
     crash::install(&user_data);
@@ -221,6 +223,8 @@ pub fn run() {
                 // The checks work the round button: its window is what they
                 // sample, click and measure while the bar is closed.
                 store::get().set_show_button(true);
+                // And the gate that asks: its card is what they answer.
+                store::get().set_agent_settings(&serde_json::json!({ "permission": "risky" }));
             }
             windows::boot(&handle)?;
             // Desktop helper client, glass backdrop, CI checks (split c).
@@ -277,7 +281,7 @@ pub fn run() {
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("AevalBuddy failed to start");
+        .expect("Aevaleron failed to start");
 
     // LIFE-09: the last window closing quits, as window-all-closed did.
     app.run(|app, event| {

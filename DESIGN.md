@@ -1,4 +1,4 @@
-# AevalBuddy design constraints
+# Aevaleron design constraints
 
 Written before the v0.2 surfaces were built. Every visual change builds to this file; anything outside it
 is a defect.
@@ -249,7 +249,7 @@ rule violated, not a matter of taste.
 | 2 | Focus draws a 2px accent ring plus a slate halo around the inner field | A glowing outline is a 2010 web form | Focus lifts the whole surface: border brightens, nothing glows |
 | 3 | Paddings run 14/16/12 on the panel, 8/10 in the field, 30px buttons | Three rhythms in a 66px bar | One rhythm: 12px gutter, 32px control height, everywhere |
 | 4 | The gear and X sit at full contrast, same weight as the text | Chrome competes with content | Idle chrome at 55%, full only on hover or focus |
-| 5 | The answer window carries a title bar reading "AevalBuddy" | Branding inside your own overlay is noise the user already knows | No product name on a surface the product owns |
+| 5 | The answer window carries a title bar reading "Aevaleron" | Branding inside your own overlay is noise the user already knows | No product name on a surface the product owns |
 | 6 | Both the question and the answer sit in coloured bubbles | Bubbles read as a toy chat app; an answer is a document | The question is a quiet right-aligned chip; the answer is prose directly on the surface |
 | 7 | The notice is a filled pill inside a filled panel | Third level of nesting | Separate with a hairline at 8% and whitespace, never another fill |
 | 8 | Surfaces are 97% opaque flat grey with a hard shadow | It sits on top of the desktop rather than belonging to it | Translucent surface, real background blur, a 1px inner highlight along the top edge, one large soft shadow |
@@ -622,7 +622,7 @@ The updater existed and had never been watched doing its job. Nothing
 installed an old version and saw it become the new one, its log went to a
 console a packaged app does not have, and a download that dropped half way
 rejected a promise nobody held, which crash.js correctly reported as
-"AevalBuddy hit an error". For a dropped Wi-Fi connection.
+"Aevaleron hit an error". For a dropped Wi-Fi connection.
 
 ### When it looks
 
@@ -637,7 +637,7 @@ Nothing alarming, because none of it is the user's problem. Offline, a 429
 from GitHub, a 5xx, a refused connection, a download whose sha512 did not
 match: each is retried on 2, 5, 15, 30, 60, then 120 minutes (with 10% jitter)
 and then the usual four hours. Settings says one plain sentence ("You're
-offline. AevalBuddy checks again once you're connected." / "The update server
+offline. Aevaleron checks again once you're connected." / "The update server
 did not answer. Trying again at 3:05 PM."). The tray says nothing. The raw
 error goes to `updater.log` beside `errors.log`. This follows the rule the
 free models taught the app: a 429 is the everyday state, not an exception.
@@ -647,7 +647,7 @@ free models taught the app: a 429 is the everyday state, not an exception.
 | Surface | Downloading | Ready |
 | --- | --- | --- |
 | Tray menu, top | disabled `Downloading 1.2.0… 42%` | `Restart to update to 1.2.0` |
-| Tray tooltip | unchanged | `AevalBuddy — 1.2.0 is ready, restart to update` |
+| Tray tooltip | unchanged | `Aevaleron — 1.2.0 is ready, restart to update` |
 | Settings > About | summary, a sentence with MB and %, a 4px progress bar, "New in 1.2.0:" and the first lines of the release notes | the same plus a primary `Restart now` |
 | Settings footer | nothing | `Restart to update` link |
 | Notification | none | one, silent, held back until no answer is streaming |
@@ -674,7 +674,7 @@ subjects since the previous tag first and the install instructions second.
 | Departure | Reason |
 | --- | --- |
 | A second notification type besides the crash notice | the tray is often behind the overflow chevron; a downloaded update nobody hears of is applied only at a quit that may be weeks away. One per version, silent, never mid-answer |
-| `app.setAppUserModelId('com.aevalbuddy.app')` at startup | Windows attributes a toast to the Start Menu shortcut's AUMID; without the same id, the notification can show under a generic name or its click never reaches the app |
+| `app.setAppUserModelId('com.aevaleron.app')` at startup | Windows attributes a toast to the Start Menu shortcut's AUMID; without the same id, the notification can show under a generic name or its click never reaches the app |
 
 ### How it is proven
 
@@ -745,7 +745,7 @@ still appears because it is information.
 
 - Perception order is UIA, then OCR, then vision. Sending pixels when the app
   offered the string is a capture-fidelity regression.
-- During an agent run no AevalBuddy window takes focus except a confirm card,
+- During an agent run no Aevaleron window takes focus except a confirm card,
   a question, or the consent sheet, and focus goes back to the target before
   the next action. The smoke run counts violations (`agentFocusKept`).
 - The safety gate is code in the executor, never a prompt: a control or
@@ -913,7 +913,7 @@ that erased control rims were the inconsistencies request 7 named (design-visual
   the conversation's name (its first question, or the task, or the search), and four 28 px icon controls:
   Copy conversation, History, New conversation, Close. A hairline appears under it only once the transcript
   scrolls beneath. This replaces the v0.4 `#chat-tools` row. v0.4's rule "no product name on a surface the
-  product owns" holds: the title is the conversation, never "AevalBuddy".
+  product owns" holds: the title is the conversation, never "Aevaleron".
 - **No input in an output window.** The bar is the only text field. A task's question (`ask_user`) shows in
   its trail as "Waiting for your answer in the bar", in the accent; the bar's placeholder becomes "Answer the
   task's question" and its rim turns accent, and Enter sends the answer to that run. Plan approval and
@@ -1033,7 +1033,7 @@ morph curve). 200 ms fits inside the window's own wait before it shrinks to the 
 
 ### Providers (request 2)
 
-Settings' first page is **Providers** (it was Account): one grouped list, in the order AevalBuddy tries
+Settings' first page is **Providers** (it was Account): one grouped list, in the order Aevaleron tries
 them, of OpenRouter, Anthropic, OpenAI and Google Gemini. Answers come from the first ready one, which wears
 a `Default` capsule. Each row is one line and one button: a drag handle, the position, the name over the
 masked key (in the mono face) or what the provider offers, the status as an icon and a word, the capsule,
@@ -1090,7 +1090,7 @@ Ctrl+=, Ctrl+- and Ctrl+0 in any window move the same value.
 
 ### Models per provider
 
-The Models page starts with one choice: `Automatic (recommended)` (AevalBuddy picks a model for each job:
+The Models page starts with one choice: `Automatic (recommended)` (Aevaleron picks a model for each job:
 free ones on OpenRouter, the recommended one elsewhere) or `Choose for each job`. Only the second shows the
 four job pickers, and with more than one provider holding a key a segmented `Models for` above them picks
 whose models they edit (default: the Default provider). `Show paid models` exists only on OpenRouter's
@@ -1112,7 +1112,7 @@ the tab order at a time, with its Delete. `Delete all` is a quiet text button th
 all 4 conversations?`, `Delete` / `Keep`, focus on Keep). With history off the empty list says so (C-80)
 with `Turn on`; with older conversations still listed, a line above them says so.
 
-Settings, Shortcuts lists the keys that work inside AevalBuddy's windows under `In AevalBuddy windows`
+Settings, Shortcuts lists the keys that work inside Aevaleron's windows under `In Aevaleron windows`
 (read-only), and F1 on any Settings page goes there. A shortcut another app holds offers free alternatives
 as one-click buttons. Answers has `Open styles folder` with `Add a .md file to make your own style.`, and a
 style longer than 8 KB says `Only the first 8 KB is used.` General has **Bar position** (`Top right`,

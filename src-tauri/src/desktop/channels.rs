@@ -81,6 +81,10 @@ pub fn route(
             off_thread(buddy::page_ready);
             ok
         }
+        "buddy:cleared" => {
+            off_thread(buddy::page_cleared);
+            ok
+        }
         "lens:ready" => {
             lens::page_ready(window.app_handle(), window.label());
             ok
@@ -120,6 +124,7 @@ mod tests {
             "buddy:focus",
             "buddy:card",
             "buddy:ready",
+            "buddy:cleared",
             "lens:ready",
         ] {
             assert!(crate::ipc::INVOKE_CHANNELS.contains(&c), "{c}");

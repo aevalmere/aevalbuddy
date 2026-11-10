@@ -160,7 +160,7 @@ fn cache_dir() -> String {
     std::env::var("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|_| std::env::temp_dir())
-        .join("aevalbuddy")
+        .join("aevaleron")
         .display()
         .to_string()
 }

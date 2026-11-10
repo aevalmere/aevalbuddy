@@ -73,7 +73,7 @@ const TOUR = [
   { kind: 'step', message: 'Now ask anything about your screen.', skippable: true },
   {
     kind: 'step',
-    message: 'This shows what Enter will do. AevalBuddy guesses from what you type, and a task always asks before anything risky; Esc stops it.',
+    message: 'This shows what Enter will do. Aevaleron guesses from what you type, and anything risky a task wants to do is checked first; Esc stops it.',
     buttons: [{ id: 'done', label: 'Got it', primary: true }],
   },
 ];

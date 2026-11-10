@@ -41,7 +41,7 @@ const LOG_MAX_BYTES: u64 = 256 * 1024;
 /// FILE-10: the feed compiled in, replacing electron-builder's app-update.yml.
 pub const FEED_PROVIDER: &str = "github";
 pub const FEED_OWNER: &str = "aevalmere";
-pub const FEED_REPO: &str = "aevalbuddy";
+pub const FEED_REPO: &str = "aevaleron";
 
 pub fn feed_config() -> Value {
     json!({ "provider": FEED_PROVIDER, "owner": FEED_OWNER, "repo": FEED_REPO, "private": false })
@@ -143,7 +143,7 @@ pub fn problem_text(kind: &str, next_check: u64) -> String {
         String::new()
     };
     match kind {
-        "offline" => "You're offline. AevalBuddy checks again once you're connected.".into(),
+        "offline" => "You're offline. Aevaleron checks again once you're connected.".into(),
         "limited" => format!("GitHub asked for a pause.{at}"),
         "corrupt" => format!("The download did not verify, so it was thrown away.{at}"),
         _ => format!("The update server did not answer.{at}"),
@@ -436,7 +436,7 @@ pub fn log(level: &str, message: &str) {
         let _ = f.write_all(line.as_bytes());
     }
     if level != "info" {
-        eprintln!("[aevalbuddy] update {level}: {message}");
+        eprintln!("[aevaleron] update {level}: {message}");
     }
 }
 
@@ -527,7 +527,7 @@ fn pending_dir() -> PathBuf {
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
-        .join("aevalbuddy")
+        .join("aevaleron")
         .join("pending")
 }
 
@@ -700,7 +700,7 @@ pub fn on_resume() {
 
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
-        .user_agent(format!("AevalBuddy/{}", version()))
+        .user_agent(format!("Aevaleron/{}", version()))
         .connect_timeout(Duration::from_secs(20))
         .timeout(Duration::from_secs(45))
         .build()
@@ -896,7 +896,7 @@ async fn download_inner(
     let name = Path::new(&latest.path)
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| "AevalBuddy-Setup.exe".into());
+        .unwrap_or_else(|| "Aevaleron-Setup.exe".into());
     let target = dir.join(&name);
     let part = dir.join(format!("{name}.part"));
     // Nothing to check it against: not worth the download.
@@ -995,7 +995,7 @@ fn announce(app: &AppHandle, version: &str) {
     }
     let app = app.clone();
     crate::notify::show(
-        &format!("AevalBuddy {version} is ready"),
+        &format!("Aevaleron {version} is ready"),
         "It installs the next time you quit. Click to restart now.",
         Some(Box::new(move || {
             restart(&app);
@@ -1008,7 +1008,7 @@ fn announce_updated(app: &AppHandle) {
     let url = format!("{}{v}", release_base());
     let app = app.clone();
     crate::notify::show(
-        &format!("AevalBuddy updated to {v}"),
+        &format!("Aevaleron updated to {v}"),
         "Click to see what's new.",
         Some(Box::new(move || {
             crate::windows::open_url(&app, &url);
@@ -1142,7 +1142,7 @@ mod tests {
         let off = problem_text("offline", 0);
         assert_eq!(
             off,
-            "You're offline. AevalBuddy checks again once you're connected."
+            "You're offline. Aevaleron checks again once you're connected."
         );
         assert_eq!(problem_text("limited", 0), "GitHub asked for a pause.");
         let t = problem_text("server", 1_700_000_000_000);
@@ -1201,16 +1201,16 @@ mod tests {
         assert_eq!(feed_override_from(env(junk), false), "");
     }
 
-    const YML: &str = "version: 1.2.0\nfiles:\n  - url: AevalBuddy-Setup.exe\n    sha512: \
+    const YML: &str = "version: 1.2.0\nfiles:\n  - url: Aevaleron-Setup.exe\n    sha512: \
                        abc123==\n    size: 1234\n  - url: other.exe\n    sha512: zzz\npath: \
-                       AevalBuddy-Setup.exe\nsha512: abc123==\nreleaseDate: \
+                       Aevaleron-Setup.exe\nsha512: abc123==\nreleaseDate: \
                        '2026-11-01T10:00:00.000Z'\n";
 
     #[test]
     fn latest_yml() {
         let l = parse_latest_yml(YML).unwrap();
         assert_eq!(l.version, "1.2.0");
-        assert_eq!(l.path, "AevalBuddy-Setup.exe");
+        assert_eq!(l.path, "Aevaleron-Setup.exe");
         assert_eq!(l.sha512, "abc123==");
         let notes = "version: '2.0.0'\npath: a.exe\nsha512: x\nreleaseNotes: |\n  line one\n  \
                      line two\nreleaseDate: now\n";
@@ -1222,7 +1222,7 @@ mod tests {
 
     #[test]
     fn atom_and_tag() {
-        let atom = r#"<feed><entry><id>1</id><link rel="alternate" type="text/html" href="https://github.com/aevalmere/aevalbuddy/releases/tag/v1.2.0"/><content type="html">&lt;ul&gt;&lt;li&gt;New&lt;/li&gt;&lt;/ul&gt;</content></entry><entry><link href="https://github.com/aevalmere/aevalbuddy/releases/tag/v1.1.1"/><content type="html">old</content></entry></feed>"#;
+        let atom = r#"<feed><entry><id>1</id><link rel="alternate" type="text/html" href="https://github.com/aevalmere/aevaleron/releases/tag/v1.2.0"/><content type="html">&lt;ul&gt;&lt;li&gt;New&lt;/li&gt;&lt;/ul&gt;</content></entry><entry><link href="https://github.com/aevalmere/aevaleron/releases/tag/v1.1.1"/><content type="html">old</content></entry></feed>"#;
         assert_eq!(atom_notes(atom, "v1.2.0").unwrap(), "<ul><li>New</li></ul>");
         assert_eq!(atom_notes(atom, "v1.1.1").unwrap(), "old");
         assert!(atom_notes(atom, "v9").is_none());

@@ -439,7 +439,7 @@ function viewOf(p) {
       if (p.id === 'openrouter') {
         v.msg = 'Free models, no card needed. Connecting takes about a minute.';
         if (u.connecting) {
-          v.msg = 'Approve AevalBuddy in the OpenRouter tab that opened in your browser. This page carries on when you have.';
+          v.msg = 'Approve Aevaleron in the OpenRouter tab that opened in your browser. This page carries on when you have.';
           v.actions = [
             { id: 'connect', label: 'Waiting for OpenRouter…', kind: 'prominent', disabled: true },
             { id: 'paste', label: 'Paste a key instead', kind: 'text' },
@@ -476,7 +476,7 @@ function viewOf(p) {
       ];
       break;
     case 'rejected':
-      v.msg = `${n} rejected this key. It may have been revoked or mistyped. AevalBuddy is skipping ${n} until you replace it.`;
+      v.msg = `${n} rejected this key. It may have been revoked or mistyped. Aevaleron is skipping ${n} until you replace it.`;
       v.actions = [
         { id: 'replace', label: 'Replace key', kind: 'prominent' },
         { id: 'remove', label: 'Remove' },
@@ -486,7 +486,7 @@ function viewOf(p) {
       v.msg =
         p.id === 'openrouter'
           ? 'The key works, but the account has no credit, so only free models answer.'
-          : `The key works, but the ${n} account has no credit. AevalBuddy is skipping ${n}.`;
+          : `The key works, but the ${n} account has no credit. Aevaleron is skipping ${n}.`;
       v.actions = [
         { kind: 'link', label: 'Add credit', href: info.creditUrl, button: true },
         { id: 'test', label: 'Test again' },
@@ -507,7 +507,7 @@ function viewOf(p) {
       break;
     case 'unchecked':
     default:
-      v.msg = `Can't reach ${n} right now. The key is saved; AevalBuddy checks again when you're online.`;
+      v.msg = `Can't reach ${n} right now. The key is saved; Aevaleron checks again when you're online.`;
       v.actions = [
         { id: 'test', label: 'Test again' },
         { id: 'remove', label: 'Remove', kind: 'text' },
@@ -823,10 +823,10 @@ async function saveKey(id, as) {
     return;
   }
   if (r === FAILED || !r) {
-    setUi(target, { error: "AevalBuddy couldn't save the key. Try again." });
+    setUi(target, { error: "Aevaleron couldn't save the key. Try again." });
     prov.focusAfter = { id, to: 'field' };
     renderProviders();
-    say("AevalBuddy couldn't save the key.");
+    say("Aevaleron couldn't save the key.");
     return;
   }
   if (!r.ok) {
@@ -839,7 +839,7 @@ async function saveKey(id, as) {
     }
     const rejected = r.status === 'rejected' || /reject|invalid|not valid/i.test(String(r.error || ''));
     setUi(target, {
-      error: rejected ? `${p.name} rejected this key, so it wasn't saved. Check it and paste it again.` : r.error || "AevalBuddy couldn't save the key. Try again.",
+      error: rejected ? `${p.name} rejected this key, so it wasn't saved. Check it and paste it again.` : r.error || "Aevaleron couldn't save the key. Try again.",
     });
     prov.focusAfter = { id, to: 'field' };
     renderProviders();
@@ -892,7 +892,7 @@ async function useClipKey(id) {
 async function connectOpenRouter() {
   setUi('openrouter', { connecting: true, error: '', mode: null });
   renderProviders();
-  say('Your browser opened OpenRouter. Approve AevalBuddy there.');
+  say('Your browser opened OpenRouter. Approve Aevaleron there.');
   const r = await call('auth:openrouter-connect', {}, 6 * 60 * 1000);
   setUi('openrouter', { connecting: false });
   const p = provById('openrouter');
@@ -1259,7 +1259,7 @@ function renderKeyStorage() {
   const text = {
     encrypted: 'Keys are encrypted with your Windows account and only sent to their own provider.',
     plain:
-      "Windows couldn't provide a key store, so keys are saved unencrypted in your AevalBuddy settings file. Anyone signed in to this Windows account can read them.",
+      "Windows couldn't provide a key store, so keys are saved unencrypted in your Aevaleron settings file. Anyone signed in to this Windows account can read them.",
   }[data.keyStorage];
   node.textContent = text || '';
   node.hidden = !text;
@@ -1353,7 +1353,7 @@ modelsMode.addEventListener('click', (e) => {
   if (m === 'auto') useRecommendedModels();
 });
 
-// Automatic: every job back to the model AevalBuddy recommends for it.
+// Automatic: every job back to the model Aevaleron recommends for it.
 async function useRecommendedModels() {
   const d = data;
   const saves = [];
@@ -1732,7 +1732,7 @@ function renderAgentSettings(a) {
   agentShots.checked = !!a.screenshots;
   agentCursor.checked = !!a.returnCursor;
   $('agent-revoke').hidden = !a.consent;
-  const says = PERMISSION[a.permission] || PERMISSION.risky;
+  const says = PERMISSION[a.permission] || PERMISSION.auto;
   $('agent-permission-note').textContent = says.note;
   setSummary('agent-summary', `${says.summary} · up to ${a.maxSteps} steps`);
 }
@@ -2084,7 +2084,7 @@ function renderStartup() {
   setSummary('startup-summary', data.launchAtLogin ? 'On' : 'Off');
   const note = $('startup-note');
   // Unpackaged, the Run key would point at a development binary rather than
-  // at AevalBuddy, so the preference is remembered and not applied. Saying
+  // at Aevaleron, so the preference is remembered and not applied. Saying
   // so beats a switch that silently does nothing.
   note.textContent = data.launchAtLoginLive ? '' : 'Remembered, but only applied in an installed build.';
   note.hidden = !note.textContent;
@@ -2107,10 +2107,10 @@ launchAtLogin.addEventListener('change', () => {
 // and a drag that ends near a stop lands on it. Arrow keys go stop to stop.
 const SURFACE_WHY = {
   'high-contrast': 'A contrast theme is on, so surfaces are solid.',
-  'capture-visible': 'This Windows build cannot hide AevalBuddy from capture, so glass, which needs that, is off.',
+  'capture-visible': 'This Windows build cannot hide Aevaleron from capture, so glass, which needs that, is off.',
   'capture-failed': 'The screen could not be read for the glass, so surfaces are solid for now.',
 };
-const TRANSPARENCY_NOTE = 'Windows transparency effects are off. AevalBuddy keeps its glass; choose None for solid panels.';
+const TRANSPARENCY_NOTE = 'Windows transparency effects are off. Aevaleron keeps its glass; choose None for solid panels.';
 const GLASS_NAMES = ['None', 'Frosted', 'Soft', 'Liquid', 'Very liquid'];
 const glassRange = $('glass-range');
 const clamp01 = (k) => Math.min(1, Math.max(0, k));
@@ -2497,10 +2497,10 @@ function renderAll(d) {
   setSummary('share-summary', d.canHide !== false ? 'Hidden' : 'Visible');
   $('share-line').textContent =
     d.canHide !== false
-      ? `Every AevalBuddy window, the highlights and the pointer included, is left out of screen shares and recordings (Windows build ${d.winBuild || 'unknown'}).`
-      : `Windows build ${d.winBuild} cannot hide windows from a screen share; that needs build 19041 or later. People watching your screen can see AevalBuddy.`;
+      ? `Every Aevaleron window, the highlights and the pointer included, is left out of screen shares and recordings (Windows build ${d.winBuild || 'unknown'}).`
+      : `Windows build ${d.winBuild} cannot hide windows from a screen share; that needs build 19041 or later. People watching your screen can see Aevaleron.`;
   renderFindSettings(d.find || { scope: 'window', related: 'ask', ocr: true });
-  renderAgentSettings(d.agent || { permission: 'risky', maxSteps: 25, screenshots: true, returnCursor: true });
+  renderAgentSettings(d.agent || { permission: 'auto', maxSteps: 25, screenshots: true, returnCursor: true });
   showPaid.checked = !!d.showPaid;
   brainEnabled.checked = !!d.brainEnabled;
   saveHistory.checked = d.saveHistory !== false;
