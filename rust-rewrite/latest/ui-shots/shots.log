@@ -85,6 +85,7 @@
 [UI] scene bar/bar-keys
 [UI] escClearsThenCloses=ok
 [UI] closeButtonNamed=ok
+[UI] minimizeButtonFolds=ok
 [UI] barShortcutsInvoke=ok
 [UI] chordsNameTheTarget=ok
 [UI] zoomKeysInvokeTextScale=ok
@@ -159,13 +160,13 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.022
+[UI] globShapeMs=0.011
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=513 frames=25 longestFrameMs=33.4
+[UI] globOpen ms=496 frames=30 longestFrameMs=16.7
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -313,6 +314,14 @@
 [UI] scene sheet/sheet-two-turn-scrolled
 [UI] shot sheet-two-turn-scrolled.png
 [UI] scrolledShowsBothEdges=ok
+[UI] scene sheet/sheet-continued
+[UI] shot sheet-continued.png
+[UI] shot sheet-continued-done.png
+[UI] continuedTurnsRead=ok
+[UI] scene sheet/sheet-continued-ts200
+[UI] shot sheet-continued-ts200.png
+[UI] shot sheet-continued-done-ts200.png
+[UI] continuedTurnsRead-ts200=ok
 [UI] scene sheet/sheet-stopped
 [UI] shot sheet-stopped.png
 [UI] stoppedKeepsWhatArrived=ok
@@ -685,7 +694,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=543 frames=25 longestFrameMs=33.4
+[UI] globOpen-150 ms=508 frames=30 longestFrameMs=16.7
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -823,6 +832,14 @@
 [UI] scene sheet/sheet-two-turn-scrolled-150
 [UI] shot sheet-two-turn-scrolled-150.png
 [UI] scrolledShowsBothEdges-150=ok
+[UI] scene sheet/sheet-continued-150
+[UI] shot sheet-continued-150.png
+[UI] shot sheet-continued-done-150.png
+[UI] continuedTurnsRead-150=ok
+[UI] scene sheet/sheet-continued-150-ts200
+[UI] shot sheet-continued-150-ts200.png
+[UI] shot sheet-continued-done-150-ts200.png
+[UI] continuedTurnsRead-150-ts200=ok
 [UI] scene sheet/sheet-stopped-150
 [UI] shot sheet-stopped-150.png
 [UI] stoppedKeepsWhatArrived-150=ok
@@ -1044,7 +1061,7 @@
 [UI] lane llm sceneRuns=0
 [UI] lane agent sceneRuns=0
 [UI] lane bar sceneRuns=45
-[UI] lane sheet sceneRuns=88
+[UI] lane sheet sceneRuns=92
 [UI] lane settings sceneRuns=68
 [UI] lane voice sceneRuns=8
 [UI] lane polish sceneRuns=10
@@ -1056,4 +1073,4 @@
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
 [UI] noPageErrors=ok
-[UI] done failed=0 shots=372
+[UI] done failed=0 shots=380
