@@ -211,15 +211,15 @@
 [UI] noDockUi=ok
 [UI] resizeZones=ok
 [UI] globFrameCost=ok
-[UI] globShapeMs=0.028
+[UI] globShapeMs=0.019
 [UI] shot 04a-glob-08.png
 [UI] shot 04b-glob-30.png
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=532 frames=20 longestFrameMs=50.0
+[UI] globOpen ms=506 frames=21 longestFrameMs=33.4
 [UI] globOpens=ok
-[UI] globSmooth=FAIL:longest frame 50.0 ms
+[UI] globSmooth=ok
 [UI] globReducedMotion=ok
 [UI] scene sheet/multi
 [UI] shot 05-outputs-multi.png
@@ -260,6 +260,7 @@
 [UI] sheetBlankBeforeItSaysGone=ok
 [UI] sheetDrawsAgainWhenShown=ok
 [UI] sheetCaughtMidFadeStays=ok
+[UI] sheetTakesClicksAfterAHide=ok
 [UI] scene sheet/glob-cascaded
 [UI] shot glob-cascaded.png
 [UI] globFallsBackToScale=ok
@@ -330,6 +331,12 @@
 [UI] shot sheet-task-running.png
 [UI] planChecksOff=ok
 [UI] trailRowsHaveSrPrefixes=ok
+[UI] stepGlyphOnFirstLine=ok
+[UI] scene sheet/sheet-task-running-ts200
+[UI] shot sheet-task-running-ts200.png
+[UI] planChecksOff-ts200=ok
+[UI] trailRowsHaveSrPrefixes-ts200=ok
+[UI] stepGlyphOnFirstLine-ts200=ok
 [UI] scene sheet/sheet-task-done-expanded
 [UI] shot sheet-task-done-collapsed.png
 [UI] shot sheet-task-done-expanded.png
@@ -625,9 +632,11 @@
 [UI] menuInsideWindow.windowMenu-ts200=ok
 [UI] scene polish/menu-bounds-combo
 [UI] menuInsideWindow.combo=ok
+[UI] comboNameCentred=ok
 [UI] shot menu-bounds-combo.png
 [UI] scene polish/menu-bounds-combo-ts200
 [UI] menuInsideWindow.combo-ts200=ok
+[UI] comboNameCentred-ts200=ok
 [UI] shot menu-bounds-combo-ts200.png
 [UI] scene polish/menu-bounds-history
 [UI] menuInsideWindow.historyRow=ok
@@ -887,7 +896,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=530 frames=19 longestFrameMs=50.1
+[UI] globOpen-150 ms=512 frames=21 longestFrameMs=33.5
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -995,6 +1004,12 @@
 [UI] shot sheet-task-running-150.png
 [UI] planChecksOff-150=ok
 [UI] trailRowsHaveSrPrefixes-150=ok
+[UI] stepGlyphOnFirstLine-150=ok
+[UI] scene sheet/sheet-task-running-150-ts200
+[UI] shot sheet-task-running-150-ts200.png
+[UI] planChecksOff-150-ts200=ok
+[UI] trailRowsHaveSrPrefixes-150-ts200=ok
+[UI] stepGlyphOnFirstLine-150-ts200=ok
 [UI] scene sheet/sheet-task-done-expanded-150
 [UI] shot sheet-task-done-collapsed-150.png
 [UI] shot sheet-task-done-expanded-150.png
@@ -1279,9 +1294,11 @@
 [UI] menuInsideWindow.windowMenu-150-ts200=ok
 [UI] scene polish/menu-bounds-combo-150
 [UI] menuInsideWindow.combo-150=ok
+[UI] comboNameCentred-150=ok
 [UI] shot menu-bounds-combo-150.png
 [UI] scene polish/menu-bounds-combo-150-ts200
 [UI] menuInsideWindow.combo-150-ts200=ok
+[UI] comboNameCentred-150-ts200=ok
 [UI] shot menu-bounds-combo-150-ts200.png
 [UI] scene polish/menu-bounds-history-150
 [UI] menuInsideWindow.historyRow-150=ok
@@ -1341,7 +1358,7 @@
 [UI] lane llm sceneRuns=0
 [UI] lane agent sceneRuns=0
 [UI] lane bar sceneRuns=47
-[UI] lane sheet sceneRuns=93
+[UI] lane sheet sceneRuns=95
 [UI] lane settings sceneRuns=68
 [UI] lane voice sceneRuns=8
 [UI] lane polish sceneRuns=28
@@ -1355,4 +1372,4 @@
 [UI] voicePillOnlyListens=ok
 [UI] watchCardNeedsNoFocus=ok
 [UI] noPageErrors=ok
-[UI] done failed=1 shots=436
+[UI] done failed=0 shots=438

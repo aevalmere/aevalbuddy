@@ -1,13 +1,12 @@
-# ui-shots: failure
+# ui-shots: success
 
 - Workflow: ui-shots
-- Run: [42778342279](https://github.com/aevalmere/aevalbuddy/actions/runs/42778342279), attempt 1, on push
-- Commit: 6aec89acddb76ba34db5bd3654ebee10aad5dc34
+- Run: [42783445417](https://github.com/aevalmere/aevalbuddy/actions/runs/42783445417), attempt 1, on push
+- Commit: 12cc94dc3303377294702059fdb286cb6d85c899
 - Ref: rust/polish
-- Conclusion: **failure**
-- Failed: Screenshots and renderer checks
-- Finished: 2026-11-10T08:06:21Z
-- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/6aec89acddb76ba34db5bd3654ebee10aad5dc34 (/ in the ref becomes -)
+- Conclusion: **success**
+- Finished: 2026-11-10T08:46:07Z
+- Screenshots: https://github.com/aevalmere/aevalbuddy/tree/shots/rust-d-ui/rust/polish/12cc94dc3303377294702059fdb286cb6d85c899 (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -15,8 +14,8 @@
 | Node | success |  |
 | Bridge unit checks | success | [bridge.log](bridge.log) |
 | Install Playwright | success | [playwright.log](playwright.log) |
-| Screenshots and renderer checks | failure | [shots.log](shots.log) |
+| Screenshots and renderer checks | success | [shots.log](shots.log) |
 | Upload screenshots | success |  |
 | Publish to the shots branch | success |  |
 
-errors.txt: 1 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
