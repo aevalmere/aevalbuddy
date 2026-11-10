@@ -60,7 +60,10 @@
     const codes = [];
     const links = [];
     let out = text.replace(/`([^`\n]+)`/g, (_m, code) => {
-      codes.push(`<code>${code}</code>`);
+      // A short span stays on one line (a flag or a file name never splits
+      // at its hyphen); a long one may break, or it would overflow the sheet.
+      const cls = code.length > 28 ? ' class="md-long"' : '';
+      codes.push(`<code${cls}>${code}</code>`);
       return `${PH}c${codes.length - 1}${PH}`;
     });
     out = out.replace(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, label, url) => {

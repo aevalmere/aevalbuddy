@@ -531,9 +531,8 @@ export const scenes = [
       await t.settle(900);
       await t.shot('05-outputs-multi', { x: 0, y: 0, width: W, height: H });
       const ph = await bar.evaluate(() => document.getElementById('query-input').placeholder);
-      // The asking copy exactly (bar's WAITING_PLACEHOLDER), not any text that
-      // happens to say 'question' (B-156 rewrites the bar's copy).
-      t.check('barAnswersTask', ph === 'Answer the task’s question', `placeholder "${ph}"`);
+      // The asking copy exactly (bar's WAITING_PLACEHOLDER, copy deck C-11).
+      t.check('barAnswersTask', ph === 'Type your answer for the task', `placeholder "${ph}"`);
       await bar.evaluate(() => {
         const i = document.getElementById('query-input');
         i.value = 'No, just the date';

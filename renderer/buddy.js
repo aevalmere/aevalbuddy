@@ -15,12 +15,12 @@ const callout = document.getElementById('callout');
 const calloutMessage = document.getElementById('callout-message');
 const calloutClose = document.getElementById('callout-close');
 const calloutCount = document.getElementById('callout-count');
+const calloutHead = document.getElementById('callout-head');
 const calloutHint = document.getElementById('callout-hint');
 const calloutActions = document.getElementById('callout-actions');
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EASE = reduceMotion ? 1 : 0.16;
-const TYPE_MS = 16; // per character
 const ARROW_W = 26;
 const GAP = 8;
 const EDGE = 12;
@@ -36,7 +36,6 @@ let ignoreState = true;
 // Reset whenever a new point arrives, so the next one is not left offscreen.
 let dragBy = { x: 0, y: 0 };
 let dragging = null;
-let typeTimer = null;
 // Point mode advances by clicking the bubble; walkthrough steps advance on
 // the app action they describe, so a click there only dismisses.
 let advanceOnClick = false;
@@ -104,10 +103,12 @@ function schedule() {
 }
 
 // Progress as pips: one per step, the current one a wider capsule. The
-// words stay for a screen reader.
+// words stay for a screen reader. Without pips their row is gone, so a
+// one-line message has no empty band above it.
 function setPips(index, count) {
   calloutCount.textContent = '';
-  if (index < 0 || count < 2) {
+  calloutHead.hidden = index < 0 || count < 2;
+  if (calloutHead.hidden) {
     calloutCount.removeAttribute('aria-label');
     return;
   }
@@ -150,46 +151,11 @@ function positionCallout() {
   if (window.AevalGlass) window.AevalGlass.track(60);
 }
 
-// Types the message out. Feels like the buddy is talking rather than a label
-// blinking into existence; it finishes instantly under reduced motion, and
-// clicking the bubble skips the rest.
-function typeOut(text) {
-  clearInterval(typeTimer);
-  if (reduceMotion) {
-    calloutMessage.textContent = text;
-    calloutMessage.classList.remove('typing');
-    measure();
-    return;
-  }
-  calloutMessage.textContent = '';
-  calloutMessage.classList.add('typing');
-  // Reserve the finished size first so the bubble does not grow line by line
-  // and shove the tail around while it types.
-  calloutMessage.style.minHeight = '';
-  const probe = document.createElement('span');
-  probe.textContent = text;
-  calloutMessage.appendChild(probe);
-  measure();
-  calloutMessage.style.minHeight = `${calloutMessage.offsetHeight}px`;
-  calloutMessage.textContent = '';
-  let i = 0;
-  typeTimer = setInterval(() => {
-    i += 1;
-    calloutMessage.textContent = text.slice(0, i);
-    if (i >= text.length) {
-      clearInterval(typeTimer);
-      typeTimer = null;
-      calloutMessage.classList.remove('typing');
-    }
-  }, TYPE_MS);
-}
-
-function finishTyping() {
-  if (!typeTimer) return;
-  clearInterval(typeTimer);
-  typeTimer = null;
-  calloutMessage.textContent = message;
-  calloutMessage.classList.remove('typing');
+// The message is set whole, at once: it can be read straight away, and the
+// status region announces it once, not once per character.
+function setMessage(text) {
+  calloutMessage.textContent = text;
+  replay(calloutMessage, 'md-in');
 }
 
 function measure() {
@@ -262,9 +228,11 @@ window.aeval.on('buddy:show', (payload) => {
   if (newMessage) {
     message = msg;
     dragBy = { x: 0, y: 0 };
-    typeOut(msg);
+    setMessage(msg);
     replay(callout, 'in');
   }
+  // After the pips, the buttons and the words: the card's size places it.
+  measure();
 
   target = { x, y };
   if (!shown) {
@@ -294,7 +262,6 @@ window.aeval.on('buddy:hide', () => {
 });
 
 window.aeval.on('buddy:done', () => {
-  finishTyping();
   buddy.classList.add('done');
   callout.classList.add('done');
 });
@@ -303,8 +270,6 @@ window.aeval.on('buddy:done', () => {
 window.aeval.on('buddy:reset', () => {
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
-  clearInterval(typeTimer);
-  typeTimer = null;
   target = null;
   cur = { x: 0, y: 0 };
   shown = false;
@@ -320,8 +285,7 @@ window.aeval.on('buddy:reset', () => {
   buddy.classList.remove('visible', 'done', 'land');
   callout.classList.remove('visible', 'done', 'in', 'press', 'dragging');
   calloutMessage.textContent = '';
-  calloutMessage.classList.remove('typing');
-  calloutMessage.style.minHeight = '';
+  calloutMessage.classList.remove('md-in');
   calloutActions.innerHTML = '';
   calloutActions.hidden = true;
   setPips(-1, 0);
@@ -363,8 +327,7 @@ document.addEventListener('mouseleave', () => {
   if (!dragging) setIgnore(true);
 });
 
-// Drag anywhere on the bubble except its buttons; a click that never moved
-// just skips the typing.
+// Drag anywhere on the bubble except its buttons.
 callout.addEventListener('mousedown', (e) => {
   if (e.button !== 0 || e.target.closest('button')) return;
   dragging = { fromX: e.clientX, fromY: e.clientY, baseX: dragBy.x, baseY: dragBy.y, moved: false };
@@ -372,8 +335,7 @@ callout.addEventListener('mousedown', (e) => {
   e.preventDefault();
 });
 
-// A click that never moved is navigation, not a drag. The first one finishes
-// the typing (the way a dialogue box in a game does), the next one moves on.
+// A click that never moved is navigation, not a drag: it moves on.
 document.addEventListener('mouseup', (e) => {
   if (!dragging) return;
   const moved =
@@ -382,10 +344,6 @@ document.addEventListener('mouseup', (e) => {
   callout.classList.remove('dragging');
   if (moved) return;
   replay(callout, 'press');
-  if (typeTimer) {
-    finishTyping();
-    return;
-  }
   if (advanceOnClick) window.aeval.invoke('buddy:advance');
 });
 

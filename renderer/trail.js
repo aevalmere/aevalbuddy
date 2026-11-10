@@ -50,6 +50,16 @@ function el(tag, cls, text) {
   return e;
 }
 
+// One press, one request: the button is off until Rust has answered, so a
+// second press cannot look as if it did something.
+function once(btn, channel, payload) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  send(channel, payload).then(() => {
+    btn.disabled = false;
+  });
+}
+
 function kindMark(kind) {
   const m = el('span', `kind-mark ${kind}`);
   m.setAttribute('aria-hidden', 'true');
@@ -555,7 +565,7 @@ listen('agent:state', ({ state, message, step }) => {
     banner.appendChild(el('span', 'banner-text', message || ''));
     const go = el('button', 'retry-btn', state === 'plan' ? 'Start' : 'Continue');
     go.type = 'button';
-    go.addEventListener('click', () => send('agent:continue', {}));
+    go.addEventListener('click', () => once(go, 'agent:continue', {}));
     banner.appendChild(go);
     // Enter on this button is the only Enter that continues a run; nothing
     // is taken from other apps for it.
@@ -750,7 +760,7 @@ listen('agent:done', ({ state, text, usage }) => {
       const retry = el('button', 'retry-btn', 'Retry');
       retry.type = 'button';
       const task = block.task;
-      retry.addEventListener('click', () => send('agent:start', { task }));
+      retry.addEventListener('click', () => once(retry, 'agent:start', { task }));
       row.appendChild(retry);
     }
     chatEl.appendChild(row);

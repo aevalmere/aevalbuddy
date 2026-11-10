@@ -886,7 +886,7 @@ function agentWaiting() {
 }
 
 const WAITING_PLACEHOLDER = {
-  asking: 'Answer the task’s question',
+  asking: 'Type your answer for the task',
   plan: 'Enter starts the task',
   paused: 'Enter continues the task',
 };

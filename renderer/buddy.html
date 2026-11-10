@@ -28,18 +28,16 @@
 
   <div id="callout" role="status">
     <!-- A glass card beside the pointer. No mascot, no name and no tail:
-         the arrow itself is the connector. Progress is a row of pips. -->
+         the arrow itself is the connector. Progress is a row of pips, in a
+         row of its own only when there are any; the close button sits in the
+         text row. -->
     <div class="bubble-body glass thin">
-      <div class="bubble-head">
+      <div id="callout-head" class="bubble-head" hidden>
         <span id="callout-count" class="pips"></span>
-        <button id="callout-close" type="button" aria-label="Dismiss the pointer">
-          <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none"
-               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
       </div>
+      <button id="callout-close" type="button" aria-label="Dismiss the pointer">
+        <span class="ico i-x" aria-hidden="true"></span>
+      </button>
       <p id="callout-message"></p>
       <p id="callout-hint" hidden></p>
       <div id="callout-actions" hidden></div>
