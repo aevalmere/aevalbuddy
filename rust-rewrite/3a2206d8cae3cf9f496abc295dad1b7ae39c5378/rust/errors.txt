@@ -1,0 +1,15 @@
+== clippy.log ==
+error: deref which would be done by auto-deref
+   --> src\find.rs:832:60
+    |
+832 |         let mine = self.literal.iter().filter(|h| !covered(*h));
+    |                                                            ^^ help: try: `h`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#explicit_auto_deref
+    = note: `-D clippy::explicit-auto-deref` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::explicit_auto_deref)]`
+
+error: could not compile `aevaleron` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `aevaleron` (lib test) due to 1 previous error
+
