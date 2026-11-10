@@ -1,11 +1,11 @@
 # rust: success
 
 - Workflow: rust
-- Run: [42453413369](https://github.com/aevalmere/aevalbuddy/actions/runs/42453413369), attempt 1, on push
-- Commit: 2e73f31d8757a48255e17759e030666272cc0420
+- Run: [42741987297](https://github.com/aevalmere/aevalbuddy/actions/runs/42741987297), attempt 1, on push
+- Commit: 560a921cd794fe96de8c91b00670db8ff93d2757
 - Ref: rust-rewrite
 - Conclusion: **success**
-- Finished: 2026-11-08T06:16:48Z
+- Finished: 2026-11-10T02:31:40Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -19,8 +19,11 @@
 | Format patch | skipped |  |
 | Clippy | success | [clippy.log](clippy.log) |
 | Unit tests | success | [test.log](test.log) |
+| Restore NSIS toolset | success |  |
+| Seed NSIS toolset | success | [nsis.log](nsis.log) |
+| Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
-| Scaffold smoke | success | [smoke.log](smoke.log) |
+| Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
 | Upload installer | success |  |
