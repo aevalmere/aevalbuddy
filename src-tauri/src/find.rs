@@ -35,7 +35,7 @@ use crate::llm::settings::Active;
 
 pub const IDLE_MS: u64 = 400;
 pub const POLL_MS: u64 = 2000;
-pub const NUDGE_MS: u64 = 250;
+pub const NUDGE_MS: u64 = 150;
 /// Characters, about 6k tokens.
 pub const CORRELATE_BUDGET: usize = 24000;
 pub const SCREEN_WINDOW_CAP: usize = 6;
@@ -502,12 +502,18 @@ pub fn match_literal(
         });
     };
     let single = !q.chars().any(js_space);
+    // Words one edit away, kept back: they are shown only when nothing on
+    // screen is the query itself, so a real match never shares the page
+    // with a lookalike.
+    let mut near: Vec<(usize, usize, usize)> = Vec::new();
+    let mut any = false;
     for (k, span) in spans.iter().enumerate() {
         let mut found = false;
         let mut at = index_of(&span.hay, &q16, 0);
         while let Some(i) = at {
             push(span, i, i + q16.len());
             found = true;
+            any = true;
             at = index_of(&span.hay, &q16, i + q16.len().max(1));
         }
         if found {
@@ -522,6 +528,7 @@ pub fn match_literal(
                 .collect();
             let all = words.len() > 1 && words.iter().all(|w| index_of(&span.hay, w, 0).is_some());
             if all {
+                any = true;
                 for w in words.iter().filter(|w| w.len() >= 2) {
                     let mut at = index_of(&span.hay, w, 0);
                     while let Some(i) = at {
@@ -546,6 +553,7 @@ pub fn match_literal(
             if let Some(p) = index_of(&joined, &q16, from) {
                 let end = p + q16.len();
                 if p < tail && end > tail + 1 {
+                    any = true;
                     push(span, p, tail);
                     push(next, lead, lead + end - tail - 1);
                 }
@@ -553,10 +561,46 @@ pub fn match_literal(
             continue;
         }
         for t in &span.tokens {
-            let near = q16.len() >= 5 && t.n.len() >= 5 && lev1(&t.n, &q16);
-            if t.n.starts_with(&q16) || near {
-                push(span, t.s, t.e);
+            let close = q16.len() >= 5 && t.n.len() >= 5 && lev1(&t.n, &q16);
+            if t.n.starts_with(&q16) || close {
+                near.push((k, t.s, t.e));
             }
+        }
+    }
+    if !any {
+        for (k, start, end) in near {
+            push(&spans[k], start, end);
+        }
+    }
+    out
+}
+
+/// Two hits on the same words in the same place: more than half of the
+/// smaller one lies on the other.
+fn same_place(a: &Hit, b: &Hit) -> bool {
+    let (Some(x), Some(y)) = (a.rect, b.rect) else {
+        return false;
+    };
+    if a.matched.to_lowercase() != b.matched.to_lowercase() {
+        return false;
+    }
+    let w = (x.x + x.width).min(y.x + y.width) - x.x.max(y.x);
+    let h = (x.y + x.height).min(y.y + y.height) - x.y.max(y.y);
+    let small = (x.width * x.height).min(y.width * y.height);
+    w > 0.0 && h > 0.0 && small > 0.0 && w * h >= small * 0.5
+}
+
+/// A window often reports the same words twice (a link, and the text inside
+/// it). The later of two hits in one place is dropped.
+fn dedupe(hits: Vec<Hit>) -> Vec<Hit> {
+    // Past this many the pairwise check costs more than a keystroke may.
+    if hits.len() > 600 {
+        return hits;
+    }
+    let mut out: Vec<Hit> = Vec::with_capacity(hits.len());
+    for h in hits {
+        if !out.iter().any(|k| same_place(k, &h)) {
+            out.push(h);
         }
     }
     out
@@ -781,6 +825,10 @@ struct State {
     doc: Vec<Hit>,
     doc_refs: HashSet<String>,
     doc_more: bool,
+    /// Where the searched documents sit on screen.
+    doc_boxes: Vec<Rect>,
+    /// The window is scrolling: the marks are down until it is read again.
+    moving: bool,
     doc_seq: u64,
     /// Re-reads that failed since the last good one.
     fails: u32,
@@ -818,6 +866,8 @@ impl Default for State {
             doc: Vec::new(),
             doc_refs: HashSet::new(),
             doc_more: false,
+            doc_boxes: Vec::new(),
+            moving: false,
             doc_seq: 0,
             fails: 0,
         }
@@ -844,10 +894,21 @@ impl State {
         });
         // A document the helper searched whole speaks for itself: its
         // matches replace the snapshot's estimate of the same words.
-        let q = js_trim(&self.query).to_lowercase();
+        // That holds for every estimate lying inside the document, whichever
+        // element reported it: the same words must not be marked twice.
+        let q = fold(js_trim(&self.query));
         let covered = |h: &Hit| {
+            if fold(&h.matched) != q {
+                return false;
+            }
             let known = h.r#ref.as_str().is_some_and(|r| self.doc_refs.contains(r));
-            known && h.matched.to_lowercase() == q
+            let inside = h.rect.is_some_and(|r| {
+                let (cx, cy) = (r.x + r.width / 2.0, r.y + r.height / 2.0);
+                let holds =
+                    |b: &Rect| cx >= b.x && cx < b.x + b.width && cy >= b.y && cy < b.y + b.height;
+                self.doc_boxes.iter().any(holds)
+            });
+            known || inside
         };
         let mine = self.literal.iter().filter(|h| !covered(h));
         let mut out: Vec<Hit> = mine.cloned().collect();
@@ -868,6 +929,7 @@ impl State {
         let had = !self.doc.is_empty() || !self.doc_refs.is_empty();
         self.doc.clear();
         self.doc_refs.clear();
+        self.doc_boxes.clear();
         self.doc_more = false;
         let q = js_trim(&self.query).to_lowercase();
         for (window, docs) in found {
@@ -912,6 +974,7 @@ impl State {
                     });
                 }
                 self.doc_refs.insert(r.to_string());
+                self.doc_boxes.extend(Rect::from_value(&d["box"]));
                 if d["truncated"] == true {
                     self.doc_more = true;
                 }
@@ -1080,7 +1143,7 @@ impl State {
         let snap = self.spans();
         let spans: &[Span] = snap.as_ref().map_or(&[], |s| s.spans.as_slice());
         let mut taken = HashSet::new();
-        self.literal = match_literal(spans, &self.query, "literal", &mut taken);
+        self.literal = dedupe(match_literal(spans, &self.query, "literal", &mut taken));
         // Related and concept hits survive a refresh by their match text, so
         // a scroll does not throw away a model answer that already arrived.
         let keep_related = std::mem::take(&mut self.related);
@@ -1283,8 +1346,14 @@ impl Find {
                 return;
             }
             s.nudge_seq += 1;
+            // A search still out belongs to where the window was.
+            s.doc_seq += 1;
+            s.moving = true;
             s.nudge_seq
         };
+        // The marks are drawn over the window, not in it: left up, they
+        // would sit on the wrong words until the window is read again.
+        self.inner.host.on_lens(json!([]), -1);
         let inner = self.inner.clone();
         self.inner.rt.spawn(async move {
             tokio::time::sleep(Duration::from_millis(NUDGE_MS)).await;
@@ -1334,6 +1403,8 @@ impl Find {
         // A hit scrolled out of view is brought back first, then the ring
         // goes to it once the window has been re-read.
         if let Some((h, q)) = target {
+            inner.st.lock().moving = true;
+            inner.host.on_lens(json!([]), -1);
             let sent = match &h.doc {
                 Some((r, n)) => {
                     let args = json!({ "ref": r, "query": q, "n": n });
@@ -1362,6 +1433,7 @@ impl Find {
                 }
             }
         }
+        inner.st.lock().moving = false;
         inner.emit_all();
         let current = inner.st.lock().current;
         let hit = self.current_hit().map_or(Value::Null, |h| h.to_json());
@@ -1483,6 +1555,9 @@ impl Inner {
                     "offscreen": offscreen,
                 }));
             }
+            if s.moving {
+                lens.clear();
+            }
             let (text, lines, action) = s.status_line();
             let hits = json!({ "gen": s.gen, "query": s.query, "hits": out, "current": s.current });
             let state = json!({
@@ -1587,13 +1662,13 @@ impl Inner {
     }
 
     async fn refresh(self: &Arc<Self>, reason: &str) {
-        let (gen, first) = {
+        let (gen, first, nudge) = {
             let mut s = self.st.lock();
             if !s.open {
                 return;
             }
             s.reading = true;
-            (s.snap_gen, s.snapshot.is_none())
+            (s.snap_gen, s.snapshot.is_none(), s.nudge_seq)
         };
         if first {
             self.emit_all();
@@ -1661,7 +1736,12 @@ impl Inner {
             }
             // A re-read that found the same window has nothing new to say,
             // and saying it again would redraw the list under the reader.
-            let say = !quiet || first || changed_now || s.read_error != before;
+            // After a scroll the marks come back here, unless a document
+            // search is about to say where they now are, or the window has
+            // moved again since.
+            let rested = reason == "scroll" && !redo_doc && s.nudge_seq == nudge;
+            let settled = rested && std::mem::replace(&mut s.moving, false);
+            let say = !quiet || first || changed_now || settled || s.read_error != before;
             (requery, say, redo_doc)
         };
         match requery {
@@ -1695,7 +1775,23 @@ impl Inner {
                 tokio::time::sleep(Duration::from_millis(wait_ms)).await;
             }
             inner.run_doc(seq).await;
+            inner.settle(seq);
         });
+    }
+
+    /// The marks come back once the search that followed a scroll is in,
+    /// unless a newer one has taken its place.
+    fn settle(&self, seq: u64) {
+        let was = {
+            let mut s = self.st.lock();
+            if s.doc_seq != seq {
+                return;
+            }
+            std::mem::replace(&mut s.moving, false)
+        };
+        if was {
+            self.emit_all();
+        }
     }
 
     /// Stage A's second half: the helper asks each document and editor in
@@ -1761,6 +1857,7 @@ impl Inner {
             s.concept.clear();
             s.doc.clear();
             s.doc_refs.clear();
+            s.doc_boxes.clear();
             s.doc_more = false;
             s.current = -1;
             s.current_key.clear();
@@ -2133,6 +2230,13 @@ mod tests {
             "source": "uia", "ref": "r1" })
     }
 
+    /// The same span on line `i`, so hits in different spans do not overlap.
+    fn span_at(text: &str, i: usize) -> Value {
+        let mut sp = span(text);
+        sp["rect"]["y"] = json!(i * 30);
+        sp
+    }
+
     fn u(s: &str) -> Vec<u16> {
         utf16(s)
     }
@@ -2177,7 +2281,12 @@ mod tests {
         let mut taken = HashSet::new();
         let hits = match_literal(&spans, "total", "literal", &mut taken);
         let found: Vec<(usize, &str)> = hits.iter().map(|h| (h.span_id, &h.matched[..])).collect();
-        assert_eq!(found, [(0, "total"), (1, "total"), (2, "Totla")]);
+        // "Totla" is one edit away, and stays out while real matches exist.
+        assert_eq!(found, [(0, "total"), (1, "total")]);
+        let mut slip = HashSet::new();
+        let near = match_literal(&spans, "totall", "literal", &mut slip);
+        let close: Vec<(usize, &str)> = near.iter().map(|h| (h.span_id, &h.matched[..])).collect();
+        assert_eq!(close, [(0, "total")]);
         assert_eq!(hits[0].start, 8);
         assert_eq!(hits[0].rect.unwrap().x, js_round(400.0 * 8.0 / 17.0));
         // Taken offsets are not reported twice.
@@ -2295,7 +2404,8 @@ mod tests {
         let fg = json!({ "handle": 7, "title": "Bill", "rect": { "x": 0, "y": 0,
             "width": 800, "height": 600 } });
         desktop.reply("foregroundWindow", fg);
-        let spans: Vec<Value> = texts.iter().map(|t| span(t)).collect();
+        let lines = texts.iter().enumerate();
+        let spans: Vec<Value> = lines.map(|(i, t)| span_at(t, i)).collect();
         let text = json!({ "source": "uia", "spans": spans });
         desktop.reply("getText", text);
         let mut llm = Llm::new(Arc::new(NoNet), Some(fake));
@@ -2497,7 +2607,8 @@ mod tests {
             settle(700).await;
             let mut texts = BILL.to_vec();
             texts.push("Zebra crossing");
-            let spans: Vec<Value> = texts.iter().map(|t| span(t)).collect();
+            let lines = texts.iter().enumerate();
+            let spans: Vec<Value> = lines.map(|(i, t)| span_at(t, i)).collect();
             desktop.reply("getText", json!({ "source": "uia", "spans": spans }));
             find.nudge();
             settle(600).await;
@@ -2525,6 +2636,20 @@ mod tests {
         let hits = match_literal(&spans, "the invoice", "literal", &mut taken);
         let found: Vec<(usize, &str)> = hits.iter().map(|h| (h.span_id, &h.matched[..])).collect();
         assert_eq!(found, [(0, "the"), (1, "invoice")]);
+    }
+
+    #[test]
+    fn the_same_words_in_one_place_are_one_hit() {
+        let texts = [
+            span("Invoice total"),
+            span("Invoice total"),
+            span_at("total", 2),
+        ];
+        let spans = index_spans(&texts);
+        let mut taken = HashSet::new();
+        let hits = dedupe(match_literal(&spans, "total", "literal", &mut taken));
+        let ids: Vec<usize> = hits.iter().map(|h| h.span_id).collect();
+        assert_eq!(ids, [0, 2]);
     }
 
     #[test]

@@ -219,6 +219,16 @@ function finish(s, why, t) {
     intent = 'ask';
     top = s.ask;
   }
+  // Find is never guessed. Like a browser's find it starts when asked for
+  // (its shortcut, a leading /, Ctrl+2); typed words that happen to be on
+  // screen are a question until then. It stays the runner-up, so the bar
+  // can still offer it.
+  if (intent === 'find') {
+    runnerUp = 'find';
+    second = top;
+    intent = 'ask';
+    top = s.ask;
+  }
   // Do has to win clearly; anything less is offered as the runner-up.
   if (intent === 'do' && (top < 0.6 || top - second < 0.15)) {
     runnerUp = 'do';

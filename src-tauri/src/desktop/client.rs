@@ -1146,6 +1146,8 @@ impl Desktop {
         let mut r = self.op("findText", args).await?;
         if let Some(docs) = r.get_mut("docs").and_then(Value::as_array_mut) {
             for d in docs {
+                let area = p::rect_obj(&d["box"]);
+                d["box"] = area;
                 let Some(matches) = d.get_mut("matches").and_then(Value::as_array_mut) else {
                     continue;
                 };

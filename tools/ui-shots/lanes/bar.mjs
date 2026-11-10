@@ -560,6 +560,57 @@ export const scenes = [
     },
   },
 
+  // Find starts when asked for, from real key presses: a plain word is never
+  // taken for a search, a leading / and Ctrl+2 both are.
+  {
+    name: 'bar-find-keys',
+    backdrop: 'wallpaper',
+    windows: [overlay],
+    async run(t) {
+      const f = t.frame('overlay');
+      const focus = () => f.evaluate(() => document.getElementById('query-input').focus());
+      const value = () => f.evaluate(() => document.getElementById('query-input').value);
+      const modes = async () => (await t.calls('overlay', 'bar:mode')).map((c) => c.payload.mode);
+      await seenBefore(f);
+      await openBar(f);
+      await t.settle();
+      // The word is on the screen the bar was told about, which used to be
+      // enough for the guess to become Find.
+      await f.evaluate(() => window.__emit('bar:context', { screen: 'Invoice 2291 total due', process: 'chrome', title: 'Bill' }));
+      await focus();
+      await t.page.keyboard.type('invoice');
+      await t.settle(400);
+      const plain = await tokenState(f);
+      const plainModes = await modes();
+      t.check('plainWordIsNotFind', plain.intent !== 'find' && !plainModes.includes('find'), JSON.stringify({ plain, plainModes }));
+
+      await setField(f, '');
+      await focus();
+      await t.page.keyboard.type('/inv');
+      await t.settle(400);
+      const slash = await tokenState(f);
+      const slashText = await value();
+      const slashModes = await modes();
+      const slashOk = slash.intent === 'find' && slash.locked === 'true' && slashText === 'inv' && slashModes.includes('find');
+      t.check('slashStartsFind', slashOk, JSON.stringify({ slash, slashText, slashModes }));
+      await t.shot('bar-find-keys', BAR_CLIP);
+
+      await setField(f, '');
+      await press(f, { key: 'Backspace' });
+      await focus();
+      await t.page.keyboard.type('total');
+      await t.page.keyboard.press('Control+2');
+      await t.settle(400);
+      const chord = await tokenState(f);
+      const chordText = await value();
+      const queries = (await t.calls('overlay', 'find:query')).map((c) => c.payload.query);
+      const chordOk = chord.intent === 'find' && chord.locked === 'true' && chordText === 'total' && queries.includes('total');
+      t.check('ctrl2StartsFind', chordOk, JSON.stringify({ chord, chordText, queries }));
+      await setField(f, '');
+      await press(f, { key: 'Backspace' });
+    },
+  },
+
   // B-155, B-156: what the bar says with no provider, or a taken hotkey.
   {
     name: 'bar-notices',

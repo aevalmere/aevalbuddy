@@ -1718,6 +1718,8 @@ namespace AevalDesktop
             }
             var res = new Dictionary<string, object>();
             res["ref"] = RefStr(r);
+            // Where the document sits: Find drops its own estimates there.
+            res["box"] = box;
             res["matches"] = matches;
             res["truncated"] = cut;
             return res;
