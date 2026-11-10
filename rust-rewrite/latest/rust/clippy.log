@@ -39,4 +39,4 @@
     Checking tauri-plugin-clipboard-manager v2.5.0
     Checking tauri-plugin-opener v2.7.2
     Checking tauri-plugin-global-shortcut v2.4.1
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 42.96s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 38.27s
