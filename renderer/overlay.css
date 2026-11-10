@@ -399,7 +399,7 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
    specular rim brightens and a faint pastel halo sits just outside it; the
    caret, in the accent, is the live mark. */
 #bar:focus-within > .gl {
-  box-shadow: var(--shadow-control), 0 0 0 var(--px) rgb(169 198 228 / 0.42), 0 0 0 4px rgb(169 198 228 / 0.12);
+  box-shadow: var(--shadow-control), 0 0 6px rgb(169 198 228 / 0.3);
 }
 
 #bar:focus-within > .gl::after {
@@ -1311,7 +1311,7 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   list-style: none;
   border-radius: var(--r-card);
   background: var(--solid);
-  box-shadow: var(--shadow-menu), inset 0 var(--px) 0 var(--tint-w-10);
+  box-shadow: var(--shadow-menu), var(--edge);
   font-size: var(--t-row, 14px);
   line-height: var(--lh-row, 20px);
   color: var(--label);

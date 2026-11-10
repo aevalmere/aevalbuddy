@@ -22,7 +22,6 @@
   --loupe-light: rgb(255 255 255 / 0.35);
   --loupe-shadow: rgb(0 0 0 / 0.35);
   --chip-fill: rgb(var(--tint) / 0.9);
-  --chip-light: rgb(255 255 255 / 0.16);
   --plate-rim: rgb(0 0 0 / 0.5);
 }
 
@@ -124,7 +123,7 @@ body {
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-cap);
   background: var(--chip-fill);
-  box-shadow: inset 0 var(--px) 0 var(--chip-light), var(--shadow-menu);
+  box-shadow: var(--edge), var(--shadow-menu);
   color: var(--label);
   font-size: var(--fs-row);
   line-height: var(--lh-row);

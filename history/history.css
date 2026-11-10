@@ -15,7 +15,6 @@
   --mark: rgb(94 134 180 / 0.5);
   --danger-fill: rgb(242 160 168 / 0.22);
   --danger-fill-hover: rgb(242 160 168 / 0.32);
-  --menu-rim: rgb(255 255 255 / 0.08);
   --selection: rgb(94 134 180 / 0.55);
   --scroll-thumb: rgb(201 212 226 / 0.24);
   --scroll-thumb-hover: rgb(201 212 226 / 0.42);
@@ -454,7 +453,7 @@ mark {
   flex-direction: column;
   border-radius: var(--r-card);
   background: var(--solid);
-  box-shadow: inset 0 var(--px) 0 var(--menu-rim), var(--shadow-menu);
+  box-shadow: var(--edge), var(--shadow-menu);
 }
 
 /* Rows are the shared menu's; these are buttons, so they start flush. */

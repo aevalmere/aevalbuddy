@@ -58,28 +58,36 @@ body[data-from="bottom"] #card {
 
 /* ------------------------------------------------------------------ motion */
 
-/* Out of the bar: a small drop at the bar edge that swells into the card,
-   settling a little past its size and back, the way a liquid does. Only
-   transform, opacity and a short blur move. */
+/* Out of the bar: a small drop at the bar edge that swells into the card.
+   The width arrives first and the height follows on the looser spring, so
+   it stretches and then settles a little past its size and back, the way a
+   liquid does. Each property is moved by the compositor: transform (the
+   width), scale and translate (the height and the travel) and opacity,
+   with a blur for the first 160 ms only, while the card is still small. */
 #card.in {
-  animation: card-swell var(--d-glob) var(--ease-spring) both;
+  animation:
+    card-swell-x 420ms var(--ease-liquid-soft) both,
+    card-swell-y var(--d-glob) var(--ease-liquid) both,
+    card-clear 160ms ease-out both;
 }
 
-@keyframes card-swell {
+@keyframes card-swell-x {
+  from {
+    transform: scaleX(0.34);
+  }
+}
+
+@keyframes card-swell-y {
+  from {
+    translate: 0 var(--from-y);
+    scale: 1 0.18;
+  }
+}
+
+@keyframes card-clear {
   from {
     opacity: 0;
-    transform: translateY(var(--from-y)) scale(0.34, 0.18);
     filter: blur(8px);
-  }
-  45% {
-    opacity: 1;
-    filter: blur(0);
-  }
-  72% {
-    transform: scale(1.012, 1.03);
-  }
-  to {
-    transform: none;
   }
 }
 

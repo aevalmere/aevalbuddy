@@ -29,7 +29,6 @@
   --selection: rgb(94 134 180 / 0.55);
   --scroll-thumb: rgb(201 212 226 / 0.24);
   --scroll-thumb-hover: rgb(201 212 226 / 0.42);
-  --menu-rim: rgb(255 255 255 / 0.08);
   --halo: rgb(0 0 0 / 0.38);
   --drag-fill: #253041;
   /* The light tone's values (html[data-tone="light"], below). */
@@ -985,7 +984,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   padding: var(--sp-1);
   border-radius: var(--r-card);
   background: var(--solid);
-  box-shadow: inset 0 var(--px) 0 var(--menu-rim), var(--shadow-menu);
+  box-shadow: var(--edge), var(--shadow-menu);
 }
 
 /* A model row is two lines (name, then price and context) with the shared
@@ -1197,7 +1196,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   z-index: 2;
   border-radius: var(--r-plate);
   background: var(--drag-fill);
-  box-shadow: inset 0 var(--px) 0 var(--menu-rim), var(--shadow-menu);
+  box-shadow: var(--edge), var(--shadow-menu);
 }
 
 #providers .prov.dragging .grip {
