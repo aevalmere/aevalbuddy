@@ -76,7 +76,7 @@
     const awake = !p.keepAwake ? 'Off' : p.lidAwake && snap.hasLid ? 'On, lid closed too' : p.displayOn ? 'On, screen too' : 'On';
     $('watch-awake-summary').textContent = snap.working && snap.awake ? `${awake} · holding now` : awake;
     w.awakeNote.textContent = p.lidAwake && snap.hasLid
-      ? 'While agents work, closing the lid does nothing; your own lid setting comes back when the last one stops.'
+      ? 'While agents work, closing the lid does nothing. If the lid is still shut a minute after the last one stops, the PC sleeps or hibernates, whichever your own lid setting says.'
       : 'Windows will not sleep until the last agent stops. The screen can still turn off unless you keep it on.';
 
     const cards = [p.notifyDone && 'Finished', p.notifyNeedsYou && 'needs you'].filter(Boolean);

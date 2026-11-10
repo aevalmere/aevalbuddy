@@ -46,6 +46,8 @@ const MAX_ROWS: usize = 6;
 /// Sessions the tray menu lists; the rest are counted.
 const TRAY_ROWS: usize = 8;
 const TAIL_BYTES: u64 = 256 * 1024;
+/// How long after the last agent stops a PC with its lid shut goes to sleep.
+const LID_SLEEP_AFTER_MS: u64 = 60_000;
 
 /// `agents` in aevalbuddy.json.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,6 +233,9 @@ pub fn setup(app: &AppHandle) {
             ..p.clone()
         });
     }
+    if power::has_lid() {
+        power::watch_lid();
+    }
     tauri::async_runtime::spawn(serve());
     let _ = std::thread::Builder::new()
         .name("agents-tick".into())
@@ -390,6 +395,10 @@ fn refresh_power(p: &Prefs) {
         busy
     };
     let want_lid = busy && p.keep_awake && p.lid_awake;
+    if want_lid {
+        // Work again: a sleep that was waiting for its minute is off.
+        power::cancel_lid_sleep();
+    }
     if want_lid && p.lid_saved.is_empty() {
         if !power::has_lid() {
             return;
@@ -406,7 +415,36 @@ fn refresh_power(p: &Prefs) {
             lid_saved: String::new(),
             ..prefs()
         });
+        // The plan's own lid action only runs when the lid next moves. With
+        // the lid already shut, the app carries it out a minute from now.
+        let action = power::saved_action(&p.lid_saved, power::on_battery());
+        if let Some(how) = power::lid_plan(action, busy, power::lid_shut()) {
+            sleep_later(how);
+        }
     }
+}
+
+/// A minute after the last agent stopped with the lid shut: the sleep or
+/// hibernate that closing the lid would have been. Checked again when the
+/// minute is up, since the lid may have opened or an agent started.
+fn sleep_later(how: power::LidSleep) {
+    let token = power::plan_lid_sleep();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(LID_SLEEP_AFTER_MS));
+        let _ = crate::crash::guard("agents-lid-sleep", || {
+            let p = prefs();
+            let check = power::LidCheck {
+                on: p.enabled && p.keep_awake && p.lid_awake,
+                busy: state().lock().book.busy_count() > 0,
+                shut: power::lid_shut(),
+                planned: power::lid_sleep_planned(token),
+                in_use: native::idle_ms() < LID_SLEEP_AFTER_MS,
+            };
+            if power::lid_sleep_due(check) && !power::suspend(how) {
+                crate::crash::write("agents-lid", "Windows refused to sleep.");
+            }
+        });
+    });
 }
 
 // -------------------------------------------------------------------- card

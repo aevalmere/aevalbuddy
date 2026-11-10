@@ -218,6 +218,18 @@ export const scenes = [
       const set = (await t.calls('settings', 'agents:set')).map((c) => c.payload);
       t.check('watchSettingsSaves', set.some((p) => p.displayOn === true), JSON.stringify(set));
       await t.shot('watch-settings-awake', { x: S.x - 10, y: S.y - 10, width: S.w + 20, height: S.h + 20 });
+      // With the lid kept working, the note says what happens once the
+      // agents stop and the lid is still shut.
+      await t.emit('settings', 'agents:state', { ...SNAPSHOT, prefs: { ...PREFS, lidAwake: true } });
+      await t.settle(200);
+      const lid = await st.evaluate(() => ({
+        note: document.getElementById('watch-awake-note').textContent,
+        summary: document.getElementById('watch-awake-summary').textContent,
+        on: document.querySelector('input[data-watch="lidAwake"]').checked,
+      }));
+      t.check('watchLidNoteSaysItSleeps', lid.on && /a minute after the last one stops, the PC sleeps or hibernates/.test(lid.note) && lid.summary === 'On, lid closed too · holding now', JSON.stringify(lid));
+      await t.emit('settings', 'agents:state', SNAPSHOT);
+      await t.settle(200);
     },
   },
 ];
