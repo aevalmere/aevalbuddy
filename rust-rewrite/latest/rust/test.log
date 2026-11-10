@@ -1,13 +1,13 @@
    Compiling aevalbuddy v1.1.1 (D:\a\aevalbuddy\aevalbuddy\src-tauri)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.68s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.33s
      Running unittests src\lib.rs (target\debug\deps\aevalbuddy_lib-79a71c4cf9dd7430.exe)
 
 running 507 tests
 test agent::describe::tests::passwords_are_dotted_and_errors_named ... ok
 test agent::gate::tests::chords_are_canonical ... ok
 test agent::gate::tests::chord_risks ... ok
-test agent::describe::tests::the_card_value_is_the_whole_text ... ok
 test agent::describe::tests::steps_read_as_sentences ... ok
+test agent::describe::tests::the_card_value_is_the_whole_text ... ok
 test agent::gate::tests::explorer_double_click_asks ... ok
 test agent::gate::tests::open_and_plans_and_keys ... ok
 test agent::gate::tests::quotes_are_cut ... ok
@@ -15,23 +15,23 @@ test agent::gate::tests::harmless_steps_pass_and_risky_ones_ask ... ok
 test agent::gate::tests::space_in_text_field_is_free ... ok
 test agent::gate::tests::typed_space_on_button_asks ... ok
 test agent::gate::tests::space_on_focused_send_button_asks ... ok
-test agent::run::tests::a_claim_turns_away_other_starts ... ok
 test agent::gate::tests::unknown_named_button_asks ... ok
+test agent::run::tests::a_claim_turns_away_other_starts ... ok
 test agent::gate::tests::localized_send_asks ... ok
-test agent::gate::tests::web_dialog_text_is_read ... ok
 test agent::run::tests::app_label_kelvin_and_dotted_i ... ok
 test agent::run::tests::bad_coordinates_are_rejected ... ok
+test agent::gate::tests::web_dialog_text_is_read ... ok
 test agent::run::tests::concurrent_starts_yield_one_run ... ok
 test agent::run::tests::a_timed_out_step_is_an_unknown_outcome ... ok
 test agent::run::tests::dialect_switch_rewrites_system_prompt ... ok
 test agent::run::tests::only_the_newest_observation_and_image_go_in_full ... ok
+test agent::run::tests::confirm_payload_carries_full_value ... ok
 test agent::run::tests::a_send_button_asks_first_and_a_no_skips_it ... ok
 test agent::run::tests::final_text_is_remedy_only_after_failed_step ... ok
-test agent::run::tests::confirm_payload_carries_full_value ... ok
-test agent::run::tests::point_outside_the_region_is_refused_before_it_asks ... ok
+test agent::run::tests::page_text_is_redacted ... ok
 test agent::run::tests::points_scale_from_the_last_screenshot ... ok
 test agent::run::tests::retry_after_is_honoured ... ok
-test agent::run::tests::page_text_is_redacted ... ok
+test agent::run::tests::point_outside_the_region_is_refused_before_it_asks ... ok
 test agent::run::tests::space_on_focused_send_asks_before_any_key ... ok
 test agent::run::tests::smoke_notepad_plans_focuses_and_types ... ok
 test agent::run::tests::step_payload_has_plan_index ... ok
@@ -192,7 +192,7 @@ test host::ask::tests::names_compare_without_punctuation_or_role_words ... ok
 test host::ask::tests::second_window_does_not_abort_first ... ok
 test host::ask::tests::sent_images_keep_last_three ... ok
 test host::ask::tests::stale_pick_shot_is_not_reused ... ok
-test host::ask::tests::third_query_waits_for_a_slot ... FAILED
+test host::ask::tests::third_query_waits_for_a_slot ... ok
 test host::desktop_ops::tests::click_spreads_options_over_the_target ... ok
 test host::desktop_ops::tests::whole_keeps_fractions_and_strings ... ok
 test host::find::tests::ask_area_is_padded ... ok
@@ -382,8 +382,8 @@ test llm::client::tests::idle_stream_times_out_as_408 ... ok
 test history::tests::flush_now_and_timer_never_overlap ... ok
 test store::tests::corrupt_file_is_kept_aside ... ok
 test store::tests::electron_key_is_migrated ... ok
-test store::tests::fresh_file_gets_every_default_in_order ... ok
 test history::tests::steady_saves_still_write_within_400ms ... ok
+test store::tests::fresh_file_gets_every_default_in_order ... ok
 test store::tests::fresh_store_set_lands_on_disk_while_file_is_open ... ok
 test store::tests::invalid_utf8_is_read_lossy_not_reset ... ok
 test store::tests::js_helpers ... ok
@@ -397,8 +397,8 @@ test store::tests::sanitisers_match_lib_store ... ok
 test store::tests::stored_input_width_is_kept ... ok
 test store::tests::solid_profiles_start_with_no_glass ... ok
 test store::tests::undecryptable_key_reads_as_empty ... ok
-test store::tests::unknown_keys_survive_and_values_win_over_defaults ... ok
 test store::tests::unreadable_file_disables_saving ... ok
+test store::tests::unknown_keys_survive_and_values_win_over_defaults ... ok
 test store::tests::v1_fields_win_after_rollback ... ok
 test store::tests::v2_shortcut_migration ... ok
 test tests::navigation_stays_in_the_app ... ok
@@ -511,17 +511,18 @@ test voice::capture::tests::a_fixture_records_like_a_microphone ... ok
 test store::tests::input_history ... ok
 test store::tests::concurrent_sets_never_lose_or_corrupt ... ok
 
-failures:
+test result: ok. 507 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.21s
 
----- host::ask::tests::third_query_waits_for_a_slot stdout ----
+     Running unittests src\main.rs (target\debug\deps\aevalbuddy-af08322bffe9470e.exe)
 
-thread 'host::ask::tests::third_query_waits_for_a_slot' (4392) panicked at src\host\ask.rs:1439:13:
-assertion failed: wait_for_slot(&slots, &stopped, || ()).await.is_none()
+running 0 tests
 
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-failures:
-    host::ask::tests::third_query_waits_for_a_slot
+   Doc-tests aevalbuddy_lib
 
-test result: FAILED. 506 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.75s
+running 1 test
+test src\selftest\mod.rs - selftest (line 54) ... ignored
 
-error: test failed, to rerun pass `--lib`
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
