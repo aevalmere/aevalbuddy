@@ -874,9 +874,15 @@ fn snapshot() -> Value {
             })
         })
         .collect();
+    // Aevalsistant does the same job from the tray; with both running, each
+    // shows its own card.
+    let other = std::env::var_os("LOCALAPPDATA")
+        .map(|d| PathBuf::from(d).join("Aevalsistant").join("Aevalsistant.exe"))
+        .is_some_and(|exe| exe.is_file());
     json!({
         "prefs": p,
         "agents": agents,
+        "aevalsistant": other,
         "hasLid": power::has_lid(),
         "working": busy,
         "awake": awake.0,

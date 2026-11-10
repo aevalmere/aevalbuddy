@@ -30,6 +30,7 @@ const SNAPSHOT = {
     { id: 'gemini', name: 'Gemini CLI', found: false, on: true, connected: false, note: '', error: null },
     { id: 'cursor', name: 'Cursor', found: true, on: false, connected: false, note: '', error: null },
   ],
+  aevalsistant: false,
   hasLid: true,
   working: 2,
   awake: true,

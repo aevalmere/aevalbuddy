@@ -54,7 +54,7 @@ pub fn run_if_asked() -> bool {
 fn forward(agent: &str, event: &str) {
     // App not running: return at once instead of waiting on a pipe nobody
     // serves.
-    let Ok(mut pipe) = std::fs::OpenOptions::new().write(true).open(pipe_name()) else {
+    let Some(mut pipe) = open_pipe() else {
         return;
     };
     let raw = read_stdin(Duration::from_secs(2));
@@ -70,6 +70,24 @@ fn forward(agent: &str, event: &str) {
     let text = envelope(agent, event, &pwd, &found, started, &raw);
     let _ = pipe.write_all(text.as_bytes());
     let _ = pipe.flush();
+}
+
+/// ERROR_PIPE_BUSY: the app is taking another hook's call this instant.
+const PIPE_BUSY: i32 = 231;
+
+/// The app's pipe, or None when the app is not running. A busy pipe is
+/// tried again for a moment: two agents can finish at once.
+fn open_pipe() -> Option<std::fs::File> {
+    for _ in 0..10 {
+        match std::fs::OpenOptions::new().write(true).open(pipe_name()) {
+            Ok(pipe) => return Some(pipe),
+            Err(e) if e.raw_os_error() == Some(PIPE_BUSY) => {
+                std::thread::sleep(Duration::from_millis(30));
+            }
+            Err(_) => return None,
+        }
+    }
+    None
 }
 
 /// The project folder's name, to pick the right window among several.
