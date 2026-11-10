@@ -1179,8 +1179,18 @@ impl Find {
         self.inner.st.lock().open
     }
 
-    /// Opens Find on the window in front (or the whole screen) and reads it.
+    /// Opens Find on the window in front (or the whole screen) and reads it:
+    /// `begin` then `read`, as one call for the tests.
+    #[cfg(test)]
     pub async fn open(&self, scope: Option<&str>, region: Option<Rect>) -> Value {
+        self.begin(scope, region);
+        self.read().await
+    }
+
+    /// The first half of `open`, done at once: Find is open from here on,
+    /// so a close that comes before the window has been read still closes
+    /// it. `read` does the rest.
+    pub fn begin(&self, scope: Option<&str>, region: Option<Rect>) {
         if self.is_open() {
             self.close();
         }
@@ -1205,6 +1215,10 @@ impl Find {
             s.reading = true;
         }
         self.inner.emit_all();
+    }
+
+    /// The second half of `open`: reads the window and keeps re-reading it.
+    pub async fn read(&self) -> Value {
         self.inner.refresh("open").await;
         if !self.is_open() {
             return self.state();
@@ -1381,6 +1395,7 @@ impl Find {
             s.nudge_seq += 1;
             s.poll_seq += 1;
             s.doc_seq += 1;
+            *self.inner.pending.lock() = None;
             let was_open = s.open;
             s.open = false;
             s.gen += 1;

@@ -309,8 +309,11 @@ pub fn open_find(app: &AppHandle) {
     set_output_view(app, "find");
     let settings = store::get().get_find_settings();
     let scope = settings["scope"].as_str().unwrap_or("window").to_string();
+    // Open now, read in the background: a switch away from Find before the
+    // window has been read must find something to close.
+    services().find.begin(Some(scope.as_str()), region);
     tauri::async_runtime::spawn(async move {
-        services().find.open(Some(scope.as_str()), region).await;
+        services().find.read().await;
     });
     tauri::async_runtime::spawn(heal_find_model());
     apply_registrations(app);
