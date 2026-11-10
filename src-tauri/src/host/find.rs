@@ -270,7 +270,9 @@ fn find_emit(app: &AppHandle, channel: &str, payload: Value) {
     if channel == "find:state" {
         let open = payload["open"].as_bool().unwrap_or(false);
         let was = std::mem::replace(&mut shared(app).lock().find_open, open);
-        if has_content(&payload) {
+        // A status that was on its way when Find closed must not bring the
+        // results back: nothing would be left to take them down again.
+        if has_content(&payload) && find_is_open() {
             if let Some((label, fresh)) = ensure_label(app) {
                 if fresh {
                     let hits = out().last_hits.clone();
