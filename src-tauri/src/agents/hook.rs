@@ -152,7 +152,8 @@ mod tests {
 
     #[test]
     fn the_envelope_reads_back_as_the_event() {
-        let raw = r#"{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"C:\\code\\rover"}"#;
+        let raw =
+            r#"{"hook_event_name":"UserPromptSubmit","session_id":"s","cwd":"C:\\code\\rover"}"#;
         assert_eq!(project_in("claude", "", raw, "C:\\x"), "rover");
         assert_eq!(project_in("claude", "", "not json", "C:\\x"), "");
         let found = native::Found {

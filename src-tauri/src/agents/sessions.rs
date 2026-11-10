@@ -252,7 +252,13 @@ pub struct CardRequest {
     pub background: bool,
 }
 
-fn card(s: &Session, kind: CardKind, title: String, detail: String, background: bool) -> CardRequest {
+fn card(
+    s: &Session,
+    kind: CardKind,
+    title: String,
+    detail: String,
+    background: bool,
+) -> CardRequest {
     CardRequest {
         session_id: Some(s.id.clone()),
         hwnd: s.hwnd,
@@ -387,11 +393,14 @@ impl SessionBook {
             return None;
         }
         {
-            let s = self.map.entry(e.session_id.clone()).or_insert_with(|| Session {
-                id: e.session_id.clone(),
-                agent: "claude".into(),
-                ..Session::default()
-            });
+            let s = self
+                .map
+                .entry(e.session_id.clone())
+                .or_insert_with(|| Session {
+                    id: e.session_id.clone(),
+                    agent: "claude".into(),
+                    ..Session::default()
+                });
             if !e.cwd.is_empty() && (!e.cwd_guessed || s.cwd.is_empty()) {
                 s.cwd = e.cwd.clone();
             }
@@ -522,7 +531,13 @@ impl SessionBook {
                 s.notified_since_prompt = true;
                 let title = format!("{} stopped early", s.project());
                 let detail = "The turn ended on an error. The terminal has the details.";
-                Some(card(s, CardKind::NeedsYou, title, detail.to_string(), child))
+                Some(card(
+                    s,
+                    CardKind::NeedsYou,
+                    title,
+                    detail.to_string(),
+                    child,
+                ))
             }
             "Notification" => {
                 let kind = if e.notification_type.is_empty() {
@@ -751,7 +766,11 @@ pub fn clean_snippet(text: &str) -> String {
             }
         })
         .collect();
-    let joined = lines.join(" ").replace("**", "").replace("__", "").replace('`', "");
+    let joined = lines
+        .join(" ")
+        .replace("**", "")
+        .replace("__", "")
+        .replace('`', "");
     let flat = joined.split_whitespace().collect::<Vec<_>>().join(" ");
     flat.chars().take(600).collect()
 }
@@ -777,7 +796,9 @@ fn text_of(message: Option<&Value>) -> String {
 }
 
 fn entry(line: &str) -> Option<Value> {
-    serde_json::from_str::<Value>(line).ok().filter(Value::is_object)
+    serde_json::from_str::<Value>(line)
+        .ok()
+        .filter(Value::is_object)
 }
 
 /// The last thing the assistant said, from a Claude Code transcript's lines.
@@ -803,7 +824,9 @@ pub fn ends_in_interrupt(lines: &[String]) -> bool {
             Some("assistant") => return false,
             Some("user") => {
                 let text = text_of(o.get("message"));
-                return text.trim_start().starts_with("[Request interrupted by user");
+                return text
+                    .trim_start()
+                    .starts_with("[Request interrupted by user");
             }
             _ => {}
         }
@@ -843,7 +866,9 @@ mod tests {
     #[test]
     fn a_turn_works_then_finishes_with_a_card() {
         let mut book = SessionBook::default();
-        assert!(book.apply(&ev("UserPromptSubmit", "rover"), 1_000).is_none());
+        assert!(book
+            .apply(&ev("UserPromptSubmit", "rover"), 1_000)
+            .is_none());
         assert_eq!(book.busy_count(), 1);
         let s = book.get("rover").unwrap();
         assert_eq!(state_of(s), RowState::Working);
@@ -957,7 +982,10 @@ mod tests {
         let c = book.apply(&ev("Stop", "child"), 4).unwrap();
         assert!(c.background, "a child session's finish is background work");
         let rows = book.tree(None, true);
-        let shape: Vec<(&str, u8)> = rows.iter().map(|r| (r.session_id.as_str(), r.depth)).collect();
+        let shape: Vec<(&str, u8)> = rows
+            .iter()
+            .map(|r| (r.session_id.as_str(), r.depth))
+            .collect();
         assert_eq!(shape, [("other", 0), ("parent", 0), ("child", 1)]);
         // Flat when nesting is off, and the head is left out.
         let flat = book.tree(Some("other"), false);
@@ -1014,14 +1042,18 @@ mod tests {
         assert_eq!(s.place(), "Codex \u{b7} Terminal");
         book.apply(&ev("SessionEnd", "codex:9"), 2);
         assert!(book.is_empty());
-        assert_eq!(project_of("C:\\Users\\me\\code\\rover\\").as_deref(), Some("rover"));
+        assert_eq!(
+            project_of("C:\\Users\\me\\code\\rover\\").as_deref(),
+            Some("rover")
+        );
         assert_eq!(project_of("/home/me/site").as_deref(), Some("site"));
         assert_eq!(project_of(""), None);
     }
 
     #[test]
     fn snippets_are_one_plain_line() {
-        let text = "# Title\n\nSome **bold** and `code`.\n```rust\nfn x() {}\n```\n> quoted\n* item";
+        let text =
+            "# Title\n\nSome **bold** and `code`.\n```rust\nfn x() {}\n```\n> quoted\n* item";
         assert_eq!(clean_snippet(text), "Title Some bold and code. quoted item");
         assert_eq!(clean_snippet("  \n "), "");
         assert_eq!(clean_snippet("a ```unclosed"), "a");

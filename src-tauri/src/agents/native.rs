@@ -45,8 +45,12 @@ extern "system" {
         user: *mut u64,
     ) -> i32;
     fn GetExitCodeProcess(process: isize, code: *mut u32) -> i32;
-    fn QueryFullProcessImageNameW(process: isize, flags: u32, name: *mut u16, size: *mut u32)
-        -> i32;
+    fn QueryFullProcessImageNameW(
+        process: isize,
+        flags: u32,
+        name: *mut u16,
+        size: *mut u32,
+    ) -> i32;
     fn GetCurrentProcessId() -> u32;
     fn GetCurrentThreadId() -> u32;
     fn AttachConsole(pid: u32) -> i32;
@@ -428,12 +432,7 @@ unsafe extern "system" fn collect(hwnd: isize, param: isize) -> i32 {
             return 1;
         }
         let mut cloaked = 0i32;
-        let hr = DwmGetWindowAttribute(
-            hwnd,
-            DWMWA_CLOAKED,
-            (&mut cloaked as *mut i32).cast(),
-            4,
-        );
+        let hr = DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, (&mut cloaked as *mut i32).cast(), 4);
         if hr == 0 && cloaked != 0 {
             return 1;
         }
@@ -634,7 +633,13 @@ mod tests {
     fn a_recycled_parent_pid_ends_the_walk() {
         let (parent, name) = tree();
         // Process 4 started after its "child" 3: some other program.
-        let start = |pid: u32| if pid == 4 { 2_000 } else { 1_000 - u64::from(pid) };
+        let start = |pid: u32| {
+            if pid == 4 {
+                2_000
+            } else {
+                1_000 - u64::from(pid)
+            }
+        };
         let chain = chain_from(1, &parent, &name, start);
         let pids: Vec<u32> = chain.iter().map(|p| p.pid).collect();
         assert_eq!(pids, [2, 3]);
@@ -659,7 +664,10 @@ mod tests {
         let start = start_time(me);
         assert!(start > 0);
         assert!(is_alive(me, start));
-        assert!(!is_alive(me, start + 1), "another start time is another process");
+        assert!(
+            !is_alive(me, start + 1),
+            "another start time is another process"
+        );
         assert!(image_path(me).to_lowercase().ends_with(".exe"));
         assert!(!is_window(0));
     }

@@ -983,7 +983,7 @@ mod tests {
             include_str!("host/find.rs"),
             include_str!("host/agent.rs"),
             include_str!("host/settings.rs"),
-            include_str!("voice/ipc.rs"), // voice lane
+            include_str!("voice/ipc.rs"),  // voice lane
             include_str!("agents/ipc.rs"), // agents lane
         ]
         .concat();

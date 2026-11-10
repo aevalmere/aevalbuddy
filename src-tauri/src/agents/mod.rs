@@ -477,21 +477,22 @@ fn window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
     if let Some(w) = app.get_webview_window(LABEL) {
         return Some(w);
     }
-    let built = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/agents.html".into()))
-        .title("AevalBuddy agents")
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .resizable(false)
-        .focusable(false)
-        .focused(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .content_protected(true)
-        .visible(false)
-        .data_directory(crate::paths::webview_data_dir())
-        .initialization_script(crate::ipc::bridge_script())
-        .build();
+    let built =
+        WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("renderer/agents.html".into()))
+            .title("AevalBuddy agents")
+            .decorations(false)
+            .transparent(true)
+            .shadow(false)
+            .resizable(false)
+            .focusable(false)
+            .focused(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .content_protected(true)
+            .visible(false)
+            .data_directory(crate::paths::webview_data_dir())
+            .initialization_script(crate::ipc::bridge_script())
+            .build();
     match built {
         Ok(w) => {
             let raw = capture::hwnd_of(&w);
@@ -714,12 +715,12 @@ fn tick_loop() {
                 hide_card();
             }
             // Every 5 seconds.
-            if ticks.is_multiple_of(20) {
+            if ticks % 20 == 0 {
                 sweep();
             }
             // Every 10 minutes: agents installed since, or hooks another
             // tool rewrote.
-            if ticks.is_multiple_of(2400) {
+            if ticks % 2400 == 0 {
                 let p = prefs();
                 if p.enabled {
                     sync_hooks(&p);
@@ -765,7 +766,10 @@ fn hook_base() -> Option<String> {
     let exe = std::env::current_exe().ok()?;
     let exe = exe.to_string_lossy();
     let exe = exe.strip_prefix(r"\\?\").unwrap_or(&exe);
-    Some(format!("{} --hook", specs::hook_path(exe, native::short_path)))
+    Some(format!(
+        "{} --hook",
+        specs::hook_path(exe, native::short_path)
+    ))
 }
 
 /// Writes `text` over `file` in one step, so a crash never leaves half a
@@ -1011,7 +1015,10 @@ mod tests {
     #[test]
     fn settings_merge_field_by_field() {
         let now = Prefs::default();
-        let next = merged(&now, &json!({ "enabled": true, "displayOn": true, "cardTime": 2 }));
+        let next = merged(
+            &now,
+            &json!({ "enabled": true, "displayOn": true, "cardTime": 2 }),
+        );
         assert!(next.enabled && next.display_on && next.keep_awake);
         assert_eq!(next.card_time, 2);
         // The page cannot write the app's own bookkeeping, a field that
@@ -1063,7 +1070,10 @@ mod tests {
         assert_eq!(list[0]["text"], "working 5m");
         assert_eq!(list[0]["place"], "VS Code");
         assert_eq!(list[0]["canJump"], false);
-        assert!(list.iter().all(|r| r["session"] != "s0"), "the head is above");
+        assert!(
+            list.iter().all(|r| r["session"] != "s0"),
+            "the head is above"
+        );
     }
 
     #[test]

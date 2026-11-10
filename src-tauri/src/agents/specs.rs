@@ -107,7 +107,12 @@ pub static ALL: [AgentSpec; 7] = [
         dir: ".cursor",
         file: ".cursor\\hooks.json",
         layout: Layout::Flat,
-        events: &["beforeSubmitPrompt", "afterAgentResponse", "stop", "sessionEnd"],
+        events: &[
+            "beforeSubmitPrompt",
+            "afterAgentResponse",
+            "stop",
+            "sessionEnd",
+        ],
         note: "",
     },
     AgentSpec {
@@ -296,7 +301,7 @@ pub fn apply(
         return Ok((want, changed));
     }
     let name = a.file.rsplit('\\').next().unwrap_or(a.file);
-    let blank = text.is_none_or(|t| t.trim().is_empty());
+    let blank = text.map_or(true, |t| t.trim().is_empty());
     let mut root: Map<String, Value> = if blank {
         Map::new()
     } else {
@@ -397,7 +402,12 @@ pub fn is_installed(a: &AgentSpec, text: Option<&str>, command: &str) -> bool {
 /// the two additions. `e.name` may already hold the event from the command
 /// line (Copilot).
 pub fn normalize(agent: &str, h: &Value, e: &mut HookEvent, pwd: &str) {
-    let s = |k: &str| h.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+    let s = |k: &str| {
+        h.get(k)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
     match agent {
         "codex" => {
             e.session_id = s("session_id");
@@ -625,7 +635,9 @@ mod tests {
         assert_eq!(v["hooks"]["Stop"].as_array().unwrap().len(), 2);
         assert_eq!(v["hooks"]["Stop"][0]["hooks"][0]["command"], "say done");
         assert_eq!(v["hooks"]["Stop"][1]["hooks"][0]["async"], true);
-        assert!(v["hooks"]["SessionEnd"][0]["hooks"][0].get("async").is_none());
+        assert!(v["hooks"]["SessionEnd"][0]["hooks"][0]
+            .get("async")
+            .is_none());
         // A second sync changes nothing.
         let (again, changed) = applied(claude, Some(&text), Some(CMD));
         assert!(!changed);
@@ -692,26 +704,39 @@ mod tests {
         assert!(changed && is_installed(copilot, Some(&file), &cmd));
         let v: Value = serde_json::from_str(&file).unwrap();
         let stop = &v["hooks"]["agentStop"][0];
-        assert!(stop["command"].as_str().unwrap().ends_with("--hook copilot agentStop"));
+        assert!(stop["command"]
+            .as_str()
+            .unwrap()
+            .ends_with("--hook copilot agentStop"));
         assert!(!applied(copilot, Some(&file), Some(&cmd)).1);
         assert_eq!(applied(copilot, Some(&file), None), (None, true));
 
         let opencode = get("opencode");
         let (plugin, _) = applied(opencode, None, Some(&command_for(opencode, CMD)));
         let plugin = plugin.unwrap();
-        assert!(plugin.contains(r#"const EXE = "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe";"#));
+        assert!(plugin
+            .contains(r#"const EXE = "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe";"#));
         assert!(!plugin.contains("__EXE__"));
     }
 
     #[test]
     fn hook_paths_survive_every_shell() {
         let none = |_: &str| None;
-        let plain = hook_path("C:\\Users\\me\\AppData\\Local\\AevalBuddy\\AevalBuddy.exe", none);
+        let plain = hook_path(
+            "C:\\Users\\me\\AppData\\Local\\AevalBuddy\\AevalBuddy.exe",
+            none,
+        );
         assert_eq!(plain, "C:/Users/me/AppData/Local/AevalBuddy/AevalBuddy.exe");
         let spaced = "C:\\Users\\Ada Lovelace\\AppData\\Local\\AevalBuddy\\AevalBuddy.exe";
-        let short = |upto: &str| upto.ends_with("Lovelace").then(|| "C:\\Users\\ADALOV~1".to_string());
+        let short = |upto: &str| {
+            upto.ends_with("Lovelace")
+                .then(|| "C:\\Users\\ADALOV~1".to_string())
+        };
         let fixed = hook_path(spaced, short);
-        assert_eq!(fixed, "C:/Users/ADALOV~1/AppData/Local/AevalBuddy/AevalBuddy.exe");
+        assert_eq!(
+            fixed,
+            "C:/Users/ADALOV~1/AppData/Local/AevalBuddy/AevalBuddy.exe"
+        );
         // Short names off: quoted.
         let quoted = hook_path(spaced, none);
         assert!(quoted.starts_with('"') && quoted.ends_with('"'));
@@ -729,44 +754,98 @@ mod tests {
 
     #[test]
     fn every_agent_maps_onto_the_same_events() {
-        let e = norm("codex", "", json!({ "hook_event_name": "PermissionRequest",
-            "session_id": "1", "tool_name": "shell" }));
-        assert_eq!((e.name.as_str(), e.session_id.as_str()), ("Notification", "codex:1"));
+        let e = norm(
+            "codex",
+            "",
+            json!({ "hook_event_name": "PermissionRequest",
+            "session_id": "1", "tool_name": "shell" }),
+        );
+        assert_eq!(
+            (e.name.as_str(), e.session_id.as_str()),
+            ("Notification", "codex:1")
+        );
         assert_eq!(e.message, "Codex wants to use shell");
         assert!(e.cwd_guessed && e.cwd == "C:\\pwd");
 
-        let e = norm("gemini", "", json!({ "hook_event_name": "AfterAgent",
-            "session_id": "g", "cwd": "C:\\site", "prompt_response": "done" }));
-        assert_eq!((e.name.as_str(), e.last_assistant.as_str()), ("Stop", "done"));
+        let e = norm(
+            "gemini",
+            "",
+            json!({ "hook_event_name": "AfterAgent",
+            "session_id": "g", "cwd": "C:\\site", "prompt_response": "done" }),
+        );
+        assert_eq!(
+            (e.name.as_str(), e.last_assistant.as_str()),
+            ("Stop", "done")
+        );
         assert!(!e.cwd_guessed);
-        let e = norm("gemini", "", json!({ "hook_event_name": "Notification",
-            "session_id": "g", "notification_type": "Info" }));
+        let e = norm(
+            "gemini",
+            "",
+            json!({ "hook_event_name": "Notification",
+            "session_id": "g", "notification_type": "Info" }),
+        );
         assert_eq!(e.name, "");
 
-        let e = norm("copilot", "errorOccurred", json!({ "sessionId": "c", "recoverable": true }));
+        let e = norm(
+            "copilot",
+            "errorOccurred",
+            json!({ "sessionId": "c", "recoverable": true }),
+        );
         assert_eq!(e.name, "");
         let e = norm("copilot", "errorOccurred", json!({ "sessionId": "c" }));
         assert_eq!(e.name, "StopFailure");
         let e = norm("copilot", "agentStop", json!({ "sessionId": "c" }));
-        assert_eq!((e.name.as_str(), e.session_id.as_str()), ("Stop", "copilot:c"));
+        assert_eq!(
+            (e.name.as_str(), e.session_id.as_str()),
+            ("Stop", "copilot:c")
+        );
 
-        let e = norm("cursor", "", json!({ "hook_event_name": "stop", "status": "aborted",
-            "conversation_id": "k", "workspace_roots": ["C:\\code\\app"] }));
-        assert_eq!((e.name.as_str(), e.cwd.as_str()), ("Interrupt", "C:\\code\\app"));
-        let e = norm("cursor", "", json!({ "hook_event_name": "afterAgentResponse",
-            "conversation_id": "k", "text": "hi" }));
-        assert_eq!((e.name.as_str(), e.last_assistant.as_str()), ("AgentText", "hi"));
+        let e = norm(
+            "cursor",
+            "",
+            json!({ "hook_event_name": "stop", "status": "aborted",
+            "conversation_id": "k", "workspace_roots": ["C:\\code\\app"] }),
+        );
+        assert_eq!(
+            (e.name.as_str(), e.cwd.as_str()),
+            ("Interrupt", "C:\\code\\app")
+        );
+        let e = norm(
+            "cursor",
+            "",
+            json!({ "hook_event_name": "afterAgentResponse",
+            "conversation_id": "k", "text": "hi" }),
+        );
+        assert_eq!(
+            (e.name.as_str(), e.last_assistant.as_str()),
+            ("AgentText", "hi")
+        );
 
-        let e = norm("windsurf", "", json!({ "agent_action_name": "post_cascade_response",
-            "trajectory_id": "w", "tool_info": { "response": "ok" } }));
+        let e = norm(
+            "windsurf",
+            "",
+            json!({ "agent_action_name": "post_cascade_response",
+            "trajectory_id": "w", "tool_info": { "response": "ok" } }),
+        );
         assert_eq!((e.name.as_str(), e.last_assistant.as_str()), ("Stop", "ok"));
 
-        let e = norm("opencode", "", json!({ "event": "permission", "session": "o" }));
+        let e = norm(
+            "opencode",
+            "",
+            json!({ "event": "permission", "session": "o" }),
+        );
         assert_eq!(e.message, "OpenCode is asking for permission.");
 
-        let e = norm("claude", "", json!({ "hook_event_name": "SubagentStart",
-            "session_id": "s", "agent_id": "a1", "agent_type": "Explore" }));
-        assert_eq!((e.session_id.as_str(), e.agent_type.as_str()), ("s", "Explore"));
+        let e = norm(
+            "claude",
+            "",
+            json!({ "hook_event_name": "SubagentStart",
+            "session_id": "s", "agent_id": "a1", "agent_type": "Explore" }),
+        );
+        assert_eq!(
+            (e.session_id.as_str(), e.agent_type.as_str()),
+            ("s", "Explore")
+        );
     }
 
     #[test]

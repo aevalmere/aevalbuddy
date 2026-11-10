@@ -292,7 +292,12 @@ mod tests {
         assert_eq!(text, "4f971e89-eebd-4455-a8de-9e59040e7347|1|2");
         assert_eq!(parse_saved(&text), Some((SUB_BUTTONS, 1, 2)));
         assert_eq!(Guid::parse(&LID_CLOSE.text()), Some(LID_CLOSE));
-        for bad in ["", "x|1|2", "4f971e89-eebd-4455-a8de-9e59040e7347|1", &format!("{text}|3")] {
+        for bad in [
+            "",
+            "x|1|2",
+            "4f971e89-eebd-4455-a8de-9e59040e7347|1",
+            &format!("{text}|3"),
+        ] {
             assert_eq!(parse_saved(bad), None, "{bad}");
         }
         // Nothing saved: nothing to restore, and nothing is written.
