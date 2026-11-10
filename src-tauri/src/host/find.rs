@@ -34,11 +34,15 @@ const CARRY_MAX: usize = 120;
 struct Out {
     label: Option<String>,
     last_hits: Option<Value>,
+    /// The conversation that was in front when Find took a window of its
+    /// own; it is in front again once Find closes.
+    prev: Option<String>,
 }
 
 static OUT: Mutex<Out> = Mutex::new(Out {
     label: None,
     last_hits: None,
+    prev: None,
 });
 
 fn out() -> std::sync::MutexGuard<'static, Out> {
@@ -194,9 +198,24 @@ fn ensure_label(app: &AppHandle) -> Option<(String, bool)> {
         }
     }
     // Never the chat in front: results get a window of their own (B-020).
-    let label = outputs::fresh(app)?;
+    // With no chat in front, any idle window will do, the one Find used
+    // last time included.
+    let is_active = |l: &String| outputs::with(app, l, |o| o.active).unwrap_or(false);
+    let front = outputs::focused(app).filter(is_active);
+    let label = match front {
+        Some(_) => outputs::fresh(app)?,
+        None => outputs::target(app)?,
+    };
     let fresh = cur.as_deref() != Some(label.as_str());
-    out().label = Some(label.clone());
+    if let (true, Some(old)) = (fresh, &cur) {
+        // The window Find used before goes back to being a chat; left in
+        // the results view, the next answer sent to it would not show.
+        set_view(app, old, "chat");
+    }
+    let mut o = out();
+    o.label = Some(label.clone());
+    o.prev = front;
+    drop(o);
     Some((label, fresh))
 }
 
@@ -349,6 +368,14 @@ pub fn close_find(app: &AppHandle, keep_mode: bool) {
         let agent = try_services().is_some_and(|s| s.agent.is_running());
         if empty && !agent {
             hide_output(app, &l);
+        }
+    }
+    // The conversation Find stepped in front of is the target again, so the
+    // next question continues it.
+    let prev = out().prev.take();
+    if let Some(p) = prev {
+        if outputs::with(app, &p, |o| o.active).unwrap_or(false) {
+            shared(app).lock().focused_output = Some(p);
         }
     }
     if !keep_mode {
