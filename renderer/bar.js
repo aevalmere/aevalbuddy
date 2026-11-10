@@ -203,12 +203,12 @@ function renderToken() {
   if (waiting) {
     token.setAttribute('aria-label', `${name}. Enter sends this to the running task.`);
     token.setAttribute('aria-disabled', 'true');
-    intentDesc.textContent = 'Enter sends this to the running task. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.';
+    intentDesc.textContent = 'Enter sends this to the running task. Ctrl+1 asks, Ctrl+2 or Ctrl+F finds, Ctrl+3 does it as a task.';
   } else {
     const how = bar.lock ? 'chosen' : 'guessed';
     token.setAttribute('aria-label', `${Intent.NAME[now]}, ${how}. Choose what Enter does.`);
     token.removeAttribute('aria-disabled');
-    intentDesc.textContent = `${ENTER_SAYS[now]}${bar.literal ? ', exact words only' : ''}. Ctrl+1 asks, Ctrl+2 finds, Ctrl+3 does it as a task.`;
+    intentDesc.textContent = `${ENTER_SAYS[now]}${bar.literal ? ', exact words only' : ''}. Ctrl+1 asks, Ctrl+2 or Ctrl+F finds, Ctrl+3 does it as a task.`;
   }
   // Said once the typing settles, and only when it changed; announcing every
   // keystroke's guess would talk over the person typing.
@@ -988,15 +988,33 @@ function onInput() {
 input.placeholder = PLACEHOLDER;
 input.addEventListener('input', onInput);
 
+// Ctrl+1, 2, 3 choose what Enter does, and Ctrl+F chooses Find as it does
+// everywhere else. Read from the physical key as well as the character, so
+// a layout that puts something else on the digit row still works.
+function chordLock(e) {
+  if (!e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return false;
+  const digit = /^(Digit|Numpad)[123]$/.test(e.code || '') ? e.code.slice(-1) : e.key;
+  let lock = null;
+  if (['1', '2', '3'].includes(digit)) lock = Intent.INTENTS[Number(digit) - 1];
+  else if (e.code === 'KeyF' || e.key === 'f' || e.key === 'F') lock = 'find';
+  if (!lock) return false;
+  e.preventDefault();
+  setLock(lock, { say: true });
+  return true;
+}
+
+// The same chords with the focus anywhere else in the bar (the token, a
+// button, nothing at all): they choose, and the field takes the typing.
+document.addEventListener('keydown', (e) => {
+  if (e.target === input || e.isComposing || e.keyCode === 229) return;
+  if (chordLock(e)) input.focus();
+});
+
 input.addEventListener('keydown', (e) => {
   // An IME is still composing: Enter picks the candidate, not the action.
   if (e.isComposing || e.keyCode === 229) return;
   if (modelKey(e)) return;
-  if (e.ctrlKey && !e.altKey && !e.shiftKey && ['1', '2', '3'].includes(e.key)) {
-    e.preventDefault();
-    setLock(Intent.INTENTS[Number(e.key) - 1], { say: true });
-    return;
-  }
+  if (chordLock(e)) return;
   if (e.altKey && e.key === 'ArrowDown') {
     e.preventDefault();
     openMenu();
