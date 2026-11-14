@@ -743,7 +743,9 @@ pub fn expand_panel(app: &AppHandle) {
     flags::set_click_through(&w, false);
     flags::set_focusable(h, true);
     flags::pin_on_top(h);
+    bar_mark("top");
     send_overlay_state(app);
+    bar_mark("state");
     motion::stop(h);
     set_input_bounds(app, input_rect(height));
     if was_pill {
@@ -752,7 +754,9 @@ pub fn expand_panel(app: &AppHandle) {
             sync_input_bounds(&app2)
         });
     }
+    bar_mark("placed");
     flags::show_focused(&w);
+    bar_mark("focus");
     hotkeys::apply(app);
 }
 
@@ -864,6 +868,7 @@ pub fn minimize(app: &AppHandle) {
 /// main.js triggerCapture: the bar opens, and conversations come back.
 pub fn trigger_capture(app: &AppHandle) {
     flags::remember_foreground();
+    bar_mark("fg");
     {
         let st = shared(app);
         let mut s = st.lock();
@@ -873,8 +878,9 @@ pub fn trigger_capture(app: &AppHandle) {
         s.hidden = false;
     }
     latch_display(app);
+    bar_mark("display");
     expand_panel(app);
-    mark_bar_shown();
+    bar_mark("shown");
     outputs::show_with_chat(app);
 }
 
@@ -900,6 +906,7 @@ pub fn open_bar(app: &AppHandle, mode: Option<&str>, prefill: Option<String>) {
     let lock = mode.filter(|m| matches!(*m, "ask" | "find" | "agent"));
     shared(app).lock().pill_error = false;
     set_bar_mode(app, if lock == Some("find") { "find" } else { "ask" });
+    bar_mark("mode");
     emit(app, OVERLAY, "bar:open", json!({ "lock": lock }));
     trigger_capture(app);
     shared(app).call(app, |h| h.prefetch_bar_context.as_ref());
@@ -1150,12 +1157,13 @@ fn bar_open_ms() -> &'static Mutex<VecDeque<u64>> {
 
 /// The bar's hotkey fired: the clock for `barOpenMs` starts (B-104).
 pub fn mark_bar_requested() {
+    bar_marks().lock().clear();
     *bar_requested().lock() = Some(Instant::now());
 }
 
-fn bar_shown() -> &'static Mutex<Option<u64>> {
-    static T: OnceLock<Mutex<Option<u64>>> = OnceLock::new();
-    T.get_or_init(|| Mutex::new(None))
+fn bar_marks() -> &'static Mutex<Vec<(&'static str, u64)>> {
+    static T: OnceLock<Mutex<Vec<(&'static str, u64)>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 fn bar_open_notes() -> &'static Mutex<VecDeque<String>> {
@@ -1163,32 +1171,38 @@ fn bar_open_notes() -> &'static Mutex<VecDeque<String>> {
     T.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
-/// Rust has the panel up and has told the page: what is left of a bar open
-/// is the page's (`barOpenStages`).
-fn mark_bar_shown() {
+/// One step of a hotkey's bar open is done, so many milliseconds after the
+/// hotkey (`barOpenStages`). Outside a hotkey's open there is no clock and
+/// nothing is kept.
+fn bar_mark(step: &'static str) {
     let requested = *bar_requested().lock();
     if let Some(t0) = requested {
-        *bar_shown().lock() = Some(t0.elapsed().as_millis() as u64);
+        bar_marks().lock().push((step, t0.elapsed().as_millis() as u64));
     }
 }
 
 /// `bar:ready {pageMs, via}`: the bar's field has focus. Keeps the last 20
-/// latencies, and for each where the time went: until Rust had the panel up
-/// (`shown`), how long the page then took from its new state to the focused
-/// field (`page`), and whether the window already had the focus when the
-/// state came (`via=state`) or the page had to wait for it (`via=focus`).
+/// latencies, and for each where the time went: when each of Rust's steps
+/// was done ([`bar_mark`]), how long the page then took from its new state
+/// to the focused field (`page`), and whether the window already had the
+/// focus when the state came (`via=state`) or the page had to wait for it
+/// (`via=focus`).
 pub fn bar_ready(p: &Value) {
     let Some(t0) = bar_requested().lock().take() else {
         return;
     };
     let ms = t0.elapsed().as_millis() as u64;
-    let shown = bar_shown().lock().take();
-    let shown = shown.map_or_else(|| "?".to_string(), |s| s.to_string());
+    let steps: Vec<String> = bar_marks()
+        .lock()
+        .drain(..)
+        .map(|(step, at)| format!("{step}={at}"))
+        .collect();
+    let steps = steps.join(",");
     let page = p.get("pageMs").and_then(Value::as_f64).unwrap_or(-1.0);
     let via = p.get("via").and_then(Value::as_str).unwrap_or("?");
     {
         let mut notes = bar_open_notes().lock();
-        notes.push_back(format!("{ms}(shown={shown},page={page:.0},via={via})"));
+        notes.push_back(format!("{ms}({steps},page={page:.0},via={via})"));
         while notes.len() > 20 {
             notes.pop_front();
         }
