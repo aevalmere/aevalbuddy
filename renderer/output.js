@@ -771,6 +771,12 @@ function openRetryMenu(anchor, onRetry) {
       opts[to].focus();
     }
   });
+  // The option with focus is the list's one tab stop.
+  el.addEventListener('focusin', (e) => {
+    const at = e.target.closest && e.target.closest('[role="option"]');
+    if (!at) return;
+    for (const o of el.querySelectorAll('[role="option"]')) o.tabIndex = o === at ? 0 : -1;
+  });
   opanel.appendChild(el);
   // Under the chevron, or above it when the window has no room below; past
   // both it scrolls inside. Never cut by the window's edge (glass.js).

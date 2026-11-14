@@ -484,6 +484,13 @@ fn early_keys(cx: &Cx) {
     let keys = format!("{hotkey}={sent:?} text={typed:?}");
     let why = format!("{keys} field={value:?} foreground={fg}");
     cx.must("earlyKeys", kept, why);
+    // barOpenMs (B-104): hotkey to focused field for every hotkey press this
+    // run made, oldest first. Logged, not gated: a shared runner's timing is
+    // too noisy to hold to a budget, but the number has to be on record
+    // before anyone tunes the open path.
+    let samples = windows::bar_open_samples();
+    cx.log("barOpenMs", format!("{samples:?}"));
+    cx.log("barOpenStages", windows::bar_open_stages().join(" "));
 }
 
 /// barMultiline (B-056): three pasted lines stay three rows, and Enter sends

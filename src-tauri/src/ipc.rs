@@ -777,7 +777,7 @@ async fn route(
             shared(app).lock().bar_dirty = p_bool(&p, "dirty");
         }
         // The bar's field has focus after a hotkey (B-104).
-        "bar:ready" => windows::bar_ready(),
+        "bar:ready" => windows::bar_ready(&p),
         // The bar has folded and painted the frame without it: the window
         // may shrink or go.
         "bar:folded" => windows::bar_folded(app),

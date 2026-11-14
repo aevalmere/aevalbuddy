@@ -44,29 +44,6 @@ button {
   cursor: pointer;
 }
 
-#pill[hidden],
-#panel[hidden],
-#opanel[hidden],
-#hud[hidden],
-#bar-status[hidden],
-#intent-menu[hidden],
-#model-menu[hidden],
-#model-chip[hidden],
-#guess[hidden],
-#examples[hidden],
-#region-chip[hidden],
-#notice[hidden],
-#chat[hidden],
-#find-view[hidden],
-#glob[hidden],
-.g-icon[hidden],
-.copy-msg[hidden],
-.link-btn[hidden],
-.g-chip[hidden],
-.g-btn[hidden] {
-  display: none;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -340,10 +317,6 @@ body[data-anchor-v="bottom"] #panel[data-morph="out"] > :not(.panel-top) {
   color: var(--label-2);
   white-space: nowrap;
   animation: g-drop-in var(--d-reveal) var(--ease-morph);
-}
-
-#target-chip[hidden] {
-  display: none;
 }
 
 #target-text {
@@ -1492,10 +1465,6 @@ body[data-scrolling] #find-view::-webkit-scrollbar-thumb,
   user-select: text;
 }
 
-.sent-panel[hidden] {
-  display: none;
-}
-
 .sent-panel .sent-head {
   color: var(--label);
   font-weight: var(--w-strong, 600);
@@ -1694,6 +1663,19 @@ body[data-fixed-height="1"] #chat {
 .md-body .md-table.scrolls-x {
   -webkit-mask-image: linear-gradient(to right, var(--mask-solid) calc(100% - 24px), transparent);
   mask-image: linear-gradient(to right, var(--mask-solid) calc(100% - 24px), transparent);
+}
+
+/* A block that scrolls sideways takes keyboard focus, so the arrow keys can
+   scroll it (markdown.js). Its ring sits inside the plate, and the edge fade
+   steps aside while it has focus: a mask would cut the ring off with the
+   text, and the ring already says there is something here to move. */
+.md-body .md-code pre:focus-visible,
+.md-body .md-table:focus-visible {
+  outline: 2px solid var(--tint-w-92);
+  outline-offset: -2px;
+  box-shadow: none;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .md-body pre::-webkit-scrollbar,

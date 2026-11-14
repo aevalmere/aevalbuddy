@@ -16,4 +16,6 @@ suggestionsOnce
 # New with the bar items: B-150, B-154, B-056
 tokenReply
 earlyKeys
+barOpenMs
+barOpenStages
 barMultiline

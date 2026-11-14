@@ -106,11 +106,12 @@ function render(prevMode, prevButton) {
     renderNotice();
     if (prevMode !== 'panel') {
       readyPending = true;
+      readyAt = performance.now();
       input.focus();
       input.select();
       typeEarlyKeys();
       barOpened();
-      if (document.activeElement === input && document.hasFocus()) sendReady();
+      if (document.activeElement === input && document.hasFocus()) sendReady('state');
     }
     requestResize();
   }
@@ -120,10 +121,14 @@ function render(prevMode, prevButton) {
 // after an open (U25). If the window is not focused yet, the field's focus
 // event sends it when it is.
 let readyPending = false;
-function sendReady() {
+let readyAt = 0;
+function sendReady(via) {
   if (!readyPending) return;
   readyPending = false;
-  window.aeval.invoke('bar:ready').catch(() => {});
+  // How long the page took from the open state to the focused field, and
+  // whether the window had the focus already ('state') or it came later.
+  const pageMs = Math.round(performance.now() - readyAt);
+  window.aeval.invoke('bar:ready', { pageMs, via: via === 'state' ? 'state' : 'focus' }).catch(() => {});
 }
 input.addEventListener('focus', sendReady);
 

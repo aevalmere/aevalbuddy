@@ -743,7 +743,9 @@ pub fn expand_panel(app: &AppHandle) {
     flags::set_click_through(&w, false);
     flags::set_focusable(h, true);
     flags::pin_on_top(h);
+    bar_mark("top");
     send_overlay_state(app);
+    bar_mark("state");
     motion::stop(h);
     set_input_bounds(app, input_rect(height));
     if was_pill {
@@ -752,7 +754,9 @@ pub fn expand_panel(app: &AppHandle) {
             sync_input_bounds(&app2)
         });
     }
+    bar_mark("placed");
     flags::show_focused(&w);
+    bar_mark("focus");
     hotkeys::apply(app);
 }
 
@@ -781,6 +785,7 @@ pub fn collapse_panel(app: &AppHandle) {
         s.input_height = layout::DEFAULT_INPUT_HEIGHT;
         was
     };
+    drop_bar_request();
     flags::blur(h);
     flags::set_focusable(h, false);
     flags::pin_on_top(h);
@@ -864,6 +869,7 @@ pub fn minimize(app: &AppHandle) {
 /// main.js triggerCapture: the bar opens, and conversations come back.
 pub fn trigger_capture(app: &AppHandle) {
     flags::remember_foreground();
+    bar_mark("fg");
     {
         let st = shared(app);
         let mut s = st.lock();
@@ -873,7 +879,9 @@ pub fn trigger_capture(app: &AppHandle) {
         s.hidden = false;
     }
     latch_display(app);
+    bar_mark("display");
     expand_panel(app);
+    bar_mark("shown");
     outputs::show_with_chat(app);
 }
 
@@ -899,6 +907,7 @@ pub fn open_bar(app: &AppHandle, mode: Option<&str>, prefill: Option<String>) {
     let lock = mode.filter(|m| matches!(*m, "ask" | "find" | "agent"));
     shared(app).lock().pill_error = false;
     set_bar_mode(app, if lock == Some("find") { "find" } else { "ask" });
+    bar_mark("mode");
     emit(app, OVERLAY, "bar:open", json!({ "lock": lock }));
     trigger_capture(app);
     shared(app).call(app, |h| h.prefetch_bar_context.as_ref());
@@ -1149,20 +1158,76 @@ fn bar_open_ms() -> &'static Mutex<VecDeque<u64>> {
 
 /// The bar's hotkey fired: the clock for `barOpenMs` starts (B-104).
 pub fn mark_bar_requested() {
+    bar_marks().lock().clear();
     *bar_requested().lock() = Some(Instant::now());
 }
 
-/// `bar:ready`: the bar's field has focus. Keeps the last 20 latencies.
-pub fn bar_ready() {
+/// The bar folded before its field had the focus: that open is not one to
+/// time. Without this the clock ran on to the next open, however it was
+/// made, and a press on a bar that was already open read as a slow one.
+fn drop_bar_request() {
+    bar_requested().lock().take();
+    bar_marks().lock().clear();
+}
+
+fn bar_marks() -> &'static Mutex<Vec<(&'static str, u64)>> {
+    static T: OnceLock<Mutex<Vec<(&'static str, u64)>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn bar_open_notes() -> &'static Mutex<VecDeque<String>> {
+    static T: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(VecDeque::new()))
+}
+
+/// One step of a hotkey's bar open is done, so many milliseconds after the
+/// hotkey (`barOpenStages`). Outside a hotkey's open there is no clock and
+/// nothing is kept.
+fn bar_mark(step: &'static str) {
+    let requested = *bar_requested().lock();
+    if let Some(t0) = requested {
+        bar_marks()
+            .lock()
+            .push((step, t0.elapsed().as_millis() as u64));
+    }
+}
+
+/// `bar:ready {pageMs, via}`: the bar's field has focus. Keeps the last 20
+/// latencies, and for each where the time went: when each of Rust's steps
+/// was done ([`bar_mark`]), how long the page then took from its new state
+/// to the focused field (`page`), and whether the window already had the
+/// focus when the state came (`via=state`) or the page had to wait for it
+/// (`via=focus`).
+pub fn bar_ready(p: &Value) {
     let Some(t0) = bar_requested().lock().take() else {
         return;
     };
     let ms = t0.elapsed().as_millis() as u64;
+    let steps: Vec<String> = bar_marks()
+        .lock()
+        .drain(..)
+        .map(|(step, at)| format!("{step}={at}"))
+        .collect();
+    let steps = steps.join(",");
+    let page = p.get("pageMs").and_then(Value::as_f64).unwrap_or(-1.0);
+    let via = p.get("via").and_then(Value::as_str).unwrap_or("?");
+    {
+        let mut notes = bar_open_notes().lock();
+        notes.push_back(format!("{ms}({steps},page={page:.0},via={via})"));
+        while notes.len() > 20 {
+            notes.pop_front();
+        }
+    }
     let mut list = bar_open_ms().lock();
     list.push_back(ms);
     while list.len() > 20 {
         list.pop_front();
     }
+}
+
+/// [`bar_open_samples`] with where each open's time went, oldest first.
+pub fn bar_open_stages() -> Vec<String> {
+    bar_open_notes().lock().iter().cloned().collect()
 }
 
 /// Hotkey-to-field latencies, oldest first (the windows probe reads them).

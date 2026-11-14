@@ -577,6 +577,14 @@ html[data-shot-bg] body {
   background-position: var(--sx, 0px) var(--sy, 0px) !important;
 }
 
+/* `hidden` means not there, on every page. Without this any rule that sets
+   `display` on a control quietly wins over the attribute, and the control
+   stays on screen, focusable and without a name (the task window showed a
+   stray chevron this way). */
+[hidden] {
+  display: none !important;
+}
+
 /* ------------------------------------------------------- controls on glass */
 
 /* Two-tone focus, so it holds 3:1 on the glass and on whatever is behind
