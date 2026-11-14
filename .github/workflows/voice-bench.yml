@@ -58,6 +58,9 @@ jobs:
           "[BENCH] info runner cpu=""$($cpu.Name.Trim())"" cores=$($cpu.NumberOfCores) logical=$($cpu.NumberOfLogicalProcessors)" |
             Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'ci-logs\runner.log')
 
+      # Round two: the first round (commit b756444a, report on ci-logs) timed
+      # thirteen models. This one keeps the app's default and its fastest, and
+      # the one candidate that won, to look at two follow-up questions.
       # Models from the two projects' own Hugging Face repositories, clips
       # from the repo and from transcribe.cpp's samples. A file that does not
       # arrive is left out and named in the log; the engines time what is there.
@@ -71,17 +74,7 @@ jobs:
           $want = @(
             @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin"),
             @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin"),
-            @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-small.en-q5_1.bin"),
-            @('gguf', "$env:HF/handy-computer/whisper-tiny.en-gguf/resolve/main/whisper-tiny.en-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/whisper-base.en-gguf/resolve/main/whisper-base.en-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/whisper-small.en-gguf/resolve/main/whisper-small.en-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/whisper-large-v3-turbo-gguf/resolve/main/whisper-large-v3-turbo-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/moonshine-base-gguf/resolve/main/moonshine-base-Q8_0.gguf"),
             @('gguf', "$env:HF/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q8_0.gguf"),
-            @('gguf', "$env:HF/handy-computer/parakeet-tdt-0.6b-v2-gguf/resolve/main/parakeet-tdt-0.6b-v2-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q5_K_M.gguf"),
-            @('gguf', "$env:HF/handy-computer/parakeet-unified-en-0.6b-gguf/resolve/main/parakeet-unified-en-0.6b-Q5_K_M.gguf"),
             @('clips', "$env:SAMPLES/jfk.wav"),
             @('clips', "$env:SAMPLES/dots.wav"),
             @('clips', "$env:SAMPLES/fleurs-en.wav"),
@@ -185,12 +178,52 @@ jobs:
           & $env:VB_NEXT (Join-Path $env:VB_ROOT 'gguf') (Join-Path $env:VB_ROOT 'clips') 2> $err | Tee-Object -FilePath $log
           exit $LASTEXITCODE
 
+      # whisper.cpp and transcribe.cpp each carry a copy of ggml. Whether the
+      # two link into one exe decides if an engine can be added beside the
+      # app's Whisper or must replace it. A failure here is an answer, not a
+      # broken run: the linker's words are in build-both.log.
+      - name: Build both engines in one exe
+        id: buildboth
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          $logs = Join-Path $env:RUNNER_TEMP 'ci-logs'
+          $log = Join-Path $logs 'build-both.log'
+          $cm = (Resolve-Path src-tauri/src/voice/whisper.cmake).Path.Replace([IO.Path]::DirectorySeparatorChar, '/')
+          $env:CMAKE_PROJECT_INCLUDE = $cm
+          $env:TRANSCRIBE_CMAKE_ARGS = "-DCMAKE_PROJECT_INCLUDE=$cm"
+          $env:RUSTFLAGS = '-C target-feature=+crt-static'
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'vbb'
+          cmd /c "cargo build --release --color never --manifest-path tools/voice-bench/both/Cargo.toml 2>&1" | Tee-Object -FilePath $log
+          $code = $LASTEXITCODE
+          "[BENCH] info both build=$(if ($code -eq 0) { 'linked' } else { 'failed' })" | Tee-Object -FilePath (Join-Path $logs 'runner.log') -Append
+          if ($code -ne 0) {
+            Get-Content $log | Where-Object { $_ -match 'LNK[0-9]+|error' } | Select-Object -First 30
+            exit 1
+          }
+          $exe = Join-Path (Join-Path $env:CARGO_TARGET_DIR 'release') 'voice-bench-both.exe'
+          "VB_BOTH=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Run both engines in one exe
+        id: both
+        if: ${{ !cancelled() && steps.buildboth.outcome == 'success' }}
+        continue-on-error: true
+        run: |
+          $logs = Join-Path $env:RUNNER_TEMP 'ci-logs'
+          $log = Join-Path $logs 'both.log'
+          $err = Join-Path $logs 'both-stderr.log'
+          $bin = Join-Path (Join-Path $env:VB_ROOT 'ggml') 'ggml-base.en-q5_1.bin'
+          $gguf = Join-Path (Join-Path $env:VB_ROOT 'gguf') 'parakeet-tdt_ctc-110m-Q5_K_M.gguf'
+          $clip = Join-Path (Join-Path $env:VB_ROOT 'clips') 'dictation.wav'
+          & $env:VB_BOTH $bin $gguf $clip 2> $err | Tee-Object -FilePath $log
+          exit $LASTEXITCODE
+
       - name: Report
         id: report
         if: ${{ !cancelled() }}
         run: |
           $logs = Join-Path $env:RUNNER_TEMP 'ci-logs'
-          node tools/voice-bench/report.mjs (Join-Path $logs 'report.md') (Join-Path $logs 'runner.log') (Join-Path $logs 'dlls.log') (Join-Path $logs 'now.log') (Join-Path $logs 'next.log') |
+          node tools/voice-bench/report.mjs (Join-Path $logs 'report.md') (Join-Path $logs 'runner.log') (Join-Path $logs 'dlls.log') (Join-Path $logs 'now.log') (Join-Path $logs 'next.log') (Join-Path $logs 'both.log') |
             Tee-Object -FilePath (Join-Path $logs 'report.log')
           $code = $LASTEXITCODE
           if (Test-Path (Join-Path $logs 'report.md')) { Get-Content (Join-Path $logs 'report.md') | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8 }
@@ -213,5 +246,7 @@ jobs:
             Runtime DLLs|${{ steps.dlls.outcome }}|dlls.log
             Time the current engine|${{ steps.now.outcome }}|now.log
             Time the candidates|${{ steps.next.outcome }}|next.log
+            Build both engines in one exe|${{ steps.buildboth.outcome }}|build-both.log
+            Run both engines in one exe|${{ steps.both.outcome }}|both.log
             Report|${{ steps.report.outcome }}|report.log
         run: node tools/ci-publish.mjs

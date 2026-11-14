@@ -1,0 +1,16 @@
+# Can whisper.cpp (whisper-rs) and transcribe.cpp live in one exe? Each brings
+# its own copy of ggml, so this either links and runs, or the linker says why
+# not (tools/voice-bench). The answer decides whether a new engine can be added
+# beside the app's Whisper or has to replace it.
+[package]
+name = "voice-bench-both"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+whisper-rs = "0.14"
+transcribe-cpp = { version = "=0.4.2", default-features = false }
+hound = "3"

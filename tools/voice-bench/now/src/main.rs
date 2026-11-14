@@ -20,23 +20,58 @@ const FULL_CTX: usize = 1500;
 const CTX_MARGIN: usize = 64;
 const CTX_MIN: usize = 256;
 /// Runs after the first; the first is reported on its own.
-const RUNS: usize = 3;
+const RUNS: usize = 2;
+
+/// What is changed from the app's settings, to find where its slow passes
+/// come from: Whisper decoding again at a higher temperature when it does
+/// not trust a pass, or the encoder window being cut too close.
+#[derive(Clone, Copy)]
+struct Variant {
+    name: &'static str,
+    /// Decode once; no second try at a higher temperature.
+    no_fallback: bool,
+    /// The smallest encoder window, in frames (the app: 256).
+    ctx_min: usize,
+}
+
+const VARIANTS: [Variant; 4] = [
+    Variant {
+        name: "now",
+        no_fallback: false,
+        ctx_min: CTX_MIN,
+    },
+    Variant {
+        name: "now-nofb",
+        no_fallback: true,
+        ctx_min: CTX_MIN,
+    },
+    Variant {
+        name: "now-ctx512",
+        no_fallback: false,
+        ctx_min: 512,
+    },
+    Variant {
+        name: "now-nofb-ctx512",
+        no_fallback: true,
+        ctx_min: 512,
+    },
+];
 
 fn threads() -> i32 {
     let n = std::thread::available_parallelism().map_or(4, |n| n.get());
     n.clamp(1, 8) as i32
 }
 
-fn audio_ctx(samples: usize) -> i32 {
+fn audio_ctx(samples: usize, min: usize) -> i32 {
     let frames = samples * FRAMES_PER_SECOND / RATE + CTX_MARGIN;
     if frames >= FULL_CTX {
         0
     } else {
-        frames.max(CTX_MIN) as i32
+        frames.max(min) as i32
     }
 }
 
-fn run(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> {
+fn run(ctx: &WhisperContext, samples: &[f32], v: Variant) -> Result<String, String> {
     let mut state = ctx.create_state().map_err(|e| format!("{e:?}"))?;
     let mut p = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     p.set_n_threads(threads());
@@ -48,12 +83,15 @@ fn run(ctx: &WhisperContext, samples: &[f32]) -> Result<String, String> {
     p.set_print_realtime(false);
     p.set_print_timestamps(false);
     p.set_suppress_blank(true);
+    if v.no_fallback {
+        p.set_temperature_inc(0.0);
+    }
     let min = (RATE * 11) / 10;
     let mut pcm = samples.to_vec();
     if pcm.len() < min {
         pcm.resize(min, 0.0);
     }
-    let frames = audio_ctx(pcm.len());
+    let frames = audio_ctx(pcm.len(), v.ctx_min);
     if frames > 0 {
         p.set_audio_ctx(frames);
         p.set_single_segment(true);
@@ -151,28 +189,31 @@ fn main() {
             }
         };
         let load_ms = t.elapsed().as_millis();
-        for (clip, pcm) in &clips {
-            let audio_s = pcm.len() as f64 / RATE as f64;
-            let t = Instant::now();
-            let first = run(&ctx, pcm);
-            let first_ms = t.elapsed().as_millis();
-            let text = match first {
-                Ok(t) => t,
-                Err(e) => {
-                    println!("[BENCH] fail engine=now model={name} clip={clip} why={e:?}");
-                    continue;
-                }
-            };
-            let mut runs = Vec::new();
-            for _ in 0..RUNS {
+        for v in VARIANTS {
+            let engine = v.name;
+            for (clip, pcm) in &clips {
+                let audio_s = pcm.len() as f64 / RATE as f64;
                 let t = Instant::now();
-                let _ = run(&ctx, pcm);
-                runs.push(t.elapsed().as_millis().to_string());
+                let first = run(&ctx, pcm, v);
+                let first_ms = t.elapsed().as_millis();
+                let text = match first {
+                    Ok(t) => t,
+                    Err(e) => {
+                        println!("[BENCH] fail engine={engine} model={name} clip={clip} why={e:?}");
+                        continue;
+                    }
+                };
+                let mut runs = Vec::new();
+                for _ in 0..RUNS {
+                    let t = Instant::now();
+                    let _ = run(&ctx, pcm, v);
+                    runs.push(t.elapsed().as_millis().to_string());
+                }
+                println!(
+                    "[BENCH] run engine={engine} model={name} mb={mb} clip={clip} audio_s={audio_s:.2} load_ms={load_ms} first_ms={first_ms} runs_ms={} text={text:?}",
+                    runs.join(",")
+                );
             }
-            println!(
-                "[BENCH] run engine=now model={name} mb={mb} clip={clip} audio_s={audio_s:.2} load_ms={load_ms} first_ms={first_ms} runs_ms={} text={text:?}",
-                runs.join(",")
-            );
         }
     }
 }
