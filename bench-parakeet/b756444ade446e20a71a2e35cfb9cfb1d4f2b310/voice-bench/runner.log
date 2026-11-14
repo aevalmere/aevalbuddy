@@ -1,0 +1,2 @@
+[BENCH] info runner cpu="AMD EPYC 7763 64-Core Processor" cores=2 logical=4
+[BENCH] info next build="app flags (static runtime, AVX2, no AVX-512)"

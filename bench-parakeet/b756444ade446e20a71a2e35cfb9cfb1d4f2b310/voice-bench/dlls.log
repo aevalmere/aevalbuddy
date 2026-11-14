@@ -1,0 +1,2 @@
+[BENCH] info dlls exe=voice-bench-now.exe mb=1.5 cppRuntime=none all=ADVAPI32.dll,KERNEL32.dll,ntdll.dll,api-ms-win-core-synch-l1-2-0.dll
+[BENCH] info dlls exe=voice-bench-next.exe mb=3.9 cppRuntime=none all=ADVAPI32.dll,KERNEL32.dll,ntdll.dll,api-ms-win-core-synch-l1-2-0.dll

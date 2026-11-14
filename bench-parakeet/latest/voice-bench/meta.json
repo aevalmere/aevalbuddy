@@ -1,0 +1,67 @@
+{
+  "workflow": "voice-bench",
+  "workflow_name": "voice-bench",
+  "run_id": 43564777871,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/43564777871",
+  "event": "push",
+  "sha": "b756444ade446e20a71a2e35cfb9cfb1d4f2b310",
+  "ref": "bench/parakeet",
+  "ref_dir": "bench-parakeet",
+  "conclusion": "success",
+  "failed": [],
+  "finished": "2026-11-14T06:43:27Z",
+  "error_lines": 0,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Rust toolchain",
+      "outcome": "success",
+      "log": "runner.log"
+    },
+    {
+      "name": "Models and clips",
+      "outcome": "success",
+      "log": "fetch.log"
+    },
+    {
+      "name": "Build the current engine",
+      "outcome": "success",
+      "log": "build-now.log"
+    },
+    {
+      "name": "Build the candidate engine",
+      "outcome": "success",
+      "log": "build-next.log"
+    },
+    {
+      "name": "Runtime DLLs",
+      "outcome": "success",
+      "log": "dlls.log"
+    },
+    {
+      "name": "Time the current engine",
+      "outcome": "success",
+      "log": "now.log"
+    },
+    {
+      "name": "Time the candidates",
+      "outcome": "success",
+      "log": "next.log"
+    },
+    {
+      "name": "Report",
+      "outcome": "success",
+      "log": "report.log"
+    }
+  ]
+}
