@@ -2,7 +2,7 @@
 //! this PC (the default, free and offline), Parakeet on this PC, or Gemini
 //! with the person's key.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::settings::VoiceSettings;
 use super::{gemini, model, settings, stream, vad, whisper};
@@ -77,6 +77,16 @@ pub fn trim(samples: &[f32]) -> Option<&[f32]> {
     vad::speech(samples).map(|r| &samples[r])
 }
 
+/// What the model at `path` is handed of `samples`; None when nothing was
+/// said. Whisper gets the speech with the silence cut off. Parakeet gets all
+/// of it: cut that close it wrote the fixture's "tomorrow" as "to morrow"
+/// and left out every comma, and its time grows with the clip by little.
+pub fn piece<'a>(path: &Path, samples: &'a [f32]) -> Option<&'a [f32]> {
+    let speech = trim(samples)?;
+    let whole = path == model::path(model::parakeet());
+    Some(if whole { samples } else { speech })
+}
+
 pub async fn transcribe(
     s: &VoiceSettings,
     samples: Vec<f32>,
@@ -109,7 +119,7 @@ pub async fn transcribe(
     let language = s.language.clone();
     let text = tauri::async_runtime::spawn_blocking(move || {
         let rest = samples.get(early.upto..).unwrap_or_default();
-        let tail = match trim(rest) {
+        let tail = match piece(&path, rest) {
             Some(speech) => whisper::transcribe_after(&path, speech, &language, &early.text)?,
             None => String::new(),
         };

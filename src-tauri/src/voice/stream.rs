@@ -83,8 +83,8 @@ fn watch(tap: &Tap, path: &std::path::Path, language: &str, stop: &mpsc::Receive
         };
         let piece = &fresh[..cut];
         let began = Instant::now();
-        if let Some(r) = vad::speech(piece) {
-            match whisper::transcribe_after(path, &piece[r], language, &done.text) {
+        if let Some(heard) = super::engine::piece(path, piece) {
+            match whisper::transcribe_after(path, heard, language, &done.text) {
                 Ok(t) => {
                     done.text = join(&done.text, &super::cleanup::strip_noise(&t));
                     done.pieces += 1;

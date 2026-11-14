@@ -346,7 +346,7 @@ fn speed(cx: &Cx) {
         whisper::set_threads(0);
         cx.log("voiceSpeedThreads", sweep.join(" "));
     }
-    parakeet(cx, speech, short);
+    parakeet(cx, &clip, short);
     legacy(cx, speech);
     // Back to the default model, as the app keeps it.
     whisper::preload(&path);
@@ -378,8 +378,10 @@ fn speed(cx: &Cx) {
 }
 
 /// Parakeet on the fixture and on its first three seconds, kept loaded as
-/// the default model is.
-fn parakeet(cx: &Cx, speech: &[f32], short: &[f32]) {
+/// the default model is. It is handed the clip as the app hands it, silence
+/// left on; the same clip cut to the speech, and cut then given half a second
+/// of quiet either side, are logged beside it.
+fn parakeet(cx: &Cx, clip: &[f32], short: &[f32]) {
     let spec = model::parakeet();
     let path = match cx.block_on(model::ensure(spec, &|_, _| {})) {
         Ok(p) => p,
@@ -391,12 +393,21 @@ fn parakeet(cx: &Cx, speech: &[f32], short: &[f32]) {
     let t0 = Instant::now();
     whisper::preload(&path);
     let load_ms = ms(t0);
-    let (run_ms, text) = pass(&path, speech);
+    let whole = engine::piece(&path, clip).unwrap_or(clip);
+    let (run_ms, text) = pass(&path, whole);
     let heard = said(run_ms, &text);
     let line = format!("load={load_ms}ms {heard}");
     cx.log("voiceSpeedParakeet", line);
     let (short_ms, phrase) = pass(&path, short);
     cx.log("voiceSpeedParakeetShort", said(short_ms, &phrase));
+    if let Some(speech) = engine::trim(clip) {
+        let (cut_ms, cut) = pass(&path, speech);
+        cx.log("voiceSpeedParakeetTrimmed", said(cut_ms, &cut));
+        let quiet = vec![0.0; wav::RATE as usize / 2];
+        let padded = [&quiet[..], speech, &quiet[..]].concat();
+        let (pad_ms, pad) = pass(&path, &padded);
+        cx.log("voiceSpeedParakeetPadded", said(pad_ms, &pad));
+    }
     cx.must("voiceParakeet", tomorrow(&text), format!("{text:?}"));
 }
 
