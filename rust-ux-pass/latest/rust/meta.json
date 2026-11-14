@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 43564822840,
+  "run_id": 43568262743,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/43564822840",
+  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/43568262743",
   "event": "push",
-  "sha": "2c850b806be882c8c06ec7d5af85f578d3091aad",
+  "sha": "4ef4bb0b5fc81c707668b48ed221771de8f2ba63",
   "ref": "rust/ux-pass",
   "ref_dir": "rust-ux-pass",
   "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-14T06:25:24Z",
+  "finished": "2026-11-14T07:03:36Z",
   "error_lines": 0,
   "steps": [
     {
@@ -75,7 +75,7 @@
     },
     {
       "name": "Save NSIS toolset",
-      "outcome": "success",
+      "outcome": "skipped",
       "log": ""
     },
     {

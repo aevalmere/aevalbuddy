@@ -1,11 +1,11 @@
 # rust: success
 
 - Workflow: rust
-- Run: [43564822840](https://github.com/aevalmere/aevaleron/actions/runs/43564822840), attempt 1, on push
-- Commit: 2c850b806be882c8c06ec7d5af85f578d3091aad
+- Run: [43568262743](https://github.com/aevalmere/aevaleron/actions/runs/43568262743), attempt 1, on push
+- Commit: 4ef4bb0b5fc81c707668b48ed221771de8f2ba63
 - Ref: rust/ux-pass
 - Conclusion: **success**
-- Finished: 2026-11-14T06:25:24Z
+- Finished: 2026-11-14T07:03:36Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -21,7 +21,7 @@
 | Unit tests | success | [test.log](test.log) |
 | Restore NSIS toolset | success |  |
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
-| Save NSIS toolset | success |  |
+| Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
 | Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
