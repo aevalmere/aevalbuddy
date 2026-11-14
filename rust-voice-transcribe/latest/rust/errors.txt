@@ -1,0 +1,5 @@
+== smoke.log ==
+[SMOKE] voiceParakeet=FAIL:Ok("Um so I think we should meet at three no four PM to morrow to go over the budget")
+[SMOKE] failed: voiceParakeet
+[GATE] fail voiceParakeet=FAIL:Ok("Um so I think we should meet at three no four PM to morrow to go over the budget")
+[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: voiceParakeet; 1 listed label(s) never printed
