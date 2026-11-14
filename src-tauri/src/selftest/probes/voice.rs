@@ -237,6 +237,8 @@ fn dictation(cx: &mut Cx) {
 /// GPU), in ms, about 1.5 times what whisper.cpp measured (a4a6634: 566 and
 /// 790): Whisper on the fixture (7.9 s of speech) with the default model kept
 /// loaded, and the whole release-to-text of a 17 s utterance with a pause.
+/// transcribe.cpp measures 807 to 830 and 832 to 849 (3add819): inside both,
+/// the first with little to spare (lanes/voice-transcribe.md).
 const SPEED_BUDGET_MS: u64 = 900;
 const E2E_BUDGET_MS: u64 = 1100;
 
@@ -396,7 +398,9 @@ fn parakeet(cx: &Cx, clip: &[f32], short: &[f32]) {
     let whole = engine::piece(&path, clip).unwrap_or(clip);
     let (run_ms, text) = pass(&path, whole);
     let heard = said(run_ms, &text);
-    let line = format!("load={load_ms}ms {heard}");
+    // Once more: a slow first pass is not the model's speed.
+    let (again_ms, _) = pass(&path, whole);
+    let line = format!("load={load_ms}ms {heard} again={again_ms}ms");
     cx.log("voiceSpeedParakeet", line);
     let (short_ms, phrase) = pass(&path, short);
     cx.log("voiceSpeedParakeetShort", said(short_ms, &phrase));
