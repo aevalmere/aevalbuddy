@@ -1,0 +1,79 @@
+{
+  "workflow": "voice-bench",
+  "workflow_name": "voice-bench",
+  "run_id": 43568168299,
+  "run_attempt": 1,
+  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/43568168299",
+  "event": "push",
+  "sha": "6434ffa6f2bfd499db210259aad594ccc828f96d",
+  "ref": "bench/parakeet",
+  "ref_dir": "bench-parakeet",
+  "conclusion": "success",
+  "failed": [
+    "Build both engines in one exe"
+  ],
+  "finished": "2026-11-14T07:06:51Z",
+  "error_lines": 31,
+  "steps": [
+    {
+      "name": "Checkout",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Node",
+      "outcome": "success",
+      "log": ""
+    },
+    {
+      "name": "Rust toolchain",
+      "outcome": "success",
+      "log": "runner.log"
+    },
+    {
+      "name": "Models and clips",
+      "outcome": "success",
+      "log": "fetch.log"
+    },
+    {
+      "name": "Build the current engine",
+      "outcome": "success",
+      "log": "build-now.log"
+    },
+    {
+      "name": "Build the candidate engine",
+      "outcome": "success",
+      "log": "build-next.log"
+    },
+    {
+      "name": "Runtime DLLs",
+      "outcome": "success",
+      "log": "dlls.log"
+    },
+    {
+      "name": "Time the current engine",
+      "outcome": "success",
+      "log": "now.log"
+    },
+    {
+      "name": "Time the candidates",
+      "outcome": "success",
+      "log": "next.log"
+    },
+    {
+      "name": "Build both engines in one exe",
+      "outcome": "failure",
+      "log": "build-both.log"
+    },
+    {
+      "name": "Run both engines in one exe",
+      "outcome": "skipped",
+      "log": ""
+    },
+    {
+      "name": "Report",
+      "outcome": "success",
+      "log": "report.log"
+    }
+  ]
+}

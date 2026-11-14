@@ -1,0 +1,158 @@
+# Speech engines, side by side
+
+`now` is the app today (whisper.cpp through whisper-rs, with its settings). `next` is transcribe.cpp on the CPU.
+Times are milliseconds on this runner; "x" is seconds of speech per second of work.
+
+## dictation-3s (3.0 s)
+
+| Engine | Model | MB | First | Median | x |  | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 140 | 155 | 19 |  | Um so I think we should meet at three |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 363 | 356 | 8 |  | um, so I think we should meet at three. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 324 | 364 | 8 |  | um, so I think we should meet at three. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 735 | 773 | 4 |  | um, so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i think we should meet at three. so i |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 742 | 799 | 4 |  | So I think we should meet at three. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 1227 | 1424 | 2 |  | So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we should meet at three. So I think we |
+| now | ggml-tiny.en-q5_1 | 32 | 1716 | 1766 | 2 |  | I think we should meet at three. |
+| now | ggml-base.en-q5_1 | 59 | 2629 | 2968 | 1 |  | I think we should meet at three. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 3248 | 19027 | 0 |  | So I think we should meet at three. |
+
+## dictation (7.9 s)
+
+| Engine | Model | MB | First | Median | x | Word errors | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 358 | 352 | 23 | 0 of 18 (0%) | Um, so I think we should meet at three no, four PM tomorrow, to go over the budget |
+| now | ggml-tiny.en-q5_1 | 32 | 368 | 375 | 21 | 0 of 18 (0%) | Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 337 | 376 | 21 | 0 of 18 (0%) | Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget. |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 405 | 407 | 19 | 0 of 18 (0%) | Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 365 | 419 | 19 | 0 of 18 (0%) | Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 777 | 801 | 10 | 0 of 18 (0%) | Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget. |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 818 | 881 | 9 | 0 of 18 (0%) | Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget. |
+| now | ggml-base.en-q5_1 | 59 | 910 | 926 | 9 | 0 of 18 (0%) | Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 7491 | 10158 | 1 | 0 of 18 (0%) | Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget. |
+
+## dots (35.3 s)
+
+| Engine | Model | MB | First | Median | x |  | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 1317 | 1312 | 27 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart even when it leads you off the well worn path, and that will make all the difference. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 3776 | 3741 | 9 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards, ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart, even when it leads you off the well-worn path, and that will make all the difference. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 3730 | 3767 | 9 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards, ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart, even when it leads you off the well-worn path, and that will make all the difference. |
+| now | ggml-tiny.en-q5_1 | 32 | 3840 | 3807 | 9 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards, ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart, even when it leads you off the well-worn path, and that will make all the difference. |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 3782 | 3807 | 9 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards, ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart, even when it leads you off the well-worn path, and that will make all the difference. |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 7770 | 7728 | 5 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart even when it leads you off the well-worn path and that will make all the difference. |
+| now | ggml-base.en-q5_1 | 59 | 7930 | 7784 | 5 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart even when it leads you off the well-worn path and that will make all the difference. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 7703 | 8204 | 4 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart even when it leads you off the well-worn path and that will make all the difference. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 7906 | 8227 | 4 |  | Of course, it was impossible to connect the dots looking forward when I was in college, but it was very, very clear looking backwards ten years later. Again, you can't connect the dots looking forward. You can only connect them looking backwards. So you have to trust that the dots will somehow connect in your future. You have to trust in something, your gut, destiny, life, karma, whatever, because believing that the dots will connect down the road will give you the confidence to follow your heart even when it leads you off the well-worn path and that will make all the difference. |
+
+## fleurs-en (10.6 s)
+
+| Engine | Model | MB | First | Median | x |  | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 389 | 402 | 26 |  | However, due to the slow communication channels, styles in the West could lag behind by twenty five to thirty years. |
+| now | ggml-tiny.en-q5_1 | 32 | 511 | 508 | 21 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 497 | 508 | 21 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 508 | 508 | 21 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 508 | 553 | 19 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 1094 | 1090 | 10 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 1098 | 1094 | 10 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 1091 | 1099 | 10 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+| now | ggml-base.en-q5_1 | 59 | 1130 | 1226 | 9 |  | However, due to the slow communication channels, styles in the west could lag behind by 25 to 30 years. |
+
+## jfk (11.0 s)
+
+| Engine | Model | MB | First | Median | x | Word errors | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 477 | 507 | 22 | 0 of 22 (0%) | And so my fellow Americans, ask not what your country can do for you. Ask what you can do for your country. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 508 | 521 | 21 | 0 of 22 (0%) | And so my fellow Americans ask not what your country can do for you ask what you can do for your country. |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 521 | 522 | 21 | 0 of 22 (0%) | And so my fellow Americans ask not what your country can do for you ask what you can do for your country. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 516 | 525 | 21 | 0 of 22 (0%) | And so my fellow Americans ask not what your country can do for you ask what you can do for your country. |
+| now | ggml-tiny.en-q5_1 | 32 | 511 | 526 | 21 | 0 of 22 (0%) | And so my fellow Americans ask not what your country can do for you ask what you can do for your country. |
+| now | ggml-base.en-q5_1 | 59 | 1130 | 1127 | 10 | 1 of 22 (5%) | And so my fellow Americans asked not what your country can do for you, ask what you can do for your country. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 1134 | 1137 | 10 | 1 of 22 (5%) | And so my fellow Americans asked not what your country can do for you, ask what you can do for your country. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 1139 | 1138 | 10 | 1 of 22 (5%) | And so my fellow Americans asked not what your country can do for you, ask what you can do for your country. |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 1130 | 1138 | 10 | 1 of 22 (5%) | And so my fellow Americans asked not what your country can do for you, ask what you can do for your country. |
+
+## jobs-silence (5.3 s)
+
+| Engine | Model | MB | First | Median | x | Made-up words | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 188 | 223 | 24 | 0 |  |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 343 | 349 | 15 | 2 | (soft music) |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 330 | 369 | 14 | 2 | (soft music) |
+| now-nofb | ggml-base.en-q5_1 | 59 | 510 | 512 | 10 | 1 | (music) |
+| now | ggml-base.en-q5_1 | 59 | 515 | 529 | 10 | 1 | [music] |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 747 | 784 | 7 | 1 | [silence] |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 734 | 800 | 7 | 1 | [silence] |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 830 | 891 | 6 | 110 | (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) (soft music) |
+| now | ggml-tiny.en-q5_1 | 32 | 2747 | 2691 | 2 | 2 | It's eject. |
+
+## noise (15.0 s)
+
+| Engine | Model | MB | First | Median | x | Made-up words | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 486 | 516 | 29 | 0 |  |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 678 | 678 | 22 | 2 | (soft music) |
+| now | ggml-tiny.en-q5_1 | 32 | 727 | 696 | 22 | 2 | (wind blowing) |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 681 | 702 | 21 | 2 | (soft music) |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 685 | 736 | 20 | 2 | (wind blowing) |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 1510 | 1500 | 10 | 1 | [music] |
+| now | ggml-base.en-q5_1 | 59 | 1524 | 1535 | 10 | 1 | [music] |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 1561 | 1548 | 10 | 1 | [music] |
+| now-nofb | ggml-base.en-q5_1 | 59 | 1512 | 1643 | 9 | 1 | [music] |
+
+## product-names (56.1 s)
+
+| Engine | Model | MB | First | Median | x |  | Heard |
+|---|---|---:|---:|---:|---:|---:|---|
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 2367 | 2308 | 24 |  | Welcome to Quirk Quid Quill Inc. where finance meets innovation, explore diverse offerings from the P three Quatro unique investment portfolio Quadrant to the O three Omni, a platform for intricate derivative trading strategies. Delve into unconventional bond markets with our B three Bond X and our and experience non standard equity trading with E three equity. Personalize your wealth management with W three Wrap Z and anticipate market trends with the O two outlier, our forward thinking financial forecasting tool. Explore venture capital world with U three Unifund or move your money with the M three mover, our sophisticated monetary transfer module. At CorkidQuill Inc. we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 3879 | 3852 | 15 |  | Welcome to Quirk Quid Quid Inc. Finance, Feeds Innovation. Explore a diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delving to unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity, personalize your wealth management with W3, RAP, Z, and anticipate market trends with the O2 Outlier, our Ford Thinking Financial Forecasting Tool. Explore Venture Capital World with U3 Unifund, or move your money with the M3 Mover, our sophisticated monetary transfer module. At Quirk Quid Quid Inc., we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 4006 | 3888 | 14 |  | Welcome to Quirk Quid Quid Inc. Finance, Feeds Innovation. Explore a diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delving to unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity, personalize your wealth management with W3, RAP, Z, and anticipate market trends with the O2 Outlier, our Ford Thinking Financial Forecasting Tool. Explore Venture Capital World with U3 Unifund, or move your money with the M3 Mover, our sophisticated monetary transfer module. At Quirk Quid Quid Inc., we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now | ggml-tiny.en-q5_1 | 32 | 3889 | 3926 | 14 |  | Welcome to Quirk Quid Quid Inc. Finance, Feeds Innovation. Explore a diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delving to unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity, personalize your wealth management with W3, RAP, Z, and anticipate market trends with the O2 Outlier, our Ford Thinking Financial Forecasting Tool. Explore Venture Capital World with U3 Unifund, or move your money with the M3 Mover, our sophisticated monetary transfer module. At Quirk Quid Quid Inc., we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 3908 | 7795 | 7 |  | Welcome to Quirk Quid Quid Inc. Finance, Feeds Innovation. Explore a diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delving to unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity, personalize your wealth management with W3, RAP, Z, and anticipate market trends with the O2 Outlier, our Ford Thinking Financial Forecasting Tool. Explore Venture Capital World with U3 Unifund, or move your money with the M3 Mover, our sophisticated monetary transfer module. At Quirk Quid Quid Inc., we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 7936 | 7877 | 7 |  | Welcome to QuidQuill Inc. Where Finance meets innovation. Explore diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delve into unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity. Analyze your wealth management with W3, RAP, Z and anticipate market trends with the O2 outlier, our forward thinking financial forecasting tool. Explore venture capital world with U3 Unifond or move your money with the M3 Moverar sophisticated monetary transfer module. At QuidQuill Inc, we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now | ggml-base.en-q5_1 | 59 | 7979 | 7912 | 7 |  | Welcome to QuidQuill Inc. Where Finance meets innovation. Explore diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delve into unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity. Analyze your wealth management with W3, RAP, Z and anticipate market trends with the O2 outlier, our forward thinking financial forecasting tool. Explore venture capital world with U3 Unifond or move your money with the M3 Moverar sophisticated monetary transfer module. At QuidQuill Inc, we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 7938 | 7920 | 7 |  | Welcome to QuidQuill Inc. Where Finance meets innovation. Explore diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delve into unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity. Analyze your wealth management with W3, RAP, Z and anticipate market trends with the O2 outlier, our forward thinking financial forecasting tool. Explore venture capital world with U3 Unifond or move your money with the M3 Moverar sophisticated monetary transfer module. At QuidQuill Inc, we turn complex finance into creative solutions. Join us in redefining financial services. |
+| now-nofb | ggml-base.en-q5_1 | 59 | 7916 | 11569 | 5 |  | Welcome to QuidQuill Inc. Where Finance meets innovation. Explore diverse offerings from the P3 Quattro, a unique investment portfolio quadrant to the O3 Omni, a platform for intricate derivative trading strategies. Delve into unconventional bond markets with our B3 bond X and our and experienced non-standard equity trading with E3 equity. Analyze your wealth management with W3, RAP, Z and anticipate market trends with the O2 outlier, our forward thinking financial forecasting tool. Explore venture capital world with U3 Unifond or move your money with the M3 Moverar sophisticated monetary transfer module. At QuidQuill Inc, we turn complex finance into creative solutions. Join us in redefining financial services. |
+
+## Loading a model
+
+| Engine | Model | MB | Load ms |
+|---|---|---:|---:|
+| now | ggml-base.en-q5_1 | 59 | 91 |
+| now-nofb | ggml-base.en-q5_1 | 59 | 91 |
+| now-ctx512 | ggml-base.en-q5_1 | 59 | 91 |
+| now-nofb-ctx512 | ggml-base.en-q5_1 | 59 | 91 |
+| now | ggml-tiny.en-q5_1 | 32 | 54 |
+| now-nofb | ggml-tiny.en-q5_1 | 32 | 54 |
+| now-ctx512 | ggml-tiny.en-q5_1 | 32 | 54 |
+| now-nofb-ctx512 | ggml-tiny.en-q5_1 | 32 | 54 |
+| next | parakeet-tdt_ctc-110m-Q5_K_M | 101 | 60 |
+
+## Stages (next only, last pass)
+
+| Model | Clip | mel, encode, decode ms |
+|---|---|---|
+| parakeet-tdt_ctc-110m-Q5_K_M | dictation-3s | mel=2, encode=120, decode=22 |
+| parakeet-tdt_ctc-110m-Q5_K_M | dictation | mel=6, encode=327, decode=16 |
+| parakeet-tdt_ctc-110m-Q5_K_M | dots | mel=19, encode=1225, decode=54 |
+| parakeet-tdt_ctc-110m-Q5_K_M | fleurs-en | mel=10, encode=436, decode=16 |
+| parakeet-tdt_ctc-110m-Q5_K_M | jfk | mel=6, encode=389, decode=12 |
+| parakeet-tdt_ctc-110m-Q5_K_M | jobs-silence | mel=3, encode=253, decode=4 |
+| parakeet-tdt_ctc-110m-Q5_K_M | noise | mel=9, encode=495, decode=6 |
+| parakeet-tdt_ctc-110m-Q5_K_M | product-names | mel=31, encode=2169, decode=78 |
+
+## Notes
+
+- info: runner cpu="AMD EPYC 7763 64-Core Processor" cores=2 logical=4
+- info: next build="app flags (static runtime, AVX2, no AVX-512)"
+- info: both build=failed
+- info: dlls exe=voice-bench-now.exe mb=1.5 cppRuntime=none all=ADVAPI32.dll,KERNEL32.dll,ntdll.dll,api-ms-win-core-synch-l1-2-0.dll
+- info: dlls exe=voice-bench-next.exe mb=3.9 cppRuntime=none all=ADVAPI32.dll,KERNEL32.dll,ntdll.dll,api-ms-win-core-synch-l1-2-0.dll
+- info: engine=now threads=4 system="AVX = 1 \| AVX2 = 1 \| AVX512 = 0 \| FMA = 1 \| NEON = 0 \| ARM_FMA = 0 \| F16C = 1 \| FP16_VA = 0 \| WASM_SIMD = 0 \| SSE3 = 1 \| SSSE3 = 1 \| VSX = 0 \| COREML = 0 \| OPENVINO = 0 \| "
+- info: engine=next threads=4 lib="0.4.2" commit="unknown"
+- device: kind="cpu" name="CPU" description="AMD EPYC 7763 64-Core Processor                "
+- model: engine=next model=parakeet-tdt_ctc-110m-Q5_K_M arch="parakeet" backend="CPU" hint=false
+- missing: D:\a\_temp\ci-logs\both.log
+
+[BENCH] report runs=72 clips=8

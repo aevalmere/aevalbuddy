@@ -1,0 +1,33 @@
+    Updating crates.io index
+     Locking 21 packages to highest compatible versions
+ Downloading crates ...
+  Downloaded transcribe-cpp v0.4.2
+  Downloaded itoa v1.0.19
+  Downloaded thiserror v2.0.21
+  Downloaded thiserror-impl v2.0.21
+  Downloaded zmij v1.0.23
+  Downloaded serde_core v1.0.229
+  Downloaded serde_json v1.0.154
+  Downloaded syn v3.0.10
+  Downloaded transcribe-cpp-sys v0.4.2
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling proc-macro2 v1.0.107
+   Compiling serde_json v1.0.154
+   Compiling find-msvc-tools v0.1.15
+   Compiling shlex v2.0.1
+   Compiling itoa v1.0.19
+   Compiling memchr v2.8.3
+   Compiling cc v1.11.2
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling thiserror v2.0.21
+   Compiling cmake v0.1.58
+   Compiling syn v3.0.10
+   Compiling transcribe-cpp v0.4.2
+   Compiling log v0.4.35
+   Compiling hound v3.5.1
+   Compiling transcribe-cpp-sys v0.4.2
+   Compiling thiserror-impl v2.0.21
+   Compiling voice-bench-next v0.0.0 (D:\a\aevaleron\aevaleron\tools\voice-bench\next)
+    Finished `release` profile [optimized] target(s) in 3m 15s

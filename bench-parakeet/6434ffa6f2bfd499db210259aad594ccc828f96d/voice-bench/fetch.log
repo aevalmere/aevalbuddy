@@ -1,0 +1,9 @@
+32166155 https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin
+59721011 https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin
+101335520 https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q5_K_M.gguf
+352078 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/jfk.wav
+1130682 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/dots.wav
+337964 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/fleurs-en.wav
+1795406 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/product-names.wav
+480078 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/noise.wav
+171058 https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples/jobs-silence.wav

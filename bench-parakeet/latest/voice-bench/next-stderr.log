@@ -1,499 +1,67 @@
-moonshine: weights memory-mapped: 72.4 MiB in CPU_Mapped
-moonshine@383: sched buffer CPU -> 5.6 MB
-moonshine@383: sched buffer CPU -> 5.6 MB
-moonshine@383: sched buffer CPU -> 5.6 MB
-moonshine@383: sched buffer CPU -> 5.6 MB
-moonshine@383: sched buffer CPU -> 14.8 MB
-moonshine@383: sched buffer CPU -> 14.8 MB
-moonshine@383: sched buffer CPU -> 14.8 MB
-moonshine@383: sched buffer CPU -> 14.8 MB
-moonshine@383: sched buffer CPU -> 65.9 MB
-moonshine@383: sched buffer CPU -> 65.9 MB
-moonshine@383: sched buffer CPU -> 65.9 MB
-moonshine@383: sched buffer CPU -> 65.9 MB
-moonshine@383: sched buffer CPU -> 19.7 MB
-moonshine@383: sched buffer CPU -> 19.7 MB
-moonshine@383: sched buffer CPU -> 19.7 MB
-moonshine@383: sched buffer CPU -> 19.7 MB
-moonshine@383: sched buffer CPU -> 20.5 MB
-moonshine@383: sched buffer CPU -> 20.5 MB
-moonshine@383: sched buffer CPU -> 20.5 MB
-moonshine@383: sched buffer CPU -> 20.5 MB
-moonshine@383: sched buffer CPU -> 9.9 MB
-moonshine@383: sched buffer CPU -> 9.9 MB
-moonshine@383: sched buffer CPU -> 9.9 MB
-moonshine@383: sched buffer CPU -> 9.9 MB
-moonshine@383: sched buffer CPU -> 28.0 MB
-moonshine@383: sched buffer CPU -> 28.0 MB
-moonshine@383: sched buffer CPU -> 28.0 MB
-moonshine@383: sched buffer CPU -> 28.0 MB
-moonshine@383: sched buffer CPU -> 104.7 MB
-moonshine@383: sched buffer CPU -> 104.7 MB
-moonshine@383: sched buffer CPU -> 104.7 MB
-moonshine@383: sched buffer CPU -> 104.7 MB
-parakeet: full-attention checkpoint; using local attention [256, 256]
-parakeet: weights memory-mapped: 514.0 MiB in CPU_Mapped
-parakeet: promoted 48 conv pointwise weights from F16 → F32 for CPU backend
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 13 tokens, T_enc=38  enc_proj=0.7 ms  pred=7.6 ms  joint=1.3 ms  conf=0.2 ms  total=9.7 ms  per_iter=553 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 13 tokens, T_enc=38  enc_proj=0.7 ms  pred=7.3 ms  joint=1.2 ms  conf=0.2 ms  total=9.4 ms  per_iter=529 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 13 tokens, T_enc=38  enc_proj=0.7 ms  pred=7.6 ms  joint=1.2 ms  conf=0.2 ms  total=9.8 ms  per_iter=553 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 13 tokens, T_enc=38  enc_proj=0.6 ms  pred=7.8 ms  joint=1.2 ms  conf=0.2 ms  total=9.9 ms  per_iter=563 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 40 iters, 36 tokens, T_enc=100  enc_proj=1.7 ms  pred=16.1 ms  joint=2.6 ms  conf=0.6 ms  total=21.0 ms  per_iter=468 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 40 iters, 36 tokens, T_enc=100  enc_proj=1.4 ms  pred=17.1 ms  joint=2.7 ms  conf=0.6 ms  total=21.8 ms  per_iter=495 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 40 iters, 36 tokens, T_enc=100  enc_proj=1.7 ms  pred=16.9 ms  joint=2.6 ms  conf=0.6 ms  total=21.8 ms  per_iter=488 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 40 iters, 36 tokens, T_enc=100  enc_proj=1.6 ms  pred=17.0 ms  joint=2.6 ms  conf=0.6 ms  total=21.7 ms  per_iter=489 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 197 iters, 193 tokens, T_enc=442  enc_proj=6.3 ms  pred=77.9 ms  joint=12.2 ms  conf=3.4 ms  total=99.8 ms  per_iter=457 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 197 iters, 193 tokens, T_enc=442  enc_proj=6.6 ms  pred=98.8 ms  joint=29.2 ms  conf=3.5 ms  total=138.0 ms  per_iter=649 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 197 iters, 193 tokens, T_enc=442  enc_proj=6.3 ms  pred=94.5 ms  joint=45.0 ms  conf=3.5 ms  total=149.3 ms  per_iter=708 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 197 iters, 193 tokens, T_enc=442  enc_proj=6.8 ms  pred=86.6 ms  joint=13.7 ms  conf=3.4 ms  total=110.5 ms  per_iter=509 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 48 iters, 42 tokens, T_enc=132  enc_proj=2.1 ms  pred=23.3 ms  joint=4.1 ms  conf=0.8 ms  total=30.3 ms  per_iter=571 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 48 iters, 42 tokens, T_enc=132  enc_proj=2.3 ms  pred=22.2 ms  joint=3.8 ms  conf=0.8 ms  total=29.1 ms  per_iter=542 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 48 iters, 42 tokens, T_enc=132  enc_proj=2.1 ms  pred=22.6 ms  joint=3.9 ms  conf=0.8 ms  total=29.4 ms  per_iter=552 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 48 iters, 42 tokens, T_enc=132  enc_proj=2.1 ms  pred=23.0 ms  joint=3.9 ms  conf=0.8 ms  total=29.8 ms  per_iter=560 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 43 iters, 33 tokens, T_enc=138  enc_proj=2.0 ms  pred=17.6 ms  joint=3.0 ms  conf=0.6 ms  total=23.3 ms  per_iter=479 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 43 iters, 33 tokens, T_enc=138  enc_proj=2.1 ms  pred=23.9 ms  joint=36.7 ms  conf=0.5 ms  total=63.3 ms  per_iter=1410 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 43 iters, 33 tokens, T_enc=138  enc_proj=2.2 ms  pred=18.0 ms  joint=3.5 ms  conf=0.6 ms  total=24.3 ms  per_iter=500 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 43 iters, 33 tokens, T_enc=138  enc_proj=2.5 ms  pred=18.1 ms  joint=3.6 ms  conf=0.6 ms  total=24.7 ms  per_iter=504 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 22 iters, 0 tokens, T_enc=67  enc_proj=1.1 ms  pred=0.8 ms  joint=1.6 ms  conf=0.0 ms  total=3.5 ms  per_iter=110 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 22 iters, 0 tokens, T_enc=67  enc_proj=1.1 ms  pred=0.8 ms  joint=1.5 ms  conf=0.0 ms  total=3.4 ms  per_iter=107 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 22 iters, 0 tokens, T_enc=67  enc_proj=1.2 ms  pred=0.9 ms  joint=1.7 ms  conf=0.0 ms  total=3.7 ms  per_iter=117 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 22 iters, 0 tokens, T_enc=67  enc_proj=1.1 ms  pred=0.9 ms  joint=1.6 ms  conf=0.0 ms  total=3.6 ms  per_iter=113 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 161 iters, 0 tokens, T_enc=188  enc_proj=3.0 ms  pred=0.9 ms  joint=9.1 ms  conf=0.0 ms  total=13.0 ms  per_iter=62 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 161 iters, 0 tokens, T_enc=188  enc_proj=2.9 ms  pred=0.9 ms  joint=8.9 ms  conf=0.0 ms  total=12.6 ms  per_iter=61 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 161 iters, 0 tokens, T_enc=188  enc_proj=2.9 ms  pred=0.9 ms  joint=9.7 ms  conf=0.0 ms  total=13.5 ms  per_iter=66 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 161 iters, 0 tokens, T_enc=188  enc_proj=2.9 ms  pred=0.8 ms  joint=9.1 ms  conf=0.0 ms  total=12.8 ms  per_iter=61 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 355 iters, 310 tokens, T_enc=702  enc_proj=10.1 ms  pred=130.6 ms  joint=22.8 ms  conf=5.1 ms  total=168.5 ms  per_iter=432 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 355 iters, 310 tokens, T_enc=702  enc_proj=10.3 ms  pred=133.1 ms  joint=23.2 ms  conf=5.3 ms  total=171.9 ms  per_iter=440 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 355 iters, 310 tokens, T_enc=702  enc_proj=10.5 ms  pred=161.5 ms  joint=30.8 ms  conf=5.2 ms  total=208.1 ms  per_iter=542 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 355 iters, 310 tokens, T_enc=702  enc_proj=10.4 ms  pred=118.6 ms  joint=20.8 ms  conf=5.1 ms  total=154.9 ms  per_iter=393 us
-parakeet: full-attention checkpoint; using local attention [256, 256]
-parakeet: weights memory-mapped: 523.3 MiB in CPU_Mapped
-parakeet: promoted 48 conv pointwise weights from F16 → F32 for CPU backend
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 14 tokens, T_enc=38  enc_proj=0.6 ms  pred=9.6 ms  joint=6.4 ms  conf=1.6 ms  total=18.1 ms  per_iter=996 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 14 tokens, T_enc=38  enc_proj=0.6 ms  pred=9.4 ms  joint=5.8 ms  conf=1.6 ms  total=17.6 ms  per_iter=956 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 14 tokens, T_enc=38  enc_proj=0.6 ms  pred=10.1 ms  joint=6.2 ms  conf=1.7 ms  total=18.6 ms  per_iter=1021 us
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder: 16 iters, 14 tokens, T_enc=38  enc_proj=0.6 ms  pred=10.4 ms  joint=6.9 ms  conf=1.7 ms  total=19.6 ms  per_iter=1081 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 38 iters, 31 tokens, T_enc=100  enc_proj=1.3 ms  pred=19.9 ms  joint=13.1 ms  conf=3.6 ms  total=38.0 ms  per_iter=869 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 38 iters, 31 tokens, T_enc=100  enc_proj=1.6 ms  pred=20.8 ms  joint=14.0 ms  conf=3.7 ms  total=40.1 ms  per_iter=917 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 38 iters, 31 tokens, T_enc=100  enc_proj=1.6 ms  pred=27.5 ms  joint=18.7 ms  conf=3.7 ms  total=51.5 ms  per_iter=1217 us
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder: 38 iters, 31 tokens, T_enc=100  enc_proj=1.5 ms  pred=20.2 ms  joint=14.7 ms  conf=3.6 ms  total=40.0 ms  per_iter=917 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 194 iters, 184 tokens, T_enc=442  enc_proj=6.5 ms  pred=116.3 ms  joint=99.0 ms  conf=22.1 ms  total=244.0 ms  per_iter=1110 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 194 iters, 184 tokens, T_enc=442  enc_proj=6.7 ms  pred=111.1 ms  joint=70.7 ms  conf=22.5 ms  total=210.9 ms  per_iter=937 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 194 iters, 184 tokens, T_enc=442  enc_proj=6.6 ms  pred=148.4 ms  joint=86.5 ms  conf=22.4 ms  total=264.0 ms  per_iter=1211 us
-parakeet@1175: sched buffer CPU -> 276.1 MB (extent 442)
-decoder: 194 iters, 184 tokens, T_enc=442  enc_proj=6.8 ms  pred=108.6 ms  joint=68.0 ms  conf=22.4 ms  total=205.7 ms  per_iter=910 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 45 iters, 38 tokens, T_enc=132  enc_proj=2.1 ms  pred=24.4 ms  joint=16.5 ms  conf=5.4 ms  total=48.3 ms  per_iter=908 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 45 iters, 38 tokens, T_enc=132  enc_proj=2.1 ms  pred=24.5 ms  joint=16.7 ms  conf=5.4 ms  total=48.7 ms  per_iter=915 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 45 iters, 38 tokens, T_enc=132  enc_proj=2.1 ms  pred=25.2 ms  joint=17.6 ms  conf=5.6 ms  total=50.4 ms  per_iter=951 us
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder: 45 iters, 38 tokens, T_enc=132  enc_proj=20.2 ms  pred=24.0 ms  joint=16.1 ms  conf=5.3 ms  total=65.5 ms  per_iter=890 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 47 iters, 38 tokens, T_enc=138  enc_proj=2.1 ms  pred=24.1 ms  joint=16.4 ms  conf=4.5 ms  total=47.1 ms  per_iter=861 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 47 iters, 38 tokens, T_enc=138  enc_proj=2.1 ms  pred=24.1 ms  joint=18.6 ms  conf=4.4 ms  total=49.2 ms  per_iter=909 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 47 iters, 38 tokens, T_enc=138  enc_proj=2.2 ms  pred=23.4 ms  joint=17.1 ms  conf=4.5 ms  total=47.1 ms  per_iter=861 us
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder: 47 iters, 38 tokens, T_enc=138  enc_proj=2.1 ms  pred=24.2 ms  joint=18.4 ms  conf=4.5 ms  total=49.2 ms  per_iter=907 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 28 iters, 0 tokens, T_enc=67  enc_proj=1.0 ms  pred=0.9 ms  joint=6.9 ms  conf=0.0 ms  total=8.8 ms  per_iter=278 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 28 iters, 0 tokens, T_enc=67  enc_proj=0.9 ms  pred=0.9 ms  joint=6.5 ms  conf=0.0 ms  total=8.3 ms  per_iter=265 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 28 iters, 0 tokens, T_enc=67  enc_proj=0.9 ms  pred=0.8 ms  joint=7.8 ms  conf=0.0 ms  total=9.5 ms  per_iter=307 us
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder: 28 iters, 0 tokens, T_enc=67  enc_proj=1.0 ms  pred=0.8 ms  joint=6.5 ms  conf=0.0 ms  total=8.3 ms  per_iter=262 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 142 iters, 0 tokens, T_enc=188  enc_proj=2.8 ms  pred=0.8 ms  joint=28.0 ms  conf=0.0 ms  total=31.6 ms  per_iter=203 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 142 iters, 0 tokens, T_enc=188  enc_proj=3.0 ms  pred=0.9 ms  joint=79.0 ms  conf=0.0 ms  total=82.8 ms  per_iter=562 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 142 iters, 0 tokens, T_enc=188  enc_proj=2.9 ms  pred=0.9 ms  joint=37.6 ms  conf=0.0 ms  total=41.3 ms  per_iter=271 us
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder: 142 iters, 0 tokens, T_enc=188  enc_proj=2.9 ms  pred=0.9 ms  joint=36.0 ms  conf=0.0 ms  total=39.7 ms  per_iter=260 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 312 iters, 255 tokens, T_enc=702  enc_proj=10.2 ms  pred=188.5 ms  joint=105.8 ms  conf=30.1 ms  total=334.7 ms  per_iter=943 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 312 iters, 255 tokens, T_enc=702  enc_proj=10.2 ms  pred=150.8 ms  joint=98.5 ms  conf=30.5 ms  total=289.9 ms  per_iter=799 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 312 iters, 255 tokens, T_enc=702  enc_proj=10.3 ms  pred=162.2 ms  joint=130.7 ms  conf=30.4 ms  total=333.5 ms  per_iter=939 us
-parakeet@1175: sched buffer CPU -> 248.5 MB (extent 702)
-decoder: 312 iters, 255 tokens, T_enc=702  enc_proj=10.4 ms  pred=190.7 ms  joint=109.4 ms  conf=29.9 ms  total=340.3 ms  per_iter=962 us
 parakeet: full-attention checkpoint; using local attention [256, 256]
 parakeet: weights memory-mapped: 96.6 MiB in CPU_Mapped
 parakeet: promoted 34 conv pointwise weights from F16 → F32 for CPU backend
 parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.5 ms  joint=1.6 ms  conf=0.2 ms  total=4.7 ms  per_iter=159 us
+decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.9 ms  joint=1.7 ms  conf=0.2 ms  total=5.1 ms  per_iter=174 us
 parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=1.3 ms  pred=2.7 ms  joint=2.1 ms  conf=0.2 ms  total=6.3 ms  per_iter=185 us
+decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.5 ms  pred=2.6 ms  joint=1.6 ms  conf=0.2 ms  total=4.8 ms  per_iter=160 us
 parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.5 ms  joint=1.6 ms  conf=0.2 ms  total=4.7 ms  per_iter=159 us
+decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=1.4 ms  pred=2.8 ms  joint=1.4 ms  conf=0.2 ms  total=5.8 ms  per_iter=164 us
 parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.4 ms  joint=1.3 ms  conf=0.2 ms  total=4.3 ms  per_iter=145 us
+decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=1.4 ms  pred=12.4 ms  joint=7.8 ms  conf=0.2 ms  total=21.7 ms  per_iter=776 us
 parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=5.5 ms  joint=3.1 ms  conf=0.4 ms  total=9.7 ms  per_iter=140 us
+decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=5.8 ms  pred=6.9 ms  joint=3.7 ms  conf=0.4 ms  total=16.8 ms  per_iter=173 us
 parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=5.7 ms  joint=3.1 ms  conf=0.4 ms  total=9.9 ms  per_iter=144 us
+decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=1.9 ms  pred=7.7 ms  joint=3.3 ms  conf=0.4 ms  total=13.3 ms  per_iter=180 us
 parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=5.6 ms  joint=3.2 ms  conf=0.5 ms  total=10.0 ms  per_iter=144 us
+decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=1.0 ms  pred=6.0 ms  joint=3.6 ms  conf=0.4 ms  total=11.0 ms  per_iter=156 us
 parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=5.6 ms  joint=3.0 ms  conf=0.4 ms  total=9.7 ms  per_iter=141 us
+decoder: 61 iters, 30 tokens, T_enc=100  enc_proj=1.8 ms  pred=8.8 ms  joint=3.6 ms  conf=0.4 ms  total=14.7 ms  per_iter=203 us
 parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.2 ms  pred=30.9 ms  joint=12.5 ms  conf=2.7 ms  total=49.3 ms  per_iter=167 us
+decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=2.9 ms  pred=33.2 ms  joint=13.5 ms  conf=2.6 ms  total=52.3 ms  per_iter=179 us
 parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.2 ms  pred=30.4 ms  joint=12.4 ms  conf=2.7 ms  total=48.6 ms  per_iter=164 us
+decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.1 ms  pred=35.1 ms  joint=14.2 ms  conf=2.6 ms  total=55.0 ms  per_iter=189 us
 parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=29.4 ms  joint=12.0 ms  conf=2.6 ms  total=47.0 ms  per_iter=159 us
+decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=30.5 ms  joint=12.5 ms  conf=2.6 ms  total=48.6 ms  per_iter=165 us
 parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.2 ms  pred=30.0 ms  joint=12.1 ms  conf=2.6 ms  total=47.9 ms  per_iter=161 us
+decoder: 261 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=33.1 ms  joint=13.4 ms  conf=2.6 ms  total=52.2 ms  per_iter=178 us
 parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=1.0 ms  pred=7.0 ms  joint=3.6 ms  conf=0.6 ms  total=12.2 ms  per_iter=147 us
+decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=1.0 ms  pred=6.5 ms  joint=3.3 ms  conf=0.6 ms  total=11.4 ms  per_iter=137 us
 parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=0.9 ms  pred=7.8 ms  joint=3.6 ms  conf=0.6 ms  total=12.8 ms  per_iter=158 us
+decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=1.3 ms  pred=7.7 ms  joint=3.7 ms  conf=0.6 ms  total=13.3 ms  per_iter=159 us
 parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=0.9 ms  pred=7.5 ms  joint=3.7 ms  conf=0.6 ms  total=12.7 ms  per_iter=156 us
+decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=7.4 ms  pred=7.1 ms  joint=3.6 ms  conf=0.6 ms  total=18.7 ms  per_iter=149 us
 parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=0.9 ms  pred=8.0 ms  joint=3.9 ms  conf=0.6 ms  total=13.4 ms  per_iter=166 us
+decoder: 72 iters, 40 tokens, T_enc=132  enc_proj=2.0 ms  pred=8.3 ms  joint=3.9 ms  conf=0.6 ms  total=14.9 ms  per_iter=170 us
 parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=0.9 ms  pred=6.3 ms  joint=3.9 ms  conf=0.5 ms  total=11.6 ms  per_iter=142 us
+decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=4.2 ms  pred=6.6 ms  joint=4.3 ms  conf=0.5 ms  total=15.5 ms  per_iter=150 us
 parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=1.2 ms  pred=5.9 ms  joint=3.7 ms  conf=0.5 ms  total=11.2 ms  per_iter=132 us
+decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=1.0 ms  pred=6.5 ms  joint=4.0 ms  conf=0.5 ms  total=11.9 ms  per_iter=146 us
 parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=1.1 ms  pred=5.7 ms  joint=3.6 ms  conf=0.5 ms  total=10.8 ms  per_iter=128 us
+decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=3.8 ms  pred=6.1 ms  joint=3.7 ms  conf=0.5 ms  total=14.1 ms  per_iter=137 us
 parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=1.0 ms  pred=5.9 ms  joint=3.7 ms  conf=0.5 ms  total=11.0 ms  per_iter=133 us
+decoder: 72 iters, 32 tokens, T_enc=138  enc_proj=0.9 ms  pred=5.8 ms  joint=3.8 ms  conf=0.5 ms  total=11.0 ms  per_iter=134 us
 parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.4 ms  pred=0.4 ms  joint=1.6 ms  conf=0.0 ms  total=2.4 ms  per_iter=85 us
+decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.4 ms  conf=0.0 ms  total=2.4 ms  per_iter=78 us
 parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.6 ms  conf=0.0 ms  total=2.6 ms  per_iter=87 us
+decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.7 ms  conf=0.0 ms  total=2.7 ms  per_iter=91 us
 parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.5 ms  pred=0.4 ms  joint=1.5 ms  conf=0.0 ms  total=2.4 ms  per_iter=82 us
+decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.5 ms  conf=0.0 ms  total=2.5 ms  per_iter=84 us
 parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.7 ms  conf=0.0 ms  total=2.7 ms  per_iter=90 us
+decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=1.5 ms  conf=0.0 ms  total=2.5 ms  per_iter=81 us
 parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.5 ms  pred=0.4 ms  joint=4.1 ms  conf=0.0 ms  total=6.0 ms  per_iter=70 us
+decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.3 ms  pred=0.4 ms  joint=4.1 ms  conf=0.0 ms  total=5.8 ms  per_iter=71 us
 parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.4 ms  pred=0.4 ms  joint=3.9 ms  conf=0.0 ms  total=5.7 ms  per_iter=68 us
+decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.3 ms  pred=0.5 ms  joint=4.1 ms  conf=0.0 ms  total=5.9 ms  per_iter=72 us
 parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.4 ms  pred=0.4 ms  joint=3.9 ms  conf=0.0 ms  total=5.7 ms  per_iter=67 us
+decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.4 ms  pred=0.4 ms  joint=4.0 ms  conf=0.0 ms  total=5.7 ms  per_iter=68 us
 parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.3 ms  pred=0.4 ms  joint=3.9 ms  conf=0.0 ms  total=5.7 ms  per_iter=68 us
+decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.3 ms  pred=0.4 ms  joint=3.6 ms  conf=0.0 ms  total=5.3 ms  per_iter=63 us
 parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.6 ms  pred=63.5 ms  joint=47.3 ms  conf=4.3 ms  total=119.7 ms  per_iter=227 us
+decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.5 ms  pred=70.2 ms  joint=41.5 ms  conf=4.2 ms  total=120.3 ms  per_iter=229 us
 parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.6 ms  pred=50.2 ms  joint=24.1 ms  conf=4.2 ms  total=83.1 ms  per_iter=152 us
+decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.6 ms  pred=50.0 ms  joint=22.7 ms  conf=4.3 ms  total=81.6 ms  per_iter=149 us
 parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.6 ms  pred=49.6 ms  joint=23.8 ms  conf=4.2 ms  total=82.3 ms  per_iter=150 us
+decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.5 ms  pred=50.2 ms  joint=23.9 ms  conf=4.2 ms  total=82.8 ms  per_iter=152 us
 parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.7 ms  pred=49.5 ms  joint=23.5 ms  conf=4.3 ms  total=82.0 ms  per_iter=150 us
-parakeet: full-attention checkpoint; using local attention [256, 256]
-parakeet: weights memory-mapped: 129.0 MiB in CPU_Mapped
-parakeet: promoted 34 conv pointwise weights from F16 → F32 for CPU backend
-parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.4 ms  joint=1.5 ms  conf=0.2 ms  total=4.4 ms  per_iter=150 us
-parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.4 ms  pred=2.4 ms  joint=1.6 ms  conf=0.2 ms  total=4.6 ms  per_iter=155 us
-parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.3 ms  pred=2.8 ms  joint=1.7 ms  conf=0.2 ms  total=5.1 ms  per_iter=176 us
-parakeet@1175: sched buffer CPU -> 8.0 MB (extent 38)
-decoder: 26 iters, 11 tokens, T_enc=38  enc_proj=0.3 ms  pred=3.0 ms  joint=2.0 ms  conf=0.2 ms  total=5.5 ms  per_iter=193 us
-parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 60 iters, 30 tokens, T_enc=100  enc_proj=1.0 ms  pred=9.0 ms  joint=5.3 ms  conf=0.4 ms  total=15.8 ms  per_iter=239 us
-parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 60 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=9.1 ms  joint=5.3 ms  conf=0.4 ms  total=15.6 ms  per_iter=240 us
-parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 60 iters, 30 tokens, T_enc=100  enc_proj=0.7 ms  pred=9.1 ms  joint=5.3 ms  conf=0.4 ms  total=15.5 ms  per_iter=240 us
-parakeet@1175: sched buffer CPU -> 21.3 MB (extent 100)
-decoder: 60 iters, 30 tokens, T_enc=100  enc_proj=1.6 ms  pred=10.1 ms  joint=34.7 ms  conf=0.5 ms  total=46.8 ms  per_iter=746 us
-parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 260 iters, 181 tokens, T_enc=442  enc_proj=2.9 ms  pred=34.2 ms  joint=14.0 ms  conf=2.7 ms  total=53.9 ms  per_iter=186 us
-parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 260 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=32.8 ms  joint=13.4 ms  conf=2.6 ms  total=51.7 ms  per_iter=178 us
-parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 260 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=31.1 ms  joint=12.7 ms  conf=2.6 ms  total=49.4 ms  per_iter=169 us
-parakeet@1175: sched buffer CPU -> 182.8 MB (extent 442)
-decoder: 260 iters, 181 tokens, T_enc=442  enc_proj=3.0 ms  pred=69.9 ms  joint=16.0 ms  conf=2.6 ms  total=91.6 ms  per_iter=331 us
-parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 73 iters, 40 tokens, T_enc=132  enc_proj=0.8 ms  pred=8.3 ms  joint=4.7 ms  conf=0.6 ms  total=14.5 ms  per_iter=178 us
-parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 73 iters, 40 tokens, T_enc=132  enc_proj=1.0 ms  pred=11.4 ms  joint=5.6 ms  conf=0.6 ms  total=18.6 ms  per_iter=234 us
-parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 73 iters, 40 tokens, T_enc=132  enc_proj=0.9 ms  pred=10.9 ms  joint=5.6 ms  conf=0.6 ms  total=18.0 ms  per_iter=226 us
-parakeet@1175: sched buffer CPU -> 28.2 MB (extent 132)
-decoder: 73 iters, 40 tokens, T_enc=132  enc_proj=0.9 ms  pred=11.1 ms  joint=8.2 ms  conf=0.6 ms  total=20.9 ms  per_iter=265 us
-parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 70 iters, 32 tokens, T_enc=138  enc_proj=0.9 ms  pred=10.0 ms  joint=6.4 ms  conf=0.5 ms  total=17.7 ms  per_iter=234 us
-parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 70 iters, 32 tokens, T_enc=138  enc_proj=0.9 ms  pred=9.1 ms  joint=5.9 ms  conf=0.5 ms  total=16.4 ms  per_iter=215 us
-parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 70 iters, 32 tokens, T_enc=138  enc_proj=0.9 ms  pred=7.9 ms  joint=4.9 ms  conf=0.5 ms  total=14.1 ms  per_iter=183 us
-parakeet@1175: sched buffer CPU -> 29.4 MB (extent 138)
-decoder: 70 iters, 32 tokens, T_enc=138  enc_proj=1.1 ms  pred=8.1 ms  joint=5.1 ms  conf=0.5 ms  total=14.8 ms  per_iter=188 us
-parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.5 ms  pred=0.4 ms  joint=2.0 ms  conf=0.0 ms  total=3.0 ms  per_iter=106 us
-parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=2.2 ms  conf=0.0 ms  total=3.2 ms  per_iter=113 us
-parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.6 ms  pred=0.4 ms  joint=2.1 ms  conf=0.0 ms  total=3.2 ms  per_iter=111 us
-parakeet@1175: sched buffer CPU -> 14.3 MB (extent 67)
-decoder: 23 iters, 0 tokens, T_enc=67  enc_proj=0.9 ms  pred=0.4 ms  joint=2.3 ms  conf=0.0 ms  total=3.6 ms  per_iter=120 us
-parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.4 ms  pred=0.4 ms  joint=6.0 ms  conf=0.0 ms  total=7.8 ms  per_iter=101 us
-parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.4 ms  pred=0.5 ms  joint=5.8 ms  conf=0.0 ms  total=7.7 ms  per_iter=99 us
-parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=10.6 ms  pred=0.6 ms  joint=6.3 ms  conf=0.0 ms  total=17.5 ms  per_iter=107 us
-parakeet@1175: sched buffer CPU -> 40.1 MB (extent 188)
-decoder: 64 iters, 0 tokens, T_enc=188  enc_proj=1.3 ms  pred=0.4 ms  joint=5.6 ms  conf=0.0 ms  total=7.4 ms  per_iter=95 us
-parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 290 tokens, T_enc=702  enc_proj=4.5 ms  pred=47.5 ms  joint=22.9 ms  conf=4.2 ms  total=79.2 ms  per_iter=144 us
-parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 290 tokens, T_enc=702  enc_proj=4.6 ms  pred=47.0 ms  joint=22.4 ms  conf=4.2 ms  total=78.1 ms  per_iter=142 us
-parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 290 tokens, T_enc=702  enc_proj=4.5 ms  pred=46.9 ms  joint=22.4 ms  conf=4.2 ms  total=78.0 ms  per_iter=142 us
-parakeet@1175: sched buffer CPU -> 153.5 MB (extent 702)
-decoder: 488 iters, 290 tokens, T_enc=702  enc_proj=4.4 ms  pred=50.2 ms  joint=24.4 ms  conf=4.2 ms  total=83.2 ms  per_iter=153 us
-parakeet: weights memory-mapped: 515.7 MiB in CPU_Mapped
-parakeet: promoted 48 conv pointwise weights from F16 → F32 for CPU backend
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder (rnnt): 54 iters, 16 tokens, T_enc=38  enc_proj=0.6 ms  pred=9.0 ms  joint=3.2 ms  conf=0.2 ms  total=13.0 ms
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder (rnnt): 54 iters, 16 tokens, T_enc=38  enc_proj=0.6 ms  pred=9.3 ms  joint=3.4 ms  conf=0.2 ms  total=13.5 ms
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder (rnnt): 54 iters, 16 tokens, T_enc=38  enc_proj=0.6 ms  pred=8.1 ms  joint=3.2 ms  conf=0.2 ms  total=12.1 ms
-parakeet@1175: sched buffer CPU -> 12.9 MB (extent 38)
-decoder (rnnt): 54 iters, 16 tokens, T_enc=38  enc_proj=0.6 ms  pred=9.1 ms  joint=3.1 ms  conf=0.2 ms  total=12.9 ms
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder (rnnt): 138 iters, 38 tokens, T_enc=100  enc_proj=1.4 ms  pred=19.6 ms  joint=7.6 ms  conf=0.6 ms  total=29.1 ms
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder (rnnt): 138 iters, 38 tokens, T_enc=100  enc_proj=1.4 ms  pred=18.4 ms  joint=7.5 ms  conf=0.6 ms  total=27.9 ms
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder (rnnt): 138 iters, 38 tokens, T_enc=100  enc_proj=1.3 ms  pred=18.3 ms  joint=7.9 ms  conf=0.6 ms  total=28.1 ms
-parakeet@1175: sched buffer CPU -> 34.2 MB (extent 100)
-decoder (rnnt): 138 iters, 38 tokens, T_enc=100  enc_proj=1.4 ms  pred=18.0 ms  joint=8.2 ms  conf=0.6 ms  total=28.2 ms
-parakeet@1175: sched buffer CPU -> 152.0 MB (extent 442)
-decoder (rnnt): 667 iters, 225 tokens, T_enc=442  enc_proj=6.9 ms  pred=111.1 ms  joint=67.6 ms  conf=3.3 ms  total=188.9 ms
-parakeet@1175: sched buffer CPU -> 152.0 MB (extent 442)
-decoder (rnnt): 667 iters, 225 tokens, T_enc=442  enc_proj=6.5 ms  pred=111.0 ms  joint=70.5 ms  conf=3.4 ms  total=191.5 ms
-parakeet@1175: sched buffer CPU -> 152.0 MB (extent 442)
-decoder (rnnt): 667 iters, 225 tokens, T_enc=442  enc_proj=6.5 ms  pred=109.8 ms  joint=34.3 ms  conf=3.4 ms  total=154.0 ms
-parakeet@1175: sched buffer CPU -> 152.0 MB (extent 442)
-decoder (rnnt): 667 iters, 225 tokens, T_enc=442  enc_proj=6.6 ms  pred=101.8 ms  joint=33.0 ms  conf=3.5 ms  total=144.9 ms
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder (rnnt): 172 iters, 40 tokens, T_enc=132  enc_proj=2.0 ms  pred=21.1 ms  joint=10.1 ms  conf=0.6 ms  total=33.9 ms
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder (rnnt): 172 iters, 40 tokens, T_enc=132  enc_proj=2.0 ms  pred=20.4 ms  joint=9.5 ms  conf=0.6 ms  total=32.5 ms
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder (rnnt): 172 iters, 40 tokens, T_enc=132  enc_proj=2.4 ms  pred=19.8 ms  joint=22.8 ms  conf=0.6 ms  total=45.6 ms
-parakeet@1175: sched buffer CPU -> 45.4 MB (extent 132)
-decoder (rnnt): 172 iters, 40 tokens, T_enc=132  enc_proj=2.0 ms  pred=21.7 ms  joint=12.0 ms  conf=0.6 ms  total=36.3 ms
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder (rnnt): 177 iters, 39 tokens, T_enc=138  enc_proj=2.1 ms  pred=21.2 ms  joint=10.7 ms  conf=0.6 ms  total=34.6 ms
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder (rnnt): 177 iters, 39 tokens, T_enc=138  enc_proj=2.1 ms  pred=18.8 ms  joint=9.2 ms  conf=0.6 ms  total=30.6 ms
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder (rnnt): 177 iters, 39 tokens, T_enc=138  enc_proj=35.2 ms  pred=27.6 ms  joint=10.8 ms  conf=0.6 ms  total=74.3 ms
-parakeet@1175: sched buffer CPU -> 47.3 MB (extent 138)
-decoder (rnnt): 177 iters, 39 tokens, T_enc=138  enc_proj=2.2 ms  pred=20.5 ms  joint=11.7 ms  conf=0.6 ms  total=35.0 ms
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder (rnnt): 67 iters, 0 tokens, T_enc=67  enc_proj=1.2 ms  pred=0.9 ms  joint=4.0 ms  conf=0.0 ms  total=6.0 ms
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder (rnnt): 67 iters, 0 tokens, T_enc=67  enc_proj=1.0 ms  pred=1.9 ms  joint=4.5 ms  conf=0.0 ms  total=7.4 ms
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder (rnnt): 67 iters, 0 tokens, T_enc=67  enc_proj=22.0 ms  pred=1.0 ms  joint=4.0 ms  conf=0.0 ms  total=27.1 ms
-parakeet@1175: sched buffer CPU -> 23.0 MB (extent 67)
-decoder (rnnt): 67 iters, 0 tokens, T_enc=67  enc_proj=1.1 ms  pred=0.8 ms  joint=4.2 ms  conf=0.0 ms  total=6.1 ms
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder (rnnt): 188 iters, 0 tokens, T_enc=188  enc_proj=2.8 ms  pred=0.9 ms  joint=14.8 ms  conf=0.0 ms  total=18.5 ms
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder (rnnt): 188 iters, 0 tokens, T_enc=188  enc_proj=2.8 ms  pred=0.8 ms  joint=15.0 ms  conf=0.0 ms  total=18.6 ms
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder (rnnt): 188 iters, 0 tokens, T_enc=188  enc_proj=3.0 ms  pred=0.9 ms  joint=13.5 ms  conf=0.0 ms  total=17.4 ms
-parakeet@1175: sched buffer CPU -> 64.5 MB (extent 188)
-decoder (rnnt): 188 iters, 0 tokens, T_enc=188  enc_proj=2.8 ms  pred=0.9 ms  joint=10.8 ms  conf=0.0 ms  total=14.5 ms
-parakeet@1175: sched buffer CPU -> 241.3 MB (extent 702)
-decoder (rnnt): 1010 iters, 308 tokens, T_enc=702  enc_proj=9.9 ms  pred=147.1 ms  joint=50.5 ms  conf=4.6 ms  total=212.2 ms
-parakeet@1175: sched buffer CPU -> 241.3 MB (extent 702)
-decoder (rnnt): 1010 iters, 308 tokens, T_enc=702  enc_proj=10.2 ms  pred=165.7 ms  joint=90.0 ms  conf=4.8 ms  total=270.6 ms
-parakeet@1175: sched buffer CPU -> 241.3 MB (extent 702)
-decoder (rnnt): 1010 iters, 308 tokens, T_enc=702  enc_proj=10.1 ms  pred=159.3 ms  joint=50.6 ms  conf=4.8 ms  total=224.7 ms
-parakeet@1175: sched buffer CPU -> 241.3 MB (extent 702)
-decoder (rnnt): 1010 iters, 308 tokens, T_enc=702  enc_proj=10.3 ms  pred=156.9 ms  joint=49.8 ms  conf=4.8 ms  total=221.8 ms
-whisper: weights memory-mapped: 59.0 MiB in CPU_Mapped
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper@637: sched buffer CPU -> 21.5 MB
-whisper: weights memory-mapped: 589.1 MiB in CPU_Mapped
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper@637: sched buffer CPU -> 53.8 MB
-whisper: weights memory-mapped: 183.0 MiB in CPU_Mapped
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper@637: sched buffer CPU -> 32.3 MB
-whisper: weights memory-mapped: 40.4 MiB in CPU_Mapped
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
-whisper@637: sched buffer CPU -> 13.8 MB
+decoder: 488 iters, 291 tokens, T_enc=702  enc_proj=4.7 ms  pred=46.4 ms  joint=21.6 ms  conf=4.2 ms  total=76.9 ms  per_iter=139 us
