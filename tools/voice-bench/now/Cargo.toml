@@ -1,0 +1,14 @@
+# The app's current speech path, timed on its own (tools/voice-bench).
+# Its own workspace, so it never joins src-tauri's build.
+[package]
+name = "voice-bench-now"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The same requirement as src-tauri/Cargo.toml.
+whisper-rs = "0.14"
+hound = "3"

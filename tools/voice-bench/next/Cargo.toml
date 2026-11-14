@@ -1,0 +1,14 @@
+# Candidate speech models, timed through transcribe.cpp (tools/voice-bench).
+# Its own workspace, so it never joins src-tauri's build.
+[package]
+name = "voice-bench-next"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# CPU only: no Metal, no Vulkan. The version Handy ships.
+transcribe-cpp = { version = "=0.4.2", default-features = false }
+hound = "3"

@@ -1,0 +1,217 @@
+# Speech engines timed side by side on one runner (tools/voice-bench): the
+# app's own Whisper path (`now`: whisper.cpp through whisper-rs, built with
+# src-tauri/src/voice/whisper.cmake as the app builds it) against candidate
+# models on transcribe.cpp (`next`: Whisper again, Parakeet, Moonshine), on the
+# same clips with the same thread count. Not a gate: it answers "which engine
+# should dictation use" with numbers from the hardware CI gives everyone.
+#
+# Runs only for branches under bench/, so a push there costs one job and no
+# app build. The table lands on ci-logs under <ref>/<sha>/voice-bench/report.md;
+# wait for it with `node tools/ci-wait.mjs <sha> voice-bench`.
+name: voice-bench
+
+on:
+  push:
+    branches: ["bench/**"]
+    paths:
+      - "tools/voice-bench/**"
+      - ".github/workflows/voice-bench.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: voice-bench-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  bench:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      # transcribe.cpp's sample clips, at the commit they were read from.
+      SAMPLES: https://raw.githubusercontent.com/handy-computer/transcribe.cpp/adfc50210a3f026a655a3e19937d90ef2bf0728c/samples
+      HF: https://huggingface.co
+    steps:
+      - id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - id: node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Rust toolchain
+        id: toolchain
+        run: |
+          New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP 'ci-logs') | Out-Null
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+          cargo --version
+          cmake --version
+          $cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1)
+          "[BENCH] info runner cpu=""$($cpu.Name.Trim())"" cores=$($cpu.NumberOfCores) logical=$($cpu.NumberOfLogicalProcessors)" |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'ci-logs\runner.log')
+
+      # Models from the two projects' own Hugging Face repositories, clips
+      # from the repo and from transcribe.cpp's samples. A file that does not
+      # arrive is left out and named in the log; the engines time what is there.
+      - name: Models and clips
+        id: fetch
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\fetch.log'
+          $root = Join-Path $env:RUNNER_TEMP 'vb'
+          $dirs = @{ ggml = Join-Path $root 'ggml'; gguf = Join-Path $root 'gguf'; clips = Join-Path $root 'clips' }
+          $dirs.Values | ForEach-Object { New-Item -ItemType Directory -Force $_ | Out-Null }
+          $want = @(
+            @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin"),
+            @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin"),
+            @('ggml', "$env:HF/ggerganov/whisper.cpp/resolve/main/ggml-small.en-q5_1.bin"),
+            @('gguf', "$env:HF/handy-computer/whisper-tiny.en-gguf/resolve/main/whisper-tiny.en-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/whisper-base.en-gguf/resolve/main/whisper-base.en-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/whisper-small.en-gguf/resolve/main/whisper-small.en-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/whisper-large-v3-turbo-gguf/resolve/main/whisper-large-v3-turbo-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/moonshine-base-gguf/resolve/main/moonshine-base-Q8_0.gguf"),
+            @('gguf', "$env:HF/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/parakeet-tdt_ctc-110m-gguf/resolve/main/parakeet-tdt_ctc-110m-Q8_0.gguf"),
+            @('gguf', "$env:HF/handy-computer/parakeet-tdt-0.6b-v2-gguf/resolve/main/parakeet-tdt-0.6b-v2-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/parakeet-tdt-0.6b-v3-gguf/resolve/main/parakeet-tdt-0.6b-v3-Q5_K_M.gguf"),
+            @('gguf', "$env:HF/handy-computer/parakeet-unified-en-0.6b-gguf/resolve/main/parakeet-unified-en-0.6b-Q5_K_M.gguf"),
+            @('clips', "$env:SAMPLES/jfk.wav"),
+            @('clips', "$env:SAMPLES/dots.wav"),
+            @('clips', "$env:SAMPLES/fleurs-en.wav"),
+            @('clips', "$env:SAMPLES/product-names.wav"),
+            @('clips', "$env:SAMPLES/noise.wav"),
+            @('clips', "$env:SAMPLES/jobs-silence.wav")
+          )
+          Copy-Item src-tauri/src/voice/fixtures/dictation.wav $dirs.clips
+          $missing = 0
+          foreach ($w in $want) {
+            $file = Join-Path $dirs[$w[0]] (Split-Path $w[1] -Leaf)
+            curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 5 -o $file $w[1]
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $file)) {
+              $missing++
+              "missing $($w[1])" | Tee-Object -FilePath $log -Append
+              if (Test-Path $file) { Remove-Item $file }
+            } else {
+              "$((Get-Item $file).Length) $($w[1])" | Tee-Object -FilePath $log -Append
+            }
+          }
+          "VB_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          if ($missing) { "::warning title=voice-bench::$missing download(s) missing, see fetch.log" }
+          exit 0
+
+      # Both engines are built the way the app builds whisper.cpp: the static
+      # C++ runtime, /O2, and AVX2 with FMA and F16C instead of the runner's own
+      # CPU (whisper.cmake), so the numbers are for the binary a user would get.
+      - name: Build the current engine
+        id: buildnow
+        if: ${{ !cancelled() }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\build-now.log'
+          $env:CMAKE_PROJECT_INCLUDE = (Resolve-Path src-tauri/src/voice/whisper.cmake).Path.Replace('\', '/')
+          $env:RUSTFLAGS = '-C target-feature=+crt-static'
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'vbn'
+          cmd /c "cargo build --release --color never --manifest-path tools/voice-bench/now/Cargo.toml 2>&1" | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          "VB_NOW=$(Join-Path $env:CARGO_TARGET_DIR 'release\voice-bench-now.exe')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # If transcribe.cpp does not build under the app's flags, it is built
+      # with its own defaults instead and the report says so: numbers from a
+      # build the app could not ship as it is are still worth having.
+      - name: Build the candidate engine
+        id: buildnext
+        if: ${{ !cancelled() }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\build-next.log'
+          $cm = (Resolve-Path src-tauri/src/voice/whisper.cmake).Path.Replace('\', '/')
+          $env:TRANSCRIBE_CMAKE_ARGS = "-DCMAKE_PROJECT_INCLUDE=$cm"
+          $env:RUSTFLAGS = '-C target-feature=+crt-static'
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'vbx'
+          $posture = 'app flags (static runtime, AVX2, no AVX-512)'
+          cmd /c "cargo build --release --color never --manifest-path tools/voice-bench/next/Cargo.toml 2>&1" | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) {
+            "::warning title=voice-bench::transcribe.cpp did not build with the app's flags; building with its defaults"
+            Remove-Item Env:TRANSCRIBE_CMAKE_ARGS
+            Remove-Item Env:RUSTFLAGS
+            $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'vby'
+            $posture = 'library defaults (dynamic runtime, tuned to this runner CPU)'
+            "==== second build: library defaults ====" | Tee-Object -FilePath $log -Append
+            cmd /c "cargo build --release --color never --manifest-path tools/voice-bench/next/Cargo.toml 2>&1" | Tee-Object -FilePath $log -Append
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          "[BENCH] info next build=""$posture""" | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'ci-logs\runner.log') -Append
+          "VB_NEXT=$(Join-Path $env:CARGO_TARGET_DIR 'release\voice-bench-next.exe')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # Which DLLs each exe needs at load time. The app must start on a PC
+      # without the Visual C++ redistributable (smoke label voiceNoCppRuntime),
+      # so msvcp140 or vcruntime140 here would be a blocker for that engine.
+      - name: Runtime DLLs
+        id: dlls
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\dlls.log'
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $dumpbin = & $vswhere -latest -products * -find 'VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe' | Select-Object -Last 1
+          foreach ($exe in @($env:VB_NOW, $env:VB_NEXT)) {
+            if (-not $exe -or -not (Test-Path $exe)) { continue }
+            $deps = & $dumpbin /nologo /dependents $exe | Where-Object { $_ -match '\.dll\s*$' } | ForEach-Object { $_.Trim() }
+            $cpp = @($deps | Where-Object { $_ -match '^(msvcp|vcruntime|vcomp|concrt)' })
+            "[BENCH] info dlls exe=$(Split-Path $exe -Leaf) mb=$([math]::Round((Get-Item $exe).Length / 1MB, 1)) cppRuntime=$(if ($cpp) { $cpp -join ',' } else { 'none' }) all=$($deps -join ',')" |
+              Tee-Object -FilePath $log -Append
+          }
+
+      - name: Time the current engine
+        id: now
+        if: ${{ !cancelled() && steps.buildnow.outcome == 'success' }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\now.log'
+          $err = Join-Path $env:RUNNER_TEMP 'ci-logs\now-stderr.log'
+          & $env:VB_NOW (Join-Path $env:VB_ROOT 'ggml') (Join-Path $env:VB_ROOT 'clips') 2> $err | Tee-Object -FilePath $log
+          exit $LASTEXITCODE
+
+      - name: Time the candidates
+        id: next
+        if: ${{ !cancelled() && steps.buildnext.outcome == 'success' }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'ci-logs\next.log'
+          $err = Join-Path $env:RUNNER_TEMP 'ci-logs\next-stderr.log'
+          & $env:VB_NEXT (Join-Path $env:VB_ROOT 'gguf') (Join-Path $env:VB_ROOT 'clips') 2> $err | Tee-Object -FilePath $log
+          exit $LASTEXITCODE
+
+      - name: Report
+        id: report
+        if: ${{ !cancelled() }}
+        run: |
+          $logs = Join-Path $env:RUNNER_TEMP 'ci-logs'
+          node tools/voice-bench/report.mjs (Join-Path $logs 'report.md') (Join-Path $logs 'runner.log') (Join-Path $logs 'dlls.log') (Join-Path $logs 'now.log') (Join-Path $logs 'next.log') |
+            Tee-Object -FilePath (Join-Path $logs 'report.log')
+          $code = $LASTEXITCODE
+          if (Test-Path (Join-Path $logs 'report.md')) { Get-Content (Join-Path $logs 'report.md') | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8 }
+          exit $code
+
+      - name: Publish to ci-logs
+        if: always()
+        continue-on-error: true
+        env:
+          CI_WORKFLOW: voice-bench
+          CI_STATUS: ${{ job.status }}
+          CI_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_STEPS: |
+            Checkout|${{ steps.checkout.outcome }}
+            Node|${{ steps.node.outcome }}
+            Rust toolchain|${{ steps.toolchain.outcome }}|runner.log
+            Models and clips|${{ steps.fetch.outcome }}|fetch.log
+            Build the current engine|${{ steps.buildnow.outcome }}|build-now.log
+            Build the candidate engine|${{ steps.buildnext.outcome }}|build-next.log
+            Runtime DLLs|${{ steps.dlls.outcome }}|dlls.log
+            Time the current engine|${{ steps.now.outcome }}|now.log
+            Time the candidates|${{ steps.next.outcome }}|next.log
+            Report|${{ steps.report.outcome }}|report.log
+        run: node tools/ci-publish.mjs
