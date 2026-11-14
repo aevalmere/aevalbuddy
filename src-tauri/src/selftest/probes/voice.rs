@@ -327,6 +327,15 @@ fn speed(cx: &Cx) {
             clip.len() as f32 / wav::RATE as f32
         ),
     );
+    // A three-second phrase is most of dictation, and where a short encoder
+    // window once made Whisper loop (tools/voice-bench on bench/parakeet).
+    let short = &clip[..clip.len().min(3 * wav::RATE as usize)];
+    let t3 = Instant::now();
+    let heard = whisper::transcribe(&path, short, "en");
+    cx.log(
+        "voiceSpeedShort",
+        format!("transcribe={}ms text={heard:?}", ms(t3)),
+    );
     let tiny = model::usable(model::spec_for("tiny", "en"));
     if let Some(tp) = tiny {
         whisper::preload(&tp);

@@ -11,6 +11,11 @@
 //!   short clip.
 //! - One segment, no timestamps and flash attention: a dictated clip is one
 //!   piece of text, and none of the timing is used.
+//! - One pass. Whisper decodes again at a higher temperature when it does not
+//!   trust what it wrote, and those second tries ran for seconds, now and then
+//!   for ten or twenty. They are off. A pass that comes back with more words
+//!   than the clip could hold has gone round in a loop, and only that one is
+//!   done again the slow way ([`looped`]).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -35,8 +40,15 @@ const FRAMES_PER_SECOND: usize = 50;
 const FULL_CTX: usize = 1500;
 /// Frames past the end of the speech, so the last word is never clipped.
 const CTX_MARGIN: usize = 64;
-/// Below this the encoder has too little to go on and gets words wrong.
-const CTX_MIN: usize = 256;
+/// Below this the encoder has too little to go on. At 256 a three-second
+/// phrase made Whisper say its sentence over and over until it ran out of
+/// room; at 512 the same phrase is right in one pass, in under a third of the
+/// time (tools/voice-bench on branch bench/parakeet, round two).
+const CTX_MIN: usize = 512;
+/// More words a second than anyone dictates. With [`SPARE_WORDS`], the most
+/// a clip can hold before its text counts as a loop.
+const WORDS_PER_SECOND: usize = 5;
+const SPARE_WORDS: usize = 4;
 
 struct Loaded {
     path: PathBuf,
@@ -218,9 +230,33 @@ fn last_words(text: &str, n: usize) -> String {
     words[words.len().saturating_sub(n)..].join(" ")
 }
 
-/// One pass of Whisper. `fast` is this lane's settings; without it, the
-/// parameters earlier builds used (the speed probe's "before").
+/// Whether `text` holds more words than `samples` of speech could: Whisper
+/// went round in a loop.
+fn looped(text: &str, samples: usize) -> bool {
+    let seconds = samples / wav::RATE as usize + 1;
+    text.split_whitespace().count() > seconds * WORDS_PER_SECOND + SPARE_WORDS
+}
+
+/// The words in `samples`. `fast` is this lane's settings; without it, the
+/// parameters earlier builds used (the speed probe's "before"). A fast pass
+/// that looped is done again with those: Whisper's whole 30 s window and its
+/// own second tries, slow and seldom needed.
 pub fn run(
+    ctx: &WhisperContext,
+    samples: &[f32],
+    language: &str,
+    before: &str,
+    fast: bool,
+) -> Result<String, String> {
+    let text = pass(ctx, samples, language, before, fast)?;
+    if fast && looped(&text, samples.len()) {
+        return pass(ctx, samples, language, before, false);
+    }
+    Ok(text)
+}
+
+/// One pass of Whisper.
+fn pass(
     ctx: &WhisperContext,
     samples: &[f32],
     language: &str,
@@ -240,6 +276,10 @@ pub fn run(
     p.set_print_realtime(false);
     p.set_print_timestamps(false);
     p.set_suppress_blank(true);
+    if fast {
+        // One greedy pass: no second tries at a higher temperature.
+        p.set_temperature_inc(0.0);
+    }
     // Whisper skips anything under a second; pad short words with silence.
     let min = (wav::RATE as usize * 11) / 10;
     let mut pcm = samples.to_vec();
@@ -282,7 +322,8 @@ mod tests {
     fn the_encoder_window_follows_the_clip() {
         let s = wav::RATE as usize;
         assert_eq!(audio_ctx(s), CTX_MIN as i32, "a short clip gets the floor");
-        assert_eq!(audio_ctx(8 * s), (8 * 50 + CTX_MARGIN) as i32);
+        assert_eq!(audio_ctx(8 * s), CTX_MIN as i32, "so does eight seconds");
+        assert_eq!(audio_ctx(12 * s), (12 * 50 + CTX_MARGIN) as i32);
         assert_eq!(
             audio_ctx(29 * s),
             0,
@@ -291,5 +332,14 @@ mod tests {
         assert_eq!(audio_ctx(120 * s), 0);
         assert_eq!(last_words("a b c d", 2), "c d");
         assert_eq!(last_words("", 2), "");
+    }
+
+    #[test]
+    fn more_words_than_the_clip_could_hold_is_a_loop() {
+        let s = wav::RATE as usize;
+        let said = "So I think we should meet at three.";
+        assert!(!looped(said, 3 * s));
+        assert!(looped(&format!("{said} ").repeat(12), 3 * s));
+        assert!(!looped("", 0));
     }
 }
