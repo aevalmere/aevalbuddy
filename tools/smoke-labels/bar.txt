@@ -17,4 +17,5 @@ suggestionsOnce
 tokenReply
 earlyKeys
 barOpenMs
+barOpenStages
 barMultiline

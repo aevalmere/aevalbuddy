@@ -874,6 +874,7 @@ pub fn trigger_capture(app: &AppHandle) {
     }
     latch_display(app);
     expand_panel(app);
+    mark_bar_shown();
     outputs::show_with_chat(app);
 }
 
@@ -1152,17 +1153,56 @@ pub fn mark_bar_requested() {
     *bar_requested().lock() = Some(Instant::now());
 }
 
-/// `bar:ready`: the bar's field has focus. Keeps the last 20 latencies.
-pub fn bar_ready() {
+fn bar_shown() -> &'static Mutex<Option<u64>> {
+    static T: OnceLock<Mutex<Option<u64>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(None))
+}
+
+fn bar_open_notes() -> &'static Mutex<VecDeque<String>> {
+    static T: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
+    T.get_or_init(|| Mutex::new(VecDeque::new()))
+}
+
+/// Rust has the panel up and has told the page: what is left of a bar open
+/// is the page's (`barOpenStages`).
+fn mark_bar_shown() {
+    let requested = *bar_requested().lock();
+    if let Some(t0) = requested {
+        *bar_shown().lock() = Some(t0.elapsed().as_millis() as u64);
+    }
+}
+
+/// `bar:ready {pageMs, via}`: the bar's field has focus. Keeps the last 20
+/// latencies, and for each where the time went: until Rust had the panel up
+/// (`shown`), how long the page then took from its new state to the focused
+/// field (`page`), and whether the window already had the focus when the
+/// state came (`via=state`) or the page had to wait for it (`via=focus`).
+pub fn bar_ready(p: &Value) {
     let Some(t0) = bar_requested().lock().take() else {
         return;
     };
     let ms = t0.elapsed().as_millis() as u64;
+    let shown = bar_shown().lock().take();
+    let shown = shown.map_or_else(|| "?".to_string(), |s| s.to_string());
+    let page = p.get("pageMs").and_then(Value::as_f64).unwrap_or(-1.0);
+    let via = p.get("via").and_then(Value::as_str).unwrap_or("?");
+    {
+        let mut notes = bar_open_notes().lock();
+        notes.push_back(format!("{ms}(shown={shown},page={page:.0},via={via})"));
+        while notes.len() > 20 {
+            notes.pop_front();
+        }
+    }
     let mut list = bar_open_ms().lock();
     list.push_back(ms);
     while list.len() > 20 {
         list.pop_front();
     }
+}
+
+/// [`bar_open_samples`] with where each open's time went, oldest first.
+pub fn bar_open_stages() -> Vec<String> {
+    bar_open_notes().lock().iter().cloned().collect()
 }
 
 /// Hotkey-to-field latencies, oldest first (the windows probe reads them).

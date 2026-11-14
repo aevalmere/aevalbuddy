@@ -490,6 +490,7 @@ fn early_keys(cx: &Cx) {
     // before anyone tunes the open path.
     let samples = windows::bar_open_samples();
     cx.log("barOpenMs", format!("{samples:?}"));
+    cx.log("barOpenStages", windows::bar_open_stages().join(" "));
 }
 
 /// barMultiline (B-056): three pasted lines stay three rows, and Enter sends
