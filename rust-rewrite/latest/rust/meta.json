@@ -1,16 +1,16 @@
 {
   "workflow": "rust",
   "workflow_name": "rust",
-  "run_id": 42924029162,
+  "run_id": 43592975100,
   "run_attempt": 1,
-  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/42924029162",
+  "run_url": "https://github.com/aevalmere/aevaleron/actions/runs/43592975100",
   "event": "push",
-  "sha": "5bc7114ac7d56a8afc26e8b7b674b89ad9e8ad73",
+  "sha": "809038c7bc92bc50648f462cf0bbd609520f0a19",
   "ref": "rust-rewrite",
   "ref_dir": "rust-rewrite",
   "conclusion": "success",
   "failed": [],
-  "finished": "2026-11-10T23:45:55Z",
+  "finished": "2026-11-14T12:28:16Z",
   "error_lines": 0,
   "steps": [
     {
