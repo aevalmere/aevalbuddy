@@ -105,6 +105,11 @@ jobs:
       # build downloads nothing.
       - name: Seed the NSIS toolset
         run: pwsh -NoProfile -File tools/seed-nsis.ps1
+      # transcribe.cpp (speech to text) is built with src/voice/whisper.cmake:
+      # the static C++ runtime, AVX2, no AVX-512, as rust.yml builds it.
+      # src-tauri/build.rs stops a build that lacks the variable this sets.
+      - name: Voice build flags
+        run: node tools/voice-cmake-env.mjs
       - name: Build the installer
         working-directory: src-tauri
         run: npx --yes "@tauri-apps/cli@$TAURI_CLI" build --bundles nsis

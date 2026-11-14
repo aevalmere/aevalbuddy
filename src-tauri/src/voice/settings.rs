@@ -17,8 +17,18 @@ use super::ptt;
 pub const KEY: &str = "voice";
 
 /// Transcription engines, the default first: Whisper on this PC at three
-/// sizes, or Gemini with the person's own key.
-pub const ENGINES: [&str; 4] = ["whisper-base", "whisper-tiny", "whisper-small", "gemini"];
+/// sizes, Parakeet on this PC, or Gemini with the person's own key.
+pub const ENGINES: [&str; 5] = [
+    "whisper-base",
+    "whisper-tiny",
+    "whisper-small",
+    PARAKEET,
+    "gemini",
+];
+
+/// Parakeet (parakeet-tdt_ctc-110m): quicker than Whisper on a phrase,
+/// English only, and its text is plainer.
+pub const PARAKEET: &str = "parakeet-110m";
 
 /// Languages Settings offers (Whisper codes); `auto` detects.
 pub const LANGUAGES: [(&str, &str); 14] = [
@@ -231,5 +241,9 @@ mod tests {
         assert!(merge(&cur, &json!({ "hotkey": "Ctrl" }), &taken).is_err());
         assert!(merge(&cur, &json!({ "language": "xx" }), &taken).is_err());
         assert!(merge(&cur, &json!({ "engine": "gemini" }), &taken).is_ok());
+        let parakeet = merge(&cur, &json!({ "engine": PARAKEET }), &taken).unwrap();
+        assert_eq!(parakeet.whisper_size(), None);
+        assert_eq!(from_value(Some(&parakeet.stored())).engine, PARAKEET);
+        assert_eq!(VoiceSettings::default().engine, "whisper-base");
     }
 }

@@ -9,9 +9,10 @@ const SNAPSHOT = {
   hotkeyLabel: 'Ctrl+Win',
   devices: ['Microphone (Realtek Audio)', 'Headset (USB Audio)'],
   engines: [
-    { id: 'whisper-base', local: true, bytes: 59721011, ready: false, available: true },
-    { id: 'whisper-tiny', local: true, bytes: 32166155, ready: true, available: true },
-    { id: 'whisper-small', local: true, bytes: 190098681, ready: false, available: true },
+    { id: 'whisper-base', local: true, bytes: 63709472, ready: false, available: true },
+    { id: 'whisper-tiny', local: true, bytes: 44135072, ready: true, available: true },
+    { id: 'whisper-small', local: true, bytes: 193672256, ready: false, available: true },
+    { id: 'parakeet-110m', local: true, bytes: 101335520, ready: false, available: true },
     { id: 'gemini', local: false, bytes: null, ready: false, available: false },
   ],
   languages: [

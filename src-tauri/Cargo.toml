@@ -82,10 +82,15 @@ reqwest = { version = "0.12", default-features = false, features = [
 # ---- end ----
 
 # ---- lane: voice ----
-# Microphone capture over WASAPI, and Whisper (whisper.cpp) on this PC: the
-# free, offline default for voice input (entries/voice.md, D-voice-1).
+# Microphone capture over WASAPI, and speech to text on this PC, the free,
+# offline default for voice input (entries/voice.md, D-voice-1). transcribe.cpp
+# runs Whisper and Parakeet from one library; CPU only, so no Metal or Vulkan.
+# It cannot sit beside whisper-rs: each brings its own ggml and the link fails
+# (LNK2005). The version is the one Handy ships. It is built with the flags in
+# src/voice/whisper.cmake, which reach it through TRANSCRIBE_CMAKE_ARGS
+# (tools/voice-cmake-env.mjs); build.rs refuses to build without them.
 cpal = "0.15"
-whisper-rs = "0.14"
+transcribe-cpp = { version = "=0.4.2", default-features = false }
 # ---- end ----
 
 # Shared Windows bindings: one feature per line, inside the owning lane's

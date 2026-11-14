@@ -21,7 +21,26 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
+/// voice lane: transcribe.cpp has to be built with src/voice/whisper.cmake
+/// (the static C++ runtime, AVX2 and no AVX-512). Left to itself the library
+/// tunes itself to the build machine's processor and the exe can crash on an
+/// older PC. The flags reach its CMake build through TRANSCRIBE_CMAKE_ARGS,
+/// an absolute path cargo's own [env] table cannot write, so the workflows
+/// set it (tools/voice-cmake-env.mjs) and a build without it stops here.
+fn voice_flags() {
+    println!("cargo:rerun-if-env-changed=TRANSCRIBE_CMAKE_ARGS");
+    println!("cargo:rerun-if-env-changed=TRANSCRIBE_DIR");
+    let args = std::env::var("TRANSCRIBE_CMAKE_ARGS").unwrap_or_default();
+    let prebuilt = std::env::var_os("TRANSCRIBE_DIR").is_some();
+    assert!(
+        prebuilt || args.contains("voice/whisper.cmake"),
+        "TRANSCRIBE_CMAKE_ARGS does not name src/voice/whisper.cmake: \
+         run `node tools/voice-cmake-env.mjs` and set the variable it prints"
+    );
+}
+
 fn main() {
+    voice_flags();
     let root = Path::new("..");
     let ui = Path::new("ui");
     if ui.exists() {

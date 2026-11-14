@@ -44,11 +44,19 @@ jobs:
           rustc --version
           cargo --version
 
-      # whisper.cmake reaches whisper.cpp's CMake build through an env var whose
-      # value never changes, so cargo cannot see an edit to it and would keep a
-      # cached whisper-rs-sys built with the old flags (D-voice-15 shipped /Od
-      # that way). Its hash is part of the key and of the restore prefix, so a
-      # change to it starts from a clean target once.
+      # transcribe.cpp (speech to text) is built with src/voice/whisper.cmake:
+      # the static C++ runtime, AVX2, no AVX-512. The file reaches its CMake
+      # build through TRANSCRIBE_CMAKE_ARGS, set here for every cargo step
+      # below; src-tauri/build.rs stops a build that lacks it.
+      - name: Voice build flags
+        id: voiceflags
+        run: node ../tools/voice-cmake-env.mjs
+
+      # That variable's value never changes, so cargo cannot see an edit to
+      # whisper.cmake and would keep a cached transcribe-cpp-sys built with
+      # the old flags (D-voice-15 shipped /Od that way). The file's hash is
+      # part of the key and of the restore prefix, so a change to it starts
+      # from a clean target once.
       - name: Cache cargo
         id: cache
         uses: actions/cache@v4
@@ -333,6 +341,7 @@ jobs:
             Checkout|${{ steps.checkout.outcome }}
             Node|${{ steps.node.outcome }}
             Rust toolchain|${{ steps.toolchain.outcome }}
+            Voice build flags|${{ steps.voiceflags.outcome }}
             Cache cargo|${{ steps.cache.outcome }}
             Gate helper|${{ steps.helper.outcome }}
             Prebuild desktop helper|${{ steps.prebuild.outcome }}|prebuild.log

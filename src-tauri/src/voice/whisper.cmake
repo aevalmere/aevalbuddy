@@ -1,9 +1,12 @@
-# voice lane: included after every project() while whisper-rs-sys builds
-# whisper.cpp (src-tauri/.cargo/config.toml sets CMAKE_PROJECT_INCLUDE).
+# voice lane: included after every project() while transcribe-cpp-sys builds
+# transcribe.cpp and its ggml. The workflows pass it as
+# TRANSCRIBE_CMAKE_ARGS=-DCMAKE_PROJECT_INCLUDE=<this file>
+# (tools/voice-cmake-env.mjs), and src-tauri/build.rs stops a build that
+# lacks it.
 #
 # 1. The static C++ runtime (-MT). tauri-build links the VC runtime
 #    statically, so the exe runs on a PC without the Visual C++
-#    redistributable; whisper.cpp built -MD would bring back a load-time
+#    redistributable; transcribe.cpp built -MD would bring back a load-time
 #    dependency on msvcp140.dll. cmake-rs writes cc's -MD into the flag
 #    variables, so it is swapped here.
 # 2. AVX2, FMA and F16C, not the build machine's CPU: GGML_NATIVE on a CI
@@ -24,6 +27,7 @@ if(MSVC)
   #    0, so they carry no /O at all and MSVC compiled ggml unoptimised:
   #    Whisper ran about 30 times slower than it should
   #    (entries/voice-speed.md, D-voice-15). /Od goes, and /O2 goes in.
+  #    transcribe-cpp-sys adds /O2 itself; this stays as the second lock.
   foreach(flags
       CMAKE_C_FLAGS CMAKE_CXX_FLAGS
       CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE

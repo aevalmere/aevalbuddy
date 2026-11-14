@@ -1,29 +1,34 @@
-//! Speech to text on this PC, with whisper.cpp through whisper-rs.
+//! Speech to text on this PC, with transcribe.cpp through transcribe-cpp.
+//! One library runs both kinds of model the app offers, Whisper and
+//! Parakeet. whisper.cpp could not stay beside it: each brings its own ggml
+//! and the two do not link into one exe (tools/voice-bench on branch
+//! bench/parakeet).
 //!
 //! Speed (entries/voice-speed.md):
-//! - The model stays loaded. While dictation is on it is loaded when the app
-//!   starts and kept ([`pin`]); otherwise it is let go ten minutes after its
-//!   last use. Loading costs a few hundred milliseconds that used to land on
-//!   the first words after every idle spell.
-//! - Whisper encodes a fixed 30 s window by default, so three seconds of
-//!   speech cost as much as thirty. [`run`] sets `audio_ctx` to the clip's own
-//!   length plus a margin, which makes the encoder several times faster on a
-//!   short clip.
-//! - One segment, no timestamps and flash attention: a dictated clip is one
-//!   piece of text, and none of the timing is used.
-//! - One pass. Whisper decodes again at a higher temperature when it does not
-//!   trust what it wrote, and those second tries ran for seconds, now and then
-//!   for ten or twenty. They are off. A pass that comes back with more words
-//!   than the clip could hold has gone round in a loop, and only that one is
-//!   done again the slow way ([`looped`]).
+//! - The model stays loaded, with one session. While dictation is on it is
+//!   loaded when the app starts and kept ([`pin`]); otherwise it is let go ten
+//!   minutes after its last use.
+//! - No timestamps: a dictated clip is one piece of text, and none of the
+//!   timing is used.
+//! - One pass for Whisper. It decodes again at a higher temperature when it
+//!   does not trust what it wrote, and those second tries ran for seconds.
+//!   They are off. A pass that comes back with more words than the clip could
+//!   hold has gone round in a loop, and only that one is done again with the
+//!   library's own settings ([`looped`]).
+//! - Whisper encodes its whole 30 s window whatever the clip's length:
+//!   transcribe.cpp has no shorter window to ask for. Parakeet's work grows
+//!   with the clip, which is why it is several times faster on a phrase.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use transcribe_cpp::{
+    Error, Feature, Model, RunExtension, RunOptions, Session, SessionOptions, TimestampKind,
+    Transcript, WhisperRunOptions,
+};
 
 use super::wav;
 
@@ -33,36 +38,43 @@ const KEEP: Duration = Duration::from_secs(600);
 pub const OLD_CPU: &str =
     "This PC's processor can't run voice on the device. Pick Gemini under Settings, Voice, Transcription.";
 
-/// Encoder frames per second of audio (a 10 ms mel hop, halved by the
-/// first convolution).
-const FRAMES_PER_SECOND: usize = 50;
-/// The most Whisper encodes at once: 30 s.
-const FULL_CTX: usize = 1500;
-/// Frames past the end of the speech, so the last word is never clipped.
-const CTX_MARGIN: usize = 64;
-/// Below this the encoder has too little to go on. At 256 a three-second
-/// phrase made Whisper say its sentence over and over until it ran out of
-/// room; at 512 the same phrase is right in one pass, in under a third of the
-/// time (tools/voice-bench on branch bench/parakeet, round two).
-const CTX_MIN: usize = 512;
 /// More words a second than anyone dictates. With [`SPARE_WORDS`], the most
 /// a clip can hold before its text counts as a loop.
 const WORDS_PER_SECOND: usize = 5;
 const SPARE_WORDS: usize = 4;
 
+/// A model in memory and the session that runs it.
+pub struct Engine {
+    model: Model,
+    /// Whisper takes the text so far as a prompt and has second tries to
+    /// turn off. Parakeet has neither.
+    whisper: bool,
+    /// The languages the model can be told to expect.
+    languages: Vec<String>,
+    slot: Mutex<Slot>,
+}
+
+/// One pass at a time: a session is not shared between threads.
+struct Slot {
+    session: Session,
+    threads: i32,
+}
+
 struct Loaded {
     path: PathBuf,
-    ctx: Arc<WhisperContext>,
+    engine: Arc<Engine>,
     used: Instant,
 }
 
 static LOADED: Mutex<Option<Loaded>> = parking_lot::const_mutex(None);
 static PINNED: AtomicBool = AtomicBool::new(false);
 static EVICTOR: AtomicBool = AtomicBool::new(false);
-/// Threads for Whisper; 0 picks them from the processor.
+/// Threads for the engine; 0 picks them from the processor.
 static THREADS: AtomicI32 = AtomicI32::new(0);
+/// Where the last pass spent its time, for the speed probe.
+static STAGES: Mutex<String> = parking_lot::const_mutex(String::new());
 
-/// whisper.cpp is built for AVX2, FMA and F16C (whisper.cmake).
+/// transcribe.cpp is built for AVX2, FMA and F16C (whisper.cmake).
 pub fn cpu_ok() -> bool {
     #[cfg(target_arch = "x86_64")]
     {
@@ -81,32 +93,60 @@ pub fn pin(on: bool) {
     PINNED.store(on, Ordering::SeqCst);
 }
 
+/// The library's devices are registered once, before the first model.
+fn backends() {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let _ = transcribe_cpp::init_backends_default();
+    });
+}
+
+fn session(model: &Model, threads: i32) -> Result<Session, String> {
+    let options = SessionOptions {
+        n_threads: threads,
+        ..Default::default()
+    };
+    model
+        .session_with(&options)
+        .map_err(|e| format!("The voice model did not start ({e})."))
+}
+
 /// A model loaded from disk and not kept: the speed probe's cold start.
-/// `fast` turns flash attention on, as [`load`] does.
-pub fn cold(path: &Path, fast: bool) -> Result<WhisperContext, String> {
+pub fn cold(path: &Path) -> Result<Engine, String> {
     if !cpu_ok() {
         return Err(OLD_CPU.into());
     }
-    let p = path
-        .to_str()
-        .ok_or("The voice model's folder has a name Whisper can't read.")?;
-    let mut params = WhisperContextParameters::default();
-    params.flash_attn(fast);
-    WhisperContext::new_with_params(p, params)
-        .map_err(|e| format!("The voice model did not load ({e:?})."))
+    if path.to_str().is_none() {
+        return Err("The voice model's folder has a name the engine can't read.".into());
+    }
+    backends();
+    let model = Model::load(path).map_err(|e| format!("The voice model did not load ({e})."))?;
+    let whisper = model.supports(Feature::InitialPrompt);
+    let languages = match model.capabilities() {
+        Ok(c) => c.languages,
+        Err(_) => Vec::new(),
+    };
+    let threads = threads();
+    let session = session(&model, threads)?;
+    Ok(Engine {
+        model,
+        whisper,
+        languages,
+        slot: Mutex::new(Slot { session, threads }),
+    })
 }
 
-fn load(path: &Path) -> Result<Arc<WhisperContext>, String> {
+fn load(path: &Path) -> Result<Arc<Engine>, String> {
     let mut slot = LOADED.lock();
     if let Some(l) = slot.as_mut().filter(|l| l.path == path) {
         l.used = Instant::now();
-        return Ok(l.ctx.clone());
+        return Ok(l.engine.clone());
     }
     *slot = None;
-    let ctx = Arc::new(cold(path, true)?);
+    let engine = Arc::new(cold(path)?);
     *slot = Some(Loaded {
         path: path.to_path_buf(),
-        ctx: ctx.clone(),
+        engine: engine.clone(),
         used: Instant::now(),
     });
     drop(slot);
@@ -120,22 +160,18 @@ fn load(path: &Path) -> Result<Arc<WhisperContext>, String> {
             }
         });
     }
-    Ok(ctx)
+    Ok(engine)
 }
 
 /// Loads the model ahead of the first words: at app start while dictation
-/// is on, and when a recording starts.
-pub fn preload(path: &Path) {
-    let _ = load(path);
+/// is on, and when a recording starts. Whether it loaded.
+pub fn preload(path: &Path) -> bool {
+    load(path).is_ok()
 }
 
-/// Prints whisper.cpp's own stage times for the loaded model to stderr and
-/// starts them again (the speed probe).
-pub fn print_timings() {
-    if let Some(l) = LOADED.lock().as_ref() {
-        l.ctx.print_timings();
-        l.ctx.reset_timings();
-    }
+/// Lets the loaded model go, so its file can be replaced or deleted.
+pub fn unload() {
+    *LOADED.lock() = None;
 }
 
 /// Whether `path` is the model in memory now.
@@ -158,20 +194,23 @@ pub fn threads() -> i32 {
     }
 }
 
-/// whisper.cpp's build: the instruction sets it was compiled with.
-pub fn system_info() -> &'static str {
-    whisper_rs::print_system_info()
+/// The library's version and the devices it runs on.
+pub fn system_info() -> String {
+    backends();
+    let devices: Vec<String> = transcribe_cpp::devices()
+        .iter()
+        .map(|d| format!("{}: {}", d.kind, d.description.trim()))
+        .collect();
+    format!(
+        "transcribe.cpp {} on {}",
+        transcribe_cpp::version(),
+        devices.join(", ")
+    )
 }
 
-/// The encoder window for `samples` at 16 kHz: the clip plus a margin, or
-/// 0 (Whisper's own 30 s) for a clip that long.
-pub fn audio_ctx(samples: usize) -> i32 {
-    let frames = samples * FRAMES_PER_SECOND / wav::RATE as usize + CTX_MARGIN;
-    if frames >= FULL_CTX {
-        0
-    } else {
-        frames.max(CTX_MIN) as i32
-    }
+/// Where the last pass spent its time: `mel=6ms encode=327ms decode=16ms`.
+pub fn stages() -> String {
+    STAGES.lock().clone()
 }
 
 /// The words in `samples` (16 kHz mono) with the model at `path`, kept
@@ -181,7 +220,8 @@ pub fn transcribe(path: &Path, samples: &[f32], language: &str) -> Result<String
 }
 
 /// [`transcribe`] for the next piece of an utterance: `before` is what was
-/// heard so far, which keeps names and casing consistent across pieces.
+/// heard so far, which keeps names and casing consistent across pieces with
+/// Whisper. Parakeet takes no prompt and hears each piece on its own.
 pub fn transcribe_after(
     path: &Path,
     samples: &[f32],
@@ -191,37 +231,12 @@ pub fn transcribe_after(
     if !cpu_ok() {
         return Err(OLD_CPU.into());
     }
-    let ctx = load(path)?;
-    let out = run(&ctx, samples, language, before, true);
+    let engine = load(path)?;
+    let out = run(&engine, samples, language, before);
     if let Some(l) = LOADED.lock().as_mut() {
         l.used = Instant::now();
     }
     out
-}
-
-/// Where the time goes in one pass, for the speed probe: making a state,
-/// the mel spectrogram, one full-window encode, then a whole run and its
-/// token count.
-pub fn breakdown(ctx: &WhisperContext, samples: &[f32]) -> String {
-    let n = threads() as usize;
-    let t = Instant::now();
-    let Ok(mut state) = ctx.create_state() else {
-        return "no state".into();
-    };
-    let state_ms = t.elapsed().as_millis();
-    let t = Instant::now();
-    let mel = state.pcm_to_mel(samples, n).is_ok();
-    let mel_ms = t.elapsed().as_millis();
-    let t = Instant::now();
-    let enc = state.encode(0, n).is_ok();
-    let enc_ms = t.elapsed().as_millis();
-    let t = Instant::now();
-    let text = run(ctx, samples, "en", "", true).unwrap_or_default();
-    let run_ms = t.elapsed().as_millis();
-    format!(
-        "state={state_ms}ms mel={mel_ms}ms({mel}) encode1500={enc_ms}ms({enc}) run={run_ms}ms words={}",
-        text.split_whitespace().count()
-    )
 }
 
 /// The last `n` words of `text`.
@@ -237,81 +252,84 @@ fn looped(text: &str, samples: usize) -> bool {
     text.split_whitespace().count() > seconds * WORDS_PER_SECOND + SPARE_WORDS
 }
 
-/// The words in `samples`. `fast` is this lane's settings; without it, the
-/// parameters earlier builds used (the speed probe's "before"). A fast pass
-/// that looped is done again with those: Whisper's whole 30 s window and its
-/// own second tries, slow and seldom needed.
+/// The language to name to a model: one it lists among several. `auto`, and
+/// a model made for one language, are told nothing.
+fn hint(languages: &[String], language: &str) -> Option<String> {
+    let known = languages.len() > 1 && languages.iter().any(|l| l == language);
+    known.then(|| language.to_string())
+}
+
+/// What a pass that stopped early had written, if the error carries it.
+fn partial(e: &Error) -> Option<Transcript> {
+    e.partial().cloned()
+}
+
+/// The words in `samples`. A Whisper pass that looped is done again with the
+/// library's own settings, second tries included: slow and seldom needed.
 pub fn run(
-    ctx: &WhisperContext,
+    engine: &Engine,
     samples: &[f32],
     language: &str,
     before: &str,
-    fast: bool,
 ) -> Result<String, String> {
-    let text = pass(ctx, samples, language, before, fast)?;
-    if fast && looped(&text, samples.len()) {
-        return pass(ctx, samples, language, before, false);
+    let text = pass(engine, samples, language, before, true)?;
+    if engine.whisper && looped(&text, samples.len()) {
+        return pass(engine, samples, language, "", false);
     }
     Ok(text)
 }
 
-/// One pass of Whisper.
+/// One pass. `fast` is this lane's Whisper settings: the prompt, and no
+/// second tries.
 fn pass(
-    ctx: &WhisperContext,
+    engine: &Engine,
     samples: &[f32],
     language: &str,
     before: &str,
     fast: bool,
 ) -> Result<String, String> {
-    let mut state = ctx
-        .create_state()
-        .map_err(|e| format!("Whisper did not start ({e:?})."))?;
-    let mut p = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    p.set_n_threads(threads());
-    p.set_translate(false);
-    p.set_language(Some(language));
-    p.set_no_context(true);
-    p.set_print_special(false);
-    p.set_print_progress(false);
-    p.set_print_realtime(false);
-    p.set_print_timestamps(false);
-    p.set_suppress_blank(true);
-    if fast {
-        // One greedy pass: no second tries at a higher temperature.
-        p.set_temperature_inc(0.0);
-    }
-    // Whisper skips anything under a second; pad short words with silence.
+    // Neither model is handed less than about a second: a lone word gets
+    // silence after it.
     let min = (wav::RATE as usize * 11) / 10;
     let mut pcm = samples.to_vec();
     if pcm.len() < min {
         pcm.resize(min, 0.0);
     }
-    let frames = audio_ctx(pcm.len());
-    if fast && frames > 0 {
-        p.set_audio_ctx(frames);
-        p.set_single_segment(true);
-        p.set_no_timestamps(true);
-    }
-    let prompt = if fast {
-        last_words(before, 40)
-    } else {
-        String::new()
+    let family = (engine.whisper && fast).then(|| {
+        let prompt = last_words(before, 40);
+        RunExtension::Whisper(WhisperRunOptions {
+            initial_prompt: Some(prompt).filter(|p| !p.is_empty()),
+            // One greedy pass: no second tries at a higher temperature.
+            temperature_inc: Some(0.0),
+            ..Default::default()
+        })
+    });
+    let options = RunOptions {
+        timestamps: TimestampKind::None,
+        language: hint(&engine.languages, language),
+        family,
+        ..Default::default()
     };
-    if !prompt.is_empty() {
-        p.set_initial_prompt(&prompt);
+    let mut slot = engine.slot.lock();
+    let want = threads();
+    if slot.threads != want {
+        slot.session = session(&engine.model, want)?;
+        slot.threads = want;
     }
-    state
-        .full(p, &pcm)
-        .map_err(|e| format!("Whisper could not transcribe that ({e:?})."))?;
-    let n = state.full_n_segments().map_err(|e| format!("{e:?}"))?;
-    let mut out = String::new();
-    for i in 0..n {
-        let seg = state
-            .full_get_segment_text(i)
-            .map_err(|e| format!("{e:?}"))?;
-        out.push_str(&seg);
-    }
-    Ok(out.trim().to_string())
+    let heard = match slot.session.run(&pcm, &options) {
+        Ok(t) => t,
+        // The library stops a text that began to repeat, or one that ran
+        // out of room, and hands back what it had (one copy of a repeat).
+        Err(e) => match partial(&e) {
+            Some(t) => t,
+            None => return Err(format!("That could not be transcribed ({e}).")),
+        },
+    };
+    drop(slot);
+    let t = &heard.timings;
+    let (mel, encode, decode) = (t.mel_ms, t.encode_ms, t.decode_ms);
+    *STAGES.lock() = format!("mel={mel:.0}ms encode={encode:.0}ms decode={decode:.0}ms");
+    Ok(heard.text.trim().to_string())
 }
 
 #[cfg(test)]
@@ -319,17 +337,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_encoder_window_follows_the_clip() {
-        let s = wav::RATE as usize;
-        assert_eq!(audio_ctx(s), CTX_MIN as i32, "a short clip gets the floor");
-        assert_eq!(audio_ctx(8 * s), CTX_MIN as i32, "so does eight seconds");
-        assert_eq!(audio_ctx(12 * s), (12 * 50 + CTX_MARGIN) as i32);
-        assert_eq!(
-            audio_ctx(29 * s),
-            0,
-            "close to 30 s is Whisper's own window"
-        );
-        assert_eq!(audio_ctx(120 * s), 0);
+    fn the_prompt_is_the_last_words() {
         assert_eq!(last_words("a b c d", 2), "c d");
         assert_eq!(last_words("", 2), "");
     }
@@ -341,5 +349,15 @@ mod tests {
         assert!(!looped(said, 3 * s));
         assert!(looped(&format!("{said} ").repeat(12), 3 * s));
         assert!(!looped("", 0));
+    }
+
+    #[test]
+    fn a_language_is_named_only_to_a_model_that_knows_several() {
+        let many: Vec<String> = ["en", "fr", "de"].iter().map(|l| l.to_string()).collect();
+        let one = vec!["en".to_string()];
+        assert_eq!(hint(&many, "fr"), Some("fr".to_string()));
+        assert_eq!(hint(&many, "auto"), None, "auto is left to the model");
+        assert_eq!(hint(&one, "en"), None, "an English model is not told");
+        assert_eq!(hint(&[], "en"), None);
     }
 }

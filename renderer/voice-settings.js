@@ -8,6 +8,7 @@
     'whisper-base': 'On this PC',
     'whisper-tiny': 'On this PC, fastest',
     'whisper-small': 'On this PC, most accurate',
+    'parakeet-110m': 'On this PC, Parakeet',
     gemini: 'Gemini',
   };
   const MODS = { Control: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Meta: 'Super' };
@@ -77,13 +78,15 @@
       let extra = '';
       if (e.local) extra = e.ready ? ' Downloaded.' : ` Downloads ${mb(e.bytes)} the first time.`;
       else if (!e.available) extra = ' Add a Gemini key under Providers first.';
+      // Parakeet hears English only; with another language Whisper stands in.
+      if (e.id === 'parakeet-110m' && s.language !== 'en') extra = ' With a language other than English chosen, Whisper is used.' + extra;
       note.textContent = note.dataset.base + extra;
     }
     const chosen = engineOf(s.engine);
     $('voice-engine-summary').textContent = ENGINE_NAMES[s.engine] || s.engine;
     v.download.hidden = !chosen || !chosen.local || chosen.ready || !!snap.download;
     if (!snap.cpuOk && chosen && chosen.local) {
-      status('This PC lacks the processor features Whisper needs (AVX2). Choose Gemini instead.', true);
+      status('This PC lacks the processor features voice on this PC needs (AVX2). Choose Gemini instead.', true);
     }
 
     v.language.replaceChildren(...snap.languages.map((l) => option(l.id, l.name, l.id === s.language)));

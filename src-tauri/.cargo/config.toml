@@ -1,7 +1,0 @@
-# voice lane (entries/voice.md, D-voice-2). whisper-rs-sys builds whisper.cpp
-# with CMake and hands every CMAKE_* environment variable to it as a define.
-# This one includes src/voice/whisper.cmake after each project(), which builds
-# whisper.cpp for AVX2 instead of the build machine's own CPU, against the
-# static C++ runtime the rest of the exe uses.
-[env]
-CMAKE_PROJECT_INCLUDE = { value = "src/voice/whisper.cmake", relative = true }
