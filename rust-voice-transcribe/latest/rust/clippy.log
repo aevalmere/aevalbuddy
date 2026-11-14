@@ -19,4 +19,4 @@
       Adding windows-sys v0.59.0 (available: v0.61.2)
       Adding winreg v0.55.0 (available: v0.56.0)
    Compiling aevaleron v1.1.1 (D:\a\aevaleron\aevaleron\src-tauri)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.08s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.19s
