@@ -26,23 +26,24 @@ Added and gated: `voiceParakeet` (Parakeet downloads, loads and hears the fixtur
 
 ## Numbers
 
-Runner: windows-latest, 4 vCPU of an AMD EPYC 9V74, no GPU. Fixture `dictation.wav`, 7.9 s, 7.5 s once the silence is cut. Before is whisper.cpp at f35b788; after is run 43597308478 (3add819), with run 43594967001 (42684a1) in brackets.
+Runner: windows-latest, 4 vCPU of an AMD EPYC 9V74, no GPU. Fixture `dictation.wav`, 7.9 s, 7.5 s once the silence is cut. Before is whisper.cpp at f35b788. After is three runs, in order: 43594967001 (42684a1), 43597308478 (3add819), 43599526371 (fb12386). In the first run Parakeet's pieces were still cut to the speech.
 
 | What | Before | After |
 |---|---|---|
-| Whisper base.en, fixture (`voiceSpeedAfter`) | 645 ms | 830 ms (807) |
-| Whisper base.en, first 3 s (`voiceSpeedShort`) | 561 ms | 724 ms (707) |
-| Whisper tiny.en, fixture (`voiceSpeedTiny`) | 297 ms | 435 ms (423) |
-| Whisper base.en, 17 s utterance with a pause, release to text (`voiceSpeedTimings`) | 695 ms | 849 ms (832) |
-| Parakeet, fixture cut to the speech (`voiceSpeedParakeetTrimmed`) | | 190 ms (203) |
-| Parakeet, first 3 s (`voiceSpeedParakeetShort`) | | 98 ms (98) |
-| Parakeet, 17 s utterance with a pause, release to text (`voiceSpeedParakeetTimings`) | | 235 ms (195, pieces then cut to the speech) |
-| Parakeet, load from disk | | 73 ms |
+| Whisper base.en, fixture (`voiceSpeedAfter`) | 645 ms | 807, 830, 809 ms |
+| Whisper base.en, first 3 s (`voiceSpeedShort`) | 561 ms | 707, 724, 720 ms |
+| Whisper tiny.en, fixture (`voiceSpeedTiny`) | 297 ms | 423, 435, 428 ms |
+| Whisper base.en, 17 s utterance with a pause, release to text (`voiceSpeedTimings`) | 695 ms | 832, 849, 862 ms |
+| Parakeet, whole fixture (`voiceSpeedParakeet`) | | 251 ms, 227 ms on a second pass (third run) |
+| Parakeet, fixture cut to the speech (`voiceSpeedParakeetTrimmed`) | | 203, 190, 193 ms |
+| Parakeet, first 3 s (`voiceSpeedParakeetShort`) | | 98, 98, 101 ms |
+| Parakeet, 17 s utterance with a pause, release to text (`voiceSpeedParakeetTimings`) | | 195 (pieces cut), 235, 237 ms |
+| Parakeet, load from disk | | 72 to 73 ms |
 | Installer | 5.27 MiB | 5.93 MiB |
 
-Whisper is slower than it was by about 160 ms on every clip. transcribe.cpp encodes Whisper's whole 30 s window whatever the clip's length and has no setting for a shorter one; whisper.cpp's `audio_ctx`, fitted to the clip, was where the earlier time came from. Both gates still pass, `voiceSpeed` with 70 to 93 ms to spare, so a slower runner can fail it.
+Whisper is slower than it was by 130 to 185 ms on every clip. transcribe.cpp encodes Whisper's whole 30 s window whatever the clip's length and has no setting for a shorter one; whisper.cpp's `audio_ctx`, fitted to the clip, was where the earlier time came from. Both gates still pass, `voiceSpeed` with 70 to 93 ms to spare, so a slower runner can fail it.
 
-Parakeet on the whole 7.9 s fixture logged 555 ms in the one run that measured it (`voiceSpeedParakeet`), 331 ms of that under "decode" while the library's own decoder line for the same pass says 6.9 ms. The same audio through the pipeline took 238 and 233 ms a piece in that run, so the 555 ms is read as a slow first pass, not as the model's speed; the probe now runs the pass twice and logs both.
+In the second run Parakeet's first pass on the whole fixture logged 555 ms, 331 ms of it under "decode" while the library's own decoder line for that pass says 6.9 ms. The pipeline took 238 and 233 ms a piece on the same audio in that run, and the third run measured 251 and 227 ms, so the 555 ms was one slow pass, cause not found. The probe runs the pass twice and logs both.
 
 Text, same fixture:
 
