@@ -125,6 +125,13 @@ export const scenes = [
       await t.settle(400);
       await check(t, 'menuInsideWindow.retry', f, '.retry-menu');
       await t.shot('menu-bounds-retry');
+      // The list is one tab stop, and it is the option that has focus.
+      const stops = await f.evaluate(() => {
+        const opts = [...document.querySelectorAll('.retry-menu [role="option"]')];
+        const zero = opts.filter((o) => o.tabIndex === 0);
+        return { options: opts.length, stops: zero.length, isFocused: zero.length === 1 && zero[0] === document.activeElement };
+      });
+      t.check('retryMenuOneTabStop', stops.options > 1 && stops.stops === 1 && stops.isFocused, JSON.stringify(stops));
     },
   },
 

@@ -9,6 +9,13 @@
 // FAIL or page error.
 //
 //   node tools/ui-shots/shots.mjs <outDir> [--channel=msedge|chromium] [--lane=<lane>]
+//        [--scales=1,1.5] [--scene=<name>] [--axe=<report.json>]
+//
+// --axe adds the accessibility audit (see "accessibility audit" below): CI
+// always passes it. It needs axe-core beside playwright:
+//   npm install --no-save --prefix tools/ui-shots playwright@1.48.2 axe-core@4.10.2
+// `[UI] axe <impact> <rule> <page> <element> in <lane>/<scene>` per finding,
+// then `[UI] axeClean=ok|FAIL`.
 //
 // LANE FILES (BACKLOG K-31). Each lane owns tools/ui-shots/lanes/<lane>.mjs,
 // which exports four things:
@@ -95,7 +102,13 @@ const flag = (name, dflt) => (args.find((a) => a.startsWith(`--${name}=`)) || `-
 const OUT = path.resolve(args.find((a) => !a.startsWith('--')) || path.join(ROOT, 'ui-shots-out'));
 const CHANNEL = flag('channel', 'msedge');
 const ONLY = flag('lane', '');
-const SCALES = [1, 1.5];
+// --scene=<name>: that scene alone, for working on one state. The lanes'
+// file checks and the allow list's freshness need a whole run.
+const SCENE = flag('scene', '');
+const SCALES = flag('scales', '1,1.5').split(',').map(Number);
+// --axe=<report.json>: after each scene, at scale 1 and text scale 1, run
+// axe-core (WCAG 2.2 A and AA rules) in every window as the scene left it.
+const AXE = flag('axe', '');
 const CLOCK_START = new Date('2026-03-02T09:30:00Z');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -140,6 +153,76 @@ const browser = await chromium.launch(CHANNEL === 'chromium' ? {} : { channel: C
 const bridge = fs.readFileSync(path.join(HERE, 'mock-bridge.js'), 'utf8');
 const errors = [];
 const written = new Map();
+
+// ------------------------------------------------------- accessibility audit
+//
+// The scenes already drive every page into its real states, so the audit
+// rides on them rather than keeping a second list of states. One finding is
+// one rule on one element of one page, however many scenes show it.
+// color-contrast is off: axe cannot measure text over glass, which the
+// contrast matrix measures from pixels instead. Clock scenes are skipped:
+// axe waits on timers, and theirs are paused.
+
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+let axeSource = '';
+if (AXE) {
+  const file = path.join(HERE, 'node_modules', 'axe-core', 'axe.min.js');
+  if (fs.existsSync(file)) axeSource = fs.readFileSync(file, 'utf8');
+  else check('axeInstalled', false, 'npm install --no-save --prefix tools/ui-shots axe-core');
+}
+// Findings read and accepted, each with the reason it is not a defect. A row
+// that stops matching anything fails the run, so the list cannot go stale.
+const AXE_ALLOW = [
+  {
+    rule: 'scrollable-region-focusable',
+    page: '/renderer/index.html',
+    target: '#model-list',
+    why: 'the popup of a combobox: focus stays in the field, whose arrow keys move the active option and scroll it into view (bar.js markModel)',
+  },
+];
+const axeAllowed = new Set();
+const axeFindings = new Map();
+let axeRuns = 0;
+let axeMs = 0;
+
+async function audit(page, spec, lane) {
+  for (const w of spec.windows) {
+    const f = page.frames().find((x) => x.name() === w.name);
+    if (!f) continue;
+    const t0 = Date.now();
+    await f.evaluate(`${axeSource}; void 0`);
+    const found = await f.evaluate(
+      (tags) =>
+        window.axe
+          .run(document, { runOnly: { type: 'tag', values: tags }, rules: { 'color-contrast': { enabled: false } }, iframes: false, resultTypes: ['violations'] })
+          .then((r) => r.violations.flatMap((v) => v.nodes.map((n) => ({ rule: v.id, impact: v.impact, help: v.help, target: n.target.join(' '), html: n.html.slice(0, 160) })))),
+      AXE_TAGS
+    );
+    // An element can carry `hidden` and still be on screen: any author rule
+    // that sets `display` beats the attribute. axe then sees a control with
+    // no name, and a person sees a control that should not be there.
+    const shown = await f.evaluate(() =>
+      [...document.querySelectorAll('[hidden]')]
+        .filter((e) => getComputedStyle(e).display !== 'none' && e.getClientRects().length > 0)
+        .map((e) => ({ target: `${e.tagName.toLowerCase()}${e.id ? `#${e.id}` : ''}${e.classList.length ? `.${[...e.classList].join('.')}` : ''}`, html: e.outerHTML.slice(0, 160) }))
+    );
+    for (const v of shown) found.push({ rule: 'hidden-shown', impact: 'serious', help: 'An element with the hidden attribute is displayed', ...v });
+    axeRuns += 1;
+    axeMs += Date.now() - t0;
+    for (const v of found) {
+      const allow = AXE_ALLOW.findIndex((x) => x.rule === v.rule && x.page === w.src && x.target === v.target);
+      if (allow >= 0) {
+        axeAllowed.add(allow);
+        continue;
+      }
+      const key = `${v.rule} ${w.src} ${v.target}`;
+      const row = axeFindings.get(key) || { ...v, page: w.src, scenes: [] };
+      if (!row.scenes.length) console.log(`[UI] axe ${v.impact} ${v.rule} ${w.src} ${v.target} in ${lane}/${spec.name}: ${v.html}`);
+      row.scenes.push(`${lane}/${spec.name}`);
+      axeFindings.set(key, row);
+    }
+  }
+}
 
 async function newContext(scale) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: scale });
@@ -282,6 +365,7 @@ async function runScene(ctx, back, lane, spec, scale, textScale) {
       check: (name, ok, why) => check(`${name}${suffix}`, ok, why),
     };
     await spec.run(t);
+    if (axeSource && scale === 1 && textScale === 1 && !spec.clock) await audit(page, spec, lane);
   } catch (e) {
     check(`scene.${spec.name}${suffix}`, false, e && e.stack ? e.stack.split('\n').slice(0, 3).join(' ') : e);
   } finally {
@@ -301,6 +385,7 @@ for (const scale of SCALES) {
     if (ONLY && lane !== ONLY) continue;
     for (const spec of m.scenes || []) {
       if (!(spec.scales || SCALES).includes(scale)) continue;
+      if (SCENE && spec.name !== SCENE) continue;
       const back = backs[spec.backdrop || 'wallpaper'];
       if (!back) {
         check(`scene.${spec.name}`, false, `unknown backdrop ${spec.backdrop}`);
@@ -335,6 +420,17 @@ for (const [lane, m] of Object.entries(LANES)) {
       check(c.name, false, e && e.message ? e.message : e);
     }
   }
+}
+
+if (AXE) {
+  const rows = [...axeFindings.values()].sort((a, b) => `${a.page} ${a.rule}`.localeCompare(`${b.page} ${b.rule}`));
+  fs.mkdirSync(path.dirname(path.resolve(AXE)), { recursive: true });
+  fs.writeFileSync(path.resolve(AXE), JSON.stringify({ runs: axeRuns, findings: rows }, null, 1));
+  console.log(`[UI] axe audits=${axeRuns} ms=${axeMs}`);
+  check('axeClean', axeSource !== '' && rows.length === 0, `${rows.length} findings in ${axeRuns} window audits`);
+  // Only a whole run can tell that an allowance no longer applies.
+  const stale = ONLY || SCENE ? [] : AXE_ALLOW.filter((x, i) => !axeAllowed.has(i));
+  check('axeAllowListFresh', stale.length === 0, stale.map((x) => `${x.rule} ${x.target}`).join(', '));
 }
 
 for (const e of errors) console.log(`[UI] pageerror ${e}`);

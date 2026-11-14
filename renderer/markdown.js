@@ -407,6 +407,18 @@
   function markScrollOf(box) {
     const host = box.closest('.md-code') || box;
     host.classList.toggle('scrolls-x', box.scrollWidth - box.clientWidth - box.scrollLeft > 1);
+    // A box that scrolls sideways takes focus, so the arrow keys can scroll
+    // it: without that, the end of a long line is out of reach of anyone
+    // not using a mouse. One that fits stays out of the tab order.
+    if (box.scrollWidth - box.clientWidth > 1) {
+      box.tabIndex = 0;
+      box.setAttribute('role', 'group');
+      box.setAttribute('aria-label', box.matches('pre') ? 'Code, scrolls sideways' : 'Table, scrolls sideways');
+    } else if (box.hasAttribute('tabindex')) {
+      box.removeAttribute('tabindex');
+      box.removeAttribute('role');
+      box.removeAttribute('aria-label');
+    }
   }
 
   function markScroll(root) {

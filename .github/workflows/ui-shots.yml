@@ -55,18 +55,21 @@ jobs:
           Get-Content $log | Where-Object { $_ -match '=FAIL' } | ForEach-Object { "::error title=bridge::$_" }
           exit $code
 
-      - name: Install Playwright (drives the runner's Edge)
+      # Playwright drives the runner's Edge. axe-core audits every window of
+      # every scene for WCAG 2.2 A and AA failures (shots.mjs --axe).
+      - name: Install Playwright and axe-core
         id: playwright
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\playwright.log'
-          cmd /c "npm install --no-save --no-audit --no-fund --prefix tools/ui-shots playwright@1.48.2 2>&1" | Tee-Object -FilePath $log
+          cmd /c "npm install --no-save --no-audit --no-fund --prefix tools/ui-shots playwright@1.48.2 axe-core@4.10.2 2>&1" | Tee-Object -FilePath $log
           exit $LASTEXITCODE
 
       - name: Screenshots and renderer checks
         id: shots
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'ci-logs\shots.log'
-          node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge 2>&1 | Tee-Object -FilePath $log
+          $axe = Join-Path $env:RUNNER_TEMP 'ci-logs\axe.json'
+          node tools/ui-shots/shots.mjs out/ui-shots --channel=msedge "--axe=$axe" 2>&1 | Tee-Object -FilePath $log
           $code = $LASTEXITCODE
           $fails = Get-Content $log | Where-Object { $_ -match '=FAIL|\] pageerror' }
           $fails | ForEach-Object { "::error title=ui-shots::$($_.Replace('%','%25'))" }

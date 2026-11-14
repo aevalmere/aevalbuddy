@@ -777,6 +777,36 @@ export const scenes = [
       await ask(f, { q: 'Show me the formatting', a: FIXTURE });
       await t.settle(700);
       await t.shot('sheet-markdown-fixture', await clipOf(t, 'out1'));
+      // A line of code longer than the measure can be read to its end from
+      // the keyboard: the block takes focus and the arrow keys scroll it. A
+      // block that fits adds no tab stop.
+      const wide = await f.evaluate(() => {
+        const pres = [...document.querySelectorAll('.msg.assistant .md-code pre')];
+        const over = pres.find((x) => x.scrollWidth - x.clientWidth > 1);
+        const fits = pres.filter((x) => x.scrollWidth - x.clientWidth <= 1);
+        if (over) over.focus();
+        return { over: !!over, stop: over ? over.tabIndex : null, focused: !!over && document.activeElement === over, name: over ? over.getAttribute('aria-label') : null, fitsStops: fits.filter((x) => x.hasAttribute('tabindex')).length, fits: fits.length };
+      });
+      await t.page.keyboard.press('ArrowRight');
+      await t.page.keyboard.press('ArrowRight');
+      await t.settle(200);
+      await t.shot('sheet-code-focus', await clipOf(t, 'out1'));
+      // The focus ring is drawn, and the edge fade does not cut it off.
+      const ring = await f.evaluate(() => {
+        const cs = getComputedStyle(document.activeElement);
+        return { visible: document.activeElement.matches(':focus-visible'), style: cs.outlineStyle, width: parseFloat(cs.outlineWidth), offset: parseFloat(cs.outlineOffset), mask: cs.maskImage || cs.webkitMaskImage };
+      });
+      t.check('codeFocusRingShows', ring.visible && ring.style === 'solid' && ring.width >= 2 && ring.offset < 0 && ring.mask === 'none', JSON.stringify(ring));
+      const moved = await f.evaluate(() => {
+        const over = [...document.querySelectorAll('.msg.assistant .md-code pre')].find((x) => x.scrollWidth - x.clientWidth > 1);
+        const left = over ? over.scrollLeft : 0;
+        if (over) {
+          over.scrollLeft = 0;
+          over.blur();
+        }
+        return left;
+      });
+      t.check('codeScrollsFromKeyboard', wide.over && wide.stop === 0 && wide.focused && !!wide.name && wide.fitsStops === 0 && moved > 0, JSON.stringify({ wide, moved }));
       const s = await f.evaluate(() => {
         const body = document.querySelector('.msg.assistant .md-body');
         const ols = [...body.querySelectorAll(':scope > ol')];
@@ -910,6 +940,13 @@ export const scenes = [
       await ask(f);
       await t.settle(700);
       await t.shot('sheet-first-answer', await clipOf(t, 'out1'));
+      // A code block that fits its plate is not a tab stop (only one that
+      // scrolls sideways is: codeScrollsFromKeyboard).
+      const short = await f.evaluate(() => {
+        const pres = [...document.querySelectorAll('.msg.assistant .md-code pre')];
+        return { blocks: pres.length, fit: pres.filter((x) => x.scrollWidth - x.clientWidth <= 1).length, stops: pres.filter((x) => x.hasAttribute('tabindex')).length };
+      });
+      t.check('shortCodeAddsNoTabStop', short.blocks > 0 && short.fit === short.blocks && short.stops === 0, JSON.stringify(short));
       const one = await f.evaluate(() => {
         const u = document.querySelector('.msg.user');
         const r = u.getBoundingClientRect();
@@ -1308,6 +1345,9 @@ export const scenes = [
       ]);
       await t.settle(500);
       await t.shot('find-empty', await clipOf(t, 'out1'));
+      // With nothing found the view is a sentence and buttons, not a list.
+      const emptyRole = await f.evaluate(() => document.getElementById('find-view').getAttribute('role'));
+      t.check('findEmptyIsNotAList', emptyRole === 'group', emptyRole);
       const labels = await f.evaluate(() => [...document.querySelectorAll('.find-next button')].map((b) => b.textContent));
       const keys = await f.evaluate(() => /Ctrl|Enter|Tab|Esc/.test(document.getElementById('find-view').innerText));
       await f.evaluate(() => [...document.querySelectorAll('.find-next button')].find((b) => b.textContent === 'Look on the whole screen').click());
@@ -1394,6 +1434,13 @@ export const scenes = [
       ]);
       await t.settle(500);
       await t.shot('sheet-task-running', await clipOf(t, 'out1'));
+      // The steps toggle belongs to a finished run. While one is running it
+      // is hidden, and hidden has to mean not on screen.
+      const toggle = await f.evaluate(() => {
+        const b = document.querySelector('.trail-toggle');
+        return b ? { hidden: b.hidden, boxes: b.getClientRects().length } : null;
+      });
+      t.check('runningTaskHasNoToggle', !!toggle && toggle.hidden && toggle.boxes === 0, JSON.stringify(toggle));
       const s = await f.evaluate(() => ({
         items: [...document.querySelectorAll('.plan-item')].map((li) => li.className.replace('plan-item', '').trim()),
         acts: [...document.querySelectorAll('.plan-item')].map((li) => li.querySelectorAll('.plan-act').length),

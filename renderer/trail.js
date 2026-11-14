@@ -176,6 +176,9 @@ function renderFind() {
   const top = findView.scrollTop;
   findView.innerHTML = '';
   findView.setAttribute('aria-label', findQuery ? `Matches for ${findQuery}` : 'Matches');
+  // A listbox with no options is announced as a broken list. With nothing
+  // found the view holds a sentence and two buttons, so it is a group.
+  findView.setAttribute('role', findHits.length ? 'listbox' : 'group');
   if (!findHits.length) renderEmpty();
   for (const h of findHits) findView.appendChild(findRow(h));
   const cur = findView.querySelector('.find-row.current') || findView.querySelector('.find-row');
