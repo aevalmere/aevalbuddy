@@ -224,7 +224,7 @@
 [UI] shot 04c-glob-52.png
 [UI] shot 04d-glob-70.png
 [UI] shot 04e-glob-90.png
-[UI] globOpen ms=500 frames=28 longestFrameMs=33.4
+[UI] globOpen ms=518 frames=29 longestFrameMs=33.4
 [UI] globOpens=ok
 [UI] globSmooth=ok
 [UI] globReducedMotion=ok
@@ -919,7 +919,7 @@
 [UI] shot 04c-glob-52-150.png
 [UI] shot 04d-glob-70-150.png
 [UI] shot 04e-glob-90-150.png
-[UI] globOpen-150 ms=504 frames=27 longestFrameMs=33.3
+[UI] globOpen-150 ms=502 frames=28 longestFrameMs=33.3
 [UI] globOpens-150=ok
 [UI] globReducedMotion-150=ok
 [UI] scene sheet/multi-150
@@ -1403,7 +1403,7 @@
 [UI] iconsFromSprite=ok
 [UI] voicePillOnlyListens=ok
 [UI] watchCardNeedsNoFocus=ok
-[UI] axe audits=146 ms=15401
+[UI] axe audits=146 ms=15335
 [UI] axeClean=ok
 [UI] axeAllowListFresh=ok
 [UI] noPageErrors=ok

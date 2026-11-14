@@ -1,12 +1,12 @@
 # ui-shots: success
 
 - Workflow: ui-shots
-- Run: [43564822817](https://github.com/aevalmere/aevaleron/actions/runs/43564822817), attempt 1, on push
-- Commit: 2c850b806be882c8c06ec7d5af85f578d3091aad
+- Run: [43568262739](https://github.com/aevalmere/aevaleron/actions/runs/43568262739), attempt 1, on push
+- Commit: 4ef4bb0b5fc81c707668b48ed221771de8f2ba63
 - Ref: rust/ux-pass
 - Conclusion: **success**
-- Finished: 2026-11-14T06:20:57Z
-- Screenshots: https://github.com/aevalmere/aevaleron/tree/shots/rust-d-ui/rust/ux-pass/2c850b806be882c8c06ec7d5af85f578d3091aad (/ in the ref becomes -)
+- Finished: 2026-11-14T07:03:17Z
+- Screenshots: https://github.com/aevalmere/aevaleron/tree/shots/rust-d-ui/rust/ux-pass/4ef4bb0b5fc81c707668b48ed221771de8f2ba63 (/ in the ref becomes -)
 
 | Step | Outcome | Log |
 |---|---|---|
