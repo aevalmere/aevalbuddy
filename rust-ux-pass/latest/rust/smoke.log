@@ -14,23 +14,23 @@
 [SMOKE] selftest.eval=ok
 [SMOKE] selftest.input=ok
 [SMOKE] pillCentre=Some((986, 38))
-[SMOKE] desktopReady=FAIL:ready=true ms=16187
-[SMOKE] desktopReadyMs=16187
+[SMOKE] desktopReady=ok
+[SMOKE] desktopReadyMs=1053
 [SMOKE] desktopDpi=per-monitor-v2
 [SMOKE] desktopWindows=ok
-[SMOKE] desktopWindowCount=2
+[SMOKE] desktopWindowCount=1
 [SMOKE] desktopOwnExcluded=ok
 [SMOKE] ownWindowBlocked=ok
 [SMOKE] desktopNotepadIncluded=ok
-[SMOKE] notepadWindow=w10254:notepad:Notepad
+[SMOKE] notepadWindow=w10216:notepad:Notepad
 [SMOKE] focusMethod=already
 [SMOKE] uiaTree=ok
 [SMOKE] uiaTreeNodes=20
-[SMOKE] uiaTreeMs=1987
+[SMOKE] uiaTreeMs=1989
 [SMOKE] uiaTreeRoles=window,document,button,edit,menuitem
 [SMOKE] editorCandidates=ref_2:document:Text Editor:scroll+text:focused:752x437 | ref_7:edit::value:readonly:322x21 | ref_8:edit:  Ln 1, Col 1:value:readonly:138x21 | ref_9:edit: 100%:value:readonly:48x21 | ref_10:edit: Windows (CRLF):value:readonly:118x21 | ref_11:edit: UTF-8:value:readonly:102x21
 [SMOKE] editor=ref_2:document:Text Editor
-[SMOKE] ocrMs=1277
+[SMOKE] ocrMs=926
 [SMOKE] ocrWords=ok
 [SMOKE] ocrDetail=hits=invoice|total|due words=23 inWindow=true lang=en-US
 [SMOKE] typeFocus=element
@@ -40,7 +40,7 @@
 [SMOKE] uiaSetValueVia=sendinput
 [SMOKE] uiaSetValue=ok
 [SMOKE] getTextSpans=11
-[SMOKE] findText=docs=1 matches=1 rect={"x":134,"y":77,"width":64,"height":15} ms=22
+[SMOKE] findText=docs=1 matches=1 rect={"x":212,"y":155,"width":64,"height":15} ms=35
 [SMOKE] findEditor=ok
 [SMOKE] findTop=document:Text Editor:100
 [SMOKE] elementAt=document:ref_2
@@ -92,7 +92,7 @@
 [SMOKE] quitOnLastClose=ok
 [SMOKE] probe.platform=ok
 [SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,121,460,515 margin:visible=true,sheet=true,through=true,rect=-4,121,460,515 outside:visible=true,sheet=true,through=true,rect=-4,121,460,515 after-hotkey:visible=true,sheet=true,rect=-4,121,460,515
-[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 sheet:visible=true,sheet=true,through=false,rect=388,121,460,515 margin:visible=true,sheet=true,through=true,rect=388,121,460,515 outside:visible=true,sheet=true,through=true,rect=388,121,460,515 after-hotkey:visible=true,sheet=true,rect=388,121,460,515
+[SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=388,-20,460,335 margin:visible=true,sheet=true,through=true,rect=388,-20,460,335 sheet:visible=true,sheet=true,through=false,rect=388,-20,460,335 margin:visible=true,sheet=true,through=true,rect=388,-20,460,335 outside:visible=true,sheet=true,through=true,rect=388,-20,460,335 after-hotkey:visible=true,sheet=true,rect=388,-26,460,200
 [SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 sheet:visible=true,sheet=true,through=false,rect=-4,84,460,515 margin:visible=true,sheet=true,through=true,rect=-4,84,460,515 outside:visible=true,sheet=true,through=true,rect=-4,84,460,515 after-hotkey:visible=true,sheet=true,rect=-4,84,460,515
 [SMOKE] hoverTrail=start_shown=true in_work_area=true wa=0,0,1024,720 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 sheet:visible=true,sheet=true,through=false,rect=192,84,460,515 margin:visible=true,sheet=true,through=true,rect=192,84,460,515 outside:visible=true,sheet=true,through=true,rect=192,84,460,515 after-hotkey:visible=true,sheet=true,rect=192,84,460,515
 [SMOKE] hoverKeepsAnswer=ok
@@ -101,7 +101,7 @@
 [SMOKE] windowsAfter=shown=overlay active= mode=Pill (answer shown at start: true)
 [SMOKE] probe.windows=ok
 [SMOKE] helperNotAtBoot=ok
-[SMOKE] capture=ok:314192bytes:1024x768
+[SMOKE] capture=ok:310562bytes:1024x768
 [SMOKE] captureActiveDisplay=0,0 1024x768
 [SMOKE] regionCapture=320x200:tagged
 [SMOKE] regionSharper=1.00x->1.00x
@@ -112,7 +112,7 @@
 [SMOKE] dpiRoundTrip=ok:5 rects within 1px
 [SMOKE] glassTier=live reasons=none canHide=true
 [SMOKE] glassLoaded=ok
-[SMOKE] snapCost=n=50 wallP50=29.5ms wallP95=46ms encodeP95=2.9ms blockP95=0.3ms
+[SMOKE] snapCost=n=50 wallP50=30.2ms wallP95=47.8ms encodeP95=3.3ms blockP95=0.3ms
 [SMOKE] snapCost=ok
 [SMOKE] glassCost=live total=0.0% | solid total=0.0% (percent of one core over 3 s, the app process; solid is glassIntensity 0)
 [SMOKE] lensFirstDraw=hits:ring:frame=3:true:true
@@ -120,14 +120,14 @@
 [SMOKE] lensReady=said=true ready=true
 [SMOKE] lensWhyClear=covers=0 at=243,197
 [SMOKE] lensWhyClear=ok
-[SMOKE] backdropIdle=fast=true slow=true after 0ms shown=[]
+[SMOKE] backdropIdle=fast=true slow=true after 2ms shown=[]
 [SMOKE] pointResolved=true
 [SMOKE] buddyPoints=true
 [SMOKE] buddyPointsDone=true
 [SMOKE] walkthrough=true
 [SMOKE] onboardingSteps=0>1>2>3
-[SMOKE] buddyReuse=points in 8ms, agent waited 6ms
-[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 1265ms (clickThrough=true ready=true freshPage=true cursor=(422, 306))
+[SMOKE] buddyReuse=points in 28ms, agent waited 6ms
+[SMOKE] buddyReload=shown=true crash=Ok(()) back=true in 416ms (clickThrough=true ready=true freshPage=true cursor=(422, 306))
 [SMOKE] probe.capture=ok
 [SMOKE] intentTable=42/42
 [SMOKE] intentTable=ok
@@ -142,8 +142,8 @@
 [SMOKE] barKeys=ok
 [SMOKE] tokenReply=ok
 [SMOKE] earlyKeys=ok
-[SMOKE] barOpenMs=[1609, 1610, 1572, 2232, 47]
-[SMOKE] barOpenStages=1609(mode=1,fg=1,display=1,top=2,state=3,placed=3,focus=5,shown=5,mode=1511,fg=1511,display=1511,top=1513,state=1515,placed=1519,focus=1546,shown=1546,page=20,via=focus) 1610(mode=1,fg=1,display=1,top=2,state=4,placed=4,focus=5,shown=5,mode=1519,fg=1519,display=1519,top=1521,state=1522,placed=1526,focus=1558,shown=1558,page=41,via=focus) 1572(mode=1,fg=1,display=1,top=3,state=4,placed=5,focus=5,shown=5,mode=1515,fg=1515,display=1515,top=1517,state=1518,placed=1521,focus=1557,shown=1557,page=27,via=focus) 2232(mode=1,fg=1,display=1,top=3,state=4,placed=5,focus=5,shown=5,mode=1185,fg=1186,display=1186,top=1186,state=1188,placed=1189,focus=1189,shown=1189,mode=2167,fg=2167,display=2167,top=2169,state=2171,placed=2176,focus=2201,shown=2201,page=20,via=focus) 47(mode=4,fg=5,display=5,top=7,state=8,placed=12,focus=27,shown=27,page=23,via=focus)
+[SMOKE] barOpenMs=[48]
+[SMOKE] barOpenStages=48(mode=6,fg=6,display=6,top=9,state=11,placed=16,focus=33,shown=33,page=26,via=focus)
 [SMOKE] barMultiline=ok
 [SMOKE] suggestionsOnce=ok
 [SMOKE] probe.bar=ok
@@ -196,15 +196,15 @@
 [SMOKE] voicePill=ok
 [SMOKE] voiceDictation=ok
 [SMOKE] voiceClipboard=ok
-[SMOKE] voiceSpeedBefore=load=123ms transcribe=1778ms text=Ok("Umm, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget.")
-[SMOKE] voiceSpeedAfter=load=83ms (once) trim=0ms (7.5s of 7.9s kept) transcribe=583ms text=Ok("Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget.")
-[SMOKE] voiceSpeedTiny=transcribe=270ms text=Ok("Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget.")
-[SMOKE] voiceSpeedThreads=1=546ms 2=316ms 4=273ms
-[SMOKE] voiceSpeedBreakdown=state=6ms mel=8ms(true) encode1500=1002ms(true) run=309ms words=17
-[SMOKE] voiceCalibrate=164ms
+[SMOKE] voiceSpeedBefore=load=166ms transcribe=2807ms text=Ok("Umm, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget.")
+[SMOKE] voiceSpeedAfter=load=103ms (once) trim=0ms (7.5s of 7.9s kept) transcribe=779ms text=Ok("Um, so I think we should meet at three, no, four p.m. tomorrow to go over the budget.")
+[SMOKE] voiceSpeedTiny=transcribe=386ms text=Ok("Um, so I think we should meet at 3, no, 4pm tomorrow, to go over the budget.")
+[SMOKE] voiceSpeedThreads=1=684ms 2=391ms 4=365ms
+[SMOKE] voiceSpeedBreakdown=state=10ms mel=12ms(true) encode1500=1505ms(true) run=413ms words=17
+[SMOKE] voiceCalibrate=219ms
 [SMOKE] voiceSystem=threads=4 AVX = 1 | AVX2 = 1 | AVX512 = 0 | FMA = 1 | NEON = 0 | ARM_FMA = 0 | F16C = 1 | FP16_VA = 0 | WASM_SIMD = 0 | SSE3 = 1 | SSSE3 = 1 | VSX = 0 | COREML = 0 | OPENVINO = 0 |
 [SMOKE] voiceSpeed=ok
-[SMOKE] voiceSpeedTimings={"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":694,"stopMs":1,"waitMs":0,"transcribeMs":674,"cleanupMs":0,"insertMs":0,"totalMs":676}
+[SMOKE] voiceSpeedTimings={"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":810,"stopMs":1,"waitMs":0,"transcribeMs":1060,"cleanupMs":0,"insertMs":0,"totalMs":1062}
 [SMOKE] voiceSpeedE2e=ok
 [SMOKE] probe.voice=ok
 [SMOKE] dontSave=button:Don't Save
@@ -213,7 +213,7 @@
 [SMOKE] v21basics=ok
 [SMOKE] glassGates=ok
 [SMOKE] v2desktop=ok
-[SMOKE] failed: desktopReady
+[SMOKE] done
 --- stderr ---
 [aevaleron] panic: smoke: deliberate task panic
     at src\selftest\probes\platform.rs:580
@@ -338,7 +338,7 @@ whisper_init_state: compute buffer (conv)   =   13.19 MB
 whisper_init_state: compute buffer (encode) =   17.70 MB
 whisper_init_state: compute buffer (cross)  =    3.88 MB
 whisper_init_state: compute buffer (decode) =   95.89 MB
-[voice] timings {"audioS":7.93,"earlyS":0.0,"pieces":0,"earlyMs":0,"stopMs":0,"waitMs":0,"transcribeMs":614,"cleanupMs":0,"insertMs":0,"totalMs":617}
+[voice] timings {"audioS":7.93,"earlyS":0.0,"pieces":0,"earlyMs":0,"stopMs":2,"waitMs":0,"transcribeMs":463,"cleanupMs":0,"insertMs":0,"totalMs":468}
 whisper_init_state: kv self size  =    3.15 MB
 whisper_init_state: kv cross size =    9.44 MB
 whisper_init_state: kv pad  size  =    2.36 MB
@@ -346,7 +346,7 @@ whisper_init_state: compute buffer (conv)   =   13.19 MB
 whisper_init_state: compute buffer (encode) =   17.70 MB
 whisper_init_state: compute buffer (cross)  =    3.88 MB
 whisper_init_state: compute buffer (decode) =   95.89 MB
-[voice] timings {"audioS":7.93,"earlyS":0.0,"pieces":0,"earlyMs":0,"stopMs":1,"waitMs":0,"transcribeMs":306,"cleanupMs":0,"insertMs":3,"totalMs":311}
+[voice] timings {"audioS":7.93,"earlyS":0.0,"pieces":0,"earlyMs":0,"stopMs":1,"waitMs":0,"transcribeMs":439,"cleanupMs":0,"insertMs":4,"totalMs":446}
 whisper_init_from_file_with_params_no_state: loading model from 'D:\a\_temp\aeval-smoke\voice\ggml-base.en.bin'
 whisper_init_with_params_no_state: use gpu    = 0
 whisper_init_with_params_no_state: flash attn = 0
@@ -380,8 +380,8 @@ whisper_init_state: compute buffer (encode) =   85.86 MB
 whisper_init_state: compute buffer (cross)  =    4.65 MB
 whisper_init_state: compute buffer (decode) =   96.35 MB
 
-whisper_print_timings:     load time =   122.72 ms
-whisper_print_timings:    total time =  1901.16 ms
+whisper_print_timings:     load time =   164.81 ms
+whisper_print_timings:    total time =  2971.62 ms
 whisper_init_from_file_with_params_no_state: loading model from 'D:\a\_temp\aeval-smoke\voice\ggml-base.en-q5_1.bin'
 whisper_init_with_params_no_state: use gpu    = 0
 whisper_init_with_params_no_state: flash attn = 1
@@ -408,8 +408,8 @@ whisper_model_load: n_langs       = 99
 whisper_model_load:      CPU total size =    59.12 MB
 whisper_model_load: model size    =   59.12 MB
 
-whisper_print_timings:     load time =    70.22 ms
-whisper_print_timings:    total time =    70.28 ms
+whisper_print_timings:     load time =    90.48 ms
+whisper_print_timings:    total time =    90.53 ms
 whisper_init_state: kv self size  =    6.29 MB
 whisper_init_state: kv cross size =   18.87 MB
 whisper_init_state: kv pad  size  =    3.15 MB
@@ -418,8 +418,8 @@ whisper_init_state: compute buffer (encode) =   23.08 MB
 whisper_init_state: compute buffer (cross)  =    4.65 MB
 whisper_init_state: compute buffer (decode) =   96.35 MB
 
-whisper_print_timings:     load time =    70.22 ms
-whisper_print_timings:    total time =   583.60 ms
+whisper_print_timings:     load time =    90.48 ms
+whisper_print_timings:    total time =   779.73 ms
 whisper_init_from_file_with_params_no_state: loading model from 'D:\a\_temp\aeval-smoke\voice\ggml-tiny.en-q5_1.bin'
 whisper_init_with_params_no_state: use gpu    = 0
 whisper_init_with_params_no_state: flash attn = 1
@@ -551,11 +551,8 @@ whisper_init_state: compute buffer (conv)   =   16.26 MB
 whisper_init_state: compute buffer (encode) =   23.08 MB
 whisper_init_state: compute buffer (cross)  =    4.65 MB
 whisper_init_state: compute buffer (decode) =   96.35 MB
-[voice] timings {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":694,"stopMs":1,"waitMs":0,"transcribeMs":674,"cleanupMs":0,"insertMs":0,"totalMs":676}
-[1114/072309.096:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
---- exit code: 1
+[voice] timings {"audioS":16.86,"earlyS":8.04,"pieces":1,"earlyMs":810,"stopMs":1,"waitMs":0,"transcribeMs":1060,"cleanupMs":0,"insertMs":0,"totalMs":1062}
+[1114/073907.341:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+--- exit code: 0
 [GATE] SMOKE lines=208 listed=146
-[GATE] fail desktopReady=FAIL:ready=true ms=16187
-[GATE] missing harness:done
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: desktopReady; 1 listed label(s) never printed
-smoke failed: exit code 1, gate exit code 1
+[GATE] verdict=ok

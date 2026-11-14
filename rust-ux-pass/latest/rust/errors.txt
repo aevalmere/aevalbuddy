@@ -1,5 +1,0 @@
-== smoke.log ==
-[SMOKE] desktopReady=FAIL:ready=true ms=16187
-[SMOKE] failed: desktopReady
-[GATE] fail desktopReady=FAIL:ready=true ms=16187
-[GATE] verdict=FAIL:1 FAIL line(s); no "done" line; failed: desktopReady; 1 listed label(s) never printed

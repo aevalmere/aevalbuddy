@@ -1,12 +1,11 @@
-# rust: failure
+# rust: success
 
 - Workflow: rust
-- Run: [43569895931](https://github.com/aevalmere/aevaleron/actions/runs/43569895931), attempt 1, on push
-- Commit: 0df228c9f75022090470853128badba66dd46049
+- Run: [43571086312](https://github.com/aevalmere/aevaleron/actions/runs/43571086312), attempt 1, on push
+- Commit: ada7973b3ac3b4d9ffbda7435cf9fe34ec53d791
 - Ref: rust/ux-pass
-- Conclusion: **failure**
-- Failed: Smoke
-- Finished: 2026-11-14T07:23:24Z
+- Conclusion: **success**
+- Finished: 2026-11-14T07:39:26Z
 
 | Step | Outcome | Log |
 |---|---|---|
@@ -24,9 +23,9 @@
 | Seed NSIS toolset | success | [nsis.log](nsis.log) |
 | Save NSIS toolset | skipped |  |
 | Build installer | success | [build.log](build.log) |
-| Smoke | failure | [smoke.log](smoke.log) |
+| Smoke | success | [smoke.log](smoke.log) |
 | Capture check | success | [capture.log](capture.log) |
 | Desktop selfcheck | success | [desktop.log](desktop.log) |
-| Upload installer | skipped |  |
+| Upload installer | success |  |
 
-errors.txt: 4 error and warning lines from the logs.
+errors.txt: 0 error and warning lines from the logs.
