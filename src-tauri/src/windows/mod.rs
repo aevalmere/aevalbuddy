@@ -785,6 +785,7 @@ pub fn collapse_panel(app: &AppHandle) {
         s.input_height = layout::DEFAULT_INPUT_HEIGHT;
         was
     };
+    drop_bar_request();
     flags::blur(h);
     flags::set_focusable(h, false);
     flags::pin_on_top(h);
@@ -1159,6 +1160,14 @@ fn bar_open_ms() -> &'static Mutex<VecDeque<u64>> {
 pub fn mark_bar_requested() {
     bar_marks().lock().clear();
     *bar_requested().lock() = Some(Instant::now());
+}
+
+/// The bar folded before its field had the focus: that open is not one to
+/// time. Without this the clock ran on to the next open, however it was
+/// made, and a press on a bar that was already open read as a slow one.
+fn drop_bar_request() {
+    bar_requested().lock().take();
+    bar_marks().lock().clear();
 }
 
 fn bar_marks() -> &'static Mutex<Vec<(&'static str, u64)>> {
