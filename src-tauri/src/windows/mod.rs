@@ -1177,7 +1177,9 @@ fn bar_open_notes() -> &'static Mutex<VecDeque<String>> {
 fn bar_mark(step: &'static str) {
     let requested = *bar_requested().lock();
     if let Some(t0) = requested {
-        bar_marks().lock().push((step, t0.elapsed().as_millis() as u64));
+        bar_marks()
+            .lock()
+            .push((step, t0.elapsed().as_millis() as u64));
     }
 }
 
